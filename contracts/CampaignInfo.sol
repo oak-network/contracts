@@ -48,4 +48,33 @@ contract CampaignInfo is Ownable {
 
     }
 
+    function editLaunchTime(uint256 launchTime) onlyOwner external {
+        require(launchTime + 30 days < campaign.deadline);
+        campaign.launchTime = launchTime;
+    }
+
+    function editDeadline(uint256 deadline) onlyOwner external {
+        require(deadline - 30 days > campaign.launchTime);
+        campaign.deadline = deadline;
+    }
+
+    function editCampaignDescription(bytes32 language, bytes32 creatorName, bytes32 campaignDesc) onlyOwner external {
+        CampaignDescription storage campDesc = campaignDescription[language];
+        campDesc.creatorName = creatorName;
+        campDesc.campaignDesc = campaignDesc;
+    }
+
+    function setCampaignDescription(bytes32 language, bytes32 creatorName, bytes32 campaignDesc) onlyOwner external {
+        CampaignDescription storage campDesc = campaignDescription[language];
+        campDesc.creatorName = creatorName;
+        campDesc.campaignDesc = campaignDesc;        
+    }
+
+    function setTreasuryAddress(address treasuryAddress) onlyOwner external {
+        treasuryAddresses.push(treasuryAddress);
+    } 
+
+    function setFeePercentForClient(bytes32 clientId, uint256 feePercent) onlyOwner external {
+        clientFeePercent[clientId] = feePercent; 
+    }
 }
