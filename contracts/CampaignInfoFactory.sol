@@ -13,4 +13,17 @@ contract CampaignInfoFactory is Ownable {
     
     mapping(uint256 => address) campaignIdToAddress;
 
+    function createCampaign(
+        uint256 creatorId, 
+        uint256 goal, 
+        uint256 launchTime, 
+        uint256 deadline, 
+        bytes32[] memory multilistClients
+    ) external onlyOwner
+    {
+        newCampaignInfo = new CampaignInfo(creatorId, goal, launchTime, deadline, multilistClients);
+        campaignIdToAddress[campaignId.current()] = address(newCampaignInfo);
+        campaignId.increment();
+    }
+
 }
