@@ -8,10 +8,10 @@ import "./CampaignInfo.sol";
 contract CampaignInfoFactory is Ownable {
     using Counters for Counters.Counter;
 
-    Counters.Counter campaignId;
+    Counters.Counter public campaignId;
     CampaignInfo newCampaignInfo;
     
-    mapping(uint256 => address) campaignIdToAddress;
+    mapping(uint256 => address) public campaignIdToAddress;
 
     function createCampaign(
         uint256 creatorId, 
