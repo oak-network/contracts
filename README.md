@@ -1,13 +1,18 @@
-# Sample Hardhat Project
+# multilisting-contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
 
-Try running some of the following tasks:
+##  🔧 Setting up Local Development
+Required: 
+- [Node v14](https://nodejs.org/download/release/latest-v14.x/)  
+- [Git](https://git-scm.com/downloads)
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+
+Local Setup Steps:
+1. git clone https://github.com/OlympusDAO/olympus-contracts.git 
+1. Install dependencies: `npm install` 
+    - Installs [Hardhat](https://hardhat.org/getting-started/) & [OpenZepplin](https://docs.openzeppelin.com/contracts/4.x/) dependencies
+1. Compile Solidity: `npx hardhat compile`
+
+
+## 🤨 How it all works
+![High Level Contract Architecture](./docs/box-diagram.png)
