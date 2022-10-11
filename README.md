@@ -15,4 +15,4 @@ Local Setup Steps:
 
 
 ## 🤨 How it all works
-![High Level Contract Architecture](./docs/box-diagram.png)
+![High Level Contract Architecture](./docs/box-diagram.jpeg)
