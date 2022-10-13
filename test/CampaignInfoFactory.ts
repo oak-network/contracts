@@ -11,7 +11,7 @@ describe("CampaignInfoFactory", function () {
     const [owner, otherAccount] = await ethers.getSigners();
 
     const CampaignInfoFactory = await ethers.getContractFactory("CampaignInfoFactory");
-    const campaignInfoFactory = await CampaignInfoFactory.deploy(unlockTime, { value: lockedAmount });
+    const campaignInfoFactory = await CampaignInfoFactory.deploy();
 
     return { campaignInfoFactory };
   }
