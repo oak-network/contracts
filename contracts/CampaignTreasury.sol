@@ -23,10 +23,10 @@ contract CampaignTreasury {
     }
 
     function getPledgeAmount() public view returns(uint256 pledgedAmount) {
-
+        return CampaignOracle(oracleAddress).getPledgeAmountForClient(clientId, infoAddress);
     }
 
     function getCollectableByCreator() public view returns(uint256 collectableAmount) {
-
+        return CampaignOracle(oracleAddress).getPledgeAmountForClient(clientId, infoAddress) * feePercent / percentDivider;
     }
 }
