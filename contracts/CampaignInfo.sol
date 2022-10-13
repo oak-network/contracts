@@ -2,9 +2,10 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./CampaignTreasury.sol";
 
 contract CampaignInfo is Ownable {
-    address[] treasuryAddresses;
+    //address[] treasuryAddresses;
 
     struct CampaignDescription {
         bytes32 creatorName;
@@ -22,6 +23,7 @@ contract CampaignInfo is Ownable {
     Campaign campaign;
 
     mapping(bytes32 => CampaignDescription) campaignDescription;
+    mapping(bytes32 => address) treasuryAddresses;
     mapping(bytes32 => uint256) clientFeePercent;
 
     constructor(
@@ -41,7 +43,10 @@ contract CampaignInfo is Ownable {
     }
 
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
-    
+        for (uint256 i = 0; i < campaign.multilistClients.length; i++) {
+            pledgedAmount = pledgedAmount + 
+            CampaignTreasury(treasuryAddresses[campaign.multilistClients[i]]).getPledgeAmount();
+        }
     }
 
     function getTotalCollectableByCreator() public view returns(uint256 totalCollectable) {
@@ -70,8 +75,8 @@ contract CampaignInfo is Ownable {
         campDesc.campaignDesc = campaignDesc;        
     }
 
-    function setTreasuryAddress(address treasuryAddress) onlyOwner external {
-        treasuryAddresses.push(treasuryAddress);
+    function setTreasuryAddress(bytes32 clientId, address treasuryAddress) onlyOwner external {
+        treasuryAddresses[clientId] = treasuryAddress;
     } 
 
     function setFeePercentForClient(bytes32 clientId, uint256 feePercent) onlyOwner external {
