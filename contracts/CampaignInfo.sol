@@ -41,7 +41,7 @@ contract CampaignInfo is Ownable {
     }
 
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
-
+    
     }
 
     function getTotalCollectableByCreator() public view returns(uint256 totalCollectable) {
