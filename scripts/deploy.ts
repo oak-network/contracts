@@ -2,6 +2,12 @@ import { ethers } from "hardhat";
 
 async function main() {
 
+  const CampaignInfoFactory = await ethers.getContractFactory("CampaignInfoFactory");
+  const campaignInfoFactory = await CampaignInfoFactory.deploy();
+
+  await campaignInfoFactory.deployed();
+
+  console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
