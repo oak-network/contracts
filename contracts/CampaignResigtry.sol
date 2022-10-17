@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract CampaignRegistry is Ownable {
+    
+    address factoryAddress;
+    address oracleAddress;
+    mapping(uint256 => address) public campaignIdToAddress;
+
+    constructor(address _factoryAddress, address _oracleAddress) {
+        factoryAddress = _factoryAddress;
+        oracleAddress = _oracleAddress;
+    }
+
+
+    
+}
