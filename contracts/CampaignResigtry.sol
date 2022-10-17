@@ -19,6 +19,14 @@ contract CampaignRegistry is Ownable {
         _;
     }
 
+    function getOracleAddress() public view returns(address) {
+        return oracleAddress;
+    }
+
+    function getFactoryAddress() public view returns(address) {
+        return factoryAddress;
+    }
+
     function getCampaignInfoAddress(uint256 campaignId) public view returns(address) {
         return campaignIdToAddress[campaignId];
     }
