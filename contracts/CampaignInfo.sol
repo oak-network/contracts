@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignTreasury.sol";
 
 contract CampaignInfo is Ownable {
-    //address[] treasuryAddresses;
 
     struct CampaignDescription {
         bytes32 creatorName;
@@ -41,7 +40,7 @@ contract CampaignInfo is Ownable {
         campaign.deadline = deadline;
         campaign.multilistClients = multilistClients;
     }
-
+    
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
         for (uint256 i = 0; i < campaign.multilistClients.length; i++) {
             pledgedAmount = pledgedAmount + 

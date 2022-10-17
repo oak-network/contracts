@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "./CampaignOracle.sol";
+import "./CampaignInfo.sol";
 
 contract CampaignTreasury {
     address oracleAddress;
@@ -27,6 +28,7 @@ contract CampaignTreasury {
     }
 
     function getCollectableByCreator() public view returns(uint256 collectableAmount) {
-        return CampaignOracle(oracleAddress).getPledgeAmountForClient(clientId, infoAddress) * feePercent / percentDivider;
+        return CampaignOracle(oracleAddress).getPledgeAmountForClient(clientId, infoAddress) * 
+        feePercent / percentDivider;
     }
 }
