@@ -7,11 +7,13 @@ contract CampaignRegistry is Ownable {
     
     address factoryAddress;
     address oracleAddress;
+    bool initialized;
     mapping(uint256 => address) public campaignIdToAddress;
 
-    constructor(address _factoryAddress, address _oracleAddress) {
+    function initialize(address _factoryAddress, address _oracleAddress) public onlyOwner {
         factoryAddress = _factoryAddress;
         oracleAddress = _oracleAddress;
+        initialized = true;
     }
 
     modifier onlyFactory() {
@@ -19,21 +21,25 @@ contract CampaignRegistry is Ownable {
         _;
     }
 
-    function getOracleAddress() public view returns(address) {
+    modifier isInitialized() {
+        require(initialized);
+        _;
+    }
+
+    function getOracleAddress() public view isInitialized returns(address) {
         return oracleAddress;
     }
 
-    function getFactoryAddress() public view returns(address) {
+    function getFactoryAddress() public view isInitialized returns(address) {
         return factoryAddress;
     }
 
-    function getCampaignInfoAddress(uint256 campaignId) public view returns(address) {
+    function getCampaignInfoAddress(uint256 campaignId) public view isInitialized returns(address) {
         return campaignIdToAddress[campaignId];
     }
 
-    function setCampaignInfoAddress(uint256 campaignId, address campaignAddress) public onlyFactory returns(bool) {
+    function setCampaignInfoAddress(uint256 campaignId, address campaignAddress) public isInitialized onlyFactory {
         campaignIdToAddress[campaignId] = campaignAddress;
-        return true;
     }
 
 }
