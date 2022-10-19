@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignTreasury.sol";
+import "./CampaignRegistry.sol";
 
 contract CampaignInfo is Ownable {
 
@@ -20,6 +21,7 @@ contract CampaignInfo is Ownable {
     }
 
     Campaign campaign;
+    address registryAddress;
 
     mapping(bytes32 => CampaignDescription) campaignDescription;
     mapping(bytes32 => address) treasuryAddresses;
@@ -44,7 +46,8 @@ contract CampaignInfo is Ownable {
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
         for (uint256 i = 0; i < campaign.multilistClients.length; i++) {
             pledgedAmount = pledgedAmount + 
-            CampaignTreasury(treasuryAddresses[campaign.multilistClients[i]]).getPledgeAmount();
+            //CampaignTreasury(treasuryAddresses[campaign.multilistClients[i]]).getPledgeAmount();
+            CampaignTreasury(CampaignRegistry(registryAddress).getTreasuryAddress(address(this), campaign.multilistClients[i])).getPledgeAmount();
         }
     }
 
