@@ -8,6 +8,15 @@ async function main() {
   await campaignInfoFactory.deployed();
 
   console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
+
+  const CampaignRegistry = await ethers.getContractFactory("CampaignRegistry");
+  const campaignRegistry = await CampaignInfoFactory.deploy();
+
+  await campaignInfoFactory.deployed();
+
+  console.log(`CampaignRegistry deployed to ${campaignRegistry.address}`);
+
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
