@@ -3,7 +3,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("Deploy base contracts", function() {
+describe("Deploy a Sample Campaign and multilist across different clients", function() {
     async function deployBaseContractFixture() {
         const [owner] = await ethers.getSigners()
 
@@ -30,5 +30,11 @@ describe("Deploy base contracts", function() {
         await campaignOracle.deployed();
       
         console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
+
+        await campaignOracle.initialize(campaignRegistry.address);
+        await campaignInfoFactory.setRegistry(campaignRegistry.address);
+
+
+        return { campaignInfoFactory, campaignRegistry, campaignOracle, owner };
     }
 })
