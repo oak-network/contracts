@@ -7,40 +7,40 @@ import "./CampaignRegistry.sol";
 
 contract CampaignInfo is Ownable {
 
-    struct CampaignDescription {
-        bytes32 creatorName;
-        bytes32 campaignDesc;
-    }
-
     struct Campaign {
-        uint256 creatorId;
-        uint256 goal;
-        uint256 launchTime;
-        uint256 deadline;
-        bytes32[] multilistClients;
+        bytes8 identifier;
+        bytes8 originPlatform;
+        uint64 goalAmount;
+        uint64 startsAt;
+        uint64 createdAt;
+        uint64 deadline;
+        bytes16 creatorUrl;
+        bytes8[] reachPlatforms;
     }
 
     Campaign campaign;
     address registryAddress;
 
-    mapping(bytes32 => CampaignDescription) campaignDescription;
     mapping(bytes32 => address) treasuryAddresses;
-    mapping(bytes32 => uint256) clientFeePercent;
-
-    constructor(
-        uint256 creatorId, 
-        uint256 goal, 
-        uint256 launchTime, 
-        uint256 deadline,
-        bytes32[] memory multilistClients
+    
+    constructor(       
+        bytes8 _identifier,
+        bytes8 _originPlatform,
+        uint64 _goalAmount,
+        uint64 _startsAt,
+        uint64 _deadline,
+        bytes16 _creatorUrl,
+        bytes8[] _reachPlatforms
     )
     {
-        require(launchTime + 30 days < campaign.deadline);
-        campaign.creatorId = creatorId;
-        campaign.goal = goal;
-        campaign.launchTime = launchTime;
-        campaign.deadline = deadline;
-        campaign.multilistClients = multilistClients;
+        require(_startsAt + 30 days < _deadline);
+        campaign.identifier = _identifier;
+        campaign.originPlatform = _originPlatform;
+        campaign.goalAmount = _goalAmount;
+        campaign.startsAt = _startsAt;
+        campaign.deadline = _deadline;
+        campaign.creatorUrl = _creatorUrl;
+        campaign.reachPlatforms = _reachPlatforms;
     }
     
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
