@@ -34,7 +34,16 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
         await campaignOracle.initialize(campaignRegistry.address);
         await campaignInfoFactory.setRegistry(campaignRegistry.address);
 
-
         return { campaignInfoFactory, campaignRegistry, campaignOracle, owner };
     }
+
+    async function deployInfoContractAfterBaseDeployment() {
+        const { campaignInfoFactory, owner } = await loadFixture(deployBaseContractFixture);
+        
+        await campaignInfoFactory.createCampaign();
+    }
+
+    describe("Deploy a CampaignInfo using CampaignInfoFactory", function(){
+
+    }) 
 })
