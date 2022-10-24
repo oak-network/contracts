@@ -22,15 +22,17 @@ contract CampaignInfoFactory is Ownable {
     }
 
     function createCampaign(
-        uint256 creatorId, 
-        uint256 goal, 
-        uint256 launchTime, 
-        uint256 deadline, 
-        bytes32[] memory multilistClients
+        bytes8 _identifier,
+        bytes8 _originPlatform,
+        uint64 _goalAmount,
+        uint64 _startsAt,
+        uint64 _deadline,
+        bytes16 _creatorUrl,
+        bytes8[] memory _reachPlatforms
     ) external onlyOwner
     {
         require(initialized);
-        newCampaignInfo = new CampaignInfo(creatorId, goal, launchTime, deadline, multilistClients);
+        newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms);
         require(address(newCampaignInfo) != address(0));
         CampaignRegistry(campaignRegistry).setCampaignInfoAddress
         (
