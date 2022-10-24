@@ -29,7 +29,7 @@ contract CampaignInfoFactory is Ownable {
         uint64 _deadline,
         bytes16 _creatorUrl,
         bytes8[] memory _reachPlatforms
-    ) external onlyOwner
+    ) external onlyOwner returns(address, uint256)
     {
         require(initialized);
         newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms);
@@ -40,6 +40,7 @@ contract CampaignInfoFactory is Ownable {
             address(newCampaignInfo)
         );
         campaignId.increment();
+        return (address(newCampaignInfo), campaignId.current());
     }
 
 }
