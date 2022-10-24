@@ -40,7 +40,20 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
     async function deployInfoContractAfterBaseDeployment() {
         const { campaignInfoFactory, owner } = await loadFixture(deployBaseContractFixture);
         
-        await campaignInfoFactory.createCampaign();
+        const identifier = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("/sampleproject/jsdkfjs")), 8);
+        const originPlatform = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8)
+        const goalAmount = 10000;
+        const startsAt = 1669273128;
+        const deadline = 1674543528;
+        const creatorUrl = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("/samplecreatorurl/jsdkfjs")), 8);
+        const reachPlatforms = [
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8),
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8)
+        ];
+        
+        const { campaignInfoAddress, campaignId } = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+
+        return { campaignInfoAddress, campaignId };
     }
 
     describe("Deploy a CampaignInfo using CampaignInfoFactory", function(){
