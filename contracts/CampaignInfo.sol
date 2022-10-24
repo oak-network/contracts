@@ -30,7 +30,7 @@ contract CampaignInfo is Ownable {
         uint64 _startsAt,
         uint64 _deadline,
         bytes16 _creatorUrl,
-        bytes8[] _reachPlatforms
+        bytes8[] memory _reachPlatforms
     )
     {
         require(_startsAt + 30 days < _deadline);
@@ -44,10 +44,13 @@ contract CampaignInfo is Ownable {
     }
     
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
-        for (uint256 i = 0; i < campaign.multilistClients.length; i++) {
-            pledgedAmount = pledgedAmount + 
-            //CampaignTreasury(treasuryAddresses[campaign.multilistClients[i]]).getPledgeAmount();
-            CampaignTreasury(CampaignRegistry(registryAddress).getTreasuryAddress(address(this), campaign.multilistClients[i])).getPledgeAmount();
+        bytes8[] memory tempReachPlatforms = campaign.reachPlatforms;
+        uint256 length = campaign.reachPlatforms.length;
+        for (uint256 i = 0; i < length; i++) {
+            if(treasuryAddresses[tempReachPlatforms[i]] != address(0)) {
+                pledgedAmount = pledgedAmount + 
+                CampaignTreasury(treasuryAddresses[tempReachPlatforms[i]]).getPledgeAmount();
+            }
         }
     }
 
@@ -55,33 +58,25 @@ contract CampaignInfo is Ownable {
 
     }
 
-    function editLaunchTime(uint256 launchTime) onlyOwner external {
-        require(launchTime + 30 days < campaign.deadline);
-        campaign.launchTime = launchTime;
+    function getTreasuryAddress(bytes32 clientId) public view returns(address) {
+        return treasuryAddresses[clientId];
     }
 
-    function editDeadline(uint256 deadline) onlyOwner external {
-        require(deadline - 30 days > campaign.launchTime);
+    function editStartAt(uint64 startsAt) onlyOwner external {
+        require(startsAt + 30 days < campaign.deadline);
+        campaign.startsAt = startsAt;
+    }
+
+    function editDeadline(uint64 deadline) onlyOwner external {
+        require(deadline - 30 days > campaign.startsAt);
         campaign.deadline = deadline;
-    }
-
-    function editCampaignDescription(bytes32 language, bytes32 creatorName, bytes32 campaignDesc) onlyOwner external {
-        CampaignDescription storage campDesc = campaignDescription[language];
-        campDesc.creatorName = creatorName;
-        campDesc.campaignDesc = campaignDesc;
-    }
-
-    function setCampaignDescription(bytes32 language, bytes32 creatorName, bytes32 campaignDesc) onlyOwner external {
-        CampaignDescription storage campDesc = campaignDescription[language];
-        campDesc.creatorName = creatorName;
-        campDesc.campaignDesc = campaignDesc;        
     }
 
     function setTreasuryAddress(bytes32 clientId, address treasuryAddress) onlyOwner external {
         treasuryAddresses[clientId] = treasuryAddress;
     } 
 
-    function setFeePercentForClient(bytes32 clientId, uint256 feePercent) onlyOwner external {
-        clientFeePercent[clientId] = feePercent; 
-    }
+    // function setFeePercentForClient(bytes32 clientId, uint256 feePercent) onlyOwner external {
+    //     clientFeePercent[clientId] = feePercent; 
+    // }
 }
