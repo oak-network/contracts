@@ -10,7 +10,6 @@ contract CampaignRegistry is Ownable {
     address oracleAddress;
     bool initialized;
     mapping(uint256 => address) public campaignIdToAddress;
-    mapping(address => address[]) public campaignInfoToTreasury;
 
     function initialize(address _factoryAddress, address _oracleAddress) public onlyOwner {
         factoryAddress = _factoryAddress;
@@ -40,16 +39,16 @@ contract CampaignRegistry is Ownable {
         return campaignIdToAddress[campaignId];
     }
 
-    function getTreasuryAddress(address campaignAddress, bytes32 clientId) public view returns (address) {
-        address[] memory temp = campaignInfoToTreasury[campaignAddress];
-        uint256 length = campaignInfoToTreasury[campaignAddress].length;
-        for(uint256 i = 0; i < length; i++) {
-            if (keccak256(abi.encodePacked(CampaignTreasury(temp[i]).clientId)) == keccak256(abi.encodePacked(clientId))) {
-                return temp[i];
-            }
-        }
-        return address(0);
-    }
+    // function getTreasuryAddress(address campaignAddress, bytes32 clientId) public view returns (address) {
+    //     address[] memory temp = campaignInfoToTreasury[campaignAddress];
+    //     uint256 length = campaignInfoToTreasury[campaignAddress].length;
+    //     for(uint256 i = 0; i < length; i++) {
+    //         if (keccak256(abi.encodePacked(CampaignTreasury(temp[i]).clientId)) == keccak256(abi.encodePacked(clientId))) {
+    //             return temp[i];
+    //         }
+    //     }
+    //     return address(0);
+    // }
 
     function setCampaignInfoAddress(uint256 campaignId, address campaignAddress) public isInitialized onlyFactory {
         campaignIdToAddress[campaignId] = campaignAddress;

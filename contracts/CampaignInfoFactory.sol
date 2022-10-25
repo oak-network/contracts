@@ -32,7 +32,7 @@ contract CampaignInfoFactory is Ownable {
     ) external onlyOwner returns(address, uint256)
     {
         require(initialized);
-        newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms);
+        newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms, campaignRegistry);
         require(address(newCampaignInfo) != address(0));
         CampaignRegistry(campaignRegistry).setCampaignInfoAddress
         (

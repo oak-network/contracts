@@ -21,7 +21,7 @@ contract CampaignInfo is Ownable {
     Campaign campaign;
     address registryAddress;
 
-    mapping(bytes32 => address) treasuryAddresses;
+    mapping(bytes8 => address) treasuryAddresses;
     
     constructor(       
         bytes8 _identifier,
@@ -30,7 +30,8 @@ contract CampaignInfo is Ownable {
         uint64 _startsAt,
         uint64 _deadline,
         bytes16 _creatorUrl,
-        bytes8[] memory _reachPlatforms
+        bytes8[] memory _reachPlatforms,
+        address _registryAddress
     )
     {
         require(_startsAt + 30 days < _deadline);
@@ -38,9 +39,11 @@ contract CampaignInfo is Ownable {
         campaign.originPlatform = _originPlatform;
         campaign.goalAmount = _goalAmount;
         campaign.startsAt = _startsAt;
+        campaign.createdAt = uint64(block.timestamp);
         campaign.deadline = _deadline;
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatforms;
+        registryAddress = _registryAddress;
     }
     
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
@@ -54,11 +57,7 @@ contract CampaignInfo is Ownable {
         }
     }
 
-    function getTotalCollectableByCreator() public view returns(uint256 totalCollectable) {
-
-    }
-
-    function getTreasuryAddress(bytes32 clientId) public view returns(address) {
+    function getTreasuryAddress(bytes8 clientId) public view returns(address) {
         return treasuryAddresses[clientId];
     }
 
@@ -72,11 +71,7 @@ contract CampaignInfo is Ownable {
         campaign.deadline = deadline;
     }
 
-    function setTreasuryAddress(bytes32 clientId, address treasuryAddress) onlyOwner external {
+    function setTreasuryAddress(bytes8 clientId, address treasuryAddress) onlyOwner external {
         treasuryAddresses[clientId] = treasuryAddress;
     } 
-
-    // function setFeePercentForClient(bytes32 clientId, uint256 feePercent) onlyOwner external {
-    //     clientFeePercent[clientId] = feePercent; 
-    // }
 }
