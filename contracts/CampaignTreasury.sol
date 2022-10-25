@@ -7,14 +7,14 @@ import "./CampaignInfo.sol";
 contract CampaignTreasury is Ownable {
     address registryAddress;
     address infoAddress;
-    bytes32 public clientId;
+    bytes8 public clientId;
     uint256 pledgedAmount;
-    uint256 public constant percentDivider = 10000;
+    //uint256 public constant percentDivider = 10000;
 
     constructor(
         address _registryAddress,
         address _infoAddress,
-        bytes32 _clientId,
+        bytes8 _clientId
     ) {
         registryAddress = _registryAddress;
         infoAddress = _infoAddress;
@@ -22,7 +22,6 @@ contract CampaignTreasury is Ownable {
     }
 
     function getPledgeAmount() public view returns(uint256) {
-        //return CampaignOracle(oracleAddress).getPledgeAmountForClient(clientId, infoAddress);
         return pledgedAmount;
     }
 
