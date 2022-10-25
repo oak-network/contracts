@@ -16,7 +16,7 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
         console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
       
         const CampaignRegistry = await ethers.getContractFactory("CampaignRegistry");
-        const campaignRegistry = await CampaignInfoFactory.deploy();
+        const campaignRegistry = await CampaignRegistry.deploy();
         
         // Deploy CampaignRegistry
         await campaignRegistry.deployed();
@@ -33,12 +33,13 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
 
         await campaignOracle.initialize(campaignRegistry.address);
         await campaignInfoFactory.setRegistry(campaignRegistry.address);
+        await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
 
         return { campaignInfoFactory, campaignRegistry, campaignOracle, owner };
     }
 
-    async function deployInfoContractAfterBaseDeployment() {
-        const { campaignInfoFactory, owner } = await loadFixture(deployBaseContractFixture);
+    async function deployInfoTreasuryOriginAfterBase() {
+        const { campaignInfoFactory, campaignRegistry, owner } = await loadFixture(deployBaseContractFixture);
         
         const identifier = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("/sampleproject/jsdkfjs")), 8);
         const originPlatform = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8)
@@ -53,10 +54,33 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
         
         const { campaignInfoAddress, campaignId } = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
 
-        return { campaignInfoAddress, campaignId };
+        console.log(`CampaignInfo having Id ${campaignId} created at ${campaignInfoAddress} using CampaignInfoFactory`);
+        
+        const CampaignTreasury = await ethers.getContractFactory("CampaignTreasury");
+        const campaignTreasury = await CampaignTreasury.deploy(
+            campaignRegistry.address, 
+            campaignInfoAddress,
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8) 
+            );
+
+        console.log(`Deploying the Treasury for Origin platform...`);
+        await campaignTreasury.deployed();
+
+        console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
+
+        const campaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", campaignInfoAddress);
+        
+        await campaignInfo.setTreasuryAddress(
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8),
+            campaignTreasury.address
+        );
+
+        console.log(`Treasury address set for Origin platform in CampaignInfo...`);
+
+        return { campaignInfo, CampaignTreasury, campaignRegistry };
     }
 
-    describe("Deploy a CampaignInfo using CampaignInfoFactory", function(){
 
+    describe("Deploy a CampaignInfo using CampaignInfoFactory", function(){
     }) 
 })
