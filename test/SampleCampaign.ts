@@ -79,7 +79,30 @@ describe("Deploy a Sample Campaign and multilist across different clients", func
 
         return { campaignInfo, CampaignTreasury, campaignRegistry };
     }
+    
+    async function deployReachTreasuryAndSetAddressAtInfo () {
+        const { campaignInfo, CampaignTreasury } = await loadFixture(deployInfoTreasuryOriginAfterBase);
 
+        const campaignTreasury = await CampaignTreasury.deploy(
+            campaignRegistry.address, 
+            campaignInfoAddress,
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8) 
+            );
+
+        console.log(`Deploying the Treasury for Reach platform...`);
+        await campaignTreasury.deployed();
+
+        console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
+        
+        await campaignInfo.setTreasuryAddress(
+            ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8),
+            campaignTreasury.address
+        );
+
+        console.log(`Treasury address set for reach platform in CampaignInfo...`);
+
+        return { campaignTreasury };
+    }
 
     describe("Deploy a CampaignInfo using CampaignInfoFactory", function(){
     }) 
