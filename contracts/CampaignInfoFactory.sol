@@ -7,11 +7,9 @@ import "./CampaignInfo.sol";
 import "./CampaignRegistry.sol";
 
 contract CampaignInfoFactory is Ownable {
-    using Counters for Counters.Counter;
 
-    event campaignCreation(address indexed campaignAddress, uint256 indexed campaignId);
+    event campaignCreation(string identifier, address indexed campaignInfoAddress);
 
-    Counters.Counter public campaignId;
     CampaignInfo newCampaignInfo;
     address campaignRegistry;
     bool initialized;
@@ -27,29 +25,27 @@ contract CampaignInfoFactory is Ownable {
         string memory _identifier,
         bytes32 _originPlatform,
         uint64 _goalAmount,
-        uint64 _startsAt,
+        uint64 _launchTime,
         uint64 _deadline,
         string memory _creatorUrl,
-        bytes32[] memory _reachPlatforms
-    ) external onlyOwner returns(address, uint256)
+        bytes32[] memory _reachPlatform
+    ) external onlyOwner returns(address)
     {
         require(initialized);
-        newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms, campaignRegistry);
+        newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _launchTime, _deadline, _creatorUrl, _reachPlatform, campaignRegistry);
         require(address(newCampaignInfo) != address(0));
 
-        uint256 newCampaignId = campaignId.current();
         address newCampaignAddress = address(newCampaignInfo);
 
         CampaignRegistry(campaignRegistry).setCampaignInfoAddress
         (
-            newCampaignId, 
+            _identifier, 
             newCampaignAddress
         );
-        campaignId.increment();
         
-        emit campaignCreation(newCampaignAddress, newCampaignId);
+        emit campaignCreation(_identifier, newCampaignAddress);
         
-        return (newCampaignAddress, newCampaignId);
+        return newCampaignAddress;
     }
 
 }
