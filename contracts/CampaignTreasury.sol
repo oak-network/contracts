@@ -7,14 +7,14 @@ import "./CampaignInfo.sol";
 contract CampaignTreasury is Ownable {
     address registryAddress;
     address infoAddress;
-    bytes8 public clientId;
+    bytes32 public clientId;
     uint256 pledgedAmount;
     //uint256 public constant percentDivider = 10000;
 
     constructor(
         address _registryAddress,
         address _infoAddress,
-        bytes8 _clientId
+        bytes32 _clientId
     ) {
         registryAddress = _registryAddress;
         infoAddress = _infoAddress;

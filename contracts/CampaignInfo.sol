@@ -8,29 +8,29 @@ import "./CampaignRegistry.sol";
 contract CampaignInfo is Ownable {
 
     struct Campaign {
-        bytes8 identifier;
-        bytes8 originPlatform;
+        string identifier;
+        bytes32 originPlatform;
         uint64 goalAmount;
         uint64 startsAt;
         uint64 createdAt;
         uint64 deadline;
-        bytes16 creatorUrl;
-        bytes8[] reachPlatforms;
+        string creatorUrl;
+        bytes32[] reachPlatforms;
     }
 
     Campaign campaign;
     address registryAddress;
 
-    mapping(bytes8 => address) treasuryAddresses;
+    mapping(bytes32 => address) treasuryAddresses;
     
     constructor(       
-        bytes8 _identifier,
-        bytes8 _originPlatform,
+        string memory  _identifier,
+        bytes32 _originPlatform,
         uint64 _goalAmount,
         uint64 _startsAt,
         uint64 _deadline,
-        bytes16 _creatorUrl,
-        bytes8[] memory _reachPlatforms,
+        string memory _creatorUrl,
+        bytes32[] memory _reachPlatforms,
         address _registryAddress
     )
     {
@@ -45,9 +45,14 @@ contract CampaignInfo is Ownable {
         campaign.reachPlatforms = _reachPlatforms;
         registryAddress = _registryAddress;
     }
+
+    modifier onlyRegistryOwner {
+        require(msg.sender == CampaignRegistry(registryAddress).owner());
+        _;
+    }
     
     function getTotalPledgeAmount() public view returns(uint256 pledgedAmount) {
-        bytes8[] memory tempReachPlatforms = campaign.reachPlatforms;
+        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         uint256 length = campaign.reachPlatforms.length;
         for (uint256 i = 0; i < length; i++) {
             if(treasuryAddresses[tempReachPlatforms[i]] != address(0)) {
@@ -57,21 +62,21 @@ contract CampaignInfo is Ownable {
         }
     }
 
-    function getTreasuryAddress(bytes8 clientId) public view returns(address) {
+    function getTreasuryAddress(bytes32 clientId) public view returns(address) {
         return treasuryAddresses[clientId];
     }
 
-    function editStartAt(uint64 startsAt) onlyOwner external {
+    function editStartAt(uint64 startsAt) onlyRegistryOwner external {
         require(startsAt + 30 days < campaign.deadline);
         campaign.startsAt = startsAt;
     }
 
-    function editDeadline(uint64 deadline) onlyOwner external {
+    function editDeadline(uint64 deadline) onlyRegistryOwner external {
         require(deadline - 30 days > campaign.startsAt);
         campaign.deadline = deadline;
     }
 
-    function setTreasuryAddress(bytes8 clientId, address treasuryAddress) onlyOwner external {
+    function setTreasuryAddress(bytes32 clientId, address treasuryAddress) onlyRegistryOwner external {
         treasuryAddresses[clientId] = treasuryAddress;
     } 
 }

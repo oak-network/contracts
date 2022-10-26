@@ -7,12 +7,12 @@ import "./CampaignInfo.sol";
 
 contract CampaignOracle is Ownable {
 
-    function setPledgeAmountForClient(bytes8 clientId, address campaignAddress, uint256 pledgeAmount) onlyOwner external {
+    function setPledgeAmountForClient(bytes32 clientId, address campaignAddress, uint256 pledgeAmount) onlyOwner external {
         require(CampaignInfo(campaignAddress).getTreasuryAddress(clientId) != address(0));
         CampaignTreasury(CampaignInfo(campaignAddress).getTreasuryAddress(clientId)).setPledgeAmount(pledgeAmount);
     }
 
-    function getPledgeAmountForClient(bytes8 clientId, address campaignAddress) public view returns(uint256) {
+    function getPledgeAmountForClient(bytes32 clientId, address campaignAddress) public view returns(uint256) {
         require(CampaignInfo(campaignAddress).getTreasuryAddress(clientId) != address(0));
         return CampaignTreasury(CampaignInfo(campaignAddress).getTreasuryAddress(clientId)).getPledgeAmount();
     }
