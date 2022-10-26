@@ -9,6 +9,8 @@ import "./CampaignRegistry.sol";
 contract CampaignInfoFactory is Ownable {
     using Counters for Counters.Counter;
 
+    event campaignCreation(address indexed campaignAddress, uint256 indexed campaignId);
+
     Counters.Counter public campaignId;
     CampaignInfo newCampaignInfo;
     address campaignRegistry;
@@ -22,25 +24,32 @@ contract CampaignInfoFactory is Ownable {
     }
 
     function createCampaign(
-        bytes8 _identifier,
-        bytes8 _originPlatform,
+        string memory _identifier,
+        bytes32 _originPlatform,
         uint64 _goalAmount,
         uint64 _startsAt,
         uint64 _deadline,
-        bytes16 _creatorUrl,
-        bytes8[] memory _reachPlatforms
+        string memory _creatorUrl,
+        bytes32[] memory _reachPlatforms
     ) external onlyOwner returns(address, uint256)
     {
         require(initialized);
         newCampaignInfo = new CampaignInfo(_identifier, _originPlatform, _goalAmount, _startsAt, _deadline, _creatorUrl, _reachPlatforms, campaignRegistry);
         require(address(newCampaignInfo) != address(0));
+
+        uint256 newCampaignId = campaignId.current();
+        address newCampaignAddress = address(newCampaignInfo);
+
         CampaignRegistry(campaignRegistry).setCampaignInfoAddress
         (
-            campaignId.current(), 
-            address(newCampaignInfo)
+            newCampaignId, 
+            newCampaignAddress
         );
         campaignId.increment();
-        return (address(newCampaignInfo), campaignId.current());
+        
+        emit campaignCreation(newCampaignAddress, newCampaignId);
+        
+        return (newCampaignAddress, newCampaignId);
     }
 
 }
