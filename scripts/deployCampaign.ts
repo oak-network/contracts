@@ -1,5 +1,6 @@
 import { ethers } from "hardhat";
 import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, CampaignTreasury } from "../typechain-types";
+import { getHexString } from "../lib/utils";
 
 async function main() {
 
@@ -31,19 +32,26 @@ async function main() {
 
     await campaignInfoFactory.setRegistry(campaignRegistry.address);
     await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
-    
-    const identifier = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("/sampleproject/jsdkfjs")), 8);
-    const originPlatform = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8)
+            
+    const identifier = "/sampleproject";
+    const originPlatform = getHexString("Kickstarter");
     const goalAmount = 10000;
     const startsAt = 1669273128;
     const deadline = 1674543528;
-    const creatorUrl = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("/samplecreatorurl/jsdkfjs")), 8);
+    const creatorUrl = "/samplecreatorurl/jsdkfjs";
     const reachPlatforms = [
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8),
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8)
+        getHexString("Kickstarter"),
+        getHexString("Weirdstarter")
     ];
         
-    const { campaignInfoAddress, campaignId } = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+    
+    //const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+    
+    //const campaignId = tx.ad
+    const result = await tx.wait()
+    // result.
+    console.log(result.events);
 
     console.log(`CampaignInfo having Id ${campaignId} created at ${campaignInfoAddress} using CampaignInfoFactory`);
     
@@ -52,7 +60,7 @@ async function main() {
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address, 
         campaignInfoAddress,
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8) 
+        getHexString("Kickstarter") 
         );
 
     //await campaignTreasury.deployed();
@@ -62,7 +70,7 @@ async function main() {
     const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", campaignInfoAddress);
     
     await campaignInfo.setTreasuryAddress(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8),
+        getHexString("Kickstarter"),
         campaignTreasury.address
     );
 
@@ -72,7 +80,7 @@ async function main() {
     const campaignTreasury2: CampaignTreasury = await CampaignTreasury.deploy(
         campaignRegistry.address, 
         campaignInfoAddress,
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8) 
+        getHexString("Weirdstarter") 
         );
 
     //await campaignTreasury2.deployed();
@@ -80,7 +88,7 @@ async function main() {
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
     
     await campaignInfo.setTreasuryAddress(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8),
+        getHexString("Weirdstarter"),
         campaignTreasury2.address
     );
 
@@ -88,28 +96,28 @@ async function main() {
 
     console.log(`Setting pledge data for reach platform in Oracle contract`);
     await campaignOracle.setPledgeAmountForClient(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8),
+        getHexString("Weirdstarter"),
         campaignInfo.address,
         "100000"
     );
 
     console.log(`Reading pledge data from Oracle contract for reach platform...`);
     const pledgeAmountForReach = await campaignOracle.getPledgeAmountForClient(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8),
+        getHexString("Weirdstarter"),
         campaignInfo.address
     );
     console.log(`Current pledge amount for reach platform ${pledgeAmountForReach}`);
 
     console.log(`Setting pledge data for origin platform in Oracle contract`);    
     await campaignOracle.setPledgeAmountForClient(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Kickstarter")), 8),
+        getHexString("Kickstarter"),
         campaignInfo.address,
         "100000"
     );    
 
     console.log(`Reading pledge data from Oracle contract for reach platform...`);
     const pledgeAmountForOrigin = await campaignOracle.getPledgeAmountForClient(
-        ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("Weirdstarter")), 8),
+        getHexString("Weirdstarter"),
         campaignInfo.address
     );  
     console.log(`Current pledge amount for origin platform ${pledgeAmountForOrigin}`);
