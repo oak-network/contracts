@@ -71,7 +71,7 @@ contract CampaignInfo is Ownable {
         );
     }
     
-    function getTotalPledgeAmount() public view returns(uint256) {
+    function getTotalPledgedAmount() public view returns(uint256) {
         address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
         require(tempOriginPlatform != address(0), "CampaignInfo: Origin platform treasury not set yet");
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;

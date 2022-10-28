@@ -35,7 +35,7 @@ async function main() {
             
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
-    const goalAmount = 10000;
+    const goalAmount = 1000000;
     const launchTime = 1666753961;
     const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
@@ -96,36 +96,36 @@ async function main() {
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
-    console.log(`Setting pledge data for reach platform in Oracle contract`);
-    await campaignOracle.setPledgeAmountForClient(
-        getHexString("Weirdstarter"),
+    console.log(`Setting pledge data for origin platform in Oracle contract`);    
+    await campaignOracle.setPledgedAmountForClient(
+        getHexString("Kickstarter"),
         campaignInfo.address,
         "100000"
-    );
+    );   
 
-    console.log(`Reading pledge data from Oracle contract for reach platform...`);
-    const pledgeAmountForReach = await campaignOracle.getPledgeAmountForClient(
+    console.log(`Setting pledge data for reach platform in Oracle contract`);
+    await campaignOracle.setPledgedAmountForClient(
         getHexString("Weirdstarter"),
-        campaignInfo.address
-    );
-    console.log(`Current pledge amount for reach platform ${pledgeAmountForReach}`);
-
-    console.log(`Setting pledge data for origin platform in Oracle contract`);    
-    await campaignOracle.setPledgeAmountForClient(
-        getHexString("Kickstarter"),
         campaignInfo.address,
         "100000"
     );    
 
-    console.log(`Reading pledge data from Oracle contract for reach platform...`);
-    const pledgeAmountForOrigin = await campaignOracle.getPledgeAmountForClient(
-        getHexString("Weirdstarter"),
+    console.log(`Reading pledge data from Oracle contract for origin platform...`);
+    const pledgeAmountForOrigin = await campaignOracle.getPledgedAmountForClient(
+        getHexString("Kickstarter"),
         campaignInfo.address
     );  
     console.log(`Current pledge amount for origin platform ${pledgeAmountForOrigin}`);
   
+    console.log(`Reading pledge data from Oracle contract for reach platform...`);
+    const pledgeAmountForReach = await campaignOracle.getPledgedAmountForClient(
+        getHexString("Weirdstarter"),
+        campaignInfo.address
+    );
+    console.log(`Current pledge amount for reach platform ${pledgeAmountForReach}`); 
+
     console.log(`Reading total pledge amount from CampaignInfo...`);
-    const totalPledge = await campaignInfo.getTotalPledgeAmount();
+    const totalPledge = await campaignInfo.getTotalPledgedAmount();
     console.log(`Total pledge amount for origin & reach platform ${totalPledge}`);
 }
 
