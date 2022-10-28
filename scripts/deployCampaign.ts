@@ -36,30 +36,32 @@ async function main() {
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
     const goalAmount = 10000;
-    const startsAt = 1669273128;
-    const deadline = 1674543528;
+    const launchTime = 1666753961;
+    const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
     const reachPlatforms = [
         getHexString("Kickstarter"),
         getHexString("Weirdstarter")
     ];
         
-    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
     
-    //const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, startsAt, deadline, creatorUrl, reachPlatforms);
+    //const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
     
     //const campaignId = tx.ad
     const result = await tx.wait()
     // result.
-    console.log(result.events);
+    console.log(result.events?.[1].args?.campaignInfoAddress);
+    const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
+    //console.log("The length" + result.events?.length);
 
-    console.log(`CampaignInfo having Id ${campaignId} created at ${campaignInfoAddress} using CampaignInfoFactory`);
+    console.log(`CampaignInfo created at ${newCampaignInfoAddress} using CampaignInfoFactory`);
     
     console.log(`Deploying the Treasury for Origin platform...`);
     const campaignTreasuryFactory = await ethers.getContractFactory("CampaignTreasury");
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address, 
-        campaignInfoAddress,
+        newCampaignInfoAddress,
         getHexString("Kickstarter") 
         );
 
@@ -67,7 +69,7 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
 
-    const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", campaignInfoAddress);
+    const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", newCampaignInfoAddress);
     
     await campaignInfo.setTreasuryAddress(
         getHexString("Kickstarter"),
@@ -79,7 +81,7 @@ async function main() {
     console.log(`Deploying the Treasury for Reach platform...`);
     const campaignTreasury2: CampaignTreasury = await CampaignTreasury.deploy(
         campaignRegistry.address, 
-        campaignInfoAddress,
+        newCampaignInfoAddress,
         getHexString("Weirdstarter") 
         );
 
@@ -125,7 +127,6 @@ async function main() {
     console.log(`Reading total pledge amount from CampaignInfo...`);
     const totalPledge = await campaignInfo.getTotalPledgeAmount();
     console.log(`Total pledge amount for origin & reach platform ${totalPledge}`);
-
 }
 
 // We recommend this pattern to be able to use async/await everywhere
