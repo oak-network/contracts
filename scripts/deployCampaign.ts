@@ -79,7 +79,7 @@ async function main() {
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
     
     console.log(`Deploying the Treasury for Reach platform...`);
-    const campaignTreasury2: CampaignTreasury = await CampaignTreasury.deploy(
+    const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address, 
         newCampaignInfoAddress,
         getHexString("Weirdstarter") 
