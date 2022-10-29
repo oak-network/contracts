@@ -54,7 +54,6 @@ contract CampaignInfo is Ownable {
         view
         returns (
             string memory,
-            bytes32,
             uint64,
             uint64,
             uint64,
@@ -64,13 +63,20 @@ contract CampaignInfo is Ownable {
     {
         return (
             campaign.identifier,
-            campaign.originPlatform,
             campaign.goalAmount,
             campaign.launchTime,
             campaign.createdAt,
             campaign.deadline,
             campaign.creatorUrl
         );
+    }
+
+    function getCampaignOriginPlatform() public view returns (bytes32) {
+        return campaign.originPlatform;
+    }
+
+    function getCampaignReachPlatforms() public view returns (bytes32[] memory) {
+        return campaign.reachPlatforms;
     }
 
     function getTotalPledgedAmount() public view returns (uint256) {
@@ -121,5 +127,9 @@ contract CampaignInfo is Ownable {
         onlyRegistryOwner
     {
         treasuryAddress[_clientId] = _treasuryAddress;
+    }
+
+    function addReachPlatform(bytes32 _clientId) external onlyRegistryOwner {
+        campaign.reachPlatforms.push(_clientId);
     }
 }
