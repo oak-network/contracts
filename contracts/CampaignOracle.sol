@@ -25,4 +25,12 @@ contract CampaignOracle is Ownable {
                 CampaignInfo(campaignAddress).getTreasuryAddress(clientId)
             ).getPledgedAmount();
     }
+
+    function getTotalPledgedAmount(address campaignAddress)
+        public
+        view
+        returns (uint256)
+    {
+        return CampaignInfo(campaignAddress).getTotalPledgedAmount();
+    }
 }
