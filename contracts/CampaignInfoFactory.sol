@@ -31,7 +31,7 @@ contract CampaignInfoFactory is Ownable {
         uint64 _deadline,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform
-    ) external onlyOwner returns (address) {
+    ) external onlyOwner {
         require(initialized);
         newCampaignInfo = new CampaignInfo(
             _identifier,
@@ -53,7 +53,5 @@ contract CampaignInfoFactory is Ownable {
         );
 
         emit campaignCreation(_identifier, newCampaignAddress);
-
-        return newCampaignAddress;
     }
 }
