@@ -43,13 +43,17 @@ contract CampaignRegistry is Ownable {
         isInitialized
         returns (address)
     {
+        require(
+            campaignIdentifierToAddress[identifier] != address(0),
+            "CampaignRegistry: CampaignInfo not created"
+        );
         return campaignIdentifierToAddress[identifier];
     }
 
     function setCampaignInfoAddress(
-        string calldata identifier,
-        address campaignAddress
+        string calldata _identifier,
+        address _campaignAddress
     ) public isInitialized onlyFactory {
-        campaignIdentifierToAddress[identifier] = campaignAddress;
+        campaignIdentifierToAddress[_identifier] = _campaignAddress;
     }
 }
