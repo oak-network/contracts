@@ -5,13 +5,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignTreasury.sol";
 
 contract CampaignRegistry is Ownable {
-    
     address factoryAddress;
     address oracleAddress;
     bool initialized;
-    mapping(string => address) public campaignIdentifierToAddress;
+    mapping(string => address) campaignIdentifierToAddress;
 
-    function initialize(address _factoryAddress, address _oracleAddress) public onlyOwner {
+    function initialize(address _factoryAddress, address _oracleAddress)
+        public
+        onlyOwner
+    {
         factoryAddress = _factoryAddress;
         oracleAddress = _oracleAddress;
         initialized = true;
@@ -27,20 +29,27 @@ contract CampaignRegistry is Ownable {
         _;
     }
 
-    function getOracleAddress() public view isInitialized returns(address) {
+    function getOracleAddress() public view isInitialized returns (address) {
         return oracleAddress;
     }
 
-    function getFactoryAddress() public view isInitialized returns(address) {
+    function getFactoryAddress() public view isInitialized returns (address) {
         return factoryAddress;
     }
 
-    function getCampaignInfoAddress(string calldata identifier) public view isInitialized returns(address) {
+    function getCampaignInfoAddress(string calldata identifier)
+        public
+        view
+        isInitialized
+        returns (address)
+    {
         return campaignIdentifierToAddress[identifier];
     }
 
-    function setCampaignInfoAddress(string calldata identifier, address campaignAddress) public isInitialized onlyFactory {
+    function setCampaignInfoAddress(
+        string calldata identifier,
+        address campaignAddress
+    ) public isInitialized onlyFactory {
         campaignIdentifierToAddress[identifier] = campaignAddress;
     }
-
 }

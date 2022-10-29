@@ -4,35 +4,24 @@ import { getHexString } from "../lib/utils";
 
 async function main() {
 
-    //const [owner, otherAccount] = await ethers.getSigners()
-
     const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory");
     const campaignInfoFactory: CampaignInfoFactory = await campaignInfoFactoryFactory.deploy();
-    
-    // Deploy CampaignFactory
-    // await campaignInfoFactory.deployed();
-    
+
     console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
-    
+
     const campaignRegistryFactory = await ethers.getContractFactory("CampaignRegistry");
     const campaignRegistry: CampaignRegistry = await campaignRegistryFactory.deploy();
-    
-    // Deploy CampaignRegistry
-    //await campaignRegistry.deployed();
-    
+
     console.log(`CampaignRegistry deployed to ${campaignRegistry.address}`);
-    
+
     const campaignOracleFactory = await ethers.getContractFactory("CampaignOracle");
     const campaignOracle: CampaignOracle = await campaignOracleFactory.deploy();
-    
-    // Deploy CampaignOracle
-    //await campaignOracle.deployed();
-    
+
     console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
 
     await campaignInfoFactory.setRegistry(campaignRegistry.address);
     await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
-            
+
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
     const goalAmount = 1000000;
@@ -43,52 +32,43 @@ async function main() {
         getHexString("Kickstarter"),
         getHexString("Weirdstarter")
     ];
-        
+
     const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
-    
-    //const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
-    
-    //const campaignId = tx.ad
+
+
     const result = await tx.wait()
-    // result.
-    console.log(result.events?.[1].args?.campaignInfoAddress);
     const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
-    //console.log("The length" + result.events?.length);
 
     console.log(`CampaignInfo created at ${newCampaignInfoAddress} using CampaignInfoFactory`);
-    
+
     console.log(`Deploying the Treasury for Origin platform...`);
     const campaignTreasuryFactory = await ethers.getContractFactory("CampaignTreasury");
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
-        campaignRegistry.address, 
+        campaignRegistry.address,
         newCampaignInfoAddress,
-        getHexString("Kickstarter") 
-        );
-
-    //await campaignTreasury.deployed();
+        getHexString("Kickstarter")
+    );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
 
     const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", newCampaignInfoAddress);
-    
+
     await campaignInfo.setTreasuryAddress(
         getHexString("Kickstarter"),
         campaignTreasury.address
     );
 
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
-    
+
     console.log(`Deploying the Treasury for Reach platform...`);
     const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
-        campaignRegistry.address, 
+        campaignRegistry.address,
         newCampaignInfoAddress,
-        getHexString("Weirdstarter") 
-        );
-
-    //await campaignTreasury2.deployed();
+        getHexString("Weirdstarter")
+    );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
-    
+
     await campaignInfo.setTreasuryAddress(
         getHexString("Weirdstarter"),
         campaignTreasury2.address
@@ -96,33 +76,33 @@ async function main() {
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
-    console.log(`Setting pledge data for origin platform in Oracle contract`);    
+    console.log(`Setting pledge data for origin platform in Oracle contract`);
     await campaignOracle.setPledgedAmountForClient(
         getHexString("Kickstarter"),
         campaignInfo.address,
         "100000"
-    );   
+    );
 
     console.log(`Setting pledge data for reach platform in Oracle contract`);
     await campaignOracle.setPledgedAmountForClient(
         getHexString("Weirdstarter"),
         campaignInfo.address,
         "100000"
-    );    
+    );
 
     console.log(`Reading pledge data from Oracle contract for origin platform...`);
     const pledgeAmountForOrigin = await campaignOracle.getPledgedAmountForClient(
         getHexString("Kickstarter"),
         campaignInfo.address
-    );  
+    );
     console.log(`Current pledge amount for origin platform ${pledgeAmountForOrigin}`);
-  
+
     console.log(`Reading pledge data from Oracle contract for reach platform...`);
     const pledgeAmountForReach = await campaignOracle.getPledgedAmountForClient(
         getHexString("Weirdstarter"),
         campaignInfo.address
     );
-    console.log(`Current pledge amount for reach platform ${pledgeAmountForReach}`); 
+    console.log(`Current pledge amount for reach platform ${pledgeAmountForReach}`);
 
     console.log(`Reading total pledge amount from CampaignInfo...`);
     const totalPledge = await campaignInfo.getTotalPledgedAmount();
@@ -132,6 +112,6 @@ async function main() {
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+    console.error(error);
+    process.exitCode = 1;
 });
