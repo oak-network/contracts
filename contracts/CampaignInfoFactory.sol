@@ -16,8 +16,6 @@ contract CampaignInfoFactory is Ownable {
     address campaignRegistry;
     bool initialized;
 
-    mapping(uint256 => address) public campaignIdToAddress;
-
     function setRegistry(address _campaignRegistry) public onlyOwner {
         campaignRegistry = _campaignRegistry;
         initialized = true;
