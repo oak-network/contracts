@@ -7,7 +7,7 @@ import "./CampaignInfo.sol";
 contract CampaignTreasury {
     address registryAddress;
     address infoAddress;
-    bytes32 public clientId;
+    bytes32 clientId;
     uint256 pledgedAmount;
 
     constructor(
@@ -18,6 +18,10 @@ contract CampaignTreasury {
         registryAddress = _registryAddress;
         infoAddress = _infoAddress;
         clientId = _clientId;
+    }
+
+    function getClientId() public view returns (bytes32) {
+        return clientId;
     }
 
     function getPledgedAmount() public view returns (uint256) {
