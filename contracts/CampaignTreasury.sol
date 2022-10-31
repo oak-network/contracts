@@ -9,6 +9,9 @@ contract CampaignTreasury {
     address infoAddress;
     bytes32 clientId;
     uint256 pledgedAmount;
+    uint256 clientFeePercent;
+    uint256 constant percentDivider = 10000;
+
 
     constructor(
         address _registryAddress,
@@ -24,8 +27,16 @@ contract CampaignTreasury {
         return clientId;
     }
 
+    function getClientFeePercent() public view returns (uint256) {
+        return clientFeePercent;
+    }
+
     function getPledgedAmount() public view returns (uint256) {
         return pledgedAmount;
+    }
+
+    function setClientFeePercent(uint256 _clientFeePercent) public {
+        clientFeePercent = _clientFeePercent;
     }
 
     function setPledgedAmount(uint256 _pledgedAmount) public {
