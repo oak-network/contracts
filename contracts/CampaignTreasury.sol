@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "./CampaignOracle.sol";
+import "./CampaignRegistry.sol";
 import "./CampaignInfo.sol";
 
 contract CampaignTreasury {
