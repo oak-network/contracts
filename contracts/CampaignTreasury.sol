@@ -31,6 +31,14 @@ contract CampaignTreasury {
         return clientFeePercent;
     }
 
+    function getClientFee() public view returns (uint256) {
+        return pledgedAmount * clientFeePercent / percentDivider;
+    }
+
+    function getTotalCollectableByCreator() public view returns (uint256) {
+        return pledgedAmount - getClientFee();
+    }
+
     function getPledgedAmount() public view returns (uint256) {
         return pledgedAmount;
     }
