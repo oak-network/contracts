@@ -14,7 +14,10 @@ library FeeSplit {
         bytes32[] memory tempPlatforms = platforms;
         uint256[]
             memory tempPledgedAmountByPlatforms = pledgedAmountByPlatforms;
-
+        require(
+            tempPlatforms.length == tempPledgedAmountByPlatforms.length,
+            "FeeSplit: platforms and pledgedAmountByPlatforms length unequal"
+        );
         uint256[] memory feeShareByPlatforms = new uint256[] (tempPlatforms.length);
         for (uint256 i = 0; i < tempPlatforms.length; i++) {
             feeShareByPlatforms[i] =
