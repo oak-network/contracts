@@ -6,10 +6,23 @@ library FeeSplit {
 
     function splitProportionately(
         uint256 feePercent,
-        bytes32[] calldata platforms,
-        uint256[] calldata pledgedAmountByPlatforms
-    ) public pure returns (uint256[] memory) {}
+        bytes32[] memory platforms,
+        uint256[] memory pledgedAmountByPlatforms
+    ) public pure
+    returns (uint256[] memory) 
+    {
+        bytes32[] memory tempPlatforms = platforms;
+        uint256[]
+            memory tempPledgedAmountByPlatforms = pledgedAmountByPlatforms;
 
+        uint256[] memory feeShareByPlatforms = new uint256[] (tempPlatforms.length);
+        for (uint256 i = 0; i < tempPlatforms.length; i++) {
+            feeShareByPlatforms[i] =
+                (tempPledgedAmountByPlatforms[i] * feePercent) /
+                percentDivider;
+        }
+        return feeShareByPlatforms;
+    }
     function splitWithOriginatorCommission(
         uint256 feePercent,
         uint256 originPlatformCommissionPercent,
