@@ -31,5 +31,20 @@ library FeeSplit {
         uint256 originPlatformCommissionPercent,
         uint256 pledgedAmountByOriginPlatform,
         uint256[] calldata pledgedAmountByReachPlatforms
-    ) public pure returns (uint256, uint256[] memory) {}
+    ) public pure returns (uint256, uint256[] memory) {
+        uint256 reachPlatformComissionPercent = feePercent -
+            originPlatformCommissionPercent;
+        uint256[]
+            memory tempPledgedAmountByReachPlatforms = pledgedAmountByReachPlatforms;
+        uint256[] memory feeShareByReachPlatforms;
+        uint256 feeShareByOriginPlatform = (pledgedAmountByOriginPlatform *
+            originPlatformCommissionPercent) / percentDivider;
+        for (uint256 i = 0; i < tempPledgedAmountByReachPlatforms.length; i++) {
+            feeShareByReachPlatforms[i] =
+                (tempPledgedAmountByReachPlatforms[i] *
+                    reachPlatformComissionPercent) /
+                percentDivider;
+        }
+        return (feeShareByOriginPlatform, feeShareByReachPlatforms);
+    }
 }
