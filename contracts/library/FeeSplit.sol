@@ -8,9 +8,7 @@ library FeeSplit {
         uint256 feePercent,
         bytes32[] memory platforms,
         uint256[] memory pledgedAmountByPlatforms
-    ) public pure
-    returns (uint256[] memory) 
-    {
+    ) public pure returns (uint256[] memory) {
         bytes32[] memory tempPlatforms = platforms;
         uint256[]
             memory tempPledgedAmountByPlatforms = pledgedAmountByPlatforms;
@@ -18,7 +16,9 @@ library FeeSplit {
             tempPlatforms.length == tempPledgedAmountByPlatforms.length,
             "FeeSplit: platforms and pledgedAmountByPlatforms length unequal"
         );
-        uint256[] memory feeShareByPlatforms = new uint256[] (tempPlatforms.length);
+        uint256[] memory feeShareByPlatforms = new uint256[](
+            tempPlatforms.length
+        );
         for (uint256 i = 0; i < tempPlatforms.length; i++) {
             feeShareByPlatforms[i] =
                 (tempPledgedAmountByPlatforms[i] * feePercent) /
@@ -26,6 +26,7 @@ library FeeSplit {
         }
         return feeShareByPlatforms;
     }
+
     function splitWithOriginatorCommission(
         uint256 feePercent,
         uint256 originPlatformCommissionPercent,
@@ -36,7 +37,9 @@ library FeeSplit {
             originPlatformCommissionPercent;
         uint256[]
             memory tempPledgedAmountByReachPlatforms = pledgedAmountByReachPlatforms;
-        uint256[] memory feeShareByReachPlatforms;
+        uint256[] memory feeShareByReachPlatforms = new uint256[](
+            tempPledgedAmountByReachPlatforms.length
+        );
         uint256 feeShareByOriginPlatform = (pledgedAmountByOriginPlatform *
             originPlatformCommissionPercent) / percentDivider;
         for (uint256 i = 0; i < tempPledgedAmountByReachPlatforms.length; i++) {
