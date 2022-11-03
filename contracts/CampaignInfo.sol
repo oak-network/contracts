@@ -5,8 +5,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
+import "./library/FeeSplit.sol";
 
 contract CampaignInfo is Ownable {
+    using FeeSplit for uint256;
+    using FeeSplit for uint256[];
+    
     struct CampaignData {
         string identifier;
         bytes32 originPlatform;
@@ -176,5 +180,9 @@ contract CampaignInfo is Ownable {
         ) {
             rewardedClient = clientId;
         }
+    }
+
+    function splitFee() public {
+        
     }
 }
