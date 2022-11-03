@@ -21,8 +21,12 @@ contract CampaignInfo is Ownable {
     CampaignData campaign;
     address registryAddress;
 
+    /* Hyperparameters */
+    uint256 denominator = 2;
+    bytes32 rewardedClient;
+
     mapping(bytes32 => address) treasuryAddress;
-    mapping (bytes32 => address) tokens;
+    mapping(bytes32 => address) tokens;
 
     constructor(
         string memory _identifier,
@@ -77,7 +81,11 @@ contract CampaignInfo is Ownable {
         return campaign.originPlatform;
     }
 
-    function getCampaignReachPlatforms() public view returns (bytes32[] memory) {
+    function getCampaignReachPlatforms()
+        public
+        view
+        returns (bytes32[] memory)
+    {
         return campaign.reachPlatforms;
     }
 
@@ -102,7 +110,6 @@ contract CampaignInfo is Ownable {
         return pledgedAmount;
     }
 
-
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
         address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
         require(
@@ -111,17 +118,19 @@ contract CampaignInfo is Ownable {
         );
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         uint256 length = tempReachPlatforms.length;
-        uint256 pledgedAmount = IERC20(tokens[campaign.originPlatform]).balanceOf(tempOriginPlatform);
+        uint256 pledgedAmount = IERC20(tokens[campaign.originPlatform])
+            .balanceOf(tempOriginPlatform);
         for (uint256 i = 0; i < length; i++) {
             address tempReachPlatform = treasuryAddress[tempReachPlatforms[i]];
             address tempToken = tokens[tempReachPlatforms[i]];
             if (tempReachPlatform != address(0)) {
                 pledgedAmount =
                     pledgedAmount +
-                    IERC20(tempToken).balanceOf(tempReachPlatform);            }
+                    IERC20(tempToken).balanceOf(tempReachPlatform);
+            }
         }
         return pledgedAmount;
-    }    
+    }
 
     function getTreasuryAddress(bytes32 clientId)
         public
@@ -157,6 +166,15 @@ contract CampaignInfo is Ownable {
     }
 
     function pledge(bytes32 clientId, uint256 amount) public {
-        IERC20(tokens[clientId]).transferFrom(msg.sender, treasuryAddress[clientId], amount);
+        IERC20(tokens[clientId]).transferFrom(
+            msg.sender,
+            treasuryAddress[clientId],
+            amount
+        );
+        if (
+            IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]) >= campaign.goalAmount / denominator
+        ) {
+            rewardedClient = clientId;
+        }
     }
 }
