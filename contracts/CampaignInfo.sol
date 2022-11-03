@@ -102,6 +102,27 @@ contract CampaignInfo is Ownable {
         return pledgedAmount;
     }
 
+
+    function getTotalPledgedAmountCrypto() public view returns (uint256) {
+        address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
+        require(
+            tempOriginPlatform != address(0),
+            "CampaignInfo: Origin platform treasury not set yet"
+        );
+        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        uint256 length = tempReachPlatforms.length;
+        uint256 pledgedAmount = IERC20(tokens[campaign.originPlatform]).balanceOf(tempOriginPlatform);
+        for (uint256 i = 0; i < length; i++) {
+            address tempReachPlatform = treasuryAddress[tempReachPlatforms[i]];
+            address tempToken = tokens[tempReachPlatforms[i]];
+            if (tempReachPlatform != address(0)) {
+                pledgedAmount =
+                    pledgedAmount +
+                    IERC20(tempToken).balanceOf(tempReachPlatform);            }
+        }
+        return pledgedAmount;
+    }    
+
     function getTreasuryAddress(bytes32 clientId)
         public
         view
@@ -136,6 +157,6 @@ contract CampaignInfo is Ownable {
     }
 
     function pledge(bytes32 clientId, uint256 amount) public {
-        
+        IERC20(tokens[clientId]).transferFrom(msg.sender, treasuryAddress[clientId], amount);
     }
 }
