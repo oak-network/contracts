@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
 
@@ -21,6 +22,7 @@ contract CampaignInfo is Ownable {
     address registryAddress;
 
     mapping(bytes32 => address) treasuryAddress;
+    mapping (bytes32 => address) tokens;
 
     constructor(
         string memory _identifier,
@@ -131,5 +133,9 @@ contract CampaignInfo is Ownable {
 
     function addReachPlatform(bytes32 _clientId) external onlyRegistryOwner {
         campaign.reachPlatforms.push(_clientId);
+    }
+
+    function pledge(bytes32 clientId, uint256 amount) public {
+        
     }
 }
