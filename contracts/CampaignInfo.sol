@@ -182,7 +182,16 @@ contract CampaignInfo is Ownable {
         }
     }
 
-    function splitFee() public {
-        
+    function splitFee(uint256 feePercent, uint256 rewardPercent) public {
+            function splitWithOriginatorCommission(
+        uint256 feePercent,
+        uint256 originPlatformCommissionPercent,
+        uint256 pledgedAmountByOriginPlatform,
+        uint256[] calldata pledgedAmountByReachPlatforms
+    ) public pure returns (uint256, uint256[] memory)
+        uint256[] memory pledgedAmountByPlatforms;
+        uint256 pledgedAmountByOriginPlatform = IERC20()
+        splitWithOriginatorCommission(feePercent, rewardPercent,)
+
     }
 }
