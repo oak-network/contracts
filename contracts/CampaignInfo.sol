@@ -182,16 +182,16 @@ contract CampaignInfo is Ownable {
         }
     }
 
-    function splitFee(uint256 feePercent, uint256 rewardPercent) public {
-            function splitWithOriginatorCommission(
-        uint256 feePercent,
-        uint256 originPlatformCommissionPercent,
-        uint256 pledgedAmountByOriginPlatform,
-        uint256[] calldata pledgedAmountByReachPlatforms
-    ) public pure returns (uint256, uint256[] memory)
-        uint256[] memory pledgedAmountByPlatforms;
-        uint256 pledgedAmountByOriginPlatform = IERC20()
-        splitWithOriginatorCommission(feePercent, rewardPercent,)
+    function splitFee(uint256 feePercent, uint256 rewardPercent) public returns (uint256, uint256[] memory) {
+        uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient]).balanceOf(treasuryAddress[rewardedClient]);
+        uint256[] memory pledgedAmountByOtherPlatforms;
+        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        for (uint256 i = 0; i < campaign.reachPlatforms.length; i++) {
+            pledgedAmountByReachPlatforms[i] = IERC20(tokens[tempReachPlatforms[i]]).balanceOf(treasuryAddress[tempReachPlatforms[i]]);
+        }
+        
+        (uint256 feeShareByOriginPlatform,
+        uint256[] memory feeShareByReachPlatforms) = FeeSplit.splitWithOriginatorCommission(feePercent, rewardPercent, pledgedAmountByOriginPlatform, pledgedAmountByReachPlatforms);
 
     }
 }
