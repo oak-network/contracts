@@ -185,13 +185,20 @@ contract CampaignInfo is Ownable {
     function splitFee(uint256 feePercent, uint256 rewardPercent) public returns (uint256, uint256[] memory) {
         uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient]).balanceOf(treasuryAddress[rewardedClient]);
         uint256[] memory pledgedAmountByOtherPlatforms;
+        uint256 i = 0;
+        if (rewardedClient != campaign.originPlatform) {
+            pledgedAmountByOtherPlatforms[i] = IERC20(tokens[campaign.originPlatform]).balanceOf(treasuryAddress[campaign.originPlatform]);
+            i = 1;
+        }
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-        for (uint256 i = 0; i < campaign.reachPlatforms.length; i++) {
-            pledgedAmountByReachPlatforms[i] = IERC20(tokens[tempReachPlatforms[i]]).balanceOf(treasuryAddress[tempReachPlatforms[i]]);
+        for (; i < tempReachPlatforms.length; i++) {
+            if(tempReachPlatforms[i] != rewardedClient) {
+                pledgedAmountByOtherPlatforms[i] = IERC20(tokens[tempReachPlatforms[i]]).balanceOf(treasuryAddress[tempReachPlatforms[i]]);
+            }
         }
         
         (uint256 feeShareByOriginPlatform,
-        uint256[] memory feeShareByReachPlatforms) = FeeSplit.splitWithOriginatorCommission(feePercent, rewardPercent, pledgedAmountByOriginPlatform, pledgedAmountByReachPlatforms);
+        uint256[] memory feeShareByReachPlatforms) = FeeSplit.splitWithOriginatorCommission(feePercent, rewardPercent, pledgedAmountByRewardedPlatform, pledgedAmountByOtherPlatforms);
 
     }
 }
