@@ -203,6 +203,45 @@ contract CampaignInfo is Ownable {
         
         (uint256 feeShareByOriginPlatform,
         uint256[] memory feeShareByReachPlatforms) = FeeSplit.splitWithOriginatorCommission(feePercent, rewardPercent, pledgedAmountByRewardedPlatform, pledgedAmountByOtherPlatforms);
-
     }
+
+    function splitFee2(uint256 feePercent, uint256 rewardPercent) public returns (uint256, uint256[] memory) {
+        uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient]).balanceOf(treasuryAddress[rewardedClient]);
+        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[] (campaign.reachPlatforms.length);
+
+    // function splitWithOriginatorCommission(
+    //     uint256 feePercent,
+    //     uint256 originPlatformCommissionPercent,
+    //     uint256 pledgedAmountByOriginPlatform,
+    //     uint256[] calldata pledgedAmountByReachPlatforms
+
+        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        if (rewardedClient == campaign.originPlatform) {
+            for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
+                pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
+            } 
+            }
+        else {
+            uint256 i = 0;
+            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(campaign.originPlatform);
+            for (uint256 i = 0; i < tempReachPlatform.length; i++) {
+                pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
+            }
+        }
+            pledgedAmountByOtherPlatforms[i] = campaign.reachPlatforms[0];
+            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(campaign.originPlatform);
+            i = 1;
+    
+        //bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        // for (; i < tempReachPlatforms.length; i++) {
+        //     if(tempReachPlatforms[i] != rewardedClient) {
+        //         pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
+        //     }
+        // }
+        
+        // (uint256 feeShareByOriginPlatform,
+        // uint256[] memory feeShareByReachPlatforms) = FeeSplit.splitWithOriginatorCommission(feePercent, rewardPercent, pledgedAmountByRewardedPlatform, pledgedAmountByOtherPlatforms);
+    }
+
+
 }
