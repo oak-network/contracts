@@ -182,6 +182,10 @@ contract CampaignInfo is Ownable {
         }
     }
 
+    function getPledgedAmountForClientCrypto(bytes32 clientId) public view returns (uint256) {
+        return IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]);
+    } 
+
     function splitFee(uint256 feePercent, uint256 rewardPercent) public returns (uint256, uint256[] memory) {
         uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient]).balanceOf(treasuryAddress[rewardedClient]);
         uint256[] memory pledgedAmountByOtherPlatforms;
