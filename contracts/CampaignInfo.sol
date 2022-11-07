@@ -191,13 +191,13 @@ contract CampaignInfo is Ownable {
         uint256[] memory pledgedAmountByOtherPlatforms;
         uint256 i = 0;
         if (rewardedClient != campaign.originPlatform) {
-            pledgedAmountByOtherPlatforms[i] = IERC20(tokens[campaign.originPlatform]).balanceOf(treasuryAddress[campaign.originPlatform]);
+            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(campaign.originPlatform);
             i = 1;
         }
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         for (; i < tempReachPlatforms.length; i++) {
             if(tempReachPlatforms[i] != rewardedClient) {
-                pledgedAmountByOtherPlatforms[i] = IERC20(tokens[tempReachPlatforms[i]]).balanceOf(treasuryAddress[tempReachPlatforms[i]]);
+                pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
             }
         }
         
