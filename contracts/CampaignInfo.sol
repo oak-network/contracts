@@ -231,12 +231,12 @@ contract CampaignInfo is Ownable {
     {
         uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient])
             .balanceOf(treasuryAddress[rewardedClient]);
-        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
-            campaign.reachPlatforms.length
-        );
-
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-        if (rewardedClient == campaign.originPlatform) {
+        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
+            tempReachPlatforms.length
+        );
+        bytes32 tempOriginPlatform = campaign.originPlatform;
+        if (rewardedClient == tempOriginPlatform) {
             for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
                 pledgedAmountByOtherPlatforms[
                     i
@@ -245,7 +245,7 @@ contract CampaignInfo is Ownable {
         } else {
             uint256 i = 0;
             pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(
-                campaign.originPlatform
+                tempOriginPlatform
             );
             for (i = 1; i < tempReachPlatforms.length; i++) {
                 if (tempReachPlatforms[i - 1] != rewardedClient) {
