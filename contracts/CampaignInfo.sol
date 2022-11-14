@@ -178,7 +178,8 @@ contract CampaignInfo is Ownable {
         );
         if (
             IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]) >=
-            campaign.goalAmount / denominator && !rewardClientSet
+            campaign.goalAmount / denominator &&
+            !rewardClientSet
         ) {
             rewardClientSet = true;
             rewardedClient = clientId;
@@ -195,6 +196,7 @@ contract CampaignInfo is Ownable {
 
     function splitFeeWithRewards(uint256 feePercent, uint256 rewardPercent)
         public
+        view
         returns (uint256, uint256[] memory)
     {
         uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient])
