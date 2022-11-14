@@ -24,6 +24,7 @@ contract CampaignInfo is Ownable {
 
     CampaignData campaign;
     address registryAddress;
+    bool switch;
 
     /* Hyperparameters */
     uint256 denominator = 2;
@@ -177,8 +178,9 @@ contract CampaignInfo is Ownable {
         );
         if (
             IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]) >=
-            campaign.goalAmount / denominator
+            campaign.goalAmount / denominator && !switch
         ) {
+            switch = true;
             rewardedClient = clientId;
         }
     }
