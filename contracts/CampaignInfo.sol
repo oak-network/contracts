@@ -177,7 +177,7 @@ contract CampaignInfo is Ownable {
             amount
         );
         if (
-            IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]) >=
+            getPledgedAmountForClientCrypto(clientId) >=
             campaign.goalAmount / denominator &&
             !rewardClientSet
         ) {
