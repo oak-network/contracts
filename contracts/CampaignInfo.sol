@@ -199,8 +199,9 @@ contract CampaignInfo is Ownable {
         view
         returns (uint256, uint256[] memory)
     {
-        uint256 pledgedAmountByRewardedPlatform = IERC20(tokens[rewardedClient])
-            .balanceOf(treasuryAddress[rewardedClient]);
+        uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
+                rewardedClient
+            );
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
             tempReachPlatforms.length
