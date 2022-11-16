@@ -5,10 +5,13 @@ contract testFeeSplit {
     
     function splitWithVelocityOfFundraising(
         uint256 feePercent,
-        uint256 originPlatformCommissionPercent,
-        uint256 pledgedAmountByOriginPlatform,
-        uint256[] calldata pledgedAmountByReachPlatforms
-    ) public pure returns (uint256, uint256[] memory) {
+        uint256 rewardPercent,
+        bytes32[] calldata platforms,
+        uint256[] pledgedAmountByPlatformsInSequence,
+        uint256 lockTime
+    ) public pure returns (bytes32, uint256, uint256[] memory) {
+        uint256 regularPercent = feePercent -
+            rewardPercent;
 
         return (feeShareByOriginPlatform, feeShareByReachPlatforms);
     }    
