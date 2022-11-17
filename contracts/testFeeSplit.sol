@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 contract testFeeSplit {
+    uint256 constant percentDivider = 10000;
     
     function splitWithVelocityOfFundraising(
         uint256 feePercent,
