@@ -12,7 +12,13 @@ contract testFeeSplit {
     ) public pure returns (bytes32, uint256, uint256[] memory) {
         uint256 regularPercent = feePercent -
             rewardPercent;
-
+        uint256 timePassed = block.timestamp - lockTime;
+        uint256[] memory feeShareByPlatforms = new uint256[] (platforms.length - 1);
+        for (uint256 i = 0; i < platforms.length; i++) {
+            feeShareByPlatforms[i] =
+                (pledgedAmountByPlatformsInSequence[i] * feePercent) /
+                percentDivider;
+        }        
         return (feeShareByOriginPlatform, feeShareByReachPlatforms);
     }    
 }
