@@ -14,10 +14,15 @@ contract testFeeSplit {
             rewardPercent;
         uint256 timePassed = block.timestamp - lockTime;
         uint256[] memory feeShareByPlatforms = new uint256[] (platforms.length - 1);
+        uint256 rewardedPlatformIndex;
+        uint256 pledgedAmountByRewardedPlatform;
         for (uint256 i = 0; i < platforms.length; i++) {
             feeShareByPlatforms[i] =
                 (pledgedAmountByPlatformsInSequence[i] * feePercent) /
                 percentDivider;
+            if (feeShareByPlatforms[i] > pledgedAmountByRewardedPlatform) {
+                pledgedAmountByRewardedPlatform = feeShareByPlatforms[i];
+            }
         }        
         return (feeShareByOriginPlatform, feeShareByReachPlatforms);
     }    
