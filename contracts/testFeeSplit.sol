@@ -22,6 +22,7 @@ contract testFeeSplit {
                 (pledgedAmountByPlatformsInSequence[i] * feePercent) /
                 percentDivider;
             if (feeShareByPlatforms[i] > pledgedAmountByRewardedPlatform) {
+                rewardedPlatformIndex = i;
                 pledgedAmountByRewardedPlatform = feeShareByPlatforms[i];
             }
         }        
