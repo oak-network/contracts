@@ -25,7 +25,8 @@ contract testFeeSplit {
                 rewardedPlatformIndex = i;
                 pledgedAmountByRewardedPlatform = feeShareByPlatforms[i];
             }
-        }        
-        return (feeShareByOriginPlatform, feeShareByReachPlatforms);
+        }
+        bytes32 rewardedPlatform = platforms[rewardedPlatformIndex];
+        return (rewardedPlatform, pledgedAmountByRewardedPlatform, feeShareByPlatforms);
     }    
 }
