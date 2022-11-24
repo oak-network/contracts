@@ -6,17 +6,13 @@ library FeeSplit {
 
     function splitProportionately(
         uint256 feePercent,
-        bytes32[] calldata platforms,
         uint256[] calldata pledgedAmountByPlatforms
     ) public pure returns (uint256[] memory) {
-        require(
-            platforms.length == pledgedAmountByPlatforms.length,
-            "FeeSplit: platforms and pledgedAmountByPlatforms length unequal"
-        );
+        uint256 length = pledgedAmountByPlatforms.length;
         uint256[] memory feeShareByPlatforms = new uint256[](
-            platforms.length
+            length
         );
-        for (uint256 i = 0; i < platforms.length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             feeShareByPlatforms[i] =
                 (pledgedAmountByPlatforms[i] * feePercent) /
                 percentDivider;
