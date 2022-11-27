@@ -9,9 +9,7 @@ library FeeSplit {
         uint256[] calldata pledgedAmountByPlatforms
     ) public pure returns (uint256[] memory) {
         uint256 length = pledgedAmountByPlatforms.length;
-        uint256[] memory feeShareByPlatforms = new uint256[](
-            length
-        );
+        uint256[] memory feeShareByPlatforms = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
             feeShareByPlatforms[i] =
                 (pledgedAmountByPlatforms[i] * feePercent) /
@@ -26,18 +24,20 @@ library FeeSplit {
         uint256 pledgedAmountByOriginPlatform,
         uint256[] calldata pledgedAmountByReachPlatforms
     ) public pure returns (uint256, uint256[] memory) {
-        uint256 reachPlatformComissionPercent = feePercent -
-            originPlatformCommissionPercent;
-        uint256[]
-            memory tempPledgedAmountByReachPlatforms = pledgedAmountByReachPlatforms;
+        uint256 noOfPlatforms = pledgedAmountByReachPlatforms.length;
+        uint256 originPlatformTotalCommisionPercent = originPlatformCommissionPercent +
+                (feePercent - originPlatformCommissionPercent) /
+                (noOfPlatforms);
+        uint256 reachPlatformComissionPercent = (feePercent -
+            originPlatformTotalCommisionPercent) / (noOfPlatforms);
         uint256[] memory feeShareByReachPlatforms = new uint256[](
-            tempPledgedAmountByReachPlatforms.length
+            noOfPlatforms
         );
         uint256 feeShareByOriginPlatform = (pledgedAmountByOriginPlatform *
-            originPlatformCommissionPercent) / percentDivider;
-        for (uint256 i = 0; i < tempPledgedAmountByReachPlatforms.length; i++) {
+            originPlatformTotalCommisionPercent) / percentDivider;
+        for (uint256 i = 0; i < noOfPlatforms; i++) {
             feeShareByReachPlatforms[i] =
-                (tempPledgedAmountByReachPlatforms[i] *
+                (pledgedAmountByReachPlatforms[i] *
                     reachPlatformComissionPercent) /
                 percentDivider;
         }
