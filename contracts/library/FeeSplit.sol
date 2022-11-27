@@ -27,9 +27,9 @@ library FeeSplit {
         uint256 noOfPlatforms = pledgedAmountByReachPlatforms.length;
         uint256 originPlatformTotalCommisionPercent = originPlatformCommissionPercent +
                 (feePercent - originPlatformCommissionPercent) /
-                (noOfPlatforms);
+                (noOfPlatforms + 1);
         uint256 reachPlatformComissionPercent = (feePercent -
-            originPlatformTotalCommisionPercent) / (noOfPlatforms);
+            originPlatformTotalCommisionPercent) / (noOfPlatforms + 1);
         uint256[] memory feeShareByReachPlatforms = new uint256[](
             noOfPlatforms
         );
