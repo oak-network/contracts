@@ -35,12 +35,9 @@ library FeeSplit {
         );
         uint256 feeShareByOriginPlatform = (pledgedAmountByOriginPlatform *
             originPlatformTotalCommisionPercent) / percentDivider;
-        for (uint256 i = 0; i < noOfPlatforms; i++) {
-            feeShareByReachPlatforms[i] =
-                (pledgedAmountByReachPlatforms[i] *
-                    reachPlatformComissionPercent) /
-                percentDivider;
-        }
+        feeShareByReachPlatforms = splitProportionately(reachFeePercent, pledgedAmountsByReach);
+
         return (feeShareByOriginPlatform, feeShareByReachPlatforms);
     }
+    
 }
