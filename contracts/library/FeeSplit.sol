@@ -25,13 +25,13 @@ library FeeSplit {
         uint256[] calldata pledgedAmountsByReach
     ) public pure returns (uint256, uint256[] memory) {
         uint256 noOfReach = pledgedAmountsByReach.length;
-        uint256 reachFeePercent = (totalFeePercent - originRewardPercent) / (noOfReach + 1);
-        uint256 originFeePercent = originRewardPercent + reachFeePercent;
-        uint256[] memory feesByReach = new uint256[](noOfReach);
-        uint256 feeByOrigin = (pledgedAmountByOrigin * originFeePercent) / percentDivider;
-        feesByReach = splitProportionately(reachFeePercent, pledgedAmountsByReach);
-        
-        return (feeByOrigin, feesByReach);
-    }   
-    
+        uint256 reachFeePercent = (totalFeePercent - originRewardPercent) /
+            (noOfReach + 1);
+        uint256 feeByOrigin = (pledgedAmountByOrigin *
+            (originRewardPercent + reachFeePercent)) / percentDivider;
+        return (
+            feeByOrigin,
+            splitProportionately(reachFeePercent, pledgedAmountsByReach)
+        );
+    }
 }
