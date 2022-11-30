@@ -10,7 +10,7 @@ contract testFeeSplit {
         bytes32[] calldata platforms,
         uint256[] calldata pledgedAmountByPlatformsInSequence,
         uint256 lockTime
-    ) public pure returns (bytes32, uint256, uint256[] memory) {
+    ) public view returns (bytes32, uint256, uint256[] memory) {
         uint256 regularPercent = feePercent -
             rewardPercent;
         uint256 timePassed = block.timestamp - lockTime;

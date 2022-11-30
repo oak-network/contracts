@@ -229,7 +229,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = FeeSplit.splitWithOriginatorCommission(
+        ) = FeeSplit.splitWithOriginReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
