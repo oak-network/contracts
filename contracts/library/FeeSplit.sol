@@ -18,25 +18,20 @@ library FeeSplit {
         return feeShareByPlatforms;
     }
 
-    function splitWithOriginatorCommission(
+    function splitWithOriginReward(
         uint256 totalFeePercent,
         uint256 originRewardPercent,
-        uint256 pledgedAmountByOriginPlatform,
+        uint256 pledgedAmountByOrigin,
         uint256[] calldata pledgedAmountsByReach
     ) public pure returns (uint256, uint256[] memory) {
         uint256 noOfReach = pledgedAmountsByReach.length;
         uint256 reachFeePercent = (totalFeePercent - originRewardPercent) / (noOfReach + 1);
-        uint256 originPlatformTotalCommisionPercent = originRewardPercent +
-                (totalFeePercent - originRewardPercent) /
-                (noOfReach + 1);
-        uint256[] memory feeShareByReachPlatforms = new uint256[](
-            noOfReach
-        );
-        uint256 feeShareByOriginPlatform = (pledgedAmountByOriginPlatform *
-            originPlatformTotalCommisionPercent) / percentDivider;
-        feeShareByReachPlatforms = splitProportionately(reachFeePercent, pledgedAmountsByReach);
-
-        return (feeShareByOriginPlatform, feeShareByReachPlatforms);
-    }
+        uint256 originFeePercent = originRewardPercent + reachFeePercent;
+        uint256[] memory feesByReach = new uint256[](noOfReach);
+        uint256 feeByOrigin = (pledgedAmountByOrigin * originFeePercent) / percentDivider;
+        feesByReach = splitProportionately(reachFeePercent, pledgedAmountsByReach);
+        
+        return (feeByOrigin, feesByReach);
+    }   
     
 }
