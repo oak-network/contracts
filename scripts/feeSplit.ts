@@ -29,12 +29,10 @@ async function main() {
     const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
     const reachPlatforms = [
-        getHexString("Kickstarter"),
         getHexString("Weirdstarter")
     ];
 
     const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
-
 
     const result = await tx.wait()
     const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
@@ -46,15 +44,17 @@ async function main() {
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
         newCampaignInfoAddress,
-        getHexString("Kickstarter")
+        originPlatform
     );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
 
     const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", newCampaignInfoAddress);
 
+    console.log("The CampaignInfo: " + campaignInfo);
+
     await campaignInfo.setTreasuryAddress(
-        getHexString("Kickstarter"),
+        originPlatform,
         campaignTreasury.address
     );
 
@@ -64,18 +64,17 @@ async function main() {
     const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
         newCampaignInfoAddress,
-        getHexString("Weirdstarter")
+        reachPlatforms[0]
     );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
     await campaignInfo.setTreasuryAddress(
-        getHexString("Weirdstarter"),
+        reachPlatforms[0],
         campaignTreasury2.address
     );
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
-
 }
 
 // We recommend this pattern to be able to use async/await everywhere
