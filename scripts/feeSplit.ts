@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, CampaignTreasury } from "../typechain-types";
+import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, CampaignTreasury, TestUSD } from "../typechain-types";
 import { getHexString } from "../lib/utils";
 
 async function main() {
@@ -16,6 +16,9 @@ async function main() {
 
     const campaignOracleFactory = await ethers.getContractFactory("CampaignOracle");
     const campaignOracle: CampaignOracle = await campaignOracleFactory.deploy();
+
+    const testUSDFactory = await ethers.getContractFactory("TestUSD");
+    const testUSD: CampaignOracle = await testUSDFactory.deploy();    
 
     console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
 
