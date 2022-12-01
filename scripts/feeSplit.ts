@@ -3,6 +3,7 @@ import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, Ca
 import { getHexString } from "../lib/utils";
 
 async function main() {
+    const [owner] = await ethers.getSigners()
 
     const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory");
     const campaignInfoFactory: CampaignInfoFactory = await campaignInfoFactoryFactory.deploy();
@@ -17,10 +18,14 @@ async function main() {
     const campaignOracleFactory = await ethers.getContractFactory("CampaignOracle");
     const campaignOracle: CampaignOracle = await campaignOracleFactory.deploy();
 
-    const testUSDFactory = await ethers.getContractFactory("TestUSD");
-    const testUSD: CampaignOracle = await testUSDFactory.deploy();    
-
     console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
+
+    const testUSDFactory = await ethers.getContractFactory("TestUSD");
+    const testUSD: CampaignOracle = await testUSDFactory.deploy();
+
+    console.log(`TestUSD deployed to ${testUSD.address}`);
+
+    await testUSD.mint()
 
     await campaignInfoFactory.setRegistry(campaignRegistry.address);
     await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
@@ -46,6 +51,7 @@ async function main() {
     const campaignTreasuryFactory = await ethers.getContractFactory("CampaignTreasury");
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
+        testUSD.address,
         newCampaignInfoAddress,
         originPlatform
     );
@@ -66,6 +72,7 @@ async function main() {
     console.log(`Deploying the Treasury for Reach platform...`);
     const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
+        testUSD.address,
         newCampaignInfoAddress,
         reachPlatforms[0]
     );
