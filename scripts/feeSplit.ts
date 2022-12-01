@@ -75,6 +75,7 @@ async function main() {
     );
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
