@@ -21,11 +21,12 @@ async function main() {
     console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
 
     const testUSDFactory = await ethers.getContractFactory("TestUSD");
-    const testUSD: CampaignOracle = await testUSDFactory.deploy();
+    const testUSD: TestUSD = await testUSDFactory.deploy();
 
     console.log(`TestUSD deployed to ${testUSD.address}`);
 
-    await testUSD.mint()
+    await testUSD.mint(owner.address, ethers.utils.parseEther("100000"));
+    console.log("100000 TestUSD token minted to user");
 
     await campaignInfoFactory.setRegistry(campaignRegistry.address);
     await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
