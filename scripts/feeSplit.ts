@@ -33,7 +33,7 @@ async function main() {
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
-    const goalAmount = 1000000;
+    const goalAmount = ethers.utils.parseEther("100000");
     const launchTime = 1666753961;
     const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
@@ -86,6 +86,9 @@ async function main() {
     );
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
+
+    await campaignInfo.pledge(reachPlatforms[0], ethers.utils.parseEther("51000"));
+    await campaignInfo.pledge(originPlatform, ethers.utils.parseEther("30000"));
 
 }
 
