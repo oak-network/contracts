@@ -89,7 +89,8 @@ async function main() {
 
     await campaignInfo.pledge(reachPlatforms[0], ethers.utils.parseEther("51000"));
     await campaignInfo.pledge(originPlatform, ethers.utils.parseEther("30000"));
-
+    
+    { const rewardedFee, const otherPlatformFees } = await campaignInfo.splitFeeWithRewards(500, 100);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
