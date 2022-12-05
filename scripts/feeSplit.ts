@@ -1,11 +1,19 @@
-import { ethers } from "hardhat";
-import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, CampaignTreasury, TestUSD } from "../typechain-types";
+import { ethers, artifacts } from "hardhat";
+import { CampaignInfoFactory, CampaignInfo, CampaignRegistry, CampaignOracle, CampaignTreasury, TestUSD, FeeSplit } from "../typechain-types";
 import { getHexString } from "../lib/utils";
+import { library } from "../typechain-types/contracts";
 
 async function main() {
     const [owner] = await ethers.getSigners()
 
-    const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory");
+    const feeSplitLibraryFactory = await ethers.getContractFactory("FeeSplit");
+    const feeSplitLibrary: FeeSplit = await feeSplitLibraryFactory.deploy();
+
+    const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory", 
+        {libraries: {
+            FeeSplit: feeSplitLibrary.address
+        }
+    });
     const campaignInfoFactory: CampaignInfoFactory = await campaignInfoFactoryFactory.deploy();
 
     console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
@@ -33,7 +41,7 @@ async function main() {
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
-    const goalAmount = ethers.utils.parseEther("100000");
+    const goalAmount = 100000;
     const launchTime = 1666753961;
     const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
@@ -58,8 +66,11 @@ async function main() {
     );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
-
-    const campaignInfo: CampaignInfo = await ethers.getContractAt("contracts/CampaignInfo.sol:CampaignInfo", newCampaignInfoAddress);
+    
+    // const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
+    // const campaignInfo: any = await ethers.getContractFactoryFromArtifact(campaignInfoArtifact, newCampaignInfoAddress);
+    const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
+    const campaignInfo = new ethers.Contract(newCampaignInfoAddress, campaignInfoArtifact.abi, owner);
 
     console.log("The CampaignInfo: " + campaignInfo);
 
@@ -87,10 +98,12 @@ async function main() {
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
-    await campaignInfo.pledge(reachPlatforms[0], ethers.utils.parseEther("51000"));
-    await campaignInfo.pledge(originPlatform, ethers.utils.parseEther("30000"));
+    await campaignInfo.pledge(reachPlatforms[0], 51000);
+    await campaignInfo.pledge(originPlatform, 30000);
     
-    { const rewardedFee, const otherPlatformFees } = await campaignInfo.splitFeeWithRewards(500, 100);
+    const { rewardedFee, otherPlatformFees } = await campaignInfo.splitFeeWithRewards(500, 100);
+    console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
+    console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
