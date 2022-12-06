@@ -6,14 +6,10 @@ import { library } from "../typechain-types/contracts";
 async function main() {
     const [owner] = await ethers.getSigners()
 
-    const feeSplitLibraryFactory = await ethers.getContractFactory("FeeSplit");
-    const feeSplitLibrary: FeeSplit = await feeSplitLibraryFactory.deploy();
+    // const feeSplitLibraryFactory = await ethers.getContractFactory("FeeSplit");
+    // const feeSplitLibrary: FeeSplit = await feeSplitLibraryFactory.deploy();
 
-    const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory", 
-        {libraries: {
-            FeeSplit: feeSplitLibrary.address
-        }
-    });
+    const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory");
     const campaignInfoFactory: CampaignInfoFactory = await campaignInfoFactoryFactory.deploy();
 
     console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
