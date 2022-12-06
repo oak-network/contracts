@@ -94,6 +94,8 @@ async function main() {
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
+    await testUSD.increaseAllowance(campaignInfo.address, 1000000);
+
     await campaignInfo.pledge(reachPlatforms[0], 51000);
     await campaignInfo.pledge(originPlatform, 30000);
     
