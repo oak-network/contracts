@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
-import "./library/FeeSplit.sol";
+//import "./library/FeeSplit.sol";
 
 contract CampaignInfo is Ownable {
-    using FeeSplit for uint256;
-    using FeeSplit for uint256[];
+    // using FeeSplit for uint256;
+    // using FeeSplit for uint256[];
 
     struct CampaignData {
         string identifier;
@@ -29,6 +29,7 @@ contract CampaignInfo is Ownable {
     /* Hyperparameters */
     uint256 denominator = 2;
     bytes32 rewardedClient;
+    uint256 constant percentDivider = 10000;
 
     mapping(bytes32 => address) treasuryAddress;
     mapping(bytes32 => address) tokens;
@@ -53,6 +54,37 @@ contract CampaignInfo is Ownable {
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
+    }
+
+    function splitProportionately(
+        uint256 feePercent,
+        uint256[] memory pledgedAmountByPlatforms
+    ) public pure returns (uint256[] memory) {
+        uint256 length = pledgedAmountByPlatforms.length;
+        uint256[] memory feeShareByPlatforms = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            feeShareByPlatforms[i] =
+                (pledgedAmountByPlatforms[i] * feePercent) /
+                percentDivider;
+        }
+        return feeShareByPlatforms;
+    }
+
+    function splitWithOriginReward(
+        uint256 totalFeePercent,
+        uint256 originRewardPercent,
+        uint256 pledgedAmountByOrigin,
+        uint256[] memory pledgedAmountsByReach
+    ) public pure returns (uint256, uint256[] memory) {
+        uint256 noOfReach = pledgedAmountsByReach.length;
+        uint256 reachFeePercent = (totalFeePercent - originRewardPercent) /
+            (noOfReach + 1);
+        uint256 feeByOrigin = (pledgedAmountByOrigin *
+            (originRewardPercent + reachFeePercent)) / percentDivider;
+        return (
+            feeByOrigin,
+            splitProportionately(reachFeePercent, pledgedAmountsByReach)
+        );
     }
 
     modifier onlyRegistryOwner() {
@@ -229,7 +261,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = FeeSplit.splitWithOriginReward(
+        ) = splitWithOriginReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
