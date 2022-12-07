@@ -7,7 +7,6 @@ import "./CampaignInfo.sol";
 contract CampaignTreasury {
     address registryAddress;
     address infoAddress;
-    address token;
     bytes32 clientId;
     uint256 pledgedAmount;
     uint256 clientFeePercent;
@@ -15,12 +14,10 @@ contract CampaignTreasury {
 
     constructor(
         address _registryAddress,
-        address _token,
         address _infoAddress,
         bytes32 _clientId
     ) {
         registryAddress = _registryAddress;
-        token = _token;
         infoAddress = _infoAddress;
         clientId = _clientId;
     }
