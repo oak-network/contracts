@@ -56,7 +56,6 @@ async function main() {
     const campaignTreasuryFactory = await ethers.getContractFactory("CampaignTreasury");
     const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
-        testUSD.address,
         newCampaignInfoAddress,
         originPlatform
     );
@@ -70,9 +69,10 @@ async function main() {
 
     console.log("The CampaignInfo: " + campaignInfo);
 
-    await campaignInfo.setTreasuryAddress(
+    await campaignInfo.setTreasuryAndToken(
         originPlatform,
-        campaignTreasury.address
+        campaignTreasury.address,
+        testUSD.address
     );
 
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
@@ -80,16 +80,16 @@ async function main() {
     console.log(`Deploying the Treasury for Reach platform...`);
     const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
         campaignRegistry.address,
-        testUSD.address,
         newCampaignInfoAddress,
         reachPlatforms[0]
     );
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
-    await campaignInfo.setTreasuryAddress(
+    await campaignInfo.setTreasuryAndToken(
         reachPlatforms[0],
-        campaignTreasury2.address
+        campaignTreasury2.address,
+        testUSD.address
     );
 
     console.log(`Treasury address set for reach platform in CampaignInfo`);
