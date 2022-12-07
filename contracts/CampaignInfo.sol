@@ -101,6 +101,11 @@ contract CampaignInfo is Ownable {
         _;
     }
 
+    modifier rewardClientIsSet() {
+        require(rewardClientSet, "CampaignInfo: Reward client not set yet");
+        _;
+    }
+
     function getCampaignData()
         public
         view
@@ -225,7 +230,7 @@ contract CampaignInfo is Ownable {
     function splitFeeWithRewards(
         uint256 feePercent,
         uint256 rewardPercent
-    ) public view returns (uint256, uint256[] memory) {
+    ) public view rewardClientIsSet returns (uint256, uint256[] memory) {
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
                 rewardedClient
             );
