@@ -37,11 +37,15 @@ async function main() {
 
     console.log(`TestUSD deployed to ${testUSD.address}`);
 
-    await testUSD.mint(owner.address, ethers.utils.parseEther("100000"));
+    const mint = await testUSD.mint(owner.address, ethers.utils.parseEther("100000"));
     console.log("100000 TestUSD token minted to user");
 
-    await campaignInfoFactory.setRegistry(campaignRegistry.address);
-    await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
+    await mint.wait();
+
+    const setRegistry = await campaignInfoFactory.setRegistry(campaignRegistry.address);
+    await setRegistry.wait();
+    const initialize = await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
+    await initialize.wait();
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
@@ -54,7 +58,7 @@ async function main() {
     ];
 
     const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
-
+    
     const result = await tx.wait()
     const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
 
@@ -80,12 +84,12 @@ async function main() {
 
     console.log("The CampaignInfo: " + campaignInfo);
 
-    await campaignInfo.setTreasuryAndToken(
+    let setTreasuryAndToken = await campaignInfo.setTreasuryAndToken(
         originPlatform,
         campaignTreasury.address,
         testUSD.address
     );
-
+    await setTreasuryAndToken.wait();
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
 
     console.log(`Deploying the Treasury for Reach platform...`);
@@ -99,19 +103,20 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
-    await campaignInfo.setTreasuryAndToken(
+    setTreasuryAndToken = await campaignInfo.setTreasuryAndToken(
         reachPlatforms[0],
         campaignTreasury2.address,
         testUSD.address
     );
-
+    await setTreasuryAndToken.wait();
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
-    await testUSD.increaseAllowance(campaignInfo.address, 1000000);
-
-    await campaignInfo.pledge(reachPlatforms[0], 51000);
-    await campaignInfo.pledge(originPlatform, 30000);
-    
+    const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, 1000000);
+    await increaseAllowance.wait();
+    let pledge = await campaignInfo.pledge(reachPlatforms[0], 51000);
+    await pledge.wait();
+    pledge = await campaignInfo.pledge(originPlatform, 30000);
+    await pledge.wait();
     const { rewardedFee, otherPlatformFees } = await campaignInfo.splitFeeWithRewards(500, 100);
     console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
     console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
