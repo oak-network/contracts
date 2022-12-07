@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
+
 //import "./library/FeeSplit.sol";
 
 contract CampaignInfo is Ownable {
@@ -70,17 +71,17 @@ contract CampaignInfo is Ownable {
         return feeShareByPlatforms;
     }
 
-    function splitWithOriginReward(
+    function splitWithClientReward(
         uint256 totalFeePercent,
-        uint256 originRewardPercent,
+        uint256 clientRewardPercent,
         uint256 pledgedAmountByOrigin,
         uint256[] memory pledgedAmountsByReach
     ) public pure returns (uint256, uint256[] memory) {
         uint256 noOfReach = pledgedAmountsByReach.length;
-        uint256 reachFeePercent = (totalFeePercent - originRewardPercent) /
+        uint256 reachFeePercent = (totalFeePercent - clientRewardPercent) /
             (noOfReach + 1);
         uint256 feeByOrigin = (pledgedAmountByOrigin *
-            (originRewardPercent + reachFeePercent)) / percentDivider;
+            (clientRewardPercent + reachFeePercent)) / percentDivider;
         return (
             feeByOrigin,
             splitProportionately(reachFeePercent, pledgedAmountsByReach)
@@ -92,17 +93,18 @@ contract CampaignInfo is Ownable {
         _;
     }
 
+    modifier treasuryIsSet(bytes32 clientId) {
+        require(
+            treasuryAddress[clientId] != address(0),
+            "CampaignInfo: Treasury address for client is not set"
+        );
+        _;
+    }
+
     function getCampaignData()
         public
         view
-        returns (
-            string memory,
-            uint64,
-            uint64,
-            uint64,
-            uint64,
-            string memory
-        )
+        returns (string memory, uint64, uint64, uint64, uint64, string memory)
     {
         return (
             campaign.identifier,
@@ -169,15 +171,9 @@ contract CampaignInfo is Ownable {
         return pledgedAmount;
     }
 
-    function getTreasuryAddress(bytes32 clientId)
-        public
-        view
-        returns (address)
-    {
-        require(
-            treasuryAddress[clientId] != address(0),
-            "CampaignInfo: Treasury address for client is not set"
-        );
+    function getTreasuryAddress(
+        bytes32 clientId
+    ) public view treasuryIsSet(clientId) returns (address) {
         return treasuryAddress[clientId];
     }
 
@@ -191,11 +187,13 @@ contract CampaignInfo is Ownable {
         campaign.deadline = _deadline;
     }
 
-    function setTreasuryAddress(bytes32 _clientId, address _treasuryAddress)
-        external
-        onlyRegistryOwner
-    {
+    function setTreasuryAndToken(
+        bytes32 _clientId,
+        address _treasuryAddress,
+        address _token
+    ) external onlyRegistryOwner {
         treasuryAddress[_clientId] = _treasuryAddress;
+        tokens[_clientId] = _token;
     }
 
     function addReachPlatform(bytes32 _clientId) external onlyRegistryOwner {
@@ -218,19 +216,16 @@ contract CampaignInfo is Ownable {
         }
     }
 
-    function getPledgedAmountForClientCrypto(bytes32 clientId)
-        public
-        view
-        returns (uint256)
-    {
+    function getPledgedAmountForClientCrypto(
+        bytes32 clientId
+    ) public view treasuryIsSet(clientId) returns (uint256) {
         return IERC20(tokens[clientId]).balanceOf(treasuryAddress[clientId]);
     }
 
-    function splitFeeWithRewards(uint256 feePercent, uint256 rewardPercent)
-        public
-        view
-        returns (uint256, uint256[] memory)
-    {
+    function splitFeeWithRewards(
+        uint256 feePercent,
+        uint256 rewardPercent
+    ) public view returns (uint256, uint256[] memory) {
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
                 rewardedClient
             );
@@ -261,7 +256,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = splitWithOriginReward(
+        ) = splitWithClientReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
