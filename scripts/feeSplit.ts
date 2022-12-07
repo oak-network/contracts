@@ -12,20 +12,28 @@ async function main() {
     const campaignInfoFactoryFactory = await ethers.getContractFactory("CampaignInfoFactory");
     const campaignInfoFactory: CampaignInfoFactory = await campaignInfoFactoryFactory.deploy();
 
+    await campaignInfoFactory.deployed();
+
     console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
 
     const campaignRegistryFactory = await ethers.getContractFactory("CampaignRegistry");
     const campaignRegistry: CampaignRegistry = await campaignRegistryFactory.deploy();
+
+    await campaignRegistry.deployed();
 
     console.log(`CampaignRegistry deployed to ${campaignRegistry.address}`);
 
     const campaignOracleFactory = await ethers.getContractFactory("CampaignOracle");
     const campaignOracle: CampaignOracle = await campaignOracleFactory.deploy();
 
+    await campaignOracle.deployed();
+
     console.log(`CampaignOracle deployed to ${campaignOracle.address}`);
 
     const testUSDFactory = await ethers.getContractFactory("TestUSD");
     const testUSD: TestUSD = await testUSDFactory.deploy();
+
+    await testUSD.deployed();
 
     console.log(`TestUSD deployed to ${testUSD.address}`);
 
@@ -60,6 +68,9 @@ async function main() {
         originPlatform
     );
 
+    await campaignTreasury.deployed();
+
+
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
     
     // const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
@@ -83,6 +94,8 @@ async function main() {
         newCampaignInfoAddress,
         reachPlatforms[0]
     );
+
+    await campaignTreasury2.deployed();
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
