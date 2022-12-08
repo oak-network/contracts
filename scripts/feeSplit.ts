@@ -130,7 +130,7 @@ async function main() {
     // pledge = await campaignInfo.pledge(originPlatform, pledge2);
     // await pledge.wait();
     // console.log(`Pledged ${pledge2} to originPlatform`);
-    // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards(500, 100);
+    // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
     // await splitFeeWithRewards.wait();
     // console.log(`Fee splits disbursed to client wallets!`);
     //console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
