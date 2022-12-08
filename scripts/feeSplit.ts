@@ -47,12 +47,15 @@ async function main() {
     const initialize = await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
     await initialize.wait();
 
+    // Parameters
     const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
     const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
+    const pledge1 = 51000;
+    const pledge2 = 30000;
+    const goalAmount = 100000;
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
-    const goalAmount = 100000;
     const launchTime = 1666753961;
     const deadline = 1672002761;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
@@ -118,16 +121,20 @@ async function main() {
 
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, 1000000);
     await increaseAllowance.wait();
-    let pledge = await campaignInfo.pledge(reachPlatforms[0], 51000);
-    await pledge.wait();
-    console.log(`Pledged 51000 to reachPlatform`);
-    pledge = await campaignInfo.pledge(originPlatform, 30000);
-    await pledge.wait();
-    console.log(`Pledged 30000 to originPlatform`);
-    //const [ rewardedFee, otherPlatformFees ] = 
-    await campaignInfo.splitFeeWithRewards(500, 100);
-    console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
-    console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
+    
+    //Commented the followings for demo setup
+    
+    // let pledge = await campaignInfo.pledge(reachPlatforms[0], pledge1);
+    // await pledge.wait();
+    // console.log(`Pledged ${pledge1} to reachPlatform`);
+    // pledge = await campaignInfo.pledge(originPlatform, pledge2);
+    // await pledge.wait();
+    // console.log(`Pledged ${pledge2} to originPlatform`);
+    // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards(500, 100);
+    // await splitFeeWithRewards.wait();
+    // console.log(`Fee splits disbursed to client wallets!`);
+    //console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
+    //console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
