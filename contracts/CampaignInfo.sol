@@ -60,7 +60,7 @@ contract CampaignInfo is Ownable {
         registryAddress = _registryAddress;
     }
 
-    function splitProportionately(
+    function getSplitsProportionately(
         uint256 feePercent,
         uint256[] memory pledgedAmountByPlatforms
     ) public pure returns (uint256[] memory) {
@@ -74,7 +74,7 @@ contract CampaignInfo is Ownable {
         return feeShareByPlatforms;
     }
 
-    function splitWithClientReward(
+    function getSplitsWithClientReward(
         uint256 totalFeePercent,
         uint256 clientRewardPercent,
         uint256 pledgedAmountByOrigin,
@@ -87,7 +87,7 @@ contract CampaignInfo is Ownable {
             (clientRewardPercent + reachFeePercent)) / percentDivider;
         return (
             feeByOrigin,
-            splitProportionately(reachFeePercent, pledgedAmountsByReach)
+            getSplitsProportionately(reachFeePercent, pledgedAmountsByReach)
         );
     }
 
@@ -267,7 +267,7 @@ contract CampaignInfo is Ownable {
     //             tempReachPlatforms[i - 1]
     //         );
     //     }
-    //     uint256[] memory feeShareByPlatforms = splitProportionately(
+    //     uint256[] memory feeShareByPlatforms = getSplitsProportionately(
     //         clientTotalFeePercent,
     //         pledgedAmountByPlatforms
     //     );
@@ -292,7 +292,7 @@ contract CampaignInfo is Ownable {
         pledgedAmountByPlatforms[
             tempReachPlatforms.length
         ] = getPledgedAmountForClientCrypto(campaign.originPlatform);
-        uint256[] memory feeShareByPlatforms = splitProportionately(
+        uint256[] memory feeShareByPlatforms = getSplitsProportionately(
             clientTotalFeePercent,
             pledgedAmountByPlatforms
         );
@@ -335,7 +335,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = splitWithClientReward(
+        ) = getSplitsWithClientReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
