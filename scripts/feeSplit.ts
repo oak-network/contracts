@@ -47,6 +47,9 @@ async function main() {
     const initialize = await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
     await initialize.wait();
 
+    const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
+    const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
+
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
     const goalAmount = 100000;
@@ -82,14 +85,15 @@ async function main() {
     const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
     const campaignInfo = new ethers.Contract(newCampaignInfoAddress, campaignInfoArtifact.abi, owner);
 
-    console.log("The CampaignInfo: " + campaignInfo);
+    //console.log("The CampaignInfo: " + campaignInfo);
 
-    let setTreasuryAndToken = await campaignInfo.setTreasuryAndToken(
+    let setClientInfo = await campaignInfo.setClientInfo(
         originPlatform,
+        clientWallet1,
         campaignTreasury.address,
         testUSD.address
     );
-    await setTreasuryAndToken.wait();
+    await setClientInfo.wait();
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
 
     console.log(`Deploying the Treasury for Reach platform...`);
@@ -103,21 +107,25 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
-    setTreasuryAndToken = await campaignInfo.setTreasuryAndToken(
+    setClientInfo = await campaignInfo.setClientInfo(
         reachPlatforms[0],
+        clientWallet2,
         campaignTreasury2.address,
         testUSD.address
     );
-    await setTreasuryAndToken.wait();
+    await setClientInfo.wait();
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, 1000000);
     await increaseAllowance.wait();
     let pledge = await campaignInfo.pledge(reachPlatforms[0], 51000);
     await pledge.wait();
+    console.log(`Pledged 51000 to reachPlatform`);
     pledge = await campaignInfo.pledge(originPlatform, 30000);
     await pledge.wait();
-    const { rewardedFee, otherPlatformFees } = await campaignInfo.splitFeeWithRewards(500, 100);
+    console.log(`Pledged 30000 to originPlatform`);
+    //const [ rewardedFee, otherPlatformFees ] = 
+    await campaignInfo.splitFeeWithRewards(500, 100);
     console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
     console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
 }
