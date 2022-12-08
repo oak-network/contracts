@@ -119,7 +119,7 @@ async function main() {
     await setClientInfo.wait();
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
-    const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, 1000000);
+    const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount*2);
     await increaseAllowance.wait();
     
     //Commented the followings for demo setup
