@@ -4,6 +4,8 @@ pragma solidity ^0.8.9;
 import "./CampaignRegistry.sol";
 import "./CampaignInfo.sol";
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 contract CampaignTreasury {
     address registryAddress;
     address infoAddress;
@@ -22,6 +24,14 @@ contract CampaignTreasury {
         clientId = _clientId;
     }
 
+    modifier onlyCampaignInfo() {
+        require(
+            msg.sender == infoAddress,
+            "CampaignTreasury: Caller is not CampaignInfo contract"
+        );
+        _;
+    }
+
     function getClientId() public view returns (bytes32) {
         return clientId;
     }
@@ -31,7 +41,7 @@ contract CampaignTreasury {
     }
 
     function getClientFee() public view returns (uint256) {
-        return pledgedAmount * clientFeePercent / percentDivider;
+        return (pledgedAmount * clientFeePercent) / percentDivider;
     }
 
     function getTotalCollectableByCreator() public view returns (uint256) {
@@ -51,5 +61,13 @@ contract CampaignTreasury {
             CampaignRegistry(registryAddress).getOracleAddress() == msg.sender
         );
         pledgedAmount = _pledgedAmount;
+    }
+
+    function disburseFeeToClient(
+        address _client,
+        address _token,
+        uint256 _amount
+    ) public onlyCampaignInfo {
+        IERC20(_token).transfer(_client, _amount);
     }
 }
