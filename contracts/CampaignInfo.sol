@@ -34,6 +34,7 @@ contract CampaignInfo is Ownable {
 
     mapping(bytes32 => address) treasuryAddress;
     mapping(bytes32 => address) tokens;
+    mapping(bytes32 => address) clientWallet;
 
     constructor(
         string memory _identifier,
@@ -192,12 +193,14 @@ contract CampaignInfo is Ownable {
         campaign.deadline = _deadline;
     }
 
-    function setTreasuryAndToken(
+    function setClientInfo(
         bytes32 _clientId,
-        address _treasuryAddress,
+        address _clientWallet,
+        address _treasury,
         address _token
     ) external onlyRegistryOwner {
-        treasuryAddress[_clientId] = _treasuryAddress;
+        clientWallet[_clientId] = _clientWallet;
+        treasuryAddress[_clientId] = _treasury;
         tokens[_clientId] = _token;
     }
 
@@ -221,6 +224,28 @@ contract CampaignInfo is Ownable {
         }
     }
 
+    function disburseFee(bytes32 _clientId, uint256 _feeShare) internal {
+        if (_feeShare > 0 && treasuryAddress[_clientId] != address(0)) {
+            CampaignTreasury(treasuryAddress[_clientId]).disburseFeeToClient(
+                clientWallet[_clientId],
+                tokens[_clientId],
+                _feeShare
+            );
+        }
+    }
+
+    function disburseFees(
+        bytes32[] memory _clientIds,
+        uint256[] memory _feeShares
+    ) internal {
+        uint256 length = _clientIds.length;
+        bytes32 tempClient;
+        for (uint256 i = 0; i < length; i++) {
+            tempClient = _clientIds[i];
+            disburseFee(tempClient, _feeShares[i]);
+        }
+    }
+
     function getPledgedAmountForClientCrypto(
         bytes32 clientId
     ) public view treasuryIsSet(clientId) returns (uint256) {
@@ -230,7 +255,9 @@ contract CampaignInfo is Ownable {
     function splitFeeWithRewards(
         uint256 feePercent,
         uint256 rewardPercent
-    ) public view rewardClientIsSet returns (uint256, uint256[] memory) {
+    ) public rewardClientIsSet 
+    //returns (uint256, uint256[] memory) 
+    {
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
                 rewardedClient
             );
@@ -239,6 +266,7 @@ contract CampaignInfo is Ownable {
             tempReachPlatforms.length
         );
         bytes32 tempOriginPlatform = campaign.originPlatform;
+        bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
         if (rewardedClient == tempOriginPlatform) {
             for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
                 pledgedAmountByOtherPlatforms[
@@ -250,8 +278,10 @@ contract CampaignInfo is Ownable {
             pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(
                 tempOriginPlatform
             );
-            for (i = 1; i < tempReachPlatforms.length; i++) {
+            platforms[i] = tempOriginPlatform;
+            for (i = 1; i <= tempReachPlatforms.length; i++) {
                 if (tempReachPlatforms[i - 1] != rewardedClient) {
+                    platforms[i] = tempReachPlatforms[i - 1];
                     pledgedAmountByOtherPlatforms[
                         i
                     ] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
@@ -267,6 +297,8 @@ contract CampaignInfo is Ownable {
                 pledgedAmountByRewardedPlatform,
                 pledgedAmountByOtherPlatforms
             );
-        return (feeShareByRewardedPlatform, feeShareByOtherPlatforms);
+        disburseFee(rewardedClient, feeShareByRewardedPlatform);
+        disburseFees(platforms, feeShareByOtherPlatforms);
+        //return (feeShareByRewardedPlatform, feeShareByOtherPlatforms);
     }
 }
