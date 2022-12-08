@@ -15,10 +15,10 @@ contract CampaignInfo is Ownable {
     struct CampaignData {
         string identifier;
         bytes32 originPlatform;
-        uint64 goalAmount;
-        uint64 launchTime;
-        uint64 createdAt;
-        uint64 deadline;
+        uint256 goalAmount;
+        uint256 launchTime;
+        uint256 createdAt;
+        uint256 deadline;
         string creatorUrl;
         bytes32[] reachPlatforms;
     }
@@ -41,9 +41,9 @@ contract CampaignInfo is Ownable {
     constructor(
         string memory _identifier,
         bytes32 _originPlatform,
-        uint64 _goalAmount,
-        uint64 _launchTime,
-        uint64 _deadline,
+        uint256 _goalAmount,
+        uint256 _launchTime,
+        uint256 _deadline,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform,
         address _registryAddress
@@ -53,7 +53,7 @@ contract CampaignInfo is Ownable {
         campaign.originPlatform = _originPlatform;
         campaign.goalAmount = _goalAmount;
         campaign.launchTime = _launchTime;
-        campaign.createdAt = uint64(block.timestamp);
+        campaign.createdAt = uint256(block.timestamp);
         campaign.deadline = _deadline;
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatform;
@@ -112,7 +112,7 @@ contract CampaignInfo is Ownable {
     function getCampaignData()
         public
         view
-        returns (string memory, uint64, uint64, uint64, uint64, string memory)
+        returns (string memory, uint256, uint256, uint256, uint256, string memory)
     {
         return (
             campaign.identifier,
@@ -185,12 +185,12 @@ contract CampaignInfo is Ownable {
         return treasuryAddress[clientId];
     }
 
-    function editLaunchTime(uint64 _launchTime) external onlyRegistryOwner {
+    function editLaunchTime(uint256 _launchTime) external onlyRegistryOwner {
         require(_launchTime + 30 days < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(uint64 _deadline) external onlyRegistryOwner {
+    function editDeadline(uint256 _deadline) external onlyRegistryOwner {
         require(_deadline - 30 days > campaign.launchTime);
         campaign.deadline = _deadline;
     }

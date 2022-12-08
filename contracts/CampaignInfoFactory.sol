@@ -24,9 +24,9 @@ contract CampaignInfoFactory is Ownable {
     function createCampaign(
         string memory _identifier,
         bytes32 _originPlatform,
-        uint64 _goalAmount,
-        uint64 _launchTime,
-        uint64 _deadline,
+        uint256 _goalAmount,
+        uint256 _launchTime,
+        uint256 _deadline,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform
     ) external onlyOwner {
