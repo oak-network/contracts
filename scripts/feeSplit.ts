@@ -50,9 +50,9 @@ async function main() {
     // Parameters
     const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
     const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
-    const pledge1 = 51000;
-    const pledge2 = 30000;
-    const goalAmount = 100000;
+    const pledge1 = ethers.utils.parseEther("50000");
+    const pledge2 = ethers.utils.parseEther("50000");
+    const goalAmount = ethers.utils.parseEther("110000");
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
@@ -79,7 +79,6 @@ async function main() {
     );
 
     await campaignTreasury.deployed();
-
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
     
@@ -124,17 +123,35 @@ async function main() {
     
     //Commented the followings for demo setup
     
-    // let pledge = await campaignInfo.pledge(reachPlatforms[0], pledge1);
-    // await pledge.wait();
+    // let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], pledge1);
+    // await pledgeThroughClient.wait();
     // console.log(`Pledged ${pledge1} to reachPlatform`);
-    // pledge = await campaignInfo.pledge(originPlatform, pledge2);
-    // await pledge.wait();
+    // pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
+    // await pledgeThroughClient.wait();
     // console.log(`Pledged ${pledge2} to originPlatform`);
+    
+    // const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
+    // console.log(`Treasury1 ${treasury1Balance}`);
+    // const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
+    // console.log(`Treasury2 ${treasury2Balance}`);
+
+    // Proportional fee split with the lifecycle of fundraising
+    
     // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
     // await splitFeeWithRewards.wait();
     // console.log(`Fee splits disbursed to client wallets!`);
-    //console.log(`Fee share for the rewarded platform is ${rewardedFee}`);
-    //console.log(`Fee share for the other platforms are ${otherPlatformFees}`);
+
+    // Proportional fee split
+    // const disburseFee = await campaignInfo.disburseFee(originPlatform, 1000);
+    // await disburseFee.wait();
+    // const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
+    // await splitFeesProportionately.wait();
+    // console.log(`Fee splits disbursed to client wallets!`);
+    const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
+    const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
+    console.log(`tUSD balance of client clientWallet ${clientWallet1Balance}`);
+    console.log(`tUSD balance of client clientWallet ${clientWallet2Balance}`);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
