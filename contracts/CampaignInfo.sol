@@ -31,7 +31,7 @@ contract CampaignInfo is Ownable {
     uint256 denominator = 2;
     bytes32 rewardedClient;
     uint256 constant percentDivider = 10000;
-    uint256 totalFeePercent = 500;
+    uint256 clientTotalFeePercent = 500;
     uint256 rewardClientPercent = 100;
 
     mapping(bytes32 => address) treasuryAddress;
@@ -255,7 +255,7 @@ contract CampaignInfo is Ownable {
     }
 
     function splitFeeWithRewards() public rewardClientIsSet {
-        uint256 feePercent = totalFeePercent;
+        uint256 feePercent = clientTotalFeePercent;
         uint256 rewardPercent = rewardClientPercent;
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
                 rewardedClient
