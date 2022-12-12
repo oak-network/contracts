@@ -362,5 +362,28 @@ contract CampaignInfo is Ownable {
         uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
             tempReachPlatforms.length
         );
+                bytes32 tempOriginPlatform = campaign.originPlatform;
+        bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
+        if (rewardedClient == tempOriginPlatform) {
+            for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
+                pledgedAmountByOtherPlatforms[
+                    i
+                ] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
+            }
+        } else {
+            uint256 i = 0;
+            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForClientCrypto(
+                tempOriginPlatform
+            );
+            platforms[i] = tempOriginPlatform;
+            for (i = 1; i <= tempReachPlatforms.length; i++) {
+                if (tempReachPlatforms[i - 1] != rewardedClient) {
+                    platforms[i] = tempReachPlatforms[i - 1];
+                    pledgedAmountByOtherPlatforms[
+                        i
+                    ] = getPledgedAmountForClientCrypto(tempReachPlatforms[i]);
+                }
+            }
+        }
     }
 }
