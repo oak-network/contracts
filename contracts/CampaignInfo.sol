@@ -344,4 +344,14 @@ contract CampaignInfo is Ownable {
         disburseFee(rewardedClient, feeShareByRewardedPlatform);
         disburseFees(platforms, feeShareByOtherPlatforms);
     }
+
+    function splitFeeWithVelocityOfFundraising(
+        uint256 feePercent,
+        uint256 rewardPercent)
+        public
+        view 
+        returns (uint256, uint256[] memory)
+    {
+        
+    }
 }
