@@ -13,8 +13,8 @@ async function main() {
     // Parameters
     const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
     const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
-    const pledge1 = Number(100 * 1e18).toString()
-    const pledge2 = Number(100 * 1e18).toString()
+    const pledge1 = Number(50 * 1e18).toString()
+    const pledge2 = Number(70 * 1e18).toString()
     const goalAmount = Number(500 * 1e18).toString()
     const testPreMint = Number(500 * 1e18).toString()
 
@@ -155,8 +155,8 @@ async function main() {
     // console.log(`Fee splits disbursed to client wallets!`);
     // const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
     // const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
-    // console.log(`tUSD balance of client clientWallet ${clientWallet1Balance}`);
-    // console.log(`tUSD balance of client clientWallet ${clientWallet2Balance}`);
+    // console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
+    // console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
 
 }
 
