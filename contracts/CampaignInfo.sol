@@ -112,7 +112,14 @@ contract CampaignInfo is Ownable {
     function getCampaignData()
         public
         view
-        returns (string memory, uint256, uint256, uint256, uint256, string memory)
+        returns (
+            string memory,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            string memory
+        )
     {
         return (
             campaign.identifier,
@@ -345,13 +352,15 @@ contract CampaignInfo is Ownable {
         disburseFees(platforms, feeShareByOtherPlatforms);
     }
 
-    function splitFeeWithVelocityOfFundraising(
-        uint256 feePercent,
-        uint256 rewardPercent)
-        public
-        view 
-        returns (uint256, uint256[] memory)
-    {
-        
+    function splitFeeWithVelocityOfFundraising() public rewardClientIsSet {
+        uint256 feePercent = clientTotalFeePercent;
+        uint256 rewardPercent = rewardClientPercent;
+        uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForClientCrypto(
+                rewardedClient
+            );
+        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
+            tempReachPlatforms.length
+        );
     }
 }
