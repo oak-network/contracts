@@ -362,7 +362,7 @@ contract CampaignInfo is Ownable {
         uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
             tempReachPlatforms.length
         );
-                bytes32 tempOriginPlatform = campaign.originPlatform;
+        bytes32 tempOriginPlatform = campaign.originPlatform;
         bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
         if (rewardedClient == tempOriginPlatform) {
             for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
@@ -385,5 +385,16 @@ contract CampaignInfo is Ownable {
                 }
             }
         }
+        (
+            uint256 feeShareByRewardedPlatform,
+            uint256[] memory feeShareByOtherPlatforms
+        ) = getSplitsWithClientReward(
+                feePercent,
+                rewardPercent,
+                pledgedAmountByRewardedPlatform,
+                pledgedAmountByOtherPlatforms
+            );
+        disburseFee(rewardedClient, feeShareByRewardedPlatform);
+        disburseFees(platforms, feeShareByOtherPlatforms);
     }
 }
