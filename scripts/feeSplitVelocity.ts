@@ -47,6 +47,11 @@ async function main() {
 
     await mint.wait();
 
+    const setRegistry = await campaignInfoFactory.setRegistry(campaignRegistry.address);
+    await setRegistry.wait();
+    const initialize = await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
+    await initialize.wait();
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
