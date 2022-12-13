@@ -33,6 +33,7 @@ contract CampaignInfo is Ownable {
     uint256 constant percentDivider = 10000;
     uint256 clientTotalFeePercent = 500;
     uint256 rewardClientPercent = 100;
+    uint256 specifiedTime;
 
     mapping(bytes32 => address) treasuryAddress;
     mapping(bytes32 => address) tokens;
@@ -58,6 +59,7 @@ contract CampaignInfo is Ownable {
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
+        specifiedTime = uint256(block.timestamp + 1);
     }
 
     function getSplitsProportionately(
@@ -219,9 +221,10 @@ contract CampaignInfo is Ownable {
 
     function pledgeThroughClient(bytes32 clientId, uint256 amount) public {
         if (
+            !rewardClientSet &&
             getPledgedAmountForClientCrypto(clientId) >=
             campaign.goalAmount / denominator &&
-            !rewardClientSet
+            block.timestamp >= specifiedTime
         ) {
             rewardClientSet = true;
             rewardedClient = clientId;
