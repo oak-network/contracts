@@ -52,6 +52,72 @@ async function main() {
     const initialize = await campaignRegistry.initialize(campaignInfoFactory.address, campaignOracle.address);
     await initialize.wait();
 
+    const identifier = "/sampleproject";
+    const originPlatform = getHexString("Kickstarter");
+    const launchTime = 1666753961;
+    const deadline = 1672002761;
+    const creatorUrl = "/samplecreatorurl/jsdkfjs";
+    const reachPlatforms = [
+        getHexString("Weirdstarter")
+    ];
+
+    console.log(originPlatform);
+    console.log(reachPlatforms[0]);
+
+    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
+    
+    const result = await tx.wait()
+    const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
+
+    console.log(`CampaignInfo created at ${newCampaignInfoAddress} using CampaignInfoFactory`);
+
+    console.log(`Deploying the Treasury for Origin platform...`);
+    const campaignTreasuryFactory = await ethers.getContractFactory("CampaignTreasury");
+    const campaignTreasury: CampaignTreasury = await campaignTreasuryFactory.deploy(
+        campaignRegistry.address,
+        newCampaignInfoAddress,
+        originPlatform
+    );
+
+    await campaignTreasury.deployed();
+
+    console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
+    
+    const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
+    const campaignInfo = new ethers.Contract(newCampaignInfoAddress, campaignInfoArtifact.abi, owner);
+
+    let setClientInfo = await campaignInfo.setClientInfo(
+        originPlatform,
+        clientWallet1,
+        campaignTreasury.address,
+        testUSD.address
+    );
+    await setClientInfo.wait();
+    console.log(`Treasury address set for Origin platform in CampaignInfo...`);
+
+    console.log(`Deploying the Treasury for Reach platform...`);
+    const campaignTreasury2: CampaignTreasury = await campaignTreasuryFactory.deploy(
+        campaignRegistry.address,
+        newCampaignInfoAddress,
+        reachPlatforms[0]
+    );
+
+    await campaignTreasury2.deployed();
+
+    console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
+
+    setClientInfo = await campaignInfo.setClientInfo(
+        reachPlatforms[0],
+        clientWallet2,
+        campaignTreasury2.address,
+        testUSD.address
+    );
+    await setClientInfo.wait();
+    console.log(`Treasury address set for reach platform in CampaignInfo`);
+
+    const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount);
+    await increaseAllowance.wait();
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
