@@ -117,6 +117,17 @@ async function main() {
 
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount);
     await increaseAllowance.wait();
+        
+    let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], pledge1);
+    await pledgeThroughClient.wait();
+    console.log(`Pledged ${pledge1} to reachPlatform`);
+    pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
+    console.log(`Pledged ${pledge2} to originPlatform`);
+    
+    const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
+    console.log(`Treasury1 ${treasury1Balance}`);
+    const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
+    console.log(`Treasury2 ${treasury2Balance}`);
 
 }
 
