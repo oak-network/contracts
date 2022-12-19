@@ -122,6 +122,7 @@ async function main() {
     await pledgeThroughClient.wait();
     console.log(`Pledged ${pledge1} to reachPlatform`);
     pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
+    await pledgeThroughClient.wait();
     console.log(`Pledged ${pledge2} to originPlatform`);
     
     const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
