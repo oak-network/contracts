@@ -135,6 +135,12 @@ async function main() {
     const splitFeeWithVelocityOfFundraising = await campaignInfo.splitFeeWithVelocityOfFundraising();
     await splitFeeWithVelocityOfFundraising.wait();
     console.log(`Fee splits disbursed to client wallets!`);
+
+    const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
+    const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
+    console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
+    console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere
