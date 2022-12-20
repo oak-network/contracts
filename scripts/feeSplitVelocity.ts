@@ -130,6 +130,11 @@ async function main() {
     const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
     console.log(`Treasury2 ${treasury2Balance}`);
 
+    // Proportional fee split with the velocity of fundraising
+    
+    const splitFeeWithVelocityOfFundraising = await campaignInfo.splitFeeWithVelocityOfFundraising();
+    await splitFeeWithVelocityOfFundraising.wait();
+    console.log(`Fee splits disbursed to client wallets!`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
