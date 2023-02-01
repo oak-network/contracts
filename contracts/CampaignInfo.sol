@@ -59,10 +59,10 @@ contract CampaignInfo is Ownable {
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
-        specifiedTime = uint256(block.timestamp + 1);
+        specifiedTime = block.timestamp;
     }
 
-    function getSplitsProportionately(
+    function getFeeSplitsProportionately(
         uint256 feePercent,
         uint256[] memory pledgedAmountByPlatforms
     ) public pure returns (uint256[] memory) {
@@ -76,7 +76,7 @@ contract CampaignInfo is Ownable {
         return feeShareByPlatforms;
     }
 
-    function getSplitsWithClientReward(
+    function getFeeSplitsProportionatelyWithPlatformReward(
         uint256 totalFeePercent,
         uint256 clientRewardPercent,
         uint256 pledgedAmountByOrigin,
@@ -89,7 +89,7 @@ contract CampaignInfo is Ownable {
             (clientRewardPercent + reachFeePercent)) / percentDivider;
         return (
             feeByOrigin,
-            getSplitsProportionately(reachFeePercent, pledgedAmountsByReach)
+            getFeeSplitsProportionately(reachFeePercent, pledgedAmountsByReach)
         );
     }
 
@@ -277,7 +277,7 @@ contract CampaignInfo is Ownable {
     //             tempReachPlatforms[i - 1]
     //         );
     //     }
-    //     uint256[] memory feeShareByPlatforms = getSplitsProportionately(
+    //     uint256[] memory feeShareByPlatforms = getFeeSplitsProportionately(
     //         clientTotalFeePercent,
     //         pledgedAmountByPlatforms
     //     );
@@ -302,7 +302,7 @@ contract CampaignInfo is Ownable {
         pledgedAmountByPlatforms[
             tempReachPlatforms.length
         ] = getPledgedAmountForClientCrypto(campaign.originPlatform);
-        uint256[] memory feeShareByPlatforms = getSplitsProportionately(
+        uint256[] memory feeShareByPlatforms = getFeeSplitsProportionately(
             clientTotalFeePercent,
             pledgedAmountByPlatforms
         );
@@ -345,7 +345,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = getSplitsWithClientReward(
+        ) = getFeeSplitsProportionatelyWithPlatformReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
@@ -391,7 +391,7 @@ contract CampaignInfo is Ownable {
         (
             uint256 feeShareByRewardedPlatform,
             uint256[] memory feeShareByOtherPlatforms
-        ) = getSplitsWithClientReward(
+        ) = getFeeSplitsProportionatelyWithPlatformReward(
                 feePercent,
                 rewardPercent,
                 pledgedAmountByRewardedPlatform,
