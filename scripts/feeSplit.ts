@@ -148,8 +148,7 @@ async function main() {
     // console.log(`Fee splits disbursed to client wallets!`);
 
     // Proportional fee split
-//    const disburseFee = await campaignInfo.disburseFee(originPlatform, goalAmount);
-//    await disburseFee.wait();
+
     // const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
     // await splitFeesProportionately.wait();
     // console.log(`Fee splits disbursed to client wallets!`);
