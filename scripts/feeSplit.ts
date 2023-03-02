@@ -123,36 +123,35 @@ async function main() {
     
     // Pledge in reach & origin
     
-    // let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], pledge1);
-    // await pledgeThroughClient.wait();
-    // console.log(`Pledged ${pledge1} to reachPlatform`);
-    // pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
-    // await pledgeThroughClient.wait();
-    // console.log(`Pledged ${pledge2} to originPlatform`);
+    let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], pledge1);
+    await pledgeThroughClient.wait();
+    console.log(`Pledged ${pledge1} to reachPlatform`);
+    pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
+    await pledgeThroughClient.wait();
+    console.log(`Pledged ${pledge2} to originPlatform`);
     
     // Check pledged amounts in origin & reach
 
-    // const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
-    // console.log(`Treasury1 ${treasury1Balance}`);
-    // const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
-    // console.log(`Treasury2 ${treasury2Balance}`);
+    const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
+    console.log(`Treasury1 ${treasury1Balance}`);
+    const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
+    console.log(`Treasury2 ${treasury2Balance}`);
 
     // Proportional fee split
 
-    // const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
-    // await splitFeesProportionately.wait();
-    // console.log(`Fee splits disbursed to client wallets!`);
-    // const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
-    // const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
-    // console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
-    // console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
+    const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
+    await splitFeesProportionately.wait();
+    console.log(`Fee splits disbursed to client wallets!`);
+    const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
+    const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
+    console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
+    console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
 
     // Proportional fee split with the lifecycle of fundraising
     
     // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
     // await splitFeeWithRewards.wait();
     // console.log(`Fee splits disbursed to client wallets!`);
-
 
 }
 
