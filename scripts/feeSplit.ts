@@ -6,10 +6,6 @@ import { library } from "../typechain-types/contracts";
 async function main() {
     const [owner] = await ethers.getSigners()
 
-    // const feeSplitLibraryFactory = await ethers.getContractFactory("FeeSplit");
-    // const feeSplitLibrary: FeeSplit = await feeSplitLibraryFactory.deploy();
-
-
     // Parameters
     const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
     const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
@@ -59,8 +55,8 @@ async function main() {
 
     const identifier = "/sampleproject";
     const originPlatform = getHexString("Kickstarter");
-    const launchTime = 1666753961;
-    const deadline = 1672002761;
+    const launchTime = 1677379317;
+    const deadline = 1681267317;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
     const reachPlatforms = [
         getHexString("Weirdstarter")
@@ -88,8 +84,6 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury.address}`);
     
-    // const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
-    // const campaignInfo: any = await ethers.getContractFactoryFromArtifact(campaignInfoArtifact, newCampaignInfoAddress);
     const campaignInfoArtifact = await artifacts.readArtifact("CampaignInfo");
     const campaignInfo = new ethers.Contract(newCampaignInfoAddress, campaignInfoArtifact.abi, owner);
 
@@ -141,12 +135,6 @@ async function main() {
     // const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
     // console.log(`Treasury2 ${treasury2Balance}`);
 
-    // Proportional fee split with the lifecycle of fundraising
-    
-    // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
-    // await splitFeeWithRewards.wait();
-    // console.log(`Fee splits disbursed to client wallets!`);
-
     // Proportional fee split
 
     // const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
@@ -156,6 +144,13 @@ async function main() {
     // const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
     // console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
     // console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
+
+    // Proportional fee split with the lifecycle of fundraising
+    
+    // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
+    // await splitFeeWithRewards.wait();
+    // console.log(`Fee splits disbursed to client wallets!`);
+
 
 }
 
