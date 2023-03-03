@@ -219,7 +219,11 @@ contract CampaignInfo is Ownable {
         campaign.reachPlatforms.push(_clientId);
     }
 
-    function pledgeThroughClient(bytes32 clientId, uint256 amount) public {
+    function pledgeThroughClient(
+        bytes32 clientId,
+        address backer,
+        uint256 amount
+    ) public {
         if (
             !rewardClientSet &&
             getPledgedAmountForClientCrypto(clientId) >=
@@ -230,7 +234,7 @@ contract CampaignInfo is Ownable {
             rewardedClient = clientId;
         }
         IERC20(tokens[clientId]).transferFrom(
-            msg.sender,
+            backer,
             treasuryAddress[clientId],
             amount
         );
