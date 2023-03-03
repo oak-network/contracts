@@ -123,10 +123,10 @@ async function main() {
     
     // Pledge in reach & origin
     
-    let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], pledge1);
+    let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], owner.address, pledge1);
     await pledgeThroughClient.wait();
     console.log(`Pledged ${pledge1} to reachPlatform`);
-    pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, pledge2);
+    pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, owner.address, pledge2);
     await pledgeThroughClient.wait();
     console.log(`Pledged ${pledge2} to originPlatform`);
     
