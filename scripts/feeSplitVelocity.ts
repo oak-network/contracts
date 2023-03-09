@@ -118,16 +118,16 @@ async function main() {
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount);
     await increaseAllowance.wait();
         
-    let pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(reachPlatforms[0], pledge1);
-    await pledgeThroughplatform.wait();
+    let pledgeThroughPlatform = await campaignInfo.pledgeThroughPlatform(reachPlatforms[0], pledge1);
+    await pledgeThroughPlatform.wait();
     console.log(`Pledged ${pledge1} to reachPlatform`);
-    pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(originPlatform, pledge2);
-    await pledgeThroughplatform.wait();
+    pledgeThroughPlatform = await campaignInfo.pledgeThroughPlatform(originPlatform, pledge2);
+    await pledgeThroughPlatform.wait();
     console.log(`Pledged ${pledge2} to originPlatform`);
     
-    const treasury1Balance = campaignInfo.getPledgedAmountForplatformCrypto(originPlatform);
+    const treasury1Balance = campaignInfo.getPledgedAmountForPlatformCrypto(originPlatform);
     console.log(`Treasury1 ${treasury1Balance}`);
-    const treasury2Balance = campaignInfo.getPledgedAmountForplatformCrypto(reachPlatforms[0]);
+    const treasury2Balance = campaignInfo.getPledgedAmountForPlatformCrypto(reachPlatforms[0]);
     console.log(`Treasury2 ${treasury2Balance}`);
 
     // Proportional fee split with the velocity of fundraising

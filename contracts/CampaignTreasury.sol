@@ -63,7 +63,7 @@ contract CampaignTreasury {
         pledgedAmount = _pledgedAmount;
     }
 
-    function disburseFeeToplatform(
+    function disburseFeeToPlatform(
         address _platform,
         address _token,
         uint256 _amount

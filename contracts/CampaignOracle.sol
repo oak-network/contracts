@@ -24,7 +24,7 @@ contract CampaignOracle is Ownable {
         return CampaignInfo(campaignAddress).getTotalPledgedAmount();
     }
 
-    function setPledgedAmountForplatform(
+    function setPledgedAmountForPlatform(
         bytes32 platformId,
         address campaignAddress,
         uint256 pledgedAmount

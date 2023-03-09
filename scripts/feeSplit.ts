@@ -123,18 +123,18 @@ async function main() {
     
     // Pledge in reach & origin
     
-    let pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(reachPlatforms[0], owner.address, pledge1);
-    await pledgeThroughplatform.wait();
+    let pledgeThroughPlatform = await campaignInfo.pledgeThroughPlatform(reachPlatforms[0], owner.address, pledge1);
+    await pledgeThroughPlatform.wait();
     console.log(`Pledged ${pledge1} to reachPlatform`);
-    pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(originPlatform, owner.address, pledge2);
-    await pledgeThroughplatform.wait();
+    pledgeThroughPlatform = await campaignInfo.pledgeThroughPlatform(originPlatform, owner.address, pledge2);
+    await pledgeThroughPlatform.wait();
     console.log(`Pledged ${pledge2} to originPlatform`);
     
     // Check pledged amounts in origin & reach
 
-    const treasury1Balance = campaignInfo.getPledgedAmountForplatformCrypto(originPlatform);
+    const treasury1Balance = campaignInfo.getPledgedAmountForPlatformCrypto(originPlatform);
     console.log(`Treasury1 ${treasury1Balance}`);
-    const treasury2Balance = campaignInfo.getPledgedAmountForplatformCrypto(reachPlatforms[0]);
+    const treasury2Balance = campaignInfo.getPledgedAmountForPlatformCrypto(reachPlatforms[0]);
     console.log(`Treasury2 ${treasury2Balance}`);
 
     // Proportional fee split
