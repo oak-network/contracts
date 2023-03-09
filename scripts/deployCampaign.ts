@@ -77,28 +77,28 @@ async function main() {
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
     console.log(`Setting pledge data for origin platform in Oracle contract`);
-    await campaignOracle.setPledgedAmountForClient(
+    await campaignOracle.setPledgedAmountForplatform(
         getHexString("Kickstarter"),
         campaignInfo.address,
         "100000"
     );
 
     console.log(`Setting pledge data for reach platform in Oracle contract`);
-    await campaignOracle.setPledgedAmountForClient(
+    await campaignOracle.setPledgedAmountForplatform(
         getHexString("Weirdstarter"),
         campaignInfo.address,
         "100000"
     );
 
     console.log(`Reading pledge data from Oracle contract for origin platform...`);
-    const pledgeAmountForOrigin = await campaignOracle.getPledgedAmountForClient(
+    const pledgeAmountForOrigin = await campaignOracle.getPledgedAmountForplatform(
         getHexString("Kickstarter"),
         campaignInfo.address
     );
     console.log(`Current pledge amount for origin platform ${pledgeAmountForOrigin}`);
 
     console.log(`Reading pledge data from Oracle contract for reach platform...`);
-    const pledgeAmountForReach = await campaignOracle.getPledgedAmountForClient(
+    const pledgeAmountForReach = await campaignOracle.getPledgedAmountForplatform(
         getHexString("Weirdstarter"),
         campaignInfo.address
     );

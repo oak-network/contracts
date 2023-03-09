@@ -6,13 +6,13 @@ import "./CampaignRegistry.sol";
 import "./CampaignInfo.sol";
 
 contract CampaignOracle is Ownable {
-    function getPledgedAmountForClient(
-        bytes32 clientId,
+    function getPledgedAmountForplatform(
+        bytes32 platformId,
         address campaignAddress
     ) public view returns (uint256) {
         return
             CampaignTreasury(
-                CampaignInfo(campaignAddress).getTreasuryAddress(clientId)
+                CampaignInfo(campaignAddress).getTreasuryAddress(platformId)
             ).getPledgedAmount();
     }
 
@@ -24,13 +24,13 @@ contract CampaignOracle is Ownable {
         return CampaignInfo(campaignAddress).getTotalPledgedAmount();
     }
 
-    function setPledgedAmountForClient(
-        bytes32 clientId,
+    function setPledgedAmountForplatform(
+        bytes32 platformId,
         address campaignAddress,
         uint256 pledgedAmount
     ) external onlyOwner {
         CampaignTreasury(
-            CampaignInfo(campaignAddress).getTreasuryAddress(clientId)
+            CampaignInfo(campaignAddress).getTreasuryAddress(platformId)
         ).setPledgedAmount(pledgedAmount);
     }
 }

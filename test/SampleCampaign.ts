@@ -3,7 +3,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("Deploy a Sample Campaign and multilist across different clients", function() {
+describe("Deploy a Sample Campaign and multilist across different platforms", function() {
     async function deployBaseContractFixture() {
         const [owner] = await ethers.getSigners()
 

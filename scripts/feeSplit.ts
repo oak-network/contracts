@@ -7,8 +7,8 @@ async function main() {
     const [owner] = await ethers.getSigners()
 
     // Parameters
-    const clientWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
-    const clientWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
+    const platformWallet1 = "0xA2a6f51aF77c1bF8eB11fBE482D3e0F382105ee2";
+    const platformWallet2 = "0x63216f462174d815fc555496dD9dD5FC99395b7f";
     const pledge1 = Number(50 * 1e18).toString()
     const pledge2 = Number(70 * 1e18).toString()
     const goalAmount = Number(500 * 1e18).toString()
@@ -89,13 +89,13 @@ async function main() {
 
     //console.log("The CampaignInfo: " + campaignInfo);
 
-    let setClientInfo = await campaignInfo.setClientInfo(
+    let setplatformInfo = await campaignInfo.setplatformInfo(
         originPlatform,
-        clientWallet1,
+        platformWallet1,
         campaignTreasury.address,
         testUSD.address
     );
-    await setClientInfo.wait();
+    await setplatformInfo.wait();
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
 
     console.log(`Deploying the Treasury for Reach platform...`);
@@ -109,13 +109,13 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
-    setClientInfo = await campaignInfo.setClientInfo(
+    setplatformInfo = await campaignInfo.setplatformInfo(
         reachPlatforms[0],
-        clientWallet2,
+        platformWallet2,
         campaignTreasury2.address,
         testUSD.address
     );
-    await setClientInfo.wait();
+    await setplatformInfo.wait();
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount);
@@ -123,35 +123,35 @@ async function main() {
     
     // Pledge in reach & origin
     
-    let pledgeThroughClient = await campaignInfo.pledgeThroughClient(reachPlatforms[0], owner.address, pledge1);
-    await pledgeThroughClient.wait();
+    let pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(reachPlatforms[0], owner.address, pledge1);
+    await pledgeThroughplatform.wait();
     console.log(`Pledged ${pledge1} to reachPlatform`);
-    pledgeThroughClient = await campaignInfo.pledgeThroughClient(originPlatform, owner.address, pledge2);
-    await pledgeThroughClient.wait();
+    pledgeThroughplatform = await campaignInfo.pledgeThroughplatform(originPlatform, owner.address, pledge2);
+    await pledgeThroughplatform.wait();
     console.log(`Pledged ${pledge2} to originPlatform`);
     
     // Check pledged amounts in origin & reach
 
-    const treasury1Balance = campaignInfo.getPledgedAmountForClientCrypto(originPlatform);
+    const treasury1Balance = campaignInfo.getPledgedAmountForplatformCrypto(originPlatform);
     console.log(`Treasury1 ${treasury1Balance}`);
-    const treasury2Balance = campaignInfo.getPledgedAmountForClientCrypto(reachPlatforms[0]);
+    const treasury2Balance = campaignInfo.getPledgedAmountForplatformCrypto(reachPlatforms[0]);
     console.log(`Treasury2 ${treasury2Balance}`);
 
     // Proportional fee split
 
     const splitFeesProportionately = await campaignInfo.splitFeesProportionately();
     await splitFeesProportionately.wait();
-    console.log(`Fee splits disbursed to client wallets!`);
-    const clientWallet1Balance = await testUSD.balanceOf(clientWallet1);
-    const clientWallet2Balance = await testUSD.balanceOf(clientWallet2);
-    console.log(`tUSD balance of client1 ${clientWallet1} ${clientWallet1Balance}`);
-    console.log(`tUSD balance of client2 ${clientWallet2} ${clientWallet2Balance}`);
+    console.log(`Fee splits disbursed to platform wallets!`);
+    const platformWallet1Balance = await testUSD.balanceOf(platformWallet1);
+    const platformWallet2Balance = await testUSD.balanceOf(platformWallet2);
+    console.log(`tUSD balance of platform1 ${platformWallet1} ${platformWallet1Balance}`);
+    console.log(`tUSD balance of platform2 ${platformWallet2} ${platformWallet2Balance}`);
 
     // Proportional fee split with the lifecycle of fundraising
     
     // const splitFeeWithRewards = await campaignInfo.splitFeeWithRewards();
     // await splitFeeWithRewards.wait();
-    // console.log(`Fee splits disbursed to client wallets!`);
+    // console.log(`Fee splits disbursed to platform wallets!`);
 
 }
 

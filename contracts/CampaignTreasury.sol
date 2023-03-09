@@ -9,19 +9,19 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract CampaignTreasury {
     address registryAddress;
     address infoAddress;
-    bytes32 clientId;
+    bytes32 platformId;
     uint256 pledgedAmount;
-    uint256 clientFeePercent;
+    uint256 platformFeePercent;
     uint256 constant percentDivider = 10000;
 
     constructor(
         address _registryAddress,
         address _infoAddress,
-        bytes32 _clientId
+        bytes32 _platformId
     ) {
         registryAddress = _registryAddress;
         infoAddress = _infoAddress;
-        clientId = _clientId;
+        platformId = _platformId;
     }
 
     modifier onlyCampaignInfo() {
@@ -32,28 +32,28 @@ contract CampaignTreasury {
         _;
     }
 
-    function getClientId() public view returns (bytes32) {
-        return clientId;
+    function getplatformId() public view returns (bytes32) {
+        return platformId;
     }
 
-    function getClientFeePercent() public view returns (uint256) {
-        return clientFeePercent;
+    function getplatformFeePercent() public view returns (uint256) {
+        return platformFeePercent;
     }
 
-    function getClientFee() public view returns (uint256) {
-        return (pledgedAmount * clientFeePercent) / percentDivider;
+    function getplatformFee() public view returns (uint256) {
+        return (pledgedAmount * platformFeePercent) / percentDivider;
     }
 
     function getTotalCollectableByCreator() public view returns (uint256) {
-        return pledgedAmount - getClientFee();
+        return pledgedAmount - getplatformFee();
     }
 
     function getPledgedAmount() public view returns (uint256) {
         return pledgedAmount;
     }
 
-    function setClientFeePercent(uint256 _clientFeePercent) public {
-        clientFeePercent = _clientFeePercent;
+    function setplatformFeePercent(uint256 _platformFeePercent) public {
+        platformFeePercent = _platformFeePercent;
     }
 
     function setPledgedAmount(uint256 _pledgedAmount) public {
@@ -63,11 +63,11 @@ contract CampaignTreasury {
         pledgedAmount = _pledgedAmount;
     }
 
-    function disburseFeeToClient(
-        address _client,
+    function disburseFeeToplatform(
+        address _platform,
         address _token,
         uint256 _amount
     ) public onlyCampaignInfo {
-        IERC20(_token).transfer(_client, _amount);
+        IERC20(_token).transfer(_platform, _amount);
     }
 }
