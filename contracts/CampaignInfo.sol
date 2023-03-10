@@ -221,12 +221,12 @@ contract CampaignInfo is Ownable {
     }
 
     function editLaunchTime(uint256 _launchTime) external onlyRegistryOwner {
-        require(_launchTime + 30 days < campaign.deadline);
+        require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
     function editDeadline(uint256 _deadline) external onlyRegistryOwner {
-        require(_deadline - 30 days > campaign.launchTime);
+        require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
