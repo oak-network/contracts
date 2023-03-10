@@ -116,6 +116,13 @@ contract CampaignInfo is Ownable {
         _;
     }
 
+    function getBackerPledgeInfoForAPlatform(
+        address backer,
+        bytes32 platformId
+    ) public view returns (uint256) {
+        return backerPledgeInfoForPlatforms[backer][platformId];
+    }
+
     function getCampaignData()
         public
         view
