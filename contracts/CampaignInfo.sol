@@ -235,6 +235,14 @@ contract CampaignInfo is Ownable, Pausible {
         campaign.goalAmount = _goalAmount;
     }
 
+    function pause() external onlyRegistryOwner {
+        _pause();
+    }
+
+    function unpause() external onlyRegistryOwner {
+        _unpause();
+    }
+
     function setplatformInfo(
         bytes32 _platformId,
         address _platformWallet,
