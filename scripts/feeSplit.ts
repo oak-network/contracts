@@ -57,6 +57,8 @@ async function main() {
     const originPlatform = getHexString("Kickstarter");
     const launchTime = 1677379317;
     const deadline = 1681267317;
+    const platformTotalFeePercent = 1000;
+    const rewardPlatformFeePercent = 0;
     const creatorUrl = "/samplecreatorurl/jsdkfjs";
     const reachPlatforms = [
         getHexString("Weirdstarter")
@@ -65,7 +67,7 @@ async function main() {
     console.log(originPlatform);
     console.log(reachPlatforms[0]);
 
-    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, creatorUrl, reachPlatforms);
+    const tx = await campaignInfoFactory.createCampaign(identifier, originPlatform, goalAmount, launchTime, deadline, platformTotalFeePercent, rewardPlatformFeePercent, creatorUrl, reachPlatforms);
     
     const result = await tx.wait()
     const newCampaignInfoAddress = result.events?.[1].args?.campaignInfoAddress;
@@ -89,13 +91,13 @@ async function main() {
 
     //console.log("The CampaignInfo: " + campaignInfo);
 
-    let setplatformInfo = await campaignInfo.setplatformInfo(
+    let setPlatformInfo = await campaignInfo.setPlatformInfo(
         originPlatform,
         platformWallet1,
         campaignTreasury.address,
         testUSD.address
     );
-    await setplatformInfo.wait();
+    await setPlatformInfo.wait();
     console.log(`Treasury address set for Origin platform in CampaignInfo...`);
 
     console.log(`Deploying the Treasury for Reach platform...`);
@@ -109,13 +111,13 @@ async function main() {
 
     console.log(`CampaignTreasury deployed to ${campaignTreasury2.address}`);
 
-    setplatformInfo = await campaignInfo.setplatformInfo(
+    setPlatformInfo = await campaignInfo.setPlatformInfo(
         reachPlatforms[0],
         platformWallet2,
         campaignTreasury2.address,
         testUSD.address
     );
-    await setplatformInfo.wait();
+    await setPlatformInfo.wait();
     console.log(`Treasury address set for reach platform in CampaignInfo`);
 
     const increaseAllowance = await testUSD.increaseAllowance(campaignInfo.address, goalAmount);
