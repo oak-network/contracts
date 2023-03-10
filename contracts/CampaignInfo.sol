@@ -2,13 +2,14 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausible.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
 
 //import "./library/FeeSplit.sol";
 
-contract CampaignInfo is Ownable {
+contract CampaignInfo is Ownable, Pausible {
     // using FeeSplit for uint256;
     // using FeeSplit for uint256[];
 
@@ -253,7 +254,7 @@ contract CampaignInfo is Ownable {
         bytes32 platformId,
         address backer,
         uint256 amount
-    ) public {
+    ) public whenNotPaused {
         if (
             !rewardplatformSet &&
             getPledgedAmountForPlatformCrypto(platformId) >=
