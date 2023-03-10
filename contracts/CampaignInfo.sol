@@ -2,14 +2,14 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausible.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
 
 //import "./library/FeeSplit.sol";
 
-contract CampaignInfo is Ownable, Pausible {
+contract CampaignInfo is Ownable, Pausable {
     // using FeeSplit for uint256;
     // using FeeSplit for uint256[];
 
@@ -27,8 +27,8 @@ contract CampaignInfo is Ownable, Pausible {
     CampaignData campaign;
     address registryAddress;
     bool rewardplatformSet;
+    bool ended;
     uint256 minCampaignTime;
-
 
     /* Hyperparameters */
     uint256 denominator = 2;
@@ -119,6 +119,11 @@ contract CampaignInfo is Ownable, Pausible {
 
     modifier rewardplatformIsSet() {
         require(rewardplatformSet, "CampaignInfo: Reward platform not set yet");
+        _;
+    }
+
+    modifier notEndedOrOver() {
+        require(!ended || block.timestamp < campaign.deadline, "CampaignInfo: Campaign ended");
         _;
     }
 
@@ -221,26 +226,30 @@ contract CampaignInfo is Ownable, Pausible {
         return treasuryAddress[platformId];
     }
 
-    function editLaunchTime(uint256 _launchTime) external onlyRegistryOwner {
+    function editLaunchTime(uint256 _launchTime) external notEndedOrOver onlyRegistryOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(uint256 _deadline) external onlyRegistryOwner {
+    function editDeadline(uint256 _deadline) external notEndedOrOver onlyRegistryOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
-    function editGoal(uint256 _goalAmount) external onlyRegistryOwner {
+    function editGoal(uint256 _goalAmount) external notEndedOrOver onlyRegistryOwner {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external onlyRegistryOwner {
+    function pause() external notEndedOrOver onlyRegistryOwner {
         _pause();
     }
 
-    function unpause() external onlyRegistryOwner {
+    function unpause() external notEndedOrOver onlyRegistryOwner {
         _unpause();
+    }
+
+    function end() external notEndedOrOver onlyRegistryOwner {
+        ended = true;
     }
 
     function setplatformInfo(
@@ -248,13 +257,13 @@ contract CampaignInfo is Ownable, Pausible {
         address _platformWallet,
         address _treasury,
         address _token
-    ) external onlyRegistryOwner {
+    ) external notEndedOrOver onlyRegistryOwner {
         platformWallet[_platformId] = _platformWallet;
         treasuryAddress[_platformId] = _treasury;
         tokens[_platformId] = _token;
     }
 
-    function addReachPlatform(bytes32 _platformId) external onlyRegistryOwner {
+    function addReachPlatform(bytes32 _platformId) external notEndedOrOver onlyRegistryOwner {
         campaign.reachPlatforms.push(_platformId);
     }
 
@@ -262,7 +271,7 @@ contract CampaignInfo is Ownable, Pausible {
         bytes32 platformId,
         address backer,
         uint256 amount
-    ) public whenNotPaused {
+    ) public notEndedOrOver whenNotPaused {
         if (
             !rewardplatformSet &&
             getPledgedAmountForPlatformCrypto(platformId) >=
