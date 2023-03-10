@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/rayedsikder/Documents/campaign-utils-contracts/contracts/CampaignInfo.sol": {
-      "lastModificationDate": 1678470397957,
-      "contentHash": "02281ae387898c23e21e88c1b7265fb9",
+      "lastModificationDate": 1678472497922,
+      "contentHash": "f6cefe06689ba0ae3acbff1185438843",
       "sourceName": "contracts/CampaignInfo.sol",
       "solcConfig": {
         "version": "0.8.9",
