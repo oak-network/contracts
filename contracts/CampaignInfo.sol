@@ -26,6 +26,8 @@ contract CampaignInfo is Ownable {
     CampaignData campaign;
     address registryAddress;
     bool rewardplatformSet;
+    uint256 minCampaignTime;
+
 
     /* Hyperparameters */
     uint256 denominator = 2;
@@ -52,7 +54,10 @@ contract CampaignInfo is Ownable {
         bytes32[] memory _reachPlatform,
         address _registryAddress
     ) {
-        require(_launchTime + 30 days < _deadline);
+        require(
+            _launchTime + minCampaignTime < _deadline,
+            "CampaignInfo: Minimum campaign duaration not met"
+        );
         campaign.identifier = _identifier;
         campaign.originPlatform = _originPlatform;
         campaign.goalAmount = _goalAmount;
@@ -223,6 +228,10 @@ contract CampaignInfo is Ownable {
     function editDeadline(uint256 _deadline) external onlyRegistryOwner {
         require(_deadline - 30 days > campaign.launchTime);
         campaign.deadline = _deadline;
+    }
+
+    function editGoal(uint256 _goalAmount) external onlyRegistryOwner {
+        campaign.goalAmount = _goalAmount;
     }
 
     function setplatformInfo(
