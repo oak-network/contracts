@@ -178,6 +178,13 @@ contract CampaignInfo is Ownable {
         return pledgedAmount;
     }
 
+    function getPledgedAmountForAPlatformCrypto(
+        bytes32 platformId
+    ) public view returns (uint256) {
+        return
+            IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
+    }
+
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
         address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
         require(
