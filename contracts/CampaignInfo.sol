@@ -277,7 +277,7 @@ contract CampaignInfo is Ownable, Pausable {
         ended = true;
     }
 
-    function setplatformInfo(
+    function setPlatformInfo(
         bytes32 _platformId,
         address _platformWallet,
         address _treasury,
