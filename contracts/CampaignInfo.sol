@@ -38,6 +38,7 @@ contract CampaignInfo is Ownable {
     mapping(bytes32 => address) treasuryAddress;
     mapping(bytes32 => address) tokens;
     mapping(bytes32 => address) platformWallet;
+    mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
 
     constructor(
         string memory _identifier,
@@ -192,6 +193,8 @@ contract CampaignInfo is Ownable {
         return pledgedAmount;
     }
 
+    function getFeeSplitsProportionately() public view returns (uint256) {}
+
     function getTreasuryAddress(
         bytes32 platformId
     ) public view treasuryIsSet(platformId) returns (address) {
@@ -242,15 +245,17 @@ contract CampaignInfo is Ownable {
             treasuryAddress[platformId],
             amount
         );
+        backerPledgeInfoForPlatforms[backer][platformId] = amount;
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) public {
         if (_feeShare > 0 && treasuryAddress[_platformId] != address(0)) {
-            CampaignTreasury(treasuryAddress[_platformId]).disburseFeeToPlatform(
-                platformWallet[_platformId],
-                tokens[_platformId],
-                _feeShare
-            );
+            CampaignTreasury(treasuryAddress[_platformId])
+                .disburseFeeToPlatform(
+                    platformWallet[_platformId],
+                    tokens[_platformId],
+                    _feeShare
+                );
         }
     }
 
@@ -267,7 +272,8 @@ contract CampaignInfo is Ownable {
     function getPledgedAmountForPlatformCrypto(
         bytes32 platformId
     ) public view treasuryIsSet(platformId) returns (uint256) {
-        return IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
+        return
+            IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
     }
 
     // function splitFeesProportionately() public {
@@ -337,16 +343,18 @@ contract CampaignInfo is Ownable {
             }
         } else {
             uint256 i = 0;
-            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForPlatformCrypto(
-                tempOriginPlatform
-            );
+            pledgedAmountByOtherPlatforms[
+                i
+            ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
             platforms[i] = tempOriginPlatform;
             for (i = 1; i <= tempReachPlatforms.length; i++) {
                 if (tempReachPlatforms[i - 1] != rewardedplatform) {
                     platforms[i] = tempReachPlatforms[i - 1];
                     pledgedAmountByOtherPlatforms[
                         i
-                    ] = getPledgedAmountForPlatformCrypto(tempReachPlatforms[i]);
+                    ] = getPledgedAmountForPlatformCrypto(
+                        tempReachPlatforms[i]
+                    );
                 }
             }
         }
@@ -383,16 +391,18 @@ contract CampaignInfo is Ownable {
             }
         } else {
             uint256 i = 0;
-            pledgedAmountByOtherPlatforms[i] = getPledgedAmountForPlatformCrypto(
-                tempOriginPlatform
-            );
+            pledgedAmountByOtherPlatforms[
+                i
+            ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
             platforms[i] = tempOriginPlatform;
             for (i = 1; i <= tempReachPlatforms.length; i++) {
                 if (tempReachPlatforms[i - 1] != rewardedplatform) {
                     platforms[i] = tempReachPlatforms[i - 1];
                     pledgedAmountByOtherPlatforms[
                         i
-                    ] = getPledgedAmountForPlatformCrypto(tempReachPlatforms[i]);
+                    ] = getPledgedAmountForPlatformCrypto(
+                        tempReachPlatforms[i]
+                    );
                 }
             }
         }
