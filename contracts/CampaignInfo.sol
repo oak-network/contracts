@@ -40,12 +40,12 @@ contract CampaignInfo is Ownable, Pausable {
     uint256 minCampaignTime;
 
     /* Hyperparameters */
-    uint256 denominator = 2;
-    bytes32 rewardedPlatform;
-    uint256 constant percentDivider = 10000;
-    uint256 platformTotalFeePercent;
-    uint256 rewardPlatformFeePercent;
-    uint256 specifiedTime;
+    uint256 public denominator = 2;
+    bytes32 public rewardedPlatform;
+    uint256 public constant percentDivider = 10000;
+    uint256 public platformTotalFeePercent;
+    uint256 public rewardPlatformFeePercent;
+    uint256 public specifiedTime;
 
     mapping(bytes32 => address) treasuryAddress;
     mapping(bytes32 => address) tokens;
