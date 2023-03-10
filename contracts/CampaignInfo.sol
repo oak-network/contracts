@@ -35,13 +35,13 @@ contract CampaignInfo is Ownable, Pausable {
 
     CampaignData campaign;
     address registryAddress;
-    bool rewardplatformSet;
+    bool rewardPlatformSet;
     bool ended;
     uint256 minCampaignTime;
 
     /* Hyperparameters */
     uint256 denominator = 2;
-    bytes32 rewardedplatform;
+    bytes32 rewardedPlatform;
     uint256 constant percentDivider = 10000;
     uint256 platformTotalFeePercent;
     uint256 rewardPlatformFeePercent;
@@ -127,7 +127,7 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     modifier rewardplatformIsSet() {
-        require(rewardplatformSet, "CampaignInfo: Reward platform not set yet");
+        require(rewardPlatformSet, "CampaignInfo: Reward platform not set yet");
         _;
     }
 
@@ -298,13 +298,13 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 amount
     ) public notEndedOrOver whenNotPaused {
         if (
-            !rewardplatformSet &&
+            !rewardPlatformSet &&
             getPledgedAmountForPlatformCrypto(platformId) >=
             campaign.goalAmount / denominator &&
             block.timestamp >= specifiedTime
         ) {
-            rewardplatformSet = true;
-            rewardedplatform = platformId;
+            rewardPlatformSet = true;
+            rewardedPlatform = platformId;
         }
         IERC20(tokens[platformId]).transferFrom(
             backer,
@@ -314,7 +314,7 @@ contract CampaignInfo is Ownable, Pausable {
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
     }
 
-    function disburseFee(bytes32 _platformId, uint256 _feeShare) public {
+    function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
         if (_feeShare > 0 && treasuryAddress[_platformId] != address(0)) {
             CampaignTreasury(treasuryAddress[_platformId])
                 .disburseFeeToPlatform(
@@ -328,7 +328,7 @@ contract CampaignInfo is Ownable, Pausable {
     function disburseFees(
         bytes32[] memory _platformIds,
         uint256[] memory _feeShares
-    ) internal {
+    ) private {
         uint256 length = _platformIds.length;
         for (uint256 i = 0; i < length; i++) {
             disburseFee(_platformIds[i], _feeShares[i]);
@@ -393,7 +393,7 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 feePercent = platformTotalFeePercent;
         uint256 rewardPercent = rewardPlatformFeePercent;
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForPlatformCrypto(
-                rewardedplatform
+                rewardedPlatform
             );
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
@@ -401,7 +401,7 @@ contract CampaignInfo is Ownable, Pausable {
         );
         bytes32 tempOriginPlatform = campaign.originPlatform;
         bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
-        if (rewardedplatform == tempOriginPlatform) {
+        if (rewardedPlatform == tempOriginPlatform) {
             for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
                 pledgedAmountByOtherPlatforms[
                     i
@@ -414,7 +414,7 @@ contract CampaignInfo is Ownable, Pausable {
             ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
             platforms[i] = tempOriginPlatform;
             for (i = 1; i <= tempReachPlatforms.length; i++) {
-                if (tempReachPlatforms[i - 1] != rewardedplatform) {
+                if (tempReachPlatforms[i - 1] != rewardedPlatform) {
                     platforms[i] = tempReachPlatforms[i - 1];
                     pledgedAmountByOtherPlatforms[
                         i
@@ -433,7 +433,7 @@ contract CampaignInfo is Ownable, Pausable {
                 pledgedAmountByRewardedPlatform,
                 pledgedAmountByOtherPlatforms
             );
-        disburseFee(rewardedplatform, feeShareByRewardedPlatform);
+        disburseFee(rewardedPlatform, feeShareByRewardedPlatform);
         disburseFees(platforms, feeShareByOtherPlatforms);
     }
 
@@ -441,7 +441,7 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 feePercent = platformTotalFeePercent;
         uint256 rewardPercent = rewardPlatformFeePercent;
         uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForPlatformCrypto(
-                rewardedplatform
+                rewardedPlatform
             );
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
@@ -449,7 +449,7 @@ contract CampaignInfo is Ownable, Pausable {
         );
         bytes32 tempOriginPlatform = campaign.originPlatform;
         bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
-        if (rewardedplatform == tempOriginPlatform) {
+        if (rewardedPlatform == tempOriginPlatform) {
             for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
                 pledgedAmountByOtherPlatforms[
                     i
@@ -462,7 +462,7 @@ contract CampaignInfo is Ownable, Pausable {
             ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
             platforms[i] = tempOriginPlatform;
             for (i = 1; i <= tempReachPlatforms.length; i++) {
-                if (tempReachPlatforms[i - 1] != rewardedplatform) {
+                if (tempReachPlatforms[i - 1] != rewardedPlatform) {
                     platforms[i] = tempReachPlatforms[i - 1];
                     pledgedAmountByOtherPlatforms[
                         i
@@ -481,7 +481,7 @@ contract CampaignInfo is Ownable, Pausable {
                 pledgedAmountByRewardedPlatform,
                 pledgedAmountByOtherPlatforms
             );
-        disburseFee(rewardedplatform, feeShareByRewardedPlatform);
+        disburseFee(rewardedPlatform, feeShareByRewardedPlatform);
         disburseFees(platforms, feeShareByOtherPlatforms);
     }
 }
