@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/rayedsikder/Documents/campaign-utils-contracts/contracts/CampaignInfo.sol": {
-      "lastModificationDate": 1677834982096,
-      "contentHash": "36097a39612df2af8224419687d937e9",
+      "lastModificationDate": 1678470397957,
+      "contentHash": "02281ae387898c23e21e88c1b7265fb9",
       "sourceName": "contracts/CampaignInfo.sol",
       "solcConfig": {
         "version": "0.8.9",
@@ -30,6 +30,7 @@
       },
       "imports": [
         "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/security/Pausable.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "./CampaignTreasury.sol",
         "./CampaignRegistry.sol"
@@ -42,8 +43,8 @@
       ]
     },
     "/Users/rayedsikder/Documents/campaign-utils-contracts/contracts/CampaignTreasury.sol": {
-      "lastModificationDate": 1677752007796,
-      "contentHash": "26608d3216d0868021fdb18402ab72da",
+      "lastModificationDate": 1678404840077,
+      "contentHash": "3777a5889238103c547d89d7b200a98c",
       "sourceName": "contracts/CampaignTreasury.sol",
       "solcConfig": {
         "version": "0.8.9",
@@ -226,8 +227,8 @@
       ]
     },
     "/Users/rayedsikder/Documents/campaign-utils-contracts/contracts/CampaignOracle.sol": {
-      "lastModificationDate": 1677752007796,
-      "contentHash": "f6c487b5610e19821028d2b86c9757e9",
+      "lastModificationDate": 1678404753037,
+      "contentHash": "6cb5fab200eb8cf8626977bedfdfef45",
       "sourceName": "contracts/CampaignOracle.sol",
       "solcConfig": {
         "version": "0.8.9",
@@ -341,8 +342,8 @@
       ]
     },
     "/Users/rayedsikder/Documents/campaign-utils-contracts/contracts/CampaignInfoFactory.sol": {
-      "lastModificationDate": 1677752007796,
-      "contentHash": "ff83708e317be8f2e9e8617e0999ecfc",
+      "lastModificationDate": 1678428407005,
+      "contentHash": "2ceb2887944f72027ca9ede5dbf58888",
       "sourceName": "contracts/CampaignInfoFactory.sol",
       "solcConfig": {
         "version": "0.8.9",
@@ -521,6 +522,43 @@
       ],
       "artifacts": [
         "testFeeSplit"
+      ]
+    },
+    "/Users/rayedsikder/Documents/campaign-utils-contracts/node_modules/@openzeppelin/contracts/security/Pausable.sol": {
+      "lastModificationDate": 1677758603787,
+      "contentHash": "25c8108f36fdd472bc78d4c4af240c11",
+      "sourceName": "@openzeppelin/contracts/security/Pausable.sol",
+      "solcConfig": {
+        "version": "0.8.9",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "Pausable"
       ]
     }
   }
