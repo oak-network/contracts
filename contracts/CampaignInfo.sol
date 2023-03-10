@@ -24,6 +24,15 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32[] reachPlatforms;
     }
 
+    // enum CampaignState {
+    //     STARTED,
+    //     LIVE,
+    //     PAUSED,
+    //     ENDED,
+    //     SUCCESSFUL,
+    //     FAILED
+    // }
+
     CampaignData campaign;
     address registryAddress;
     bool rewardplatformSet;
@@ -123,7 +132,8 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     modifier notEndedOrOver() {
-        require(!ended || block.timestamp < campaign.deadline, "CampaignInfo: Campaign ended");
+        require(!ended, "CampaignInfo: Campaign ended");
+        require(block.timestamp < campaign.deadline, "CampaignInfo: Campaign over");
         _;
     }
 
@@ -159,6 +169,21 @@ contract CampaignInfo is Ownable, Pausable {
     function getCampaignOriginPlatform() public view returns (bytes32) {
         return campaign.originPlatform;
     }
+
+    // function getCampaignState() public view returns (CampaignState) {
+    //     if (ended) {
+    //         return CampaignState.ENDED;
+    //     }
+    //     else if (paused()) {
+    //         return CampaignState.PAUSED;
+    //     }
+    //     else if (block.timestamp < campaign.deadline) {
+    //         if (block.timestamp < campaign.launchTime) {
+    //             return CampaignState.STARTED;
+    //         }
+    //         return CampaignState.LIVE;
+    //     }
+    // }
 
     function getCampaignReachPlatforms()
         public
