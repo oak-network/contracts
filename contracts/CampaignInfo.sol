@@ -24,14 +24,14 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32[] reachPlatforms;
     }
 
-    // enum CampaignState {
-    //     STARTED,
-    //     LIVE,
-    //     PAUSED,
-    //     ENDED,
-    //     SUCCESSFUL,
-    //     FAILED
-    // }
+    enum CampaignState {
+        STARTED,
+        LIVE,
+        PAUSED,
+        ENDED,
+        SUCCESSFUL,
+        FAILED
+    }
 
     CampaignData campaign;
     address registryAddress;
@@ -134,6 +134,11 @@ contract CampaignInfo is Ownable, Pausable {
     modifier notEndedOrOver() {
         require(!ended, "CampaignInfo: Campaign ended");
         require(block.timestamp < campaign.deadline, "CampaignInfo: Campaign over");
+        _;
+    }
+
+    modifier isLive() {
+        require(campaign.launchTime < block.timestamp, "CampaignInfo: Campaign is not live yet");
         _;
     }
 
@@ -265,11 +270,11 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external notEndedOrOver onlyRegistryOwner {
+    function pause() external isLive notEndedOrOver onlyRegistryOwner {
         _pause();
     }
 
-    function unpause() external notEndedOrOver onlyRegistryOwner {
+    function unpause() external isLive notEndedOrOver onlyRegistryOwner {
         _unpause();
     }
 
