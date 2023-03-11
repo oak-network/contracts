@@ -133,12 +133,18 @@ contract CampaignInfo is Ownable, Pausable {
 
     modifier notEndedOrOver() {
         require(!ended, "CampaignInfo: Campaign ended");
-        require(block.timestamp < campaign.deadline, "CampaignInfo: Campaign over");
+        require(
+            block.timestamp < campaign.deadline,
+            "CampaignInfo: Campaign over"
+        );
         _;
     }
 
     modifier isLive() {
-        require(campaign.launchTime < block.timestamp, "CampaignInfo: Campaign is not live yet");
+        require(
+            campaign.launchTime < block.timestamp,
+            "CampaignInfo: Campaign is not live yet"
+        );
         _;
     }
 
@@ -175,20 +181,46 @@ contract CampaignInfo is Ownable, Pausable {
         return campaign.originPlatform;
     }
 
-    // function getCampaignState() public view returns (CampaignState) {
-    //     if (ended) {
-    //         return CampaignState.ENDED;
-    //     }
-    //     else if (paused()) {
-    //         return CampaignState.PAUSED;
-    //     }
-    //     else if (block.timestamp < campaign.deadline) {
-    //         if (block.timestamp < campaign.launchTime) {
-    //             return CampaignState.STARTED;
-    //         }
-    //         return CampaignState.LIVE;
-    //     }
-    // }
+    function getCampaignState() public view returns (CampaignState[] memory) {
+        CampaignState[] memory states;
+        if (block.timestamp < campaign.launchTime) {} else if (
+            block.timestamp < campaign.deadline
+        ) {
+            states[0] = CampaignState.LIVE;
+            if (ended) {
+                states[1] = CampaignState.ENDED;
+                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
+                    states[2] = CampaignState.SUCCESSFUL;
+                } else {
+                    states[2] = CampaignState.FAILED;
+                }
+            } else if (paused()) {
+                states[1] = CampaignState.PAUSED;
+                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
+                    states[2] = CampaignState.SUCCESSFUL;
+                }
+            } else {
+                if ((getTotalPledgedAmountCrypto() >= campaign.goalAmount)) {
+                    states[1] = CampaignState.SUCCESSFUL;
+                }
+            }
+        } else {
+            if (ended) {
+                states[0] = CampaignState.ENDED;
+                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
+                    states[1] = CampaignState.SUCCESSFUL;
+                } else {
+                    states[1] = CampaignState.FAILED;
+                }
+            } else {
+                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
+                    states[0] = CampaignState.SUCCESSFUL;
+                } else {
+                    states[0] = CampaignState.FAILED;
+                }
+            }
+        }
+    }
 
     function getCampaignReachPlatforms()
         public
@@ -256,17 +288,23 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
-    function editLaunchTime(uint256 _launchTime) external notEndedOrOver onlyRegistryOwner {
+    function editLaunchTime(
+        uint256 _launchTime
+    ) external notEndedOrOver onlyRegistryOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(uint256 _deadline) external notEndedOrOver onlyRegistryOwner {
+    function editDeadline(
+        uint256 _deadline
+    ) external notEndedOrOver onlyRegistryOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
-    function editGoal(uint256 _goalAmount) external notEndedOrOver onlyRegistryOwner {
+    function editGoal(
+        uint256 _goalAmount
+    ) external notEndedOrOver onlyRegistryOwner {
         campaign.goalAmount = _goalAmount;
     }
 
@@ -293,7 +331,9 @@ contract CampaignInfo is Ownable, Pausable {
         tokens[_platformId] = _token;
     }
 
-    function addReachPlatform(bytes32 _platformId) external notEndedOrOver onlyRegistryOwner {
+    function addReachPlatform(
+        bytes32 _platformId
+    ) external notEndedOrOver onlyRegistryOwner {
         campaign.reachPlatforms.push(_platformId);
     }
 
