@@ -3,12 +3,14 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignTreasury.sol";
+import "./CampaignNFT.sol";
 
 contract CampaignRegistry is Ownable {
     address factoryAddress;
     address oracleAddress;
     address campaignNFTAddress;
     bool initialized;
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     mapping(string => address) campaignIdentifierToAddress;
 
     function initialize(address _factoryAddress, address _oracleAddress, address _campaignNFTAddress)
@@ -61,5 +63,7 @@ contract CampaignRegistry is Ownable {
         address _campaignAddress
     ) public isInitialized onlyFactory {
         campaignIdentifierToAddress[_identifier] = _campaignAddress;
+        CampaignNFT(campaignNFTAddress).grantRole(MINTER_ROLE, _campaignAddress);
+        
     }
 }
