@@ -26,6 +26,11 @@ contract CampaignNFT is ERC721, AccessControl {
         bytes32 platformId;
     }
 
+    mapping(uint256 => PledgeReceipt) tokenIdToReceipt;
+
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    Counters.Counter private _tokenIdCounter;
+
     // The following functions are overrides required by Solidity.
 
     function supportsInterface(
