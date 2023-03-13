@@ -25,4 +25,12 @@ contract CampaignNFT is ERC721, AccessControl {
         uint256 timestamp;
         bytes32 platformId;
     }
+
+    // The following functions are overrides required by Solidity.
+
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(ERC721, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
 }
