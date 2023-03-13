@@ -31,6 +31,11 @@ contract CampaignNFT is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
 
+    constructor() ERC721("CampaignNFT", "CNFT") {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MINTER_ROLE, msg.sender);
+    }
+
     // The following functions are overrides required by Solidity.
 
     function supportsInterface(
