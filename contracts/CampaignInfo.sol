@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
+import "./CampaignNFT.sol";
 
 //import "./library/FeeSplit.sol";
 
@@ -351,12 +352,11 @@ contract CampaignInfo is Ownable, Pausable {
             rewardPlatformSet = true;
             rewardedPlatform = platformId;
         }
-        IERC20(tokens[platformId]).transferFrom(
-            backer,
-            treasuryAddress[platformId],
-            amount
-        );
+        address token = tokens[platformId];
+        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
+        CampaignNFT(CampaignRegistry(registryAddress).getCampaignNFTAddress())
+            .safeMint(backer, token, amount, platformId);
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
