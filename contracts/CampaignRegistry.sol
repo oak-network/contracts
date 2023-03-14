@@ -7,15 +7,17 @@ import "./CampaignTreasury.sol";
 contract CampaignRegistry is Ownable {
     address factoryAddress;
     address oracleAddress;
+    address campaignNFTAddress;
     bool initialized;
     mapping(string => address) campaignIdentifierToAddress;
 
-    function initialize(address _factoryAddress, address _oracleAddress)
+    function initialize(address _factoryAddress, address _oracleAddress, address _campaignNFTAddress)
         public
         onlyOwner
     {
         factoryAddress = _factoryAddress;
         oracleAddress = _oracleAddress;
+        campaignNFTAddress = _campaignNFTAddress;
         initialized = true;
     }
 
@@ -36,6 +38,10 @@ contract CampaignRegistry is Ownable {
     function getFactoryAddress() public view isInitialized returns (address) {
         return factoryAddress;
     }
+
+    function getCampaignNFTAddress() public view isInitialized returns (address) {
+        return campaignNFTAddress;
+    }    
 
     function getCampaignInfoAddress(string calldata identifier)
         public
