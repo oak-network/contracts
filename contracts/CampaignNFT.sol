@@ -36,6 +36,26 @@ contract CampaignNFT is ERC721, AccessControl {
         _grantRole(MINTER_ROLE, msg.sender);
     }
 
+    function safeMint(
+        address backer,
+        address token,
+        uint256 pledgedAmount,
+        bytes32 platformId
+    ) public onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _tokenIdCounter.current();
+        _tokenIdCounter.increment();
+        _safeMint(backer, tokenId);
+
+        emit pledgeReceipt(
+            backer,
+            msg.sender,
+            token,
+            platformId,
+            pledgedAmount,
+            block.timestamp
+        );
+    }
+
     // The following functions are overrides required by Solidity.
 
     function supportsInterface(
