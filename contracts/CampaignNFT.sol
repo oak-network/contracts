@@ -45,7 +45,12 @@ contract CampaignNFT is ERC721, AccessControl {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(backer, tokenId);
-
+        tokenIdToReceipt[tokenId].campaignInfo = msg.sender;
+        tokenIdToReceipt[tokenId].backer = backer;
+        tokenIdToReceipt[tokenId].token = token;
+        tokenIdToReceipt[tokenId].pledgedAmount = pledgedAmount;
+        tokenIdToReceipt[tokenId].timestamp = block.timestamp;
+        tokenIdToReceipt[tokenId].platformId = platformId;
         emit pledgeReceipt(
             backer,
             msg.sender,
