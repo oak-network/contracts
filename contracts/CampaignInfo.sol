@@ -4,12 +4,13 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Interface/ICampaignGlobalParameters.sol";
+import "./Interface/ICampaignFeeSplitter.sol";
 import "./Interface/ICampaignTreasury.sol";
-import "./CampaignRegistry.sol";
+import "./Interface/ICampaignRegistry.sol";
 import "./Interface/ICampaignNFT.sol";
 
 contract CampaignInfo is Ownable, Pausable {
-
     struct CampaignData {
         string identifier;
         bytes32 originPlatform;
@@ -20,6 +21,25 @@ contract CampaignInfo is Ownable, Pausable {
         string creatorUrl;
         bytes32[] reachPlatforms;
     }
+
+    struct Item {
+	    string name;
+	    string description;
+    }
+
+    struct Reward {
+	    string rewardName;
+	    string rewardDescription;
+        string[] itemId;
+        mapping (string => uint256) itemQuantity;
+    }
+
+
+	
+
+Mapping (string => Reward) rewards
+Mapping (uint => Item) items
+
 
     enum CampaignState {
         STARTED,
@@ -36,12 +56,7 @@ contract CampaignInfo is Ownable, Pausable {
     bool ended;
     uint256 minCampaignTime;
 
-    /* Hyperparameters */
-    uint256 public denominator = 2;
     bytes32 public rewardedPlatform;
-    uint256 public constant percentDivider = 10000;
-    uint256 public platformTotalFeePercent;
-    uint256 public rewardPlatformFeePercent;
     uint256 public specifiedTime;
 
     mapping(bytes32 => address) treasuryAddress;
@@ -75,12 +90,10 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
         specifiedTime = block.timestamp;
-        platformTotalFeePercent = _platformTotalFeePercent;
-        rewardPlatformFeePercent = _rewardPlatformFeePercent;
     }
 
     modifier onlyRegistryOwner() {
-        require(msg.sender == CampaignRegistry(registryAddress).owner());
+        require(msg.sender == ICampaignRegistry(registryAddress).owner());
         _;
     }
 
@@ -288,7 +301,11 @@ contract CampaignInfo is Ownable, Pausable {
         if (
             !rewardPlatformSet &&
             getPledgedAmountForPlatformCrypto(platformId) >=
-            campaign.goalAmount / denominator &&
+            campaign.goalAmount /
+                ICampaignGlobalParameters(
+                    ICampaignRegistry(registryAddress)
+                        .getCampaignGlobalParameters()
+                ).denominator() &&
             block.timestamp >= specifiedTime
         ) {
             rewardPlatformSet = true;
@@ -297,13 +314,13 @@ contract CampaignInfo is Ownable, Pausable {
         address token = tokens[platformId];
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
-        CampaignNFT(CampaignRegistry(registryAddress).getCampaignNFTAddress())
+        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
             .safeMint(backer, token, amount, platformId);
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
         if (_feeShare > 0 && treasuryAddress[_platformId] != address(0)) {
-            CampaignTreasury(treasuryAddress[_platformId])
+            ICampaignTreasury(treasuryAddress[_platformId])
                 .disburseFeeToPlatform(
                     platformWallet[_platformId],
                     tokens[_platformId],
@@ -330,6 +347,9 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function splitFeesProportionately() public {
+        address globalParams = ICampaignRegistry(registryAddress)
+            .getCampaignGlobalParameters();
+
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         bytes32[] memory tempPlatforms = new bytes32[](
             tempReachPlatforms.length + 1
@@ -347,10 +367,13 @@ contract CampaignInfo is Ownable, Pausable {
         pledgedAmountByPlatforms[
             tempReachPlatforms.length
         ] = getPledgedAmountForPlatformCrypto(campaign.originPlatform);
-        uint256[] memory feeShareByPlatforms = getFeeSplitsProportionately(
-            platformTotalFeePercent,
-            pledgedAmountByPlatforms
-        );
+        uint256[] memory feeShareByPlatforms = ICampaignFeeSplitter(
+            ICampaignRegistry(registryAddress).getCampaignFeeSplitter()
+        ).getFeeSplitsProportionately(
+                ICampaignGlobalParameters(globalParams).platformTotalFeePercent(),
+                ICampaignGlobalParameters(globalParams).percentDivider(),
+                pledgedAmountByPlatforms
+            );
         disburseFees(tempPlatforms, feeShareByPlatforms);
     }
 }
