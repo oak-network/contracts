@@ -41,6 +41,7 @@ contract CampaignInfo is Ownable, Pausable {
     bool ended;
     uint256 minCampaignTime;
     bool launchReady;
+    bool latePledgeEnabled;
     bytes32 public rewardedPlatform;
     uint256 public specifiedTime;
 
@@ -163,14 +164,16 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
-    function setLaunchTime(
+    function setLaunch(
         uint256 launchTime,
         uint256 deadline,
-        uint256 goalAmount
+        uint256 goalAmount,
+        bool enableLatePledge
     ) external {
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
         campaign.goalAmount = goalAmount;
+        latePledgeEnabled = enableLatePledge;
         launchReady = true;
     }
 
@@ -196,9 +199,7 @@ contract CampaignInfo is Ownable, Pausable {
         }
     }
 
-    function editLaunchTime(
-        uint256 _launchTime
-    ) external notEnded onlyOwner {
+    function editLaunchTime(uint256 _launchTime) external notEnded onlyOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
@@ -235,9 +236,7 @@ contract CampaignInfo is Ownable, Pausable {
         tokens[_platformId] = _token;
     }
 
-    function addReachPlatform(
-        bytes32 _platformId
-    ) external notEnded onlyOwner {
+    function addReachPlatform(bytes32 _platformId) external notEnded onlyOwner {
         campaign.reachPlatforms.push(_platformId);
     }
 
@@ -276,7 +275,10 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 amount
     ) public notEnded whenNotPaused {
         if (campaign.deadline < block.timestamp) {
-            require(getTotalPledgedAmountCrypto() >= campaign.goalAmount);
+            require(
+                getTotalPledgedAmountCrypto() >= campaign.goalAmount &&
+                    latePledgeEnabled
+            );
         }
         require(campaign.launchTime < block.timestamp);
         address token = tokens[platformId];
