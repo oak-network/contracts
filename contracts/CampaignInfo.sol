@@ -4,15 +4,11 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./CampaignTreasury.sol";
+import "./Interface/ICampaignTreasury.sol";
 import "./CampaignRegistry.sol";
 import "./Interface/ICampaignNFT.sol";
 
-//import "./library/FeeSplit.sol";
-
 contract CampaignInfo is Ownable, Pausable {
-    // using FeeSplit for uint256;
-    // using FeeSplit for uint256[];
 
     struct CampaignData {
         string identifier;
@@ -81,37 +77,6 @@ contract CampaignInfo is Ownable, Pausable {
         specifiedTime = block.timestamp;
         platformTotalFeePercent = _platformTotalFeePercent;
         rewardPlatformFeePercent = _rewardPlatformFeePercent;
-    }
-
-    function getFeeSplitsProportionately(
-        uint256 feePercent,
-        uint256[] memory pledgedAmountByPlatforms
-    ) public pure returns (uint256[] memory) {
-        uint256 length = pledgedAmountByPlatforms.length;
-        uint256[] memory feeShareByPlatforms = new uint256[](length);
-        for (uint256 i = 0; i < length; i++) {
-            feeShareByPlatforms[i] =
-                (pledgedAmountByPlatforms[i] * feePercent) /
-                percentDivider;
-        }
-        return feeShareByPlatforms;
-    }
-
-    function getFeeSplitsProportionatelyWithPlatformReward(
-        uint256 totalFeePercent,
-        uint256 platformRewardPercent,
-        uint256 pledgedAmountByOrigin,
-        uint256[] memory pledgedAmountsByReach
-    ) public pure returns (uint256, uint256[] memory) {
-        uint256 noOfReach = pledgedAmountsByReach.length;
-        uint256 reachFeePercent = (totalFeePercent - platformRewardPercent) /
-            (noOfReach + 1);
-        uint256 feeByOrigin = (pledgedAmountByOrigin *
-            (platformRewardPercent + reachFeePercent)) / percentDivider;
-        return (
-            feeByOrigin,
-            getFeeSplitsProportionately(reachFeePercent, pledgedAmountsByReach)
-        );
     }
 
     modifier onlyRegistryOwner() {
@@ -231,27 +196,6 @@ contract CampaignInfo is Ownable, Pausable {
         return campaign.reachPlatforms;
     }
 
-    function getTotalPledgedAmount() public view returns (uint256) {
-        address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
-        require(
-            tempOriginPlatform != address(0),
-            "CampaignInfo: Origin platform treasury not set yet"
-        );
-        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-        uint256 length = tempReachPlatforms.length;
-        uint256 pledgedAmount = CampaignTreasury(tempOriginPlatform)
-            .getPledgedAmount();
-        for (uint256 i = 0; i < length; i++) {
-            address tempReachPlatform = treasuryAddress[tempReachPlatforms[i]];
-            if (tempReachPlatform != address(0)) {
-                pledgedAmount =
-                    pledgedAmount +
-                    CampaignTreasury(tempReachPlatform).getPledgedAmount();
-            }
-        }
-        return pledgedAmount;
-    }
-
     function getPledgedAmountForAPlatformCrypto(
         bytes32 platformId
     ) public view returns (uint256) {
@@ -280,8 +224,6 @@ contract CampaignInfo is Ownable, Pausable {
         }
         return pledgedAmount;
     }
-
-    function getFeeSplitsProportionately() public view returns (uint256) {}
 
     function getTreasuryAddress(
         bytes32 platformId
@@ -387,28 +329,6 @@ contract CampaignInfo is Ownable, Pausable {
             IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
     }
 
-    // function splitFeesProportionately() public {
-    //     bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-    //     bytes32[] memory tempPlatforms = new bytes32[](
-    //         tempReachPlatforms.length + 1
-    //     );
-    //     tempPlatforms[0] = campaign.originPlatform;
-    //     uint256[] memory pledgedAmountByPlatforms = new uint256[](
-    //         tempReachPlatforms.length + 1
-    //     );
-    //     for (uint256 i = 1; i <= tempReachPlatforms.length; i++) {
-    //         tempPlatforms[i] = tempReachPlatforms[i - 1];
-    //         pledgedAmountByPlatforms[i - 1] = getPledgedAmountForPlatformCrypto(
-    //             tempReachPlatforms[i - 1]
-    //         );
-    //     }
-    //     uint256[] memory feeShareByPlatforms = getFeeSplitsProportionately(
-    //         platformTotalFeePercent,
-    //         pledgedAmountByPlatforms
-    //     );
-    //     disburseFees(tempPlatforms, feeShareByPlatforms);
-    // }
-
     function splitFeesProportionately() public {
         bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
         bytes32[] memory tempPlatforms = new bytes32[](
@@ -432,101 +352,5 @@ contract CampaignInfo is Ownable, Pausable {
             pledgedAmountByPlatforms
         );
         disburseFees(tempPlatforms, feeShareByPlatforms);
-    }
-
-    function splitFeeWithRewards() public rewardplatformIsSet {
-        uint256 feePercent = platformTotalFeePercent;
-        uint256 rewardPercent = rewardPlatformFeePercent;
-        uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForPlatformCrypto(
-                rewardedPlatform
-            );
-        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
-            tempReachPlatforms.length
-        );
-        bytes32 tempOriginPlatform = campaign.originPlatform;
-        bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
-        if (rewardedPlatform == tempOriginPlatform) {
-            for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
-                pledgedAmountByOtherPlatforms[
-                    i
-                ] = getPledgedAmountForPlatformCrypto(tempReachPlatforms[i]);
-            }
-        } else {
-            uint256 i = 0;
-            pledgedAmountByOtherPlatforms[
-                i
-            ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
-            platforms[i] = tempOriginPlatform;
-            for (i = 1; i <= tempReachPlatforms.length; i++) {
-                if (tempReachPlatforms[i - 1] != rewardedPlatform) {
-                    platforms[i] = tempReachPlatforms[i - 1];
-                    pledgedAmountByOtherPlatforms[
-                        i
-                    ] = getPledgedAmountForPlatformCrypto(
-                        tempReachPlatforms[i]
-                    );
-                }
-            }
-        }
-        (
-            uint256 feeShareByRewardedPlatform,
-            uint256[] memory feeShareByOtherPlatforms
-        ) = getFeeSplitsProportionatelyWithPlatformReward(
-                feePercent,
-                rewardPercent,
-                pledgedAmountByRewardedPlatform,
-                pledgedAmountByOtherPlatforms
-            );
-        disburseFee(rewardedPlatform, feeShareByRewardedPlatform);
-        disburseFees(platforms, feeShareByOtherPlatforms);
-    }
-
-    function splitFeeWithVelocityOfFundraising() public rewardplatformIsSet {
-        uint256 feePercent = platformTotalFeePercent;
-        uint256 rewardPercent = rewardPlatformFeePercent;
-        uint256 pledgedAmountByRewardedPlatform = getPledgedAmountForPlatformCrypto(
-                rewardedPlatform
-            );
-        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
-        uint256[] memory pledgedAmountByOtherPlatforms = new uint256[](
-            tempReachPlatforms.length
-        );
-        bytes32 tempOriginPlatform = campaign.originPlatform;
-        bytes32[] memory platforms = new bytes32[](tempReachPlatforms.length);
-        if (rewardedPlatform == tempOriginPlatform) {
-            for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
-                pledgedAmountByOtherPlatforms[
-                    i
-                ] = getPledgedAmountForPlatformCrypto(tempReachPlatforms[i]);
-            }
-        } else {
-            uint256 i = 0;
-            pledgedAmountByOtherPlatforms[
-                i
-            ] = getPledgedAmountForPlatformCrypto(tempOriginPlatform);
-            platforms[i] = tempOriginPlatform;
-            for (i = 1; i <= tempReachPlatforms.length; i++) {
-                if (tempReachPlatforms[i - 1] != rewardedPlatform) {
-                    platforms[i] = tempReachPlatforms[i - 1];
-                    pledgedAmountByOtherPlatforms[
-                        i
-                    ] = getPledgedAmountForPlatformCrypto(
-                        tempReachPlatforms[i]
-                    );
-                }
-            }
-        }
-        (
-            uint256 feeShareByRewardedPlatform,
-            uint256[] memory feeShareByOtherPlatforms
-        ) = getFeeSplitsProportionatelyWithPlatformReward(
-                feePercent,
-                rewardPercent,
-                pledgedAmountByRewardedPlatform,
-                pledgedAmountByOtherPlatforms
-            );
-        disburseFee(rewardedPlatform, feeShareByRewardedPlatform);
-        disburseFees(platforms, feeShareByOtherPlatforms);
     }
 }
