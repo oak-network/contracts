@@ -28,18 +28,15 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     struct Reward {
-	    string rewardName;
+	    uint256 rewardValue;
+        string rewardName;
 	    string rewardDescription;
         string[] itemId;
         mapping (string => uint256) itemQuantity;
     }
 
-
-	
-
-Mapping (string => Reward) rewards
-Mapping (uint => Item) items
-
+    mapping (string => Reward) rewards;
+    mapping (string => Item) items;
 
     enum CampaignState {
         STARTED,
@@ -70,8 +67,6 @@ Mapping (uint => Item) items
         uint256 _goalAmount,
         uint256 _launchTime,
         uint256 _deadline,
-        uint256 _platformTotalFeePercent,
-        uint256 _rewardPlatformFeePercent,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform,
         address _registryAddress
