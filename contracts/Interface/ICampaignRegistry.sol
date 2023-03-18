@@ -6,10 +6,12 @@ interface ICampaignRegistry {
         address _factoryAddress,
         address _oracleAddress,
         address _campaignNFTAddress,
-        address _campaignGlobalParemeters, 
+        address _campaignGlobalParemeters,
         address _campaignFeeSplitter
     ) external;
 
+    function owner() external view returns (address);
+    
     function getOracleAddress() external view returns (address);
 
     function getFactoryAddress() external view returns (address);
@@ -20,10 +22,9 @@ interface ICampaignRegistry {
 
     function getCampaignFeeSplitter() external view returns (address);
 
-    function getCampaignInfoAddress(string calldata identifier)
-        external
-        view
-        returns (address);
+    function getCampaignInfoAddress(
+        string calldata identifier
+    ) external view returns (address);
 
     function setCampaignInfoAddress(
         string calldata _identifier,
