@@ -40,7 +40,7 @@ contract CampaignInfo is Ownable, Pausable {
     address registryAddress;
     bool ended;
     uint256 minCampaignTime;
-
+    bool launchReady;
     bytes32 public rewardedPlatform;
     uint256 public specifiedTime;
 
@@ -53,23 +53,13 @@ contract CampaignInfo is Ownable, Pausable {
     constructor(
         string memory _identifier,
         bytes32 _originPlatform,
-        uint256 _goalAmount,
-        uint256 _launchTime,
-        uint256 _deadline,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform,
         address _registryAddress
     ) {
-        require(
-            _launchTime + minCampaignTime < _deadline,
-            "CampaignInfo: Minimum campaign duaration not met"
-        );
         campaign.identifier = _identifier;
         campaign.originPlatform = _originPlatform;
-        campaign.goalAmount = _goalAmount;
-        campaign.launchTime = _launchTime;
         campaign.createdAt = uint256(block.timestamp);
-        campaign.deadline = _deadline;
         campaign.creatorUrl = _creatorUrl;
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
@@ -84,12 +74,8 @@ contract CampaignInfo is Ownable, Pausable {
         _;
     }
 
-    modifier notEndedOrOver() {
+    modifier notEnded() {
         require(!ended, "CampaignInfo: Campaign ended");
-        require(
-            block.timestamp < campaign.deadline,
-            "CampaignInfo: Campaign over"
-        );
         _;
     }
 
@@ -177,6 +163,17 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
+    function setLaunchTime(
+        uint256 launchTime,
+        uint256 deadline,
+        uint256 goalAmount
+    ) external {
+        campaign.launchTime = launchTime;
+        campaign.deadline = deadline;
+        campaign.goalAmount = goalAmount;
+        launchReady = true;
+    }
+
     function addItem(
         string calldata name,
         string calldata description
@@ -194,36 +191,36 @@ contract CampaignInfo is Ownable, Pausable {
         reward.rewardValue = rewardValue;
         reward.itemId = itemName;
         uint256 len = itemQuantity.length;
-        for (uint256 i = 0; i < len; i ++) {
+        for (uint256 i = 0; i < len; i++) {
             reward.itemQuantity[itemName[i]] = itemQuantity[i];
         }
     }
 
     function editLaunchTime(
         uint256 _launchTime
-    ) external notEndedOrOver onlyOwner {
+    ) external notEnded onlyOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(uint256 _deadline) external notEndedOrOver onlyOwner {
+    function editDeadline(uint256 _deadline) external notEnded onlyOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
-    function editGoal(uint256 _goalAmount) external notEndedOrOver onlyOwner {
+    function editGoal(uint256 _goalAmount) external notEnded onlyOwner {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external isLive notEndedOrOver onlyOwner {
+    function pause() external isLive notEnded onlyOwner {
         _pause();
     }
 
-    function unpause() external isLive notEndedOrOver onlyOwner {
+    function unpause() external isLive notEnded onlyOwner {
         _unpause();
     }
 
-    function end() external notEndedOrOver onlyOwner {
+    function end() external notEnded onlyOwner {
         ended = true;
     }
 
@@ -232,7 +229,7 @@ contract CampaignInfo is Ownable, Pausable {
         address _platformWallet,
         address _treasury,
         address _token
-    ) external notEndedOrOver onlyOwner {
+    ) external notEnded onlyOwner {
         platformWallet[_platformId] = _platformWallet;
         treasuryAddress[_platformId] = _treasury;
         tokens[_platformId] = _token;
@@ -240,28 +237,48 @@ contract CampaignInfo is Ownable, Pausable {
 
     function addReachPlatform(
         bytes32 _platformId
-    ) external notEndedOrOver onlyOwner {
+    ) external notEnded onlyOwner {
         campaign.reachPlatforms.push(_platformId);
+    }
+
+    function becomeAnEarlyBacker(
+        bytes32 platformId,
+        address backer
+    ) external notEnded whenNotPaused {
+        require(!launchReady || campaign.launchTime > block.timestamp);
+        address token = tokens[platformId];
+        uint256 amount = 1;
+        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
+        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
+            .safeMint(backer, token, amount, platformId);
     }
 
     function pledgeForAReward(
         bytes32 platformId,
         address backer,
         string calldata rewardName
-    ) public notEndedOrOver whenNotPaused {
+    ) public notEnded whenNotPaused {
+        require(launchReady && campaign.launchTime < block.timestamp);
         address token = tokens[platformId];
         uint256 amount = rewards[rewardName].rewardValue;
+        if (earlyBackers[backer]) {
+            amount = amount - 1;
+            earlyBackers[backer] = false;
+        }
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
-        backerPledgeInfoForPlatforms[backer][platformId] = amount;
         ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(backer, token, amount, platformId);
+            .safeMint(backer, token, amount + 1, platformId, rewardName);
     }
 
     function pledgeWithoutAReward(
         bytes32 platformId,
         address backer,
         uint256 amount
-    ) public notEndedOrOver whenNotPaused {
+    ) public notEnded whenNotPaused {
+        if (campaign.deadline < block.timestamp) {
+            require(getTotalPledgedAmountCrypto() >= campaign.goalAmount);
+        }
+        require(campaign.launchTime < block.timestamp);
         address token = tokens[platformId];
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
