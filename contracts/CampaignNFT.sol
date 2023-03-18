@@ -14,7 +14,8 @@ contract CampaignNFT is ERC721, AccessControl {
         address token,
         bytes32 indexed platform,
         uint256 pledgedAmount,
-        uint256 timestamp
+        uint256 timestamp,
+        string rewardName
     );
 
     struct PledgeReceipt {
@@ -24,6 +25,7 @@ contract CampaignNFT is ERC721, AccessControl {
         uint256 pledgedAmount;
         uint256 timestamp;
         bytes32 platformId;
+        string rewardName;
     }
 
     mapping(uint256 => PledgeReceipt) tokenIdToReceipt;
@@ -45,21 +47,52 @@ contract CampaignNFT is ERC721, AccessControl {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(backer, tokenId);
-        tokenIdToReceipt[tokenId].campaignInfo = msg.sender;
-        tokenIdToReceipt[tokenId].backer = backer;
-        tokenIdToReceipt[tokenId].token = token;
-        tokenIdToReceipt[tokenId].pledgedAmount = pledgedAmount;
-        tokenIdToReceipt[tokenId].timestamp = block.timestamp;
-        tokenIdToReceipt[tokenId].platformId = platformId;
+        PledgeReceipt storage receipt = tokenIdToReceipt[tokenId];
+        receipt.campaignInfo = msg.sender;
+        receipt.backer = backer;
+        receipt.token = token;
+        receipt.pledgedAmount = pledgedAmount;
+        receipt.timestamp = block.timestamp;
+        receipt.platformId = platformId;
         emit pledgeReceipt(
             backer,
             msg.sender,
             token,
             platformId,
             pledgedAmount,
-            block.timestamp
+            block.timestamp,
+            ""
         );
     }
+
+    function safeMint(
+        address backer,
+        address token,
+        uint256 pledgedAmount,
+        bytes32 platformId, 
+        string calldata rewardName
+    ) public onlyRole(MINTER_ROLE) {
+        uint256 tokenId = _tokenIdCounter.current();
+        _tokenIdCounter.increment();
+        _safeMint(backer, tokenId);
+        PledgeReceipt storage receipt = tokenIdToReceipt[tokenId];
+        receipt.campaignInfo = msg.sender;
+        receipt.backer = backer;
+        receipt.token = token;
+        receipt.pledgedAmount = pledgedAmount;
+        receipt.timestamp = block.timestamp;
+        receipt.platformId = platformId;
+        receipt.rewardName = rewardName;
+        emit pledgeReceipt(
+            backer,
+            msg.sender,
+            token,
+            platformId,
+            pledgedAmount,
+            block.timestamp,
+            rewardName
+        );
+    }    
 
     // The following functions are overrides required by Solidity.
 
