@@ -1,11 +1,10 @@
-
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
 contract CampaignFeeSplitter {
-
     function getFeeSplitsProportionately(
         uint256 feePercent,
+        uint256 percentDivider,
         uint256[] memory pledgedAmountByPlatforms
     ) public pure returns (uint256[] memory) {
         uint256 length = pledgedAmountByPlatforms.length;
@@ -20,6 +19,7 @@ contract CampaignFeeSplitter {
 
     function getFeeSplitsProportionatelyWithPlatformReward(
         uint256 totalFeePercent,
+        uint256 percentDivider,
         uint256 platformRewardPercent,
         uint256 pledgedAmountByOrigin,
         uint256[] memory pledgedAmountsByReach
@@ -31,7 +31,11 @@ contract CampaignFeeSplitter {
             (platformRewardPercent + reachFeePercent)) / percentDivider;
         return (
             feeByOrigin,
-            getFeeSplitsProportionately(reachFeePercent, pledgedAmountsByReach)
+            getFeeSplitsProportionately(
+                reachFeePercent,
+                percentDivider,
+                pledgedAmountsByReach
+            )
         );
     }
 }
