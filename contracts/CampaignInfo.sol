@@ -23,33 +23,21 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     struct Item {
-	    string name;
-	    string description;
+        string description;
     }
 
     struct Reward {
-	    uint256 rewardValue;
-        string rewardName;
-	    string rewardDescription;
+        uint256 rewardValue;
+        string rewardDescription;
         string[] itemId;
-        mapping (string => uint256) itemQuantity;
+        mapping(string => uint256) itemQuantity;
     }
 
-    mapping (string => Reward) rewards;
-    mapping (string => Item) items;
-
-    enum CampaignState {
-        STARTED,
-        LIVE,
-        PAUSED,
-        ENDED,
-        SUCCESSFUL,
-        FAILED
-    }
+    mapping(string => Reward) rewards;
+    mapping(string => Item) items;
 
     CampaignData campaign;
     address registryAddress;
-    bool rewardPlatformSet;
     bool ended;
     uint256 minCampaignTime;
 
@@ -92,11 +80,6 @@ contract CampaignInfo is Ownable, Pausable {
             treasuryAddress[platformId] != address(0),
             "CampaignInfo: Treasury address for platform is not set"
         );
-        _;
-    }
-
-    modifier rewardplatformIsSet() {
-        require(rewardPlatformSet, "CampaignInfo: Reward platform not set yet");
         _;
     }
 
@@ -150,47 +133,6 @@ contract CampaignInfo is Ownable, Pausable {
         return campaign.originPlatform;
     }
 
-    function getCampaignState() public view returns (CampaignState[] memory) {
-        CampaignState[] memory states;
-        if (block.timestamp < campaign.launchTime) {} else if (
-            block.timestamp < campaign.deadline
-        ) {
-            states[0] = CampaignState.LIVE;
-            if (ended) {
-                states[1] = CampaignState.ENDED;
-                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
-                    states[2] = CampaignState.SUCCESSFUL;
-                } else {
-                    states[2] = CampaignState.FAILED;
-                }
-            } else if (paused()) {
-                states[1] = CampaignState.PAUSED;
-                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
-                    states[2] = CampaignState.SUCCESSFUL;
-                }
-            } else {
-                if ((getTotalPledgedAmountCrypto() >= campaign.goalAmount)) {
-                    states[1] = CampaignState.SUCCESSFUL;
-                }
-            }
-        } else {
-            if (ended) {
-                states[0] = CampaignState.ENDED;
-                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
-                    states[1] = CampaignState.SUCCESSFUL;
-                } else {
-                    states[1] = CampaignState.FAILED;
-                }
-            } else {
-                if (getTotalPledgedAmountCrypto() >= campaign.goalAmount) {
-                    states[0] = CampaignState.SUCCESSFUL;
-                } else {
-                    states[0] = CampaignState.FAILED;
-                }
-            }
-        }
-    }
-
     function getCampaignReachPlatforms()
         public
         view
@@ -234,6 +176,28 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
+    function addItem(
+        string calldata name,
+        string calldata description
+    ) external {
+        items[name].description = description;
+    }
+
+    function addReward(
+        string calldata name,
+        uint256 rewardValue,
+        string[] calldata itemName,
+        uint256[] calldata itemQuantity
+    ) external {
+        Reward storage reward = rewards[name];
+        reward.rewardValue = rewardValue;
+        reward.itemId = itemName;
+        uint256 len = itemQuantity.length;
+        for (uint256 i = 0; i < len; i ++) {
+            reward.itemQuantity[itemName[i]] = itemQuantity[i];
+        }
+    }
+
     function editLaunchTime(
         uint256 _launchTime
     ) external notEndedOrOver onlyOwner {
@@ -241,16 +205,12 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(
-        uint256 _deadline
-    ) external notEndedOrOver onlyOwner {
+    function editDeadline(uint256 _deadline) external notEndedOrOver onlyOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
-    function editGoal(
-        uint256 _goalAmount
-    ) external notEndedOrOver onlyOwner {
+    function editGoal(uint256 _goalAmount) external notEndedOrOver onlyOwner {
         campaign.goalAmount = _goalAmount;
     }
 
@@ -288,19 +248,6 @@ contract CampaignInfo is Ownable, Pausable {
         address backer,
         uint256 amount
     ) public notEndedOrOver whenNotPaused {
-        if (
-            !rewardPlatformSet &&
-            getPledgedAmountForPlatformCrypto(platformId) >=
-            campaign.goalAmount /
-                ICampaignGlobalParameters(
-                    ICampaignRegistry(registryAddress)
-                        .getCampaignGlobalParameters()
-                ).denominator() &&
-            block.timestamp >= specifiedTime
-        ) {
-            rewardPlatformSet = true;
-            rewardedPlatform = platformId;
-        }
         address token = tokens[platformId];
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
@@ -360,7 +307,8 @@ contract CampaignInfo is Ownable, Pausable {
         uint256[] memory feeShareByPlatforms = ICampaignFeeSplitter(
             ICampaignRegistry(registryAddress).getCampaignFeeSplitter()
         ).getFeeSplitsProportionately(
-                ICampaignGlobalParameters(globalParams).platformTotalFeePercent(),
+                ICampaignGlobalParameters(globalParams)
+                    .platformTotalFeePercent(),
                 ICampaignGlobalParameters(globalParams).percentDivider(),
                 pledgedAmountByPlatforms
             );
