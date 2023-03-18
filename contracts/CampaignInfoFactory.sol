@@ -27,8 +27,6 @@ contract CampaignInfoFactory is Ownable {
         uint256 _goalAmount,
         uint256 _launchTime,
         uint256 _deadline,
-        uint256 _platformTotalFeePercent,
-        uint256 _rewardPlatformFeePercent,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform
     ) external onlyOwner {
@@ -39,8 +37,6 @@ contract CampaignInfoFactory is Ownable {
             _goalAmount,
             _launchTime,
             _deadline,
-            _platformTotalFeePercent,
-            _rewardPlatformFeePercent,
             _creatorUrl,
             _reachPlatform,
             campaignRegistry
