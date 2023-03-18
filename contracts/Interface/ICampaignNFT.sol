@@ -8,4 +8,12 @@ interface ICampaignNFT {
         uint256 pledgedAmount,
         bytes32 platformId
     ) external;
+
+    function safeMint(
+        address backer,
+        address token,
+        uint256 pledgedAmount,
+        bytes32 platformId, 
+        string calldata rewardName
+    ) external;
 }
