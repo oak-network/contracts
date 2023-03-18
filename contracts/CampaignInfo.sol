@@ -87,11 +87,6 @@ contract CampaignInfo is Ownable, Pausable {
         specifiedTime = block.timestamp;
     }
 
-    modifier onlyRegistryOwner() {
-        require(msg.sender == ICampaignRegistry(registryAddress).owner());
-        _;
-    }
-
     modifier treasuryIsSet(bytes32 platformId) {
         require(
             treasuryAddress[platformId] != address(0),
@@ -241,33 +236,33 @@ contract CampaignInfo is Ownable, Pausable {
 
     function editLaunchTime(
         uint256 _launchTime
-    ) external notEndedOrOver onlyRegistryOwner {
+    ) external notEndedOrOver onlyOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
     function editDeadline(
         uint256 _deadline
-    ) external notEndedOrOver onlyRegistryOwner {
+    ) external notEndedOrOver onlyOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
     function editGoal(
         uint256 _goalAmount
-    ) external notEndedOrOver onlyRegistryOwner {
+    ) external notEndedOrOver onlyOwner {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external isLive notEndedOrOver onlyRegistryOwner {
+    function pause() external isLive notEndedOrOver onlyOwner {
         _pause();
     }
 
-    function unpause() external isLive notEndedOrOver onlyRegistryOwner {
+    function unpause() external isLive notEndedOrOver onlyOwner {
         _unpause();
     }
 
-    function end() external notEndedOrOver onlyRegistryOwner {
+    function end() external notEndedOrOver onlyOwner {
         ended = true;
     }
 
@@ -276,7 +271,7 @@ contract CampaignInfo is Ownable, Pausable {
         address _platformWallet,
         address _treasury,
         address _token
-    ) external notEndedOrOver onlyRegistryOwner {
+    ) external notEndedOrOver onlyOwner {
         platformWallet[_platformId] = _platformWallet;
         treasuryAddress[_platformId] = _treasury;
         tokens[_platformId] = _token;
@@ -284,7 +279,7 @@ contract CampaignInfo is Ownable, Pausable {
 
     function addReachPlatform(
         bytes32 _platformId
-    ) external notEndedOrOver onlyRegistryOwner {
+    ) external notEndedOrOver onlyOwner {
         campaign.reachPlatforms.push(_platformId);
     }
 
