@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CampaignTreasury.sol";
 import "./CampaignRegistry.sol";
-import "./CampaignNFT.sol";
+import "./Interface/ICampaignNFT.sol";
 
 //import "./library/FeeSplit.sol";
 
