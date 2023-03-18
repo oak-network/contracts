@@ -48,6 +48,7 @@ contract CampaignInfo is Ownable, Pausable {
     mapping(bytes32 => address) tokens;
     mapping(bytes32 => address) platformWallet;
     mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
+    mapping(address => bool) earlyBackers;
 
     constructor(
         string memory _identifier,
@@ -186,8 +187,8 @@ contract CampaignInfo is Ownable, Pausable {
     function addReward(
         string calldata name,
         uint256 rewardValue,
-        string[] calldata itemName,
-        uint256[] calldata itemQuantity
+        string[] memory itemName,
+        uint256[] memory itemQuantity
     ) external {
         Reward storage reward = rewards[name];
         reward.rewardValue = rewardValue;
@@ -243,7 +244,20 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.reachPlatforms.push(_platformId);
     }
 
-    function pledgeThroughPlatform(
+    function pledgeForAReward(
+        bytes32 platformId,
+        address backer,
+        string calldata rewardName
+    ) public notEndedOrOver whenNotPaused {
+        address token = tokens[platformId];
+        uint256 amount = rewards[rewardName].rewardValue;
+        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
+        backerPledgeInfoForPlatforms[backer][platformId] = amount;
+        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
+            .safeMint(backer, token, amount, platformId);
+    }
+
+    function pledgeWithoutAReward(
         bytes32 platformId,
         address backer,
         uint256 amount
