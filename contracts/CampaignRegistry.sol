@@ -9,17 +9,24 @@ contract CampaignRegistry is Ownable {
     address factoryAddress;
     address oracleAddress;
     address campaignNFTAddress;
+    address campaignGlobalParameters;
+    address campaignFeeSplitter;
     bool initialized;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     mapping(string => address) campaignIdentifierToAddress;
 
-    function initialize(address _factoryAddress, address _oracleAddress, address _campaignNFTAddress)
-        public
-        onlyOwner
-    {
+    function initialize(
+        address _factoryAddress,
+        address _oracleAddress,
+        address _campaignNFTAddress,
+        address _campaignGlobalParemeters, 
+        address _campaignFeeSplitter
+    ) public onlyOwner {
         factoryAddress = _factoryAddress;
         oracleAddress = _oracleAddress;
         campaignNFTAddress = _campaignNFTAddress;
+        campaignGlobalParameters = _campaignGlobalParemeters;
+        campaignFeeSplitter = _campaignFeeSplitter;
         initialized = true;
     }
 
@@ -41,16 +48,36 @@ contract CampaignRegistry is Ownable {
         return factoryAddress;
     }
 
-    function getCampaignNFTAddress() public view isInitialized returns (address) {
-        return campaignNFTAddress;
-    }    
-
-    function getCampaignInfoAddress(string calldata identifier)
+    function getCampaignNFTAddress()
         public
         view
         isInitialized
         returns (address)
     {
+        return campaignNFTAddress;
+    }
+
+    function getCampaignGlobalParameters()
+        public
+        view
+        isInitialized
+        returns (address)
+    {
+        return campaignGlobalParameters;
+    }
+
+    function getCampaignFeeSplitter()
+        public
+        view
+        isInitialized
+        returns (address)
+    {
+        return campaignFeeSplitter;
+    }
+
+    function getCampaignInfoAddress(
+        string calldata identifier
+    ) public view isInitialized returns (address) {
         require(
             campaignIdentifierToAddress[identifier] != address(0),
             "CampaignRegistry: CampaignInfo not created"
@@ -63,7 +90,9 @@ contract CampaignRegistry is Ownable {
         address _campaignAddress
     ) public isInitialized onlyFactory {
         campaignIdentifierToAddress[_identifier] = _campaignAddress;
-        CampaignNFT(campaignNFTAddress).grantRole(MINTER_ROLE, _campaignAddress);
-        
+        CampaignNFT(campaignNFTAddress).grantRole(
+            MINTER_ROLE,
+            _campaignAddress
+        );
     }
 }
