@@ -164,6 +164,14 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
+    function isPreLaunched() private view returns (bool) {
+        return !launchReady;
+    }
+
+    function isLive() private view returns (bool) {
+        return launchReady && campaign.launchTime < block.timestamp
+    }
+
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
