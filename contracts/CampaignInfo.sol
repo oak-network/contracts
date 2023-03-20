@@ -174,20 +174,20 @@ contract CampaignInfo is Ownable, Pausable {
     function getState() private view returns (State) {
         // Pre-launch - launch not set
         if (!launchReady) {
-            return LaunchNotSet;
+            return State.LaunchNotSet;
         }
         // Pre-launch - launch set
-        else if (block.timestamp < campaign.launchTime) {
-            return LaunchSet;
+        else if (block.timestamp <= campaign.launchTime) {
+            return State.LaunchSet;
         }
         // Launch
-        else if (campaign.launchTime < block.timestamp && block.timestamp < campaign.deadline) 
+        else if (block.timestamp < campaign.deadline) 
         {
-            return Live;
+            return State.Live;
         }
         // Over
-        else if (block.timestamp > campaign.deadline) {
-            return Over;
+        else {
+            return State.Over;
         }
     }    
 
