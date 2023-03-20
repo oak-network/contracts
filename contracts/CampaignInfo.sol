@@ -33,6 +33,13 @@ contract CampaignInfo is Ownable, Pausable {
         mapping(string => uint256) itemQuantity;
     }
 
+    enum State {
+        LaunchNotSet,
+        LaunchSet,
+        Live,
+        Over
+    }
+
     mapping(string => Reward) rewards;
     mapping(string => Item) items;
 
@@ -165,19 +172,23 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function isPreLaunched() private view returns (bool) {
-        return !launchReady;
+        return
+         !launchReady;
     }
 
     function isLive() private view returns (bool) {
-        return launchReady && campaign.launchTime < block.timestamp
+        return launchReady && campaign.launchTime < block.timestamp;
     }
 
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
-        uint256 goalAmount,
+        uint256 goalAmount, 
         bool enableLatePledge
     ) external {
+        if (isLive()) {
+            revert("CampaignInfo: Already live")
+        }
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
         campaign.goalAmount = goalAmount;
@@ -189,6 +200,9 @@ contract CampaignInfo is Ownable, Pausable {
         string calldata name,
         string calldata description
     ) external {
+        if (isLive()) {
+            revert("CampaignInfo: Not allowed")
+        }
         items[name].description = description;
     }
 
@@ -198,6 +212,9 @@ contract CampaignInfo is Ownable, Pausable {
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external {
+        if (isLive()) {
+            revert("CampaignInfo: Not allowed")
+        }
         Reward storage reward = rewards[name];
         reward.rewardValue = rewardValue;
         reward.itemId = itemName;
