@@ -142,7 +142,7 @@ contract CampaignInfo is Ownable, Pausable {
         return
             IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
     }
-
+    
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
         address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
         require(
@@ -249,11 +249,17 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external isLive notEnded onlyOwner {
+    function pause() external notEnded onlyOwner {
+        if (getState() != State.Live) {
+            revert("CampaignInfo: Not Allowed");
+        }
         _pause();
     }
 
-    function unpause() external isLive notEnded onlyOwner {
+    function unpause() external notEnded onlyOwner {
+        if (getState() != State.Live) {
+            revert("CampaignInfo: Not Allowed");
+        }        
         _unpause();
     }
 
