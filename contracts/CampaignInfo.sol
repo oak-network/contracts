@@ -172,8 +172,7 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function isPreLaunched() private view returns (bool) {
-        return
-         !launchReady;
+        return !launchReady;
     }
 
     function isLive() private view returns (bool) {
@@ -206,8 +205,8 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 goalAmount, 
         bool enableLatePledge
     ) external {
-        if (isLive()) {
-            revert("CampaignInfo: Already live");
+        if (getState() != State.LaunchNotSet) {
+            revert("CampaignInfo: Launch already set");
         }
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
@@ -220,7 +219,7 @@ contract CampaignInfo is Ownable, Pausable {
         string calldata name,
         string calldata description
     ) external {
-        if (isLive()) {
+        if (getState() != State.Live) {
             revert("CampaignInfo: Not allowed");
         }
         items[name].description = description;
@@ -232,8 +231,8 @@ contract CampaignInfo is Ownable, Pausable {
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external {
-        if (isLive()) {
-            revert("CampaignInfo: Not allowed")
+        if (getState() != State.Live) {
+            revert("CampaignInfo: Not allowed");
         }
         Reward storage reward = rewards[name];
         reward.rewardValue = rewardValue;
