@@ -1,6 +1,7 @@
 node_modules
 .env
 .deps
+.temp
 .vscode
 DS_Store
 coverage
