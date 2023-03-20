@@ -180,6 +180,26 @@ contract CampaignInfo is Ownable, Pausable {
         return launchReady && campaign.launchTime < block.timestamp;
     }
 
+    function getState() private view returns (State) {
+        // Pre-launch - launch not set
+        if (!launchReady) {
+            return LaunchNotSet;
+        }
+        // Pre-launch - launch set
+        else if (block.timestamp < campaign.launchTime) {
+            return LaunchSet;
+        }
+        // Launch
+        else if (campaign.launchTime < block.timestamp && block.timestamp < campaign.deadline) 
+        {
+            return Live;
+        }
+        // Over
+        else if (block.timestamp > campaign.deadline) {
+            return Over;
+        }
+    }    
+
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
@@ -187,7 +207,7 @@ contract CampaignInfo is Ownable, Pausable {
         bool enableLatePledge
     ) external {
         if (isLive()) {
-            revert("CampaignInfo: Already live")
+            revert("CampaignInfo: Already live");
         }
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
@@ -201,7 +221,7 @@ contract CampaignInfo is Ownable, Pausable {
         string calldata description
     ) external {
         if (isLive()) {
-            revert("CampaignInfo: Not allowed")
+            revert("CampaignInfo: Not allowed");
         }
         items[name].description = description;
     }
