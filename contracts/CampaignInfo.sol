@@ -235,17 +235,17 @@ contract CampaignInfo is Ownable, Pausable {
         }
     }
 
-    function editLaunchTime(uint256 _launchTime) external notEnded onlyOwner {
+    function updateLaunchTime(uint256 _launchTime) external notEnded onlyOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
     }
 
-    function editDeadline(uint256 _deadline) external notEnded onlyOwner {
+    function updateDeadline(uint256 _deadline) external notEnded onlyOwner {
         require(campaign.launchTime + minCampaignTime < _deadline);
         campaign.deadline = _deadline;
     }
 
-    function editGoal(uint256 _goalAmount) external notEnded onlyOwner {
+    function updateGoal(uint256 _goalAmount) external notEnded onlyOwner {
         campaign.goalAmount = _goalAmount;
     }
 
