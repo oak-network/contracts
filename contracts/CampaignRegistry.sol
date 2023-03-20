@@ -7,7 +7,6 @@ import "./CampaignNFT.sol";
 
 contract CampaignRegistry is Ownable {
     address factoryAddress;
-    address oracleAddress;
     address campaignNFTAddress;
     address campaignGlobalParameters;
     address campaignFeeSplitter;
@@ -17,13 +16,11 @@ contract CampaignRegistry is Ownable {
 
     function initialize(
         address _factoryAddress,
-        address _oracleAddress,
         address _campaignNFTAddress,
         address _campaignGlobalParemeters, 
         address _campaignFeeSplitter
     ) public onlyOwner {
         factoryAddress = _factoryAddress;
-        oracleAddress = _oracleAddress;
         campaignNFTAddress = _campaignNFTAddress;
         campaignGlobalParameters = _campaignGlobalParemeters;
         campaignFeeSplitter = _campaignFeeSplitter;
@@ -38,10 +35,6 @@ contract CampaignRegistry is Ownable {
     modifier isInitialized() {
         require(initialized);
         _;
-    }
-
-    function getOracleAddress() public view isInitialized returns (address) {
-        return oracleAddress;
     }
 
     function getFactoryAddress() public view isInitialized returns (address) {
