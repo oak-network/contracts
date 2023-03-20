@@ -56,13 +56,6 @@ contract CampaignTreasury {
         platformFeePercent = _platformFeePercent;
     }
 
-    function setPledgedAmount(uint256 _pledgedAmount) public {
-        require(
-            CampaignRegistry(registryAddress).getOracleAddress() == msg.sender
-        );
-        pledgedAmount = _pledgedAmount;
-    }
-
     function disburseFeeToPlatform(
         address _platform,
         address _token,
