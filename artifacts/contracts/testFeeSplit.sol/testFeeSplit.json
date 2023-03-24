@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "testFeeSplit",
+  "sourceName": "contracts/testFeeSplit.sol",
+  "abi": [],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603f80601d6000396000f3fe6080604052600080fdfea2646970667358221220458d5f672783f3cba18d1469a3d6d1a96f65c81bb32b85b1deff4e77b57a7d8e64736f6c63430008090033",
+  "deployedBytecode": "0x6080604052600080fdfea2646970667358221220458d5f672783f3cba18d1469a3d6d1a96f65c81bb32b85b1deff4e77b57a7d8e64736f6c63430008090033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

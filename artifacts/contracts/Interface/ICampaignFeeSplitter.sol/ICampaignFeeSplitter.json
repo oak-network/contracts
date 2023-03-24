@@ -1,0 +1,84 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICampaignFeeSplitter",
+  "sourceName": "contracts/Interface/ICampaignFeeSplitter.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "percentDivider",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "feePercent",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "pledgedAmountByPlatforms",
+          "type": "uint256[]"
+        }
+      ],
+      "name": "getFeeSplitsProportionately",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalFeePercent",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "percentDivider",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "platformRewardPercent",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "pledgedAmountByOrigin",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "pledgedAmountsByReach",
+          "type": "uint256[]"
+        }
+      ],
+      "name": "getFeeSplitsProportionatelyWithPlatformReward",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
