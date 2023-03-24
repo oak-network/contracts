@@ -33,9 +33,12 @@ contract CampaignNFT is ERC721, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
 
-    constructor() ERC721("CampaignNFT", "CNFT") {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(MINTER_ROLE, msg.sender);
+    constructor(address _registry) ERC721("CampaignNFT", "CNFT") {
+        _grantRole(DEFAULT_ADMIN_ROLE, _registry);
+    }
+
+    function grantRole(address _campaignInfo) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(MINTER_ROLE, _campaignInfo);
     }
 
     function safeMint(
