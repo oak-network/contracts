@@ -19,6 +19,7 @@ contract CampaignInfoFactory {
     }
 
     function createCampaign(
+        address _creator,
         string memory _identifier,
         bytes32 _originPlatform,
         string memory _creatorUrl,
@@ -29,7 +30,8 @@ contract CampaignInfoFactory {
             _originPlatform,
             _creatorUrl,
             _reachPlatform,
-            campaignRegistry
+            campaignRegistry,
+            _creator
         );
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));
