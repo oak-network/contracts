@@ -63,7 +63,8 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 _originPlatform,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform,
-        address _registryAddress
+        address _registryAddress,
+        address _creator
     ) {
         campaign.identifier = _identifier;
         campaign.originPlatform = _originPlatform;
@@ -72,6 +73,7 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.reachPlatforms = _reachPlatform;
         registryAddress = _registryAddress;
         specifiedTime = block.timestamp;
+        transferOwnership(_creator);
     }
 
     modifier treasuryIsSet(bytes32 platformId) {
