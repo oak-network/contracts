@@ -327,11 +327,11 @@ contract CampaignInfo is Ownable, Pausable {
         address token = tokens[platformId];
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
-        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(backer, token, amount, platformId);
+        // ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
+        //     .safeMint(backer, token, amount, platformId);
     }
 
-    function redeemPledgeForAReward(address backer, uint256 tokenId) external {
+    function redeemPledge(address backer, uint256 tokenId) external {
         address campaignNFT = ICampaignRegistry(registryAddress)
             .getCampaignNFTAddress();
         string memory rewardName;
@@ -343,6 +343,17 @@ contract CampaignInfo is Ownable, Pausable {
             backer,
             tokens[platformId],
             rewardValue
+        );
+    }
+
+    function redeemPledge(address backer, uint256 amount, bytes32 platformId) external {
+        uint256 pledgedAmount = backerPledgeInfoForPlatforms[backer][platformId];
+        require(amount <= pledgedAmount, "CampaignInfo: Invalid Amount");         
+        backerPledgeInfoForPlatforms[backer][platformId] = pledgedAmount - amount;
+        ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
+            backer,
+            tokens[platformId],
+            amount
         );
     }
 
