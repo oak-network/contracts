@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
@@ -41,6 +42,25 @@ contract CampaignNFT is ERC721, AccessControl {
         _grantRole(MINTER_ROLE, _campaignInfo);
     }
 
+    function getPledgeReceipt(uint256 tokenId) public view 
+        returns (
+            address campaignInfo,
+            address backer,
+            address token,
+            uint256 pledgedAmount,
+            uint256 timestamp,
+            bytes32 platformId,
+            string memory rewardName
+        ) 
+    {   
+        PledgeReceipt memory receipt = tokenIdToReceipt[tokenId];
+        campaignInfo = receipt.campaignInfo;
+        backer = receipt.backer;
+        pledgedAmount = receipt.pledgedAmount;
+        timestamp = receipt.timestamp;
+        platformId = receipt.platformId;
+        rewardName = receipt.rewardName;
+    }
     function safeMint(
         address backer,
         address token,
@@ -98,10 +118,13 @@ contract CampaignNFT is ERC721, AccessControl {
     }    
 
     // The following functions are overrides required by Solidity.
-
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(ERC721, AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, AccessControl)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
+
 }
