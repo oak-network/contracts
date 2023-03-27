@@ -23,7 +23,8 @@ contract CampaignInfoFactory {
         string memory _identifier,
         bytes32 _originPlatform,
         string memory _creatorUrl,
-        bytes32[] memory _reachPlatform
+        bytes32[] memory _reachPlatform,
+        uint256 _earlyPledgeAmount
     ) external {
         newCampaignInfo = new CampaignInfo(
             _identifier,
@@ -31,7 +32,8 @@ contract CampaignInfoFactory {
             _creatorUrl,
             _reachPlatform,
             campaignRegistry,
-            _creator
+            _creator, 
+            _earlyPledgeAmount
         );
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));
