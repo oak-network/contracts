@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract CampaignNFT is ERC721, AccessControl {
+contract CampaignNFT is ERC721Burnable, AccessControl {
     using Counters for Counters.Counter;
 
     event pledgeReceipt(
@@ -38,11 +38,17 @@ contract CampaignNFT is ERC721, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, _registry);
     }
 
-    function grantRole(address _campaignInfo) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantRole(
+        address _campaignInfo
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _grantRole(MINTER_ROLE, _campaignInfo);
     }
 
-    function getPledgeReceipt(uint256 tokenId) public view 
+    function getPledgeReceipt(
+        uint256 tokenId
+    )
+        external
+        view
         returns (
             address campaignInfo,
             address backer,
@@ -51,16 +57,18 @@ contract CampaignNFT is ERC721, AccessControl {
             uint256 timestamp,
             bytes32 platformId,
             string memory rewardName
-        ) 
-    {   
+        )
+    {
         PledgeReceipt memory receipt = tokenIdToReceipt[tokenId];
         campaignInfo = receipt.campaignInfo;
         backer = receipt.backer;
         pledgedAmount = receipt.pledgedAmount;
+        token = receipt.token;
         timestamp = receipt.timestamp;
         platformId = receipt.platformId;
         rewardName = receipt.rewardName;
     }
+
     function safeMint(
         address backer,
         address token,
@@ -92,7 +100,7 @@ contract CampaignNFT is ERC721, AccessControl {
         address backer,
         address token,
         uint256 pledgedAmount,
-        bytes32 platformId, 
+        bytes32 platformId,
         string calldata rewardName
     ) public onlyRole(MINTER_ROLE) {
         uint256 tokenId = _tokenIdCounter.current();
@@ -115,16 +123,19 @@ contract CampaignNFT is ERC721, AccessControl {
             block.timestamp,
             rewardName
         );
-    }    
-
-    // The following functions are overrides required by Solidity.
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
     }
 
+    function burn(
+        uint256 tokenId
+    ) public virtual override onlyRole(MINTER_ROLE) {
+        _burn(tokenId);
+        delete tokenIdToReceipt[tokenId];
+    }
+
+    // The following functions are overrides required by Solidity.
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(ERC721, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
 }
