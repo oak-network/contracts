@@ -144,7 +144,7 @@ contract CampaignInfo is Ownable, Pausable {
         return
             IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
     }
-    
+
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
         address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
         require(
@@ -183,25 +183,24 @@ contract CampaignInfo is Ownable, Pausable {
             return State.LaunchSet;
         }
         // Launch
-        else if (block.timestamp < campaign.deadline) 
-        {
+        else if (block.timestamp < campaign.deadline) {
             return State.Live;
         }
         // Over
         else {
             return State.Over;
         }
-    }    
+    }
 
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
-        uint256 goalAmount, 
+        uint256 goalAmount,
         bool enableLatePledge
     ) external {
-        if (getState() != State.LaunchNotSet) {
-            revert("CampaignInfo: Launch already set");
-        }
+        // if (getState() != State.LaunchNotSet) {
+        //     revert("CampaignInfo: Launch already set");
+        // }
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
         campaign.goalAmount = goalAmount;
@@ -213,9 +212,9 @@ contract CampaignInfo is Ownable, Pausable {
         string calldata name,
         string calldata description
     ) external {
-        if (getState() != State.Live) {
-            revert("CampaignInfo: Not allowed");
-        }
+        // if (getState() != State.Live) {
+        //     revert("CampaignInfo: Not allowed");
+        // }
         items[name].description = description;
     }
 
@@ -225,9 +224,9 @@ contract CampaignInfo is Ownable, Pausable {
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external {
-        if (getState() != State.Live) {
-            revert("CampaignInfo: Not allowed");
-        }
+        // if (getState() != State.Live) {
+        //     revert("CampaignInfo: Not allowed");
+        // }
         Reward storage reward = rewards[name];
         reward.rewardValue = rewardValue;
         reward.itemId = itemName;
@@ -252,16 +251,16 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function pause() external notEnded onlyOwner {
-        if (getState() != State.Live) {
-            revert("CampaignInfo: Not Allowed");
-        }
+        // if (getState() != State.Live) {
+        //     revert("CampaignInfo: Not Allowed");
+        // }
         _pause();
     }
 
     function unpause() external notEnded onlyOwner {
-        if (getState() != State.Live) {
-            revert("CampaignInfo: Not Allowed");
-        }        
+        // if (getState() != State.Live) {
+        //     revert("CampaignInfo: Not Allowed");
+        // }
         _unpause();
     }
 
@@ -330,6 +329,21 @@ contract CampaignInfo is Ownable, Pausable {
         backerPledgeInfoForPlatforms[backer][platformId] = amount;
         ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
             .safeMint(backer, token, amount, platformId);
+    }
+
+    function redeemPledgeForAReward(address backer, uint256 tokenId) external {
+        address campaignNFT = ICampaignRegistry(registryAddress)
+            .getCampaignNFTAddress();
+        string memory rewardName;
+        bytes32 platformId;
+        (, , , , , platformId, rewardName) = ICampaignNFT(campaignNFT)
+            .getPledgeReceipt(tokenId);
+        uint256 rewardValue = rewards[rewardName].rewardValue;
+        ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
+            backer,
+            tokens[platformId],
+            rewardValue
+        );
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
