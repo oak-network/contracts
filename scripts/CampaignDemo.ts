@@ -22,7 +22,8 @@ async function main() {
   const pledge1 = Number(50 * 1e18).toString();
   const pledge2 = Number(70 * 1e18).toString();
   const goalAmount = Number(500 * 1e18).toString();
-  const testPreMint = Number(500 * 1e18).toString();
+  const testPreMint = Number(500000000 * 1e18).toString();
+  const earlyPledgeAmount = Number(1e18).toString();
 
   const campaignRegistryFactory = await ethers.getContractFactory(
     "CampaignRegistry"
@@ -119,11 +120,12 @@ async function main() {
     identifier,
     originPlatform,
     creatorUrl,
-    reachPlatforms
+    reachPlatforms,
+    earlyPledgeAmount
   );
 
-  const result = await tx.wait();
-  console.log(result.events);
+  let result = await tx.wait();
+  // console.log(result.events);
   const newCampaignInfoAddress = result.events?.[3].args?.campaignInfoAddress;
 
   console.log(
@@ -260,6 +262,14 @@ async function main() {
 
   console.log(`Pledged ${pledge2} to originPlatform`);
 
+  // const redeemPledge = await campaignInfo.redeemPledge(
+  //   owner.address,
+  //   pledge2,
+  //   originPlatform
+  // );
+  // result = await redeemPledge.wait();
+
+  // console.log(result);
   // Check pledged amounts in origin & reach
 
   const treasury1Balance = await campaignInfo.getPledgedAmountForPlatformCrypto(
