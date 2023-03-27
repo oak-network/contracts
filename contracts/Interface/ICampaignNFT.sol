@@ -17,6 +17,8 @@ interface ICampaignNFT {
             string memory rewardName
         );
 
+    function burn(uint256 tokenId) external;
+
     function safeMint(
         address backer,
         address token,
