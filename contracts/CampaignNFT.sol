@@ -16,6 +16,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         bytes32 indexed platform,
         uint256 pledgedAmount,
         uint256 timestamp,
+        uint256 tokenId,
         string rewardName
     );
 
@@ -92,6 +93,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
             platformId,
             pledgedAmount,
             block.timestamp,
+            tokenId,
             ""
         );
     }
@@ -121,6 +123,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
             platformId,
             pledgedAmount,
             block.timestamp,
+            tokenId,
             rewardName
         );
     }
