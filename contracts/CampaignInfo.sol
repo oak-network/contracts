@@ -339,6 +339,7 @@ contract CampaignInfo is Ownable, Pausable {
         (, , , , , platformId, rewardName) = ICampaignNFT(campaignNFT)
             .getPledgeReceipt(tokenId);
         uint256 rewardValue = rewards[rewardName].rewardValue;
+        ICampaignNFT(campaignNFT).burn(tokenId);
         ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
             backer,
             tokens[platformId],
