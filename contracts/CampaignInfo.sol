@@ -47,6 +47,7 @@ contract CampaignInfo is Ownable, Pausable {
     address registryAddress;
     bool ended;
     uint256 minCampaignTime;
+    uint256 earlyPledgeAmount;
     bool launchReady;
     bool latePledgeEnabled;
     bytes32 public rewardedPlatform;
@@ -64,7 +65,8 @@ contract CampaignInfo is Ownable, Pausable {
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform,
         address _registryAddress,
-        address _creator
+        address _creator,
+        uint256 _earlyPledgeAmount
     ) {
         campaign.identifier = _identifier;
         campaign.originPlatform = _originPlatform;
@@ -74,6 +76,7 @@ contract CampaignInfo is Ownable, Pausable {
         registryAddress = _registryAddress;
         specifiedTime = block.timestamp;
         transferOwnership(_creator);
+        earlyPledgeAmount = _earlyPledgeAmount;
     }
 
     modifier treasuryIsSet(bytes32 platformId) {
@@ -287,12 +290,18 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 platformId,
         address backer
     ) external notEnded whenNotPaused {
-        require(!launchReady || campaign.launchTime > block.timestamp);
+        require(
+            !launchReady || campaign.launchTime > block.timestamp,
+            "CampaignInfo: Not allowed"
+        );
         address token = tokens[platformId];
-        uint256 amount = 1;
-        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
+        IERC20(token).transferFrom(
+            backer,
+            treasuryAddress[platformId],
+            earlyPledgeAmount
+        );
         ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(backer, token, amount, platformId);
+            .safeMint(backer, token, earlyPledgeAmount, platformId);
     }
 
     function pledgeForAReward(
@@ -300,16 +309,25 @@ contract CampaignInfo is Ownable, Pausable {
         address backer,
         string calldata rewardName
     ) public notEnded whenNotPaused {
-        require(launchReady && campaign.launchTime < block.timestamp);
+        require(
+            launchReady && campaign.launchTime < block.timestamp,
+            "CampaignInfo: Not Allowed"
+        );
         address token = tokens[platformId];
         uint256 amount = rewards[rewardName].rewardValue;
         if (earlyBackers[backer]) {
-            amount = amount - 1;
+            amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
         }
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
         ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(backer, token, amount + 1, platformId, rewardName);
+            .safeMint(
+                backer,
+                token,
+                amount + earlyPledgeAmount,
+                platformId,
+                rewardName
+            );
     }
 
     function pledgeWithoutAReward(
@@ -320,7 +338,8 @@ contract CampaignInfo is Ownable, Pausable {
         if (campaign.deadline < block.timestamp) {
             require(
                 getTotalPledgedAmountCrypto() >= campaign.goalAmount &&
-                    latePledgeEnabled
+                    latePledgeEnabled,
+                "CampaignInfo: Not allowed"
             );
         }
         require(campaign.launchTime < block.timestamp);
@@ -347,10 +366,18 @@ contract CampaignInfo is Ownable, Pausable {
         );
     }
 
-    function redeemPledge(address backer, uint256 amount, bytes32 platformId) external {
-        uint256 pledgedAmount = backerPledgeInfoForPlatforms[backer][platformId];
-        require(amount <= pledgedAmount, "CampaignInfo: Invalid Amount");         
-        backerPledgeInfoForPlatforms[backer][platformId] = pledgedAmount - amount;
+    function redeemPledge(
+        address backer,
+        uint256 amount,
+        bytes32 platformId
+    ) external {
+        uint256 pledgedAmount = backerPledgeInfoForPlatforms[backer][
+            platformId
+        ];
+        require(amount <= pledgedAmount, "CampaignInfo: Invalid Amount");
+        backerPledgeInfoForPlatforms[backer][platformId] =
+            pledgedAmount -
+            amount;
         ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
             backer,
             tokens[platformId],
