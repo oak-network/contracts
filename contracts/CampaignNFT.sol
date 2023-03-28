@@ -75,8 +75,8 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         address token,
         uint256 pledgedAmount,
         bytes32 platformId
-    ) public onlyRole(MINTER_ROLE) {
-        uint256 tokenId = _tokenIdCounter.current();
+    ) public onlyRole(MINTER_ROLE) returns(uint256 tokenId) {
+        tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(backer, tokenId);
         PledgeReceipt storage receipt = tokenIdToReceipt[tokenId];
@@ -104,8 +104,8 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         uint256 pledgedAmount,
         bytes32 platformId,
         string calldata rewardName
-    ) public onlyRole(MINTER_ROLE) {
-        uint256 tokenId = _tokenIdCounter.current();
+    ) public onlyRole(MINTER_ROLE) returns(uint256 tokenId) {
+        tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(backer, tokenId);
         PledgeReceipt storage receipt = tokenIdToReceipt[tokenId];
