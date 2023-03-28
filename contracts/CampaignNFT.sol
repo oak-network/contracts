@@ -31,6 +31,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
     }
 
     mapping(uint256 => PledgeReceipt) tokenIdToReceipt;
+    mapping(string => uint256) public txIdToTokenId; 
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
@@ -68,6 +69,14 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         timestamp = receipt.timestamp;
         platformId = receipt.platformId;
         rewardName = receipt.rewardName;
+    }
+
+    function getTokenId(string calldata txId) public view returns (uint256 tokenId) {
+        tokenId = txIdToTokenId[txId];
+    }
+
+    function setTokenId(string calldata txId, uint256 tokenId) public {
+        txIdToTokenId[txId] = tokenId;
     }
 
     function safeMint(
