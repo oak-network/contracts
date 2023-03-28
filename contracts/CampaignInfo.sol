@@ -289,7 +289,7 @@ contract CampaignInfo is Ownable, Pausable {
     function becomeAnEarlyBacker(
         bytes32 platformId,
         address backer
-    ) external notEnded whenNotPaused {
+    ) external notEnded whenNotPaused returns (uint256 tokenId){
         require(
             !launchReady || campaign.launchTime > block.timestamp,
             "CampaignInfo: Not allowed"
@@ -300,7 +300,7 @@ contract CampaignInfo is Ownable, Pausable {
             treasuryAddress[platformId],
             earlyPledgeAmount
         );
-        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
+        tokenId = ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
             .safeMint(backer, token, earlyPledgeAmount, platformId);
     }
 
@@ -308,7 +308,7 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 platformId,
         address backer,
         string calldata rewardName
-    ) public notEnded whenNotPaused {
+    ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
             launchReady && campaign.launchTime < block.timestamp,
             "CampaignInfo: Not Allowed"
@@ -320,7 +320,7 @@ contract CampaignInfo is Ownable, Pausable {
             earlyBackers[backer] = false;
         }
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
-        ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
+        tokenId = ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
             .safeMint(
                 backer,
                 token,
