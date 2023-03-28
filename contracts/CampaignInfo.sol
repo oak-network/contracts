@@ -350,7 +350,7 @@ contract CampaignInfo is Ownable, Pausable {
         //     .safeMint(backer, token, amount, platformId);
     }
 
-    function redeemPledge(address backer, uint256 tokenId) external {
+    function claimRefundForAReward(address backer, uint256 tokenId) external {
         address campaignNFT = ICampaignRegistry(registryAddress)
             .getCampaignNFTAddress();
         string memory rewardName;
@@ -366,7 +366,7 @@ contract CampaignInfo is Ownable, Pausable {
         );
     }
 
-    function redeemPledge(
+    function claimRefundWithoutAReward(
         address backer,
         uint256 amount,
         bytes32 platformId
