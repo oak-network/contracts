@@ -90,6 +90,18 @@ contract Aggregator {
         ICampaignInfo(campaignInfo).addItem(_itemId, _description);
     }
 
+    function addItems(
+        address campaignInfo,
+        string[] calldata _itemId,
+        string[] calldata _description
+    ) external onlyCampaignOwner(campaignInfo) {
+        uint256 len = _itemId.length;
+        require(_description.length == len);
+        for(uint256 i = 0; i < len; i++) {
+            ICampaignInfo(campaignInfo).addItem(_itemId[i], _description[i]);
+        }
+    }    
+
     function addReward(
         address campaignInfo,
         string calldata name,
