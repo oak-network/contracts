@@ -97,10 +97,10 @@ contract Aggregator {
     ) external onlyCampaignOwner(campaignInfo) {
         uint256 len = _itemId.length;
         require(_description.length == len);
-        for(uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; i++) {
             ICampaignInfo(campaignInfo).addItem(_itemId[i], _description[i]);
         }
-    }    
+    }
 
     function addReward(
         address campaignInfo,
@@ -117,18 +117,21 @@ contract Aggregator {
         );
     }
 
-    function addItemAndReward(
+    function addRewardAnditems(
         address campaignInfo,
-        string calldata itemId,
-        string calldata description,
-        string calldata name,
+        string[] calldata itemName,
+        string[] calldata description,
+        string calldata rewardName,
         uint256 rewardValue,
-        string[] memory itemName,
         uint256[] memory itemQuantity
     ) external onlyCampaignOwner(campaignInfo) {
-        ICampaignInfo(campaignInfo).addItem(itemId, description);
+        uint256 len = itemName.length;
+        require(description.length == len);
+        for (uint256 i = 0; i < len; i++) {
+            ICampaignInfo(campaignInfo).addItem(itemName[i], description[i]);
+        }
         ICampaignInfo(campaignInfo).addReward(
-            name,
+            rewardName,
             rewardValue,
             itemName,
             itemQuantity
