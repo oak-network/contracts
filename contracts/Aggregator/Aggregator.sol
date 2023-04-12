@@ -117,7 +117,7 @@ contract Aggregator {
         );
     }
 
-    function addRewardAnditems(
+    function addRewardAndItems(
         address campaignInfo,
         string[] calldata itemName,
         string[] calldata description,
