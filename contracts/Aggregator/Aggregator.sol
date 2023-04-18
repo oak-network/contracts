@@ -28,16 +28,18 @@ contract Aggregator {
 
     function createCampaign(
         address _creator,
+        address _originPlatformAddress,
+        address _originPlatformToken,
+        uint256 _earlyPledgeAmount,
+        bytes32 _originPlatformHex,
         string memory _identifier,
-        bytes32 _originPlatform,
         string memory _creatorUrl,
-        bytes32[] memory _reachPlatform,
-        uint256 _earlyPledgeAmount
+        bytes32[] memory _reachPlatform
     ) external {
         ICampaignInfoFactory(campaignInfoFactory).createCampaign(
             address(this),
             _identifier,
-            _originPlatform,
+            _originPlatformHex,
             _creatorUrl,
             _reachPlatform,
             _earlyPledgeAmount
@@ -45,6 +47,18 @@ contract Aggregator {
         address infoAddress = ICampaignRegistry(campaignRegistry)
             .getCampaignInfoAddress(_identifier);
         campaignOwners[infoAddress] = _creator;
+        newTreasury = new CampaignTreasury(
+            campaignRegistry,
+            infoAddress,
+            _originPlatformHex
+        );
+        address treasury = address(newTreasury);
+        ICampaignInfo(infoAddress).setPlatformInfo(
+            _originPlatformHex,
+            _originPlatformAddress,
+            treasury,
+            _originPlatformToken
+        );
     }
 
     function setTreasury(
