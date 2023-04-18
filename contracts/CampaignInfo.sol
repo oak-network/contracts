@@ -41,6 +41,7 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     mapping(string => Reward) rewards;
+    mapping(string => Reward) addOns;
     mapping(string => Item) items;
 
     CampaignData campaign;
@@ -222,15 +223,22 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function addReward(
-        string calldata name,
+        bool isAddOn,
         uint256 rewardValue,
+        string calldata name,
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external {
         // if (getState() != State.Live) {
         //     revert("CampaignInfo: Not allowed");
         // }
-        Reward storage reward = rewards[name];
+        Reward storage reward;
+        if (!isAddOn) {
+            reward = rewards[name];
+        }
+        else {
+            reward = addOns[name];
+        }
         reward.rewardValue = rewardValue;
         reward.itemId = itemName;
         uint256 len = itemQuantity.length;
