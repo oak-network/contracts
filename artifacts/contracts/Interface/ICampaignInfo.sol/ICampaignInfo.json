@@ -24,14 +24,19 @@
     {
       "inputs": [
         {
-          "internalType": "string",
-          "name": "name",
-          "type": "string"
+          "internalType": "bool",
+          "name": "isAddOn",
+          "type": "bool"
         },
         {
           "internalType": "uint256",
           "name": "rewardValue",
           "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
         },
         {
           "internalType": "string[]",
