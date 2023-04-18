@@ -91,8 +91,9 @@ interface ICampaignInfo {
     ) external;
 
     function addReward(
-        string calldata name,
+        bool isAddOn,
         uint256 rewardValue,
+        string calldata name,
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external;
