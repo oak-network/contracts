@@ -235,8 +235,7 @@ contract CampaignInfo is Ownable, Pausable {
         Reward storage reward;
         if (!isAddOn) {
             reward = rewards[name];
-        }
-        else {
+        } else {
             reward = addOns[name];
         }
         reward.rewardValue = rewardValue;
@@ -297,7 +296,7 @@ contract CampaignInfo is Ownable, Pausable {
     function becomeAnEarlyBacker(
         bytes32 platformId,
         address backer
-    ) external notEnded whenNotPaused returns (uint256 tokenId){
+    ) external notEnded whenNotPaused returns (uint256 tokenId) {
         require(
             !launchReady || campaign.launchTime > block.timestamp,
             "CampaignInfo: Not allowed"
@@ -308,28 +307,32 @@ contract CampaignInfo is Ownable, Pausable {
             treasuryAddress[platformId],
             earlyPledgeAmount
         );
-        tokenId = ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(backer, token, earlyPledgeAmount, platformId);
+        tokenId = ICampaignNFT(
+            ICampaignRegistry(registryAddress).getCampaignNFTAddress()
+        ).safeMint(backer, token, earlyPledgeAmount, platformId);
     }
 
     function pledgeForAReward(
         bytes32 platformId,
         address backer,
-        string calldata rewardName
+        string calldata rewardName,
+        string calldata addOnName
     ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
             launchReady && campaign.launchTime < block.timestamp,
             "CampaignInfo: Not Allowed"
         );
         address token = tokens[platformId];
-        uint256 amount = rewards[rewardName].rewardValue;
+        uint256 amount = rewards[rewardName].rewardValue +
+            addOns[addOnName].rewardValue;
         if (earlyBackers[backer]) {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
         }
         IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
-        tokenId = ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-            .safeMint(
+        tokenId = ICampaignNFT(
+            ICampaignRegistry(registryAddress).getCampaignNFTAddress()
+        ).safeMint(
                 backer,
                 token,
                 amount + earlyPledgeAmount,
