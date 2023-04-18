@@ -118,14 +118,16 @@ contract Aggregator {
 
     function addReward(
         address campaignInfo,
-        string calldata name,
+        bool isAddOn,
         uint256 rewardValue,
+        string calldata name,
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external onlyCampaignOwner(campaignInfo) {
         ICampaignInfo(campaignInfo).addReward(
-            name,
+            isAddOn,
             rewardValue,
+            name,
             itemName,
             itemQuantity
         );
@@ -133,10 +135,11 @@ contract Aggregator {
 
     function addRewardAndItems(
         address campaignInfo,
+        bool isAddOn,
+        uint256 rewardValue,
+        string calldata rewardName,
         string[] calldata itemName,
         string[] calldata description,
-        string calldata rewardName,
-        uint256 rewardValue,
         uint256[] memory itemQuantity
     ) external onlyCampaignOwner(campaignInfo) {
         uint256 len = itemName.length;
@@ -145,8 +148,9 @@ contract Aggregator {
             ICampaignInfo(campaignInfo).addItem(itemName[i], description[i]);
         }
         ICampaignInfo(campaignInfo).addReward(
-            rewardName,
+            isAddOn,
             rewardValue,
+            rewardName,
             itemName,
             itemQuantity
         );
