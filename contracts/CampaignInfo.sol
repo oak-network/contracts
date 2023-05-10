@@ -304,11 +304,7 @@ contract CampaignInfo is Ownable, Pausable {
         );
         address treasury = treasuryAddress[platformId];
         address token = tokens[platformId];
-        if (isFiat) {
-            ICampaignTreasury(treasury).pledgeInFiat(earlyPledgeAmount);
-        } else {
-            IERC20(token).transferFrom(backer, treasury, earlyPledgeAmount);
-        }
+        _pledge(token, treasury, backer, earlyPledgeAmount, isFiat);
         tokenId = ICampaignNFT(
             ICampaignRegistry(registryAddress).getCampaignNFTAddress()
         ).safeMint(backer, token, earlyPledgeAmount, platformId);
