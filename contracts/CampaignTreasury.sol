@@ -49,7 +49,11 @@ contract CampaignTreasury {
         return pledgedAmount;
     }
 
-    function setplatformFeePercent(uint256 _platformFeePercent) public {
+    function pledgeInFiat(uint256 amount) external {
+        pledgedAmount += amount;
+    }
+
+    function setplatformFeePercent(uint256 _platformFeePercent) external {
         platformFeePercent = _platformFeePercent;
     }
 
@@ -57,7 +61,7 @@ contract CampaignTreasury {
         address _platform,
         address _token,
         uint256 _amount
-    ) public onlyCampaignInfo {
+    ) external onlyCampaignInfo {
         IERC20(_token).transfer(_platform, _amount);
     }
 }
