@@ -12,6 +12,8 @@ interface ICampaignTreasury {
 
     function getPledgedAmount() external view returns (uint256);
 
+    function pledgeInFiat(uint256 amount) external;
+
     function setplatformFeePercent(uint256 _platformFeePercent) external;
 
     function setPledgedAmount(uint256 _pledgedAmount) external;
