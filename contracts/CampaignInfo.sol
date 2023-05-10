@@ -295,18 +295,20 @@ contract CampaignInfo is Ownable, Pausable {
 
     function becomeAnEarlyBacker(
         bytes32 platformId,
-        address backer
+        address backer,
+        bool isFiat
     ) external notEnded whenNotPaused returns (uint256 tokenId) {
         require(
             !launchReady || campaign.launchTime > block.timestamp,
             "CampaignInfo: Not allowed"
         );
+        address treasury = treasuryAddress[platformId];
         address token = tokens[platformId];
-        IERC20(token).transferFrom(
-            backer,
-            treasuryAddress[platformId],
-            earlyPledgeAmount
-        );
+        if (isFiat) {
+            ICampaignTreasury(treasury).pledgeInFiat(earlyPledgeAmount);
+        } else {
+            IERC20(token).transferFrom(backer, treasury, earlyPledgeAmount);
+        }
         tokenId = ICampaignNFT(
             ICampaignRegistry(registryAddress).getCampaignNFTAddress()
         ).safeMint(backer, token, earlyPledgeAmount, platformId);
