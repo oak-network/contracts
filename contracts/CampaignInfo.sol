@@ -328,7 +328,8 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 platformId,
         address backer,
         string calldata rewardName,
-        string calldata addOnName
+        string calldata addOnName, 
+        bool isFiat
     ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
             launchReady && campaign.launchTime < block.timestamp,
@@ -341,7 +342,7 @@ contract CampaignInfo is Ownable, Pausable {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
         }
-        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
+        _pledge(token, treasuryAddress[platformId], backer, amount, isFiat);
         tokenId = ICampaignNFT(
             ICampaignRegistry(registryAddress).getCampaignNFTAddress()
         ).safeMint(
@@ -356,7 +357,8 @@ contract CampaignInfo is Ownable, Pausable {
     function pledgeWithoutAReward(
         bytes32 platformId,
         address backer,
-        uint256 amount
+        uint256 amount,
+        bool isFiat
     ) public notEnded whenNotPaused {
         if (campaign.deadline < block.timestamp) {
             require(
@@ -367,8 +369,8 @@ contract CampaignInfo is Ownable, Pausable {
         }
         require(campaign.launchTime < block.timestamp);
         address token = tokens[platformId];
-        IERC20(token).transferFrom(backer, treasuryAddress[platformId], amount);
-        backerPledgeInfoForPlatforms[backer][platformId] = amount;
+        _pledge(token, treasuryAddress[platformId], backer, amount, isFiat);
+        backerPledgeInfoForPlatforms[backer][platformId] += amount;
         // ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
         //     .safeMint(backer, token, amount, platformId);
     }
