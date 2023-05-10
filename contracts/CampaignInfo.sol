@@ -196,6 +196,20 @@ contract CampaignInfo is Ownable, Pausable {
         }
     }
 
+    function _pledge(
+        address _token,
+        address _treasury,
+        address _backer,
+        uint256 _amount,
+        bool _isFiat
+    ) private {
+        if (_isFiat) {
+            ICampaignTreasury(_treasury).pledgeInFiat(_amount);
+        } else {
+            IERC20(_token).transferFrom(_backer, _treasury, _amount);
+        }
+    }
+
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
