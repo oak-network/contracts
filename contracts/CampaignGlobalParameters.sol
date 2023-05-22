@@ -10,6 +10,7 @@ contract CampaignGlobalParameters is Ownable {
     uint256 private _platformTotalFeePercent;
     uint256 private _rewardPlatformFeePercent;
     uint256 private _specifiedTime;
+    address private _protocolAdmin;
 
     function denominator() external view returns (uint256) {
         return _denominator;
@@ -35,23 +36,31 @@ contract CampaignGlobalParameters is Ownable {
         return _specifiedTime;
     }
 
-    function setDenominator(uint256 denominator) external onlyOwner {
-        _denominator = denominator;
+    function protocolAdmin() external view returns (address) {
+        return _protocolAdmin;
     }
 
-    function setRewardedPlatform(bytes32 rewardedPlatform) external onlyOwner {
-        _rewardedPlatform = rewardedPlatform;
+    function setProtocolAdmin(address protocolAdmin_) external onlyOwner {
+        _protocolAdmin = protocolAdmin_;
     }
 
-    function setPlatformTotalFeePercent(uint256 platformTotalFeePercent) external onlyOwner {
-        _platformTotalFeePercent = platformTotalFeePercent;
+    function setDenominator(uint256 denominator_) external onlyOwner {
+        _denominator = denominator_;
     }
 
-    function setRewardPlatformFeePercent(uint256 rewardPlatformFeePercent) external onlyOwner {
-        _rewardPlatformFeePercent = rewardPlatformFeePercent;
+    function setRewardedPlatform(bytes32 rewardedPlatform_) external onlyOwner {
+        _rewardedPlatform = rewardedPlatform_;
     }
 
-    function setSpecifiedTime(uint256 specifiedTime) external onlyOwner {
-        _specifiedTime = specifiedTime;
+    function setPlatformTotalFeePercent(uint256 platformTotalFeePercent_) external onlyOwner {
+        _platformTotalFeePercent = platformTotalFeePercent_;
+    }
+
+    function setRewardPlatformFeePercent(uint256 rewardPlatformFeePercent_) external onlyOwner {
+        _rewardPlatformFeePercent = rewardPlatformFeePercent_;
+    }
+
+    function setSpecifiedTime(uint256 specifiedTime_) external onlyOwner {
+        _specifiedTime = specifiedTime_;
     }
 }
