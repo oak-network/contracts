@@ -11,7 +11,7 @@ contract CampaignGlobalParameters is Ownable {
     uint256 private _rewardPlatformFeePercent;
     uint256 private _specifiedTime;
     address private _protocolAdmin;
-    mapping (bytes32 => address) _platformAdmins;
+    mapping(bytes32 => address) _platformAdmins;
 
     function denominator() external view returns (uint256) {
         return _denominator;
@@ -41,11 +41,14 @@ contract CampaignGlobalParameters is Ownable {
         return _protocolAdmin;
     }
 
-    function platformAdmin(bytes32 platformHex)  returns (address) {
+    function platformAdmin(bytes32 platformHex) external view returns (address) {
         return _platformAdmins[platformHex];
     }
 
-    function setPlatformAdmin(bytes32 platformHex_, address platformAdmin_)  returns () {
+    function setPlatformAdmin(
+        bytes32 platformHex_,
+        address platformAdmin_
+    ) external {
         _platformAdmins[platformHex_] = platformAdmin_;
     }
 
@@ -61,11 +64,15 @@ contract CampaignGlobalParameters is Ownable {
         _rewardedPlatform = rewardedPlatform_;
     }
 
-    function setPlatformTotalFeePercent(uint256 platformTotalFeePercent_) external onlyOwner {
+    function setPlatformTotalFeePercent(
+        uint256 platformTotalFeePercent_
+    ) external onlyOwner {
         _platformTotalFeePercent = platformTotalFeePercent_;
     }
 
-    function setRewardPlatformFeePercent(uint256 rewardPlatformFeePercent_) external onlyOwner {
+    function setRewardPlatformFeePercent(
+        uint256 rewardPlatformFeePercent_
+    ) external onlyOwner {
         _rewardPlatformFeePercent = rewardPlatformFeePercent_;
     }
 
