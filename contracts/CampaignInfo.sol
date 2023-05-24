@@ -101,6 +101,15 @@ contract CampaignInfo is Ownable, Pausable {
         _;
     }
 
+    modifier isProtocolAdmin() {
+        require(
+            ICampaignGlobalParameters(
+                ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
+            ).protocolAdmin() == msg.sender
+        );
+        _;
+    }
+
     function getBackerPledgeInfoForAPlatform(
         address backer,
         bytes32 platformId
@@ -202,7 +211,7 @@ contract CampaignInfo is Ownable, Pausable {
         address _backer,
         uint256 _amount,
         bool _isFiat
-    ) private {
+    ) private whenNotPaused {
         if (_isFiat) {
             ICampaignTreasury(_treasury).pledgeInFiat(_amount);
         } else {
@@ -274,21 +283,21 @@ contract CampaignInfo is Ownable, Pausable {
         campaign.goalAmount = _goalAmount;
     }
 
-    function pause() external notEnded onlyOwner {
+    function pause() external notEnded isProtocolAdmin {
         // if (getState() != State.Live) {
         //     revert("CampaignInfo: Not Allowed");
         // }
         _pause();
     }
 
-    function unpause() external notEnded onlyOwner {
+    function unpause() external notEnded isProtocolAdmin {
         // if (getState() != State.Live) {
         //     revert("CampaignInfo: Not Allowed");
         // }
         _unpause();
     }
 
-    function end() external notEnded onlyOwner {
+    function end() external notEnded isProtocolAdmin {
         ended = true;
     }
 
@@ -328,7 +337,7 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 platformId,
         address backer,
         string calldata rewardName,
-        string calldata addOnName, 
+        string calldata addOnName,
         bool isFiat
     ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
