@@ -14,6 +14,17 @@ interface ICampaignGlobalParameters {
 
     function specifiedTime() external view returns (uint256);
 
+    function protocolAdmin() external view returns (address);
+
+    function platformAdmin(bytes32 platformHex) external view returns (address);
+
+    function setPlatformAdmin(
+        bytes32 platformHex,
+        address platformAdmin
+    ) external;
+
+    function setProtocolAdmin(address protocolAdmin) external;
+
     function setDenominator(uint256 denominator) external;
 
     function setRewardedPlatform(bytes32 rewardedPlatform) external;
