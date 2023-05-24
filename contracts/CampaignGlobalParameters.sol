@@ -13,6 +13,11 @@ contract CampaignGlobalParameters is Ownable {
     address private _protocolAdmin;
     mapping(bytes32 => address) _platformAdmins;
 
+    constructor(address protocolAdmin_) {
+        _protocolAdmin = protocolAdmin_;
+        transferOwnership(_protocolAdmin);
+    }
+
     function denominator() external view returns (uint256) {
         return _denominator;
     }
@@ -52,9 +57,9 @@ contract CampaignGlobalParameters is Ownable {
         _platformAdmins[platformHex_] = platformAdmin_;
     }
 
-    function setProtocolAdmin(address protocolAdmin_) external onlyOwner {
-        _protocolAdmin = protocolAdmin_;
-    }
+    // function setProtocolAdmin(address protocolAdmin_) external onlyOwner {
+    //     _protocolAdmin = protocolAdmin_;
+    // }
 
     function setDenominator(uint256 denominator_) external onlyOwner {
         _denominator = denominator_;
