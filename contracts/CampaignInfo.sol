@@ -111,6 +111,15 @@ contract CampaignInfo is Ownable, Pausable {
         _;
     }
 
+    modifier isPlatformAdmin(bytes32 platformHex) {
+        require(
+            ICampaignGlobalParameters(
+                ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
+            ).platformAdmin(platformHex) == msg.sender
+        );        
+        _;
+    }
+
     modifier platformNotPaused(bytes32 platformHex) {
         require(!pausedPlatforms[platformHex]);
         _;
@@ -302,6 +311,11 @@ contract CampaignInfo is Ownable, Pausable {
         // }
         _unpause();
     }
+
+    function pauseOrUnpauseForPlatform(bytes32 platformHex, bool paused) external isPlatformAdmin(platformHex) {
+        pausedPlatforms[platformHex] = paused;
+    }
+
 
     function end() external notEnded isProtocolAdmin {
         ended = true;
