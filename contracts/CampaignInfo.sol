@@ -40,9 +40,9 @@ contract CampaignInfo is Ownable, Pausable {
         Over
     }
 
-    mapping(string => Reward) rewards;
-    mapping(string => Reward) addOns;
-    mapping(string => Item) items;
+    mapping (string => Reward) rewards;
+    mapping (string => Reward) addOns;
+    mapping (string => Item) items;
 
     CampaignData campaign;
     address registryAddress;
@@ -59,6 +59,7 @@ contract CampaignInfo is Ownable, Pausable {
     mapping(bytes32 => address) platformWallet;
     mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
     mapping(address => bool) earlyBackers;
+    mapping (bytes32 => bool) pausedPlatforms;
 
     constructor(
         string memory _identifier,
@@ -107,6 +108,11 @@ contract CampaignInfo is Ownable, Pausable {
                 ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
             ).protocolAdmin() == msg.sender
         );
+        _;
+    }
+
+    modifier platformNotPaused(bytes32 platformHex) {
+        require(!pausedPlatforms[platformHex]);
         _;
     }
 
