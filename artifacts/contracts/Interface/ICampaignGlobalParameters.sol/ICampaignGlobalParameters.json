@@ -30,6 +30,25 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "platformHex",
+          "type": "bytes32"
+        }
+      ],
+      "name": "platformAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "platformTotalFeePercent",
       "outputs": [
@@ -37,6 +56,19 @@
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "protocolAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -84,12 +116,43 @@
     {
       "inputs": [
         {
+          "internalType": "bytes32",
+          "name": "platformHex",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "platformAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "setPlatformAdmin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint256",
           "name": "platformTotalFeePercent",
           "type": "uint256"
         }
       ],
       "name": "setPlatformTotalFeePercent",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "protocolAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "setProtocolAdmin",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
