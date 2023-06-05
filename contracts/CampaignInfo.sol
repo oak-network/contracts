@@ -33,13 +33,6 @@ contract CampaignInfo is Ownable, Pausable {
         mapping(string => uint256) itemQuantity;
     }
 
-    enum State {
-        LaunchNotSet,
-        LaunchSet,
-        Live,
-        Over
-    }
-
     mapping (string => Reward) rewards;
     mapping (string => Reward) addOns;
     mapping (string => Item) items;
@@ -201,25 +194,6 @@ contract CampaignInfo is Ownable, Pausable {
         return treasuryAddress[platformId];
     }
 
-    function getState() private view returns (State) {
-        // Pre-launch - launch not set
-        if (!launchReady) {
-            return State.LaunchNotSet;
-        }
-        // Pre-launch - launch set
-        else if (block.timestamp <= campaign.launchTime) {
-            return State.LaunchSet;
-        }
-        // Launch
-        else if (block.timestamp < campaign.deadline) {
-            return State.Live;
-        }
-        // Over
-        else {
-            return State.Over;
-        }
-    }
-
     function _pledge(
         address _token,
         address _treasury,
@@ -240,9 +214,6 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 goalAmount,
         bool enableLatePledge
     ) external {
-        // if (getState() != State.LaunchNotSet) {
-        //     revert("CampaignInfo: Launch already set");
-        // }
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
         campaign.goalAmount = goalAmount;
@@ -254,9 +225,6 @@ contract CampaignInfo is Ownable, Pausable {
         string calldata name,
         string calldata description
     ) external {
-        // if (getState() != State.Live) {
-        //     revert("CampaignInfo: Not allowed");
-        // }
         items[name].description = description;
     }
 
@@ -267,9 +235,6 @@ contract CampaignInfo is Ownable, Pausable {
         string[] memory itemName,
         uint256[] memory itemQuantity
     ) external {
-        // if (getState() != State.Live) {
-        //     revert("CampaignInfo: Not allowed");
-        // }
         Reward storage reward;
         if (!isAddOn) {
             reward = rewards[name];
@@ -299,16 +264,10 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function pause() external notEnded isProtocolAdmin {
-        // if (getState() != State.Live) {
-        //     revert("CampaignInfo: Not Allowed");
-        // }
         _pause();
     }
 
     function unpause() external notEnded isProtocolAdmin {
-        // if (getState() != State.Live) {
-        //     revert("CampaignInfo: Not Allowed");
-        // }
         _unpause();
     }
 
