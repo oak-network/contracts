@@ -20,6 +20,7 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 deadline;
         string creatorUrl;
         bytes32[] reachPlatforms;
+        uint256[] itemId;
     }
 
     struct Item {
@@ -28,9 +29,8 @@ contract CampaignInfo is Ownable, Pausable {
 
     struct Reward {
         uint256 rewardValue;
-        string rewardDescription;
-        string[] itemId;
-        mapping(string => uint256) itemQuantity;
+        uint256[] itemId;
+        mapping(uint256 => uint256) itemQuantity;
     }
 
     mapping (string => Reward) rewards;
