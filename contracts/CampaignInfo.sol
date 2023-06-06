@@ -23,19 +23,6 @@ contract CampaignInfo is Ownable, Pausable {
         uint256[] itemId;
     }
 
-    struct Item {
-        string description;
-    }
-
-    struct Reward {
-        uint256 rewardValue;
-        uint256[] itemId;
-        mapping(uint256 => uint256) itemQuantity;
-    }
-
-    mapping (string => Reward) rewards;
-    mapping (string => Reward) addOns;
-    mapping (string => Item) items;
 
     CampaignData campaign;
     address registryAddress;
