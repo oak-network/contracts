@@ -17,7 +17,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         uint256 pledgedAmount,
         uint256 timestamp,
         uint256 tokenId,
-        string rewardName
+        bytes32 reward
     );
 
     struct PledgeReceipt {
@@ -27,7 +27,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         uint256 pledgedAmount;
         uint256 timestamp;
         bytes32 platformId;
-        string rewardName;
+        bytes32 reward;
     }
 
     mapping(uint256 => PledgeReceipt) tokenIdToReceipt;
@@ -58,7 +58,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
             uint256 pledgedAmount,
             uint256 timestamp,
             bytes32 platformId,
-            string memory rewardName
+            bytes32 reward
         )
     {
         PledgeReceipt memory receipt = tokenIdToReceipt[tokenId];
@@ -68,7 +68,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         token = receipt.token;
         timestamp = receipt.timestamp;
         platformId = receipt.platformId;
-        rewardName = receipt.rewardName;
+        reward = receipt.reward;
     }
 
     function getTokenId(string calldata txId) public view returns (uint256 tokenId) {
@@ -112,7 +112,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         address token,
         uint256 pledgedAmount,
         bytes32 platformId,
-        string calldata rewardName
+        bytes32 reward
     ) public onlyRole(MINTER_ROLE) returns(uint256 tokenId) {
         tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
@@ -124,7 +124,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
         receipt.pledgedAmount = pledgedAmount;
         receipt.timestamp = block.timestamp;
         receipt.platformId = platformId;
-        receipt.rewardName = rewardName;
+        receipt.reward = reward;
         emit pledgeReceipt(
             backer,
             msg.sender,
@@ -133,7 +133,7 @@ contract CampaignNFT is ERC721Burnable, AccessControl {
             pledgedAmount,
             block.timestamp,
             tokenId,
-            rewardName
+            reward
         );
     }
 
