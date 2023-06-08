@@ -10,6 +10,7 @@ contract CampaignRegistry is Ownable {
     address campaignNFTAddress;
     address campaignGlobalParameters;
     address campaignFeeSplitter;
+    address campaignContainers;
     bool initialized;
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     mapping(string => address) campaignIdentifierToAddress;
@@ -17,13 +18,15 @@ contract CampaignRegistry is Ownable {
     function initialize(
         address _factoryAddress,
         address _campaignNFTAddress,
-        address _campaignGlobalParameters, 
-        address _campaignFeeSplitter
+        address _campaignGlobalParameters,
+        address _campaignFeeSplitter,
+        address _campaignContainers
     ) public onlyOwner {
         factoryAddress = _factoryAddress;
         campaignNFTAddress = _campaignNFTAddress;
         campaignGlobalParameters = _campaignGlobalParameters;
         campaignFeeSplitter = _campaignFeeSplitter;
+        campaignContainers = _campaignContainers;
         initialized = true;
     }
 
@@ -76,6 +79,15 @@ contract CampaignRegistry is Ownable {
             "CampaignRegistry: CampaignInfo not created"
         );
         return campaignIdentifierToAddress[identifier];
+    }
+
+    function getCampaignContainers()
+        public
+        view
+        isInitialized
+        returns (address)
+    {
+        return campaignContainers;
     }
 
     function setCampaignInfoAddress(
