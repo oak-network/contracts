@@ -24,7 +24,6 @@ contract CampaignInfo is Ownable, Pausable {
         uint256[] itemId;
     }
 
-
     CampaignData campaign;
     address registryAddress;
     bool ended;
@@ -40,7 +39,7 @@ contract CampaignInfo is Ownable, Pausable {
     mapping(bytes32 => address) platformWallet;
     mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
     mapping(address => bool) earlyBackers;
-    mapping (bytes32 => bool) pausedPlatforms;
+    mapping(bytes32 => bool) pausedPlatforms;
 
     constructor(
         string memory _identifier,
@@ -97,7 +96,7 @@ contract CampaignInfo is Ownable, Pausable {
             ICampaignGlobalParameters(
                 ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
             ).platformAdmin(platformHex) == msg.sender
-        );        
+        );
         _;
     }
 
@@ -231,10 +230,12 @@ contract CampaignInfo is Ownable, Pausable {
         _unpause();
     }
 
-    function pauseOrUnpauseForPlatform(bytes32 platformHex, bool paused) external isPlatformAdmin(platformHex) {
+    function pauseOrUnpauseForPlatform(
+        bytes32 platformHex,
+        bool paused
+    ) external isPlatformAdmin(platformHex) {
         pausedPlatforms[platformHex] = paused;
     }
-
 
     function end() external notEnded isProtocolAdmin {
         ended = true;
@@ -284,8 +285,12 @@ contract CampaignInfo is Ownable, Pausable {
             "CampaignInfo: Not Allowed"
         );
         address token = tokens[platformId];
-        uint256 amount = ICampaignContainers(ICampaignRegistry(registryAddress).getCampaignContainers()).containers[reward].value +
-            ICampaignContainers(ICampaignRegistry(registryAddress).getCampaignContainers()).containers[addOn].value;
+        uint256 amount = ICampaignContainers(
+            ICampaignRegistry(registryAddress).getCampaignContainers()
+        ).containers[reward].value +
+            ICampaignContainers(
+                ICampaignRegistry(registryAddress).getCampaignContainers()
+            ).containers[addOn].value;
         if (earlyBackers[backer]) {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
@@ -298,7 +303,7 @@ contract CampaignInfo is Ownable, Pausable {
                 token,
                 amount + earlyPledgeAmount,
                 platformId,
-                // TO-DO
+                reward
             );
     }
 
@@ -326,11 +331,13 @@ contract CampaignInfo is Ownable, Pausable {
     function claimRefundForAReward(address backer, uint256 tokenId) external {
         address campaignNFT = ICampaignRegistry(registryAddress)
             .getCampaignNFTAddress();
-        string memory rewardName;
+        bytes32 reward;
         bytes32 platformId;
-        (, , , , , platformId, rewardName) = ICampaignNFT(campaignNFT)
+        (, , , , , platformId, reward) = ICampaignNFT(campaignNFT)
             .getPledgeReceipt(tokenId);
-        uint256 rewardValue = rewards[rewardName].rewardValue;
+        uint256 rewardValue = ICampaignContainers(
+            ICampaignRegistry(registryAddress).getCampaignContainers()
+        ).containers[reward].value;
         ICampaignNFT(campaignNFT).burn(tokenId);
         ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
             backer,
