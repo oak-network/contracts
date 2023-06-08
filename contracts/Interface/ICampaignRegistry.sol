@@ -22,6 +22,8 @@ interface ICampaignRegistry {
 
     function getCampaignFeeSplitter() external view returns (address);
 
+    function getCampaignContainers() external view returns (address);
+
     function getCampaignInfoAddress(
         string calldata identifier
     ) external view returns (address);
