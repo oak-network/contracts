@@ -9,6 +9,7 @@ import "./Interface/ICampaignFeeSplitter.sol";
 import "./Interface/ICampaignTreasury.sol";
 import "./Interface/ICampaignRegistry.sol";
 import "./Interface/ICampaignNFT.sol";
+import "./Interface/ICampaignContainers.sol";
 
 contract CampaignInfo is Ownable, Pausable {
     struct CampaignData {
@@ -208,34 +209,6 @@ contract CampaignInfo is Ownable, Pausable {
         launchReady = true;
     }
 
-    function addItem(
-        string calldata name,
-        string calldata description
-    ) external {
-        items[name].description = description;
-    }
-
-    function addReward(
-        bool isAddOn,
-        uint256 rewardValue,
-        string calldata name,
-        string[] memory itemName,
-        uint256[] memory itemQuantity
-    ) external {
-        Reward storage reward;
-        if (!isAddOn) {
-            reward = rewards[name];
-        } else {
-            reward = addOns[name];
-        }
-        reward.rewardValue = rewardValue;
-        reward.itemId = itemName;
-        uint256 len = itemQuantity.length;
-        for (uint256 i = 0; i < len; i++) {
-            reward.itemQuantity[itemName[i]] = itemQuantity[i];
-        }
-    }
-
     function updateLaunchTime(uint256 _launchTime) external notEnded onlyOwner {
         require(_launchTime + minCampaignTime < campaign.deadline);
         campaign.launchTime = _launchTime;
@@ -302,8 +275,8 @@ contract CampaignInfo is Ownable, Pausable {
     function pledgeForAReward(
         bytes32 platformId,
         address backer,
-        string calldata rewardName,
-        string calldata addOnName,
+        bytes32 reward,
+        bytes32 addOn,
         bool isFiat
     ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
@@ -311,8 +284,8 @@ contract CampaignInfo is Ownable, Pausable {
             "CampaignInfo: Not Allowed"
         );
         address token = tokens[platformId];
-        uint256 amount = rewards[rewardName].rewardValue +
-            addOns[addOnName].rewardValue;
+        uint256 amount = ICampaignContainers(ICampaignRegistry(registryAddress).getCampaignContainers()).containers[reward].value +
+            ICampaignContainers(ICampaignRegistry(registryAddress).getCampaignContainers()).containers[addOn].value;
         if (earlyBackers[backer]) {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
@@ -325,7 +298,7 @@ contract CampaignInfo is Ownable, Pausable {
                 token,
                 amount + earlyPledgeAmount,
                 platformId,
-                rewardName
+                // TO-DO
             );
     }
 
