@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-contract CampaignItems {
+contract CampaignContainers {
     struct Container {
         uint256[] items;
         uint256[] itemQuantity;
