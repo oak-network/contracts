@@ -9,6 +9,12 @@ interface ICampaignContainers {
         bool isRewardTier;
     }
 
+    function containers(
+        bytes32 key
+    ) external view returns (Container memory value);
+
+    function containerOwners(address key) external view returns (bytes32 value);
+
     function addContainer(
         address creator,
         bytes32 id,
