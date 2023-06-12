@@ -195,12 +195,22 @@ contract CampaignInfo is Ownable, Pausable {
         }
     }
 
+    function addContainer(
+        address creator,
+        bytes32 id,
+        ICampaignContainers.Container memory container
+    ) external onlyOwner {
+        ICampaignContainers(
+            ICampaignRegistry(registryAddress).getCampaignContainers()
+        ).addContainer(creator, id, container);
+    }
+
     function setLaunch(
         uint256 launchTime,
         uint256 deadline,
         uint256 goalAmount,
         bool enableLatePledge
-    ) external {
+    ) external onlyOwner {
         campaign.launchTime = launchTime;
         campaign.deadline = deadline;
         campaign.goalAmount = goalAmount;
@@ -337,7 +347,7 @@ contract CampaignInfo is Ownable, Pausable {
             .getPledgeReceipt(tokenId);
         uint256 rewardValue = ICampaignContainers(
             ICampaignRegistry(registryAddress).getCampaignContainers()
-        ).containers[reward].value;
+        ).containers(reward).value;
         ICampaignNFT(campaignNFT).burn(tokenId);
         ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
             backer,
