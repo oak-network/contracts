@@ -14,7 +14,7 @@ interface ICampaignNFT {
             uint256 pledgedAmount,
             uint256 timestamp,
             bytes32 platformId,
-            string memory rewardName
+            bytes32 reward
         );
 
     function burn(uint256 tokenId) external;

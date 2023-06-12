@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+import "./ICampaignContainers.sol";
+
 interface ICampaignInfo {
     struct CampaignData {
         string identifier;
@@ -11,24 +13,6 @@ interface ICampaignInfo {
         uint256 deadline;
         string creatorUrl;
         bytes32[] reachPlatforms;
-    }
-
-    struct Item {
-        string description;
-    }
-
-    struct Reward {
-        uint256 rewardValue;
-        string rewardDescription;
-        string[] itemId;
-        mapping(string => uint256) itemQuantity;
-    }
-
-    enum State {
-        LaunchNotSet,
-        LaunchSet,
-        Live,
-        Over
     }
 
     function getBackerPledgeInfoForAPlatform(
@@ -88,6 +72,12 @@ interface ICampaignInfo {
     function addItem(
         string calldata _itemId,
         string calldata _description
+    ) external;
+
+    function addContainer(
+        address creator,
+        bytes32 id,
+        ICampaignContainers.Container memory container
     ) external;
 
     function addReward(
