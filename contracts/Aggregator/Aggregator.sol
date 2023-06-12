@@ -100,14 +100,6 @@ contract Aggregator {
         );
     }
 
-    function addItem(
-        address campaignInfo,
-        string calldata _itemId,
-        string calldata _description
-    ) external onlyCampaignOwner(campaignInfo) {
-        ICampaignInfo(campaignInfo).addItem(_itemId, _description);
-    }
-
     function addContainers(
         address campaignInfo,
         address creator,
@@ -116,7 +108,7 @@ contract Aggregator {
     ) external onlyCampaignOwner(campaignInfo) {
         uint256 len = id.length;
         require(len == container.length);
-        for (uint256 i; i <= len; i++) {
+        for (uint256 i=0; i < len; i++) {
             ICampaignInfo(campaignInfo).addContainer(
                 creator,
                 id[i],
