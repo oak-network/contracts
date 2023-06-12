@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import "../Interface/ICampaignInfoFactory.sol";
 import "../Interface/ICampaignRegistry.sol";
 import "../Interface/ICampaignInfo.sol";
+import "../Interface/ICampaignContainers.sol";
 import "../CampaignTreasury.sol";
 
 contract Aggregator {
@@ -22,7 +23,8 @@ contract Aggregator {
     }
 
     modifier onlyCampaignOwner(address campaignInfo) {
-        require(campaignOwners[campaignInfo] == msg.sender);
+        //require(campaignOwners[campaignInfo] == msg.sender);
+        require(address(0x9Aee2Bb8906D3f3B1BB957765eb76a880bc47788) == msg.sender);
         _;
     }
 
@@ -35,7 +37,7 @@ contract Aggregator {
         string memory _identifier,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform
-    ) external {
+    ) external onlyCampaignOwner(_creator){
         ICampaignInfoFactory(campaignInfoFactory).createCampaign(
             address(this),
             _identifier,
@@ -102,6 +104,16 @@ contract Aggregator {
         string calldata _description
     ) external onlyCampaignOwner(campaignInfo) {
         ICampaignInfo(campaignInfo).addItem(_itemId, _description);
+    }
+
+
+    function addContainer(
+        address campaignInfo,
+        address creator,
+        bytes32 id,
+        ICampaignContainers.Container memory container
+    ) external onlyCampaignOwner(campaignInfo) {
+        ICampaignInfo(campaignInfo).addContainer(creator, id, container);
     }
 
     function addItems(
