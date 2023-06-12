@@ -24,7 +24,9 @@ contract Aggregator {
 
     modifier onlyCampaignOwner(address campaignInfo) {
         //require(campaignOwners[campaignInfo] == msg.sender);
-        require(address(0x9Aee2Bb8906D3f3B1BB957765eb76a880bc47788) == msg.sender);
+        require(
+            address(0x9Aee2Bb8906D3f3B1BB957765eb76a880bc47788) == msg.sender
+        );
         _;
     }
 
@@ -37,7 +39,7 @@ contract Aggregator {
         string memory _identifier,
         string memory _creatorUrl,
         bytes32[] memory _reachPlatform
-    ) external onlyCampaignOwner(_creator){
+    ) external onlyCampaignOwner(_creator) {
         ICampaignInfoFactory(campaignInfoFactory).createCampaign(
             address(this),
             _identifier,
@@ -106,13 +108,20 @@ contract Aggregator {
         ICampaignInfo(campaignInfo).addItem(_itemId, _description);
     }
 
-
-    function addContainer(
+    function addContainers(
         address campaignInfo,
         address creator,
-        bytes32 id,
-        ICampaignContainers.Container memory container
+        bytes32[] calldata id,
+        ICampaignContainers.Container[] calldata container
     ) external onlyCampaignOwner(campaignInfo) {
-        ICampaignInfo(campaignInfo).addContainer(creator, id, container);
+        uint256 len = id.length;
+        require(len == container.length);
+        for (uint256 i; i <= len; i++) {
+            ICampaignInfo(campaignInfo).addContainer(
+                creator,
+                id[i],
+                container[i]
+            );
+        }
     }
 }
