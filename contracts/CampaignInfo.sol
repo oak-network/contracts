@@ -287,10 +287,10 @@ contract CampaignInfo is Ownable, Pausable {
         address token = tokens[platformId];
         uint256 amount = ICampaignContainers(
             ICampaignRegistry(registryAddress).getCampaignContainers()
-        ).containers[reward].value +
+        ).containers(reward).value +
             ICampaignContainers(
                 ICampaignRegistry(registryAddress).getCampaignContainers()
-            ).containers[addOn].value;
+            ).containers(addOn).value;
         if (earlyBackers[backer]) {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
