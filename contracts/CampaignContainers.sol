@@ -9,15 +9,13 @@ contract CampaignItems {
         bool isRewardTier;
     }
 
-    mapping(bytes32 => Container) public containers;
-    mapping(address => bytes32) public containerOwners;
+    mapping(address => mapping (bytes32 => Container)) public containers;
 
     function addContainer(
         address creator,
         bytes32 id,
         Container memory container
     ) public {
-        containers[id] = container;
-        containerOwners[creator] = id;
+        containers[creator][id] = container;
     }
 }
