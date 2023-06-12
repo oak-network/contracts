@@ -31,6 +31,6 @@ interface ICampaignNFT {
         address token,
         uint256 pledgedAmount,
         bytes32 platformId,
-        string calldata rewardName
+        bytes32 reward
     ) external returns (uint256);
 }
