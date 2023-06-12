@@ -5,6 +5,19 @@
   "abi": [
     {
       "inputs": [],
+      "name": "getCampaignContainers",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getCampaignFeeSplitter",
       "outputs": [
         {

@@ -57,9 +57,9 @@
           "type": "bytes32"
         },
         {
-          "internalType": "string",
-          "name": "rewardName",
-          "type": "string"
+          "internalType": "bytes32",
+          "name": "reward",
+          "type": "bytes32"
         }
       ],
       "stateMutability": "view",
@@ -86,11 +86,6 @@
           "internalType": "bytes32",
           "name": "platformId",
           "type": "bytes32"
-        },
-        {
-          "internalType": "string",
-          "name": "rewardName",
-          "type": "string"
         }
       ],
       "name": "safeMint",
@@ -124,6 +119,11 @@
         {
           "internalType": "bytes32",
           "name": "platformId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "reward",
           "type": "bytes32"
         }
       ],
