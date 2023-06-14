@@ -119,6 +119,15 @@ interface ICampaignInfo {
         string calldata rewardId
     ) external returns (bool);
 
+    function updateLaunchTime(
+        address campaignInfo,
+        uint256 _launchTime
+    ) external;
+
+    function updateDeadline(address campaignInfo, uint256 _deadline) external;
+
+    function updateGoal(address campaignInfo, uint256 _goalAmount) external;
+
     function pause() external;
 
     function unpause() external;
