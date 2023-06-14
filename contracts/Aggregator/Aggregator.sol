@@ -108,12 +108,33 @@ contract Aggregator {
     ) external onlyCampaignOwner(campaignInfo) {
         uint256 len = id.length;
         require(len == container.length);
-        for (uint256 i=0; i < len; i++) {
+        for (uint256 i = 0; i < len; i++) {
             ICampaignInfo(campaignInfo).addContainer(
                 creator,
                 id[i],
                 container[i]
             );
         }
+    }
+
+    function updateLaunchTime(
+        address campaignInfo,
+        uint256 _launchTime
+    ) external onlyCampaignOwner(campaignInfo) {
+        ICampaignInfo(campaignInfo).updateLaunchTime(_launchTime);
+    }
+
+    function updateDeadline(
+        address campaignInfo,
+        uint256 _deadline
+    ) external onlyCampaignOwner(campaignInfo) {
+        ICampaignInfo(campaignInfo).updateDeadline(_deadline);
+    }
+
+    function updateGoal(
+        address campaignInfo,
+        uint256 _goalAmount
+    ) external onlyCampaignOwner(campaignInfo) {
+        ICampaignInfo(campaignInfo).updateDeadline(_goalAmount);
     }
 }
