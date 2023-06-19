@@ -4,15 +4,33 @@ pragma solidity ^0.8.9;
 import "./ICampaignContainers.sol";
 
 interface ICampaignInfo {
+    
     struct CampaignData {
-        string identifier;
-        bytes32 originPlatform;
         uint256 goalAmount;
         uint256 launchTime;
-        uint256 createdAt;
         uint256 deadline;
+        uint256 earlyPledgeAmount;
+        address registry;
+        string identifier;
         string creatorUrl;
+    }
+
+    struct CampaignPlatforms {
+        bytes32 originPlatform;
         bytes32[] reachPlatforms;
+    }
+
+    struct CampaignState {
+        uint256 minCampaignTime;
+        bool ended;
+        bool launchReady;
+        bool latePledgeEnabled;
+        bytes32 rewardedPlatform;
+        mapping(bytes32 => address) treasuries;
+        mapping(bytes32 => address) tokens;
+        mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
+        mapping(address => bool) earlyBackers;
+        mapping(bytes32 => bool) pausedPlatforms;
     }
 
     function getBackerPledgeInfoForAPlatform(
