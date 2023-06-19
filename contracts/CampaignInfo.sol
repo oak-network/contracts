@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Interface/ICampaignInfo.sol";
 import "./Interface/ICampaignGlobalParameters.sol";
 import "./Interface/ICampaignFeeSplitter.sol";
 import "./Interface/ICampaignTreasury.sol";
@@ -11,36 +12,12 @@ import "./Interface/ICampaignRegistry.sol";
 import "./Interface/ICampaignNFT.sol";
 import "./Interface/ICampaignContainers.sol";
 
-contract CampaignInfo is Ownable, Pausable {
-    struct CampaignData {
-        string identifier;
-        bytes32 originPlatform;
-        uint256 goalAmount;
-        uint256 launchTime;
-        uint256 createdAt;
-        uint256 deadline;
-        string creatorUrl;
-        bytes32[] reachPlatforms;
-        uint256[] itemId;
-    }
+contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
 
-    CampaignData campaign;
-    address registryAddress;
-    bool ended;
-    uint256 minCampaignTime;
-    uint256 earlyPledgeAmount;
-    bool launchReady;
-    bool latePledgeEnabled;
-    bytes32 public rewardedPlatform;
-    uint256 public specifiedTime;
-
-    mapping(bytes32 => address) treasuryAddress;
-    mapping(bytes32 => address) tokens;
-    mapping(bytes32 => address) platformWallet;
-    mapping(address => mapping(bytes32 => uint256)) backerPledgeInfoForPlatforms;
-    mapping(address => bool) earlyBackers;
-    mapping(bytes32 => bool) pausedPlatforms;
-
+    CampaignData data;
+    CampaignPlatforms platforms;
+    CampaignState state;
+    
     constructor(
         string memory _identifier,
         bytes32 _originPlatform,
@@ -50,34 +27,33 @@ contract CampaignInfo is Ownable, Pausable {
         address _creator,
         uint256 _earlyPledgeAmount
     ) {
-        campaign.identifier = _identifier;
-        campaign.originPlatform = _originPlatform;
-        campaign.createdAt = uint256(block.timestamp);
-        campaign.creatorUrl = _creatorUrl;
-        campaign.reachPlatforms = _reachPlatform;
-        registryAddress = _registryAddress;
-        specifiedTime = block.timestamp;
+        data.identifier = _identifier;
+        data.originPlatform = _originPlatform;
+        data.createdAt = uint256(block.timestamp);
+        data.creatorUrl = _creatorUrl;
+        data.reachPlatforms = _reachPlatform;
+        data.registry = _registryAddress;
+        data.earlyPledgeAmount = _earlyPledgeAmount;
         transferOwnership(_creator);
-        earlyPledgeAmount = _earlyPledgeAmount;
     }
 
     modifier treasuryIsSet(bytes32 platformId) {
         require(
-            treasuryAddress[platformId] != address(0),
+            state.treasuries[platformId] != address(0),
             "CampaignInfo: Treasury address for platform is not set"
         );
         _;
     }
 
     modifier notEnded() {
-        require(!ended, "CampaignInfo: Campaign ended");
+        require(!state.ended, "CampaignInfo: data ended");
         _;
     }
 
     modifier isLive() {
         require(
-            campaign.launchTime < block.timestamp,
-            "CampaignInfo: Campaign is not live yet"
+            data.launchTime < block.timestamp,
+            "CampaignInfo: data is not live yet"
         );
         _;
     }
@@ -85,7 +61,7 @@ contract CampaignInfo is Ownable, Pausable {
     modifier isProtocolAdmin() {
         require(
             ICampaignGlobalParameters(
-                ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
+                ICampaignRegistry(data.registry).getCampaignGlobalParameters()
             ).protocolAdmin() == msg.sender
         );
         _;
@@ -94,14 +70,14 @@ contract CampaignInfo is Ownable, Pausable {
     modifier isPlatformAdmin(bytes32 platformHex) {
         require(
             ICampaignGlobalParameters(
-                ICampaignRegistry(registryAddress).getCampaignGlobalParameters()
+                ICampaignRegistry(data.registry).getCampaignGlobalParameters()
             ).platformAdmin(platformHex) == msg.sender
         );
         _;
     }
 
     modifier platformNotPaused(bytes32 platformHex) {
-        require(!pausedPlatforms[platformHex]);
+        require(!state.pausedPlatforms[platformHex]);
         _;
     }
 
@@ -109,7 +85,7 @@ contract CampaignInfo is Ownable, Pausable {
         address backer,
         bytes32 platformId
     ) public view returns (uint256) {
-        return backerPledgeInfoForPlatforms[backer][platformId];
+        return state.backerPledgeInfoForPlatforms[backer][platformId];
     }
 
     function getCampaignData()
@@ -125,17 +101,17 @@ contract CampaignInfo is Ownable, Pausable {
         )
     {
         return (
-            campaign.identifier,
-            campaign.goalAmount,
-            campaign.launchTime,
-            campaign.createdAt,
-            campaign.deadline,
-            campaign.creatorUrl
+            data.identifier,
+            data.goalAmount,
+            data.launchTime,
+            data.createdAt,
+            data.deadline,
+            data.creatorUrl
         );
     }
 
     function getCampaignOriginPlatform() public view returns (bytes32) {
-        return campaign.originPlatform;
+        return data.originPlatform;
     }
 
     function getCampaignReachPlatforms()
@@ -143,29 +119,28 @@ contract CampaignInfo is Ownable, Pausable {
         view
         returns (bytes32[] memory)
     {
-        return campaign.reachPlatforms;
+        return data.reachPlatforms;
     }
 
     function getPledgedAmountForAPlatformCrypto(
         bytes32 platformId
     ) public view returns (uint256) {
-        return
-            IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
+        return IERC20(state.tokens[platformId]).balanceOf(state.treasuries[platformId]);
     }
 
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
-        address tempOriginPlatform = treasuryAddress[campaign.originPlatform];
+        address tempOriginPlatform = state.treasuries[data.originPlatform];
         require(
             tempOriginPlatform != address(0),
             "CampaignInfo: Origin platform treasury not set yet"
         );
-        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        bytes32[] memory tempReachPlatforms = data.reachPlatforms;
         uint256 length = tempReachPlatforms.length;
-        uint256 pledgedAmount = IERC20(tokens[campaign.originPlatform])
+        uint256 pledgedAmount = IERC20(state.tokens[data.originPlatform])
             .balanceOf(tempOriginPlatform);
         for (uint256 i = 0; i < length; i++) {
-            address tempReachPlatform = treasuryAddress[tempReachPlatforms[i]];
-            address tempToken = tokens[tempReachPlatforms[i]];
+            address tempReachPlatform = state.treasuries[tempReachPlatforms[i]];
+            address tempToken = state.tokens[tempReachPlatforms[i]];
             if (tempReachPlatform != address(0)) {
                 pledgedAmount =
                     pledgedAmount +
@@ -178,7 +153,7 @@ contract CampaignInfo is Ownable, Pausable {
     function getTreasuryAddress(
         bytes32 platformId
     ) public view treasuryIsSet(platformId) returns (address) {
-        return treasuryAddress[platformId];
+        return state.treasuries[platformId];
     }
 
     function _pledge(
@@ -201,7 +176,7 @@ contract CampaignInfo is Ownable, Pausable {
         ICampaignContainers.Container memory container
     ) external onlyOwner {
         ICampaignContainers(
-            ICampaignRegistry(registryAddress).getCampaignContainers()
+            ICampaignRegistry(data.registry).getCampaignContainers()
         ).addContainer(creator, id, container);
     }
 
@@ -211,25 +186,25 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 goalAmount,
         bool enableLatePledge
     ) external onlyOwner {
-        campaign.launchTime = launchTime;
-        campaign.deadline = deadline;
-        campaign.goalAmount = goalAmount;
-        latePledgeEnabled = enableLatePledge;
-        launchReady = true;
+        data.launchTime = launchTime;
+        data.deadline = deadline;
+        data.goalAmount = goalAmount;
+        state.latePledgeEnabled = enableLatePledge;
+        state.launchReady = true;
     }
 
     function updateLaunchTime(uint256 _launchTime) external notEnded onlyOwner {
-        require(_launchTime + minCampaignTime < campaign.deadline);
-        campaign.launchTime = _launchTime;
+        require(_launchTime + state.minCampaignTime < data.deadline);
+        data.launchTime = _launchTime;
     }
 
     function updateDeadline(uint256 _deadline) external notEnded onlyOwner {
-        require(campaign.launchTime + minCampaignTime < _deadline);
-        campaign.deadline = _deadline;
+        require(data.launchTime + state.minCampaignTime < _deadline);
+        data.deadline = _deadline;
     }
 
     function updateGoal(uint256 _goalAmount) external notEnded onlyOwner {
-        campaign.goalAmount = _goalAmount;
+        data.goalAmount = _goalAmount;
     }
 
     function pause() external notEnded isProtocolAdmin {
@@ -244,26 +219,24 @@ contract CampaignInfo is Ownable, Pausable {
         bytes32 platformHex,
         bool paused
     ) external isPlatformAdmin(platformHex) {
-        pausedPlatforms[platformHex] = paused;
+        state.pausedPlatforms[platformHex] = paused;
     }
 
     function end() external notEnded isProtocolAdmin {
-        ended = true;
+        state.ended = true;
     }
 
     function setPlatformInfo(
         bytes32 _platformId,
-        address _platformWallet,
         address _treasury,
         address _token
     ) external notEnded onlyOwner {
-        platformWallet[_platformId] = _platformWallet;
-        treasuryAddress[_platformId] = _treasury;
-        tokens[_platformId] = _token;
+        state.treasuries[_platformId] = _treasury;
+        state.tokens[_platformId] = _token;
     }
 
     function addReachPlatform(bytes32 _platformId) external notEnded onlyOwner {
-        campaign.reachPlatforms.push(_platformId);
+        data.reachPlatforms.push(_platformId);
     }
 
     function becomeAnEarlyBacker(
@@ -272,15 +245,15 @@ contract CampaignInfo is Ownable, Pausable {
         bool isFiat
     ) external notEnded whenNotPaused returns (uint256 tokenId) {
         require(
-            !launchReady || campaign.launchTime > block.timestamp,
+            !state.launchReady || data.launchTime > block.timestamp,
             "CampaignInfo: Not allowed"
         );
-        address treasury = treasuryAddress[platformId];
-        address token = tokens[platformId];
-        _pledge(token, treasury, backer, earlyPledgeAmount, isFiat);
+        address treasury = state.treasuries[platformId];
+        address token = state.tokens[platformId];
+        _pledge(token, treasury, backer, state.earlyPledgeAmount, isFiat);
         tokenId = ICampaignNFT(
-            ICampaignRegistry(registryAddress).getCampaignNFTAddress()
-        ).safeMint(backer, token, earlyPledgeAmount, platformId);
+            ICampaignRegistry(data.registry).getCampaignNFTAddress()
+        ).safeMint(backer, token, state.earlyPledgeAmount, platformId);
     }
 
     function pledgeForAReward(
@@ -291,27 +264,27 @@ contract CampaignInfo is Ownable, Pausable {
         bool isFiat
     ) public notEnded whenNotPaused returns (uint256 tokenId) {
         require(
-            launchReady && campaign.launchTime < block.timestamp,
+            state.launchReady && data.launchTime < block.timestamp,
             "CampaignInfo: Not Allowed"
         );
-        address token = tokens[platformId];
+        address token = state.tokens[platformId];
         uint256 amount = ICampaignContainers(
-            ICampaignRegistry(registryAddress).getCampaignContainers()
+            ICampaignRegistry(data.registry).getCampaignContainers()
         ).getContainer(owner(), reward) +
             ICampaignContainers(
-                ICampaignRegistry(registryAddress).getCampaignContainers()
+                ICampaignRegistry(data.registry).getCampaignContainers()
             ).getContainer(owner(), addOn);
-        if (earlyBackers[backer]) {
-            amount = amount - earlyPledgeAmount;
-            earlyBackers[backer] = false;
+        if (state.earlyBackers[backer]) {
+            amount = amount - state.earlyPledgeAmount;
+            state.earlyBackers[backer] = false;
         }
-        _pledge(token, treasuryAddress[platformId], backer, amount, isFiat);
+        _pledge(token, state.treasuries[platformId], backer, amount, isFiat);
         tokenId = ICampaignNFT(
-            ICampaignRegistry(registryAddress).getCampaignNFTAddress()
+            ICampaignRegistry(data.regsitry).getCampaignNFTAddress()
         ).safeMint(
                 backer,
                 token,
-                amount + earlyPledgeAmount,
+                amount + state.earlyPledgeAmount,
                 platformId,
                 reward
             );
@@ -323,35 +296,35 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 amount,
         bool isFiat
     ) public notEnded whenNotPaused {
-        if (campaign.deadline < block.timestamp) {
+        if (data.deadline < block.timestamp) {
             require(
-                getTotalPledgedAmountCrypto() >= campaign.goalAmount &&
-                    latePledgeEnabled,
+                getTotalPledgedAmountCrypto() >= data.goalAmount &&
+                    state.latePledgeEnabled,
                 "CampaignInfo: Not allowed"
             );
         }
-        require(campaign.launchTime < block.timestamp);
-        address token = tokens[platformId];
-        _pledge(token, treasuryAddress[platformId], backer, amount, isFiat);
-        backerPledgeInfoForPlatforms[backer][platformId] += amount;
+        require(data.launchTime < block.timestamp);
+        address token = state.tokens[platformId];
+        _pledge(token, state.treasuries[platformId], backer, amount, isFiat);
+        state.backerPledgeInfoForPlatforms[backer][platformId] += amount;
         // ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
         //     .safeMint(backer, token, amount, platformId);
     }
 
     function claimRefundForAReward(address backer, uint256 tokenId) external {
-        address campaignNFT = ICampaignRegistry(registryAddress)
+        address campaignNFT = ICampaignRegistry(state.registry)
             .getCampaignNFTAddress();
         bytes32 reward;
         bytes32 platformId;
         (, , , , , platformId, reward) = ICampaignNFT(campaignNFT)
             .getPledgeReceipt(tokenId);
         uint256 rewardValue = ICampaignContainers(
-            ICampaignRegistry(registryAddress).getCampaignContainers()
+            ICampaignRegistry(state.registry).getCampaignContainers()
         ).getContainer(owner(), reward);
         ICampaignNFT(campaignNFT).burn(tokenId);
-        ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
+        ICampaignTreasury(state.treasuries[platformId]).disburseFeeToPlatform(
             backer,
-            tokens[platformId],
+            state.tokens[platformId],
             rewardValue
         );
     }
@@ -361,33 +334,36 @@ contract CampaignInfo is Ownable, Pausable {
         uint256 amount,
         bytes32 platformId
     ) external {
-        uint256 pledgedAmount = backerPledgeInfoForPlatforms[backer][
+        uint256 pledgedAmount = state.backerPledgeInfoForPlatforms[backer][
             platformId
         ];
         require(amount <= pledgedAmount, "CampaignInfo: Invalid Amount");
-        backerPledgeInfoForPlatforms[backer][platformId] =
+        state.backerPledgeInfoForPlatforms[backer][platformId] =
             pledgedAmount -
             amount;
-        ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
+        ICampaignTreasury(state.treasuries[platformId]).disburseFeeToPlatform(
             backer,
-            tokens[platformId],
+            state.tokens[platformId],
             amount
         );
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
-        address treasury = treasuryAddress[_platformId];
-        address token = tokens[_platformId];
+        address treasury = state.treasuries[_platformId];
+        address token = state.tokens[_platformId];
         address platform = platformWallet[_platformId];
 
-        ICampaignRegistry registry = ICampaignRegistry(registryAddress);
+        ICampaignRegistry registry = ICampaignRegistry(data.registry);
         ICampaignGlobalParameters globalParams = ICampaignGlobalParameters(
             registry.getCampaignGlobalParameters()
         );
         uint256 pledgedAmount = getPledgedAmountForAPlatformCrypto(_platformId);
         if (_feeShare > 0 && treasury != address(0)) {
-            ICampaignTreasury(treasuryAddress[_platformId])
-                .disburseFeeToPlatform(platform, token, _feeShare);
+            ICampaignTreasury(state.treasuries[_platformId]).disburseFeeToPlatform(
+                platform,
+                token,
+                _feeShare
+            );
             ICampaignTreasury(treasury).disburseFeeToPlatform(
                 globalParams.protocolAdmin(),
                 token,
@@ -410,15 +386,14 @@ contract CampaignInfo is Ownable, Pausable {
     function getPledgedAmountForPlatformCrypto(
         bytes32 platformId
     ) public view treasuryIsSet(platformId) returns (uint256) {
-        return
-            IERC20(tokens[platformId]).balanceOf(treasuryAddress[platformId]);
+        return IERC20(state.tokens[platformId]).balanceOf(state.treasuries[platformId]);
     }
 
     function splitFeesProportionately() public {
-        address globalParams = ICampaignRegistry(registryAddress)
+        address globalParams = ICampaignRegistry(data.registry)
             .getCampaignGlobalParameters();
 
-        bytes32[] memory tempReachPlatforms = campaign.reachPlatforms;
+        bytes32[] memory tempReachPlatforms = data.reachPlatforms;
         bytes32[] memory tempPlatforms = new bytes32[](
             tempReachPlatforms.length + 1
         );
@@ -431,12 +406,12 @@ contract CampaignInfo is Ownable, Pausable {
                 tempReachPlatforms[i]
             );
         }
-        tempPlatforms[tempReachPlatforms.length] = campaign.originPlatform;
+        tempPlatforms[tempReachPlatforms.length] = data.originPlatform;
         pledgedAmountByPlatforms[
             tempReachPlatforms.length
-        ] = getPledgedAmountForPlatformCrypto(campaign.originPlatform);
+        ] = getPledgedAmountForPlatformCrypto(data.originPlatform);
         uint256[] memory feeShareByPlatforms = ICampaignFeeSplitter(
-            ICampaignRegistry(registryAddress).getCampaignFeeSplitter()
+            ICampaignRegistry(data.registry).getCampaignFeeSplitter()
         ).getFeeSplitsProportionately(
                 ICampaignGlobalParameters(globalParams)
                     .platformTotalFeePercent(),
