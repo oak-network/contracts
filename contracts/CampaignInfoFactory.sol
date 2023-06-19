@@ -28,12 +28,12 @@ contract CampaignInfoFactory {
     ) external {
         newCampaignInfo = new CampaignInfo(
             _identifier,
-            _originPlatform,
             _creatorUrl,
-            _reachPlatform,
             campaignRegistry,
             _creator, 
-            _earlyPledgeAmount
+            _earlyPledgeAmount,
+            _originPlatform,
+            _reachPlatform
         );
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));

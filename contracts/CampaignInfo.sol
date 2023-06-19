@@ -13,27 +13,25 @@ import "./Interface/ICampaignNFT.sol";
 import "./Interface/ICampaignContainers.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
-
     CampaignData data;
     CampaignPlatforms platforms;
     CampaignState state;
-    
+
     constructor(
         string memory _identifier,
-        bytes32 _originPlatform,
         string memory _creatorUrl,
-        bytes32[] memory _reachPlatform,
         address _registryAddress,
         address _creator,
-        uint256 _earlyPledgeAmount
+        uint256 _earlyPledgeAmount,
+        bytes32 _originPlatform,
+        bytes32[] memory _reachPlatform
     ) {
         data.identifier = _identifier;
-        data.originPlatform = _originPlatform;
-        data.createdAt = uint256(block.timestamp);
         data.creatorUrl = _creatorUrl;
-        data.reachPlatforms = _reachPlatform;
         data.registry = _registryAddress;
         data.earlyPledgeAmount = _earlyPledgeAmount;
+        platforms.originPlatform = _originPlatform;
+        platforms.reachPlatforms = _reachPlatform;
         transferOwnership(_creator);
     }
 
@@ -62,7 +60,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
         require(
             ICampaignGlobalParameters(
                 ICampaignRegistry(data.registry).getCampaignGlobalParameters()
-            ).protocolAdmin() == msg.sender
+            ).protocol() == msg.sender
         );
         _;
     }
@@ -96,7 +94,6 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             uint256,
             uint256,
             uint256,
-            uint256,
             string memory
         )
     {
@@ -104,14 +101,13 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             data.identifier,
             data.goalAmount,
             data.launchTime,
-            data.createdAt,
             data.deadline,
             data.creatorUrl
         );
     }
 
     function getCampaignOriginPlatform() public view returns (bytes32) {
-        return data.originPlatform;
+        return platforms.originPlatform;
     }
 
     function getCampaignReachPlatforms()
@@ -119,24 +115,27 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
         view
         returns (bytes32[] memory)
     {
-        return data.reachPlatforms;
+        return platforms.reachPlatforms;
     }
 
     function getPledgedAmountForAPlatformCrypto(
         bytes32 platformId
     ) public view returns (uint256) {
-        return IERC20(state.tokens[platformId]).balanceOf(state.treasuries[platformId]);
+        return
+            IERC20(state.tokens[platformId]).balanceOf(
+                state.treasuries[platformId]
+            );
     }
 
     function getTotalPledgedAmountCrypto() public view returns (uint256) {
-        address tempOriginPlatform = state.treasuries[data.originPlatform];
+        address tempOriginPlatform = state.treasuries[platforms.originPlatform];
         require(
             tempOriginPlatform != address(0),
             "CampaignInfo: Origin platform treasury not set yet"
         );
-        bytes32[] memory tempReachPlatforms = data.reachPlatforms;
+        bytes32[] memory tempReachPlatforms = platforms.reachPlatforms;
         uint256 length = tempReachPlatforms.length;
-        uint256 pledgedAmount = IERC20(state.tokens[data.originPlatform])
+        uint256 pledgedAmount = IERC20(state.tokens[platforms.originPlatform])
             .balanceOf(tempOriginPlatform);
         for (uint256 i = 0; i < length; i++) {
             address tempReachPlatform = state.treasuries[tempReachPlatforms[i]];
@@ -236,7 +235,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     }
 
     function addReachPlatform(bytes32 _platformId) external notEnded onlyOwner {
-        data.reachPlatforms.push(_platformId);
+        platforms.reachPlatforms.push(_platformId);
     }
 
     function becomeAnEarlyBacker(
@@ -250,10 +249,10 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
         );
         address treasury = state.treasuries[platformId];
         address token = state.tokens[platformId];
-        _pledge(token, treasury, backer, state.earlyPledgeAmount, isFiat);
+        _pledge(token, treasury, backer, data.earlyPledgeAmount, isFiat);
         tokenId = ICampaignNFT(
             ICampaignRegistry(data.registry).getCampaignNFTAddress()
-        ).safeMint(backer, token, state.earlyPledgeAmount, platformId);
+        ).safeMint(backer, token, data.earlyPledgeAmount, platformId);
     }
 
     function pledgeForAReward(
@@ -275,16 +274,16 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
                 ICampaignRegistry(data.registry).getCampaignContainers()
             ).getContainer(owner(), addOn);
         if (state.earlyBackers[backer]) {
-            amount = amount - state.earlyPledgeAmount;
+            amount = amount - data.earlyPledgeAmount;
             state.earlyBackers[backer] = false;
         }
         _pledge(token, state.treasuries[platformId], backer, amount, isFiat);
         tokenId = ICampaignNFT(
-            ICampaignRegistry(data.regsitry).getCampaignNFTAddress()
+            ICampaignRegistry(data.registry).getCampaignNFTAddress()
         ).safeMint(
                 backer,
                 token,
-                amount + state.earlyPledgeAmount,
+                amount + data.earlyPledgeAmount,
                 platformId,
                 reward
             );
@@ -312,14 +311,14 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     }
 
     function claimRefundForAReward(address backer, uint256 tokenId) external {
-        address campaignNFT = ICampaignRegistry(state.registry)
+        address campaignNFT = ICampaignRegistry(data.registry)
             .getCampaignNFTAddress();
         bytes32 reward;
         bytes32 platformId;
         (, , , , , platformId, reward) = ICampaignNFT(campaignNFT)
             .getPledgeReceipt(tokenId);
         uint256 rewardValue = ICampaignContainers(
-            ICampaignRegistry(state.registry).getCampaignContainers()
+            ICampaignRegistry(data.registry).getCampaignContainers()
         ).getContainer(owner(), reward);
         ICampaignNFT(campaignNFT).burn(tokenId);
         ICampaignTreasury(state.treasuries[platformId]).disburseFeeToPlatform(
@@ -351,21 +350,19 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
         address treasury = state.treasuries[_platformId];
         address token = state.tokens[_platformId];
-        address platform = platformWallet[_platformId];
 
         ICampaignRegistry registry = ICampaignRegistry(data.registry);
         ICampaignGlobalParameters globalParams = ICampaignGlobalParameters(
             registry.getCampaignGlobalParameters()
         );
+
+        address platform = globalParams.platformAddresses(_platformId);
         uint256 pledgedAmount = getPledgedAmountForAPlatformCrypto(_platformId);
         if (_feeShare > 0 && treasury != address(0)) {
-            ICampaignTreasury(state.treasuries[_platformId]).disburseFeeToPlatform(
-                platform,
-                token,
-                _feeShare
-            );
+            ICampaignTreasury(state.treasuries[_platformId])
+                .disburseFeeToPlatform(platform, token, _feeShare);
             ICampaignTreasury(treasury).disburseFeeToPlatform(
-                globalParams.protocolAdmin(),
+                globalParams.protocol(),
                 token,
                 (pledgedAmount * (globalParams.protocolFeePercent())) /
                     globalParams.percentDivider()
@@ -386,14 +383,17 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     function getPledgedAmountForPlatformCrypto(
         bytes32 platformId
     ) public view treasuryIsSet(platformId) returns (uint256) {
-        return IERC20(state.tokens[platformId]).balanceOf(state.treasuries[platformId]);
+        return
+            IERC20(state.tokens[platformId]).balanceOf(
+                state.treasuries[platformId]
+            );
     }
 
     function splitFeesProportionately() public {
         address globalParams = ICampaignRegistry(data.registry)
             .getCampaignGlobalParameters();
 
-        bytes32[] memory tempReachPlatforms = data.reachPlatforms;
+        bytes32[] memory tempReachPlatforms = platforms.reachPlatforms;
         bytes32[] memory tempPlatforms = new bytes32[](
             tempReachPlatforms.length + 1
         );
@@ -406,10 +406,10 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
                 tempReachPlatforms[i]
             );
         }
-        tempPlatforms[tempReachPlatforms.length] = data.originPlatform;
+        tempPlatforms[tempReachPlatforms.length] = platforms.originPlatform;
         pledgedAmountByPlatforms[
             tempReachPlatforms.length
-        ] = getPledgedAmountForPlatformCrypto(data.originPlatform);
+        ] = getPledgedAmountForPlatformCrypto(platforms.originPlatform);
         uint256[] memory feeShareByPlatforms = ICampaignFeeSplitter(
             ICampaignRegistry(data.registry).getCampaignFeeSplitter()
         ).getFeeSplitsProportionately(
@@ -420,4 +420,44 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             );
         disburseFees(tempPlatforms, feeShareByPlatforms);
     }
+
+    function addReward(
+        string calldata _rewardId,
+        uint256 _rewardValue,
+        string calldata _rewardDescription
+    ) external override {}
+
+    function addItem(
+        string calldata _itemId,
+        string calldata _description
+    ) external override {}
+
+    function addReward(
+        bool isAddOn,
+        uint256 rewardValue,
+        string calldata name,
+        string[] memory itemName,
+        uint256[] memory itemQuantity
+    ) external override {}
+
+    function setTreasuryAddress(
+        bytes32 platformId,
+        address treasuryAddress_
+    ) external override {}
+
+    function setTokenAddress(
+        bytes32 platformId,
+        address tokenAddress_
+    ) external override {}
+
+    function pledgeCrypto(
+        bytes32 platformId,
+        uint256 amount,
+        bool isEarlyPledge
+    ) external override {}
+
+    function transferOwnership(
+        address newOwner
+    ) public override(ICampaignInfo, Ownable) {}
+
 }

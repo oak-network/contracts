@@ -59,7 +59,6 @@ contract Aggregator {
         address treasury = address(newTreasury);
         ICampaignInfo(infoAddress).setPlatformInfo(
             _originPlatformHex,
-            _originPlatformAddress,
             treasury,
             _originPlatformToken
         );
@@ -79,7 +78,6 @@ contract Aggregator {
         address treasury = address(newTreasury);
         ICampaignInfo(campaignInfo).setPlatformInfo(
             platform,
-            platformWallet,
             treasury,
             token
         );
