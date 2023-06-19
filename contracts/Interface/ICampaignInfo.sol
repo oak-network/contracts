@@ -4,7 +4,6 @@ pragma solidity ^0.8.9;
 import "./ICampaignContainers.sol";
 
 interface ICampaignInfo {
-    
     struct CampaignData {
         uint256 goalAmount;
         uint256 launchTime;
@@ -41,14 +40,7 @@ interface ICampaignInfo {
     function getCampaignData()
         external
         view
-        returns (
-            string memory,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            string memory
-        );
+        returns (string memory, uint256, uint256, uint256, string memory);
 
     function getCampaignOriginPlatform() external view returns (bytes32);
 
@@ -69,7 +61,6 @@ interface ICampaignInfo {
 
     function setPlatformInfo(
         bytes32 _platformId,
-        address _platformWallet,
         address _treasury,
         address _token
     ) external;
@@ -116,26 +107,11 @@ interface ICampaignInfo {
         address tokenAddress_
     ) external;
 
-    function setPlatformWallet(
-        bytes32 platformId,
-        address platformWallet_
-    ) external;
-
     function pledgeCrypto(
         bytes32 platformId,
         uint256 amount,
         bool isEarlyPledge
     ) external;
-
-    function distributePledge(
-        address backer,
-        bytes32 platformId
-    ) external returns (bool);
-
-    function claimReward(
-        address backer,
-        string calldata rewardId
-    ) external returns (bool);
 
     function updateLaunchTime(uint256 _launchTime) external;
 
