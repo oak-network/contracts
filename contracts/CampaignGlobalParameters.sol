@@ -2,31 +2,33 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Interface/ICampaignGlobalParameters.sol";
 
-contract CampaignGlobalParameters is Ownable {
+contract CampaignGlobalParameters is ICampaignGlobalParameters, Ownable {
     uint256 private _denominator = 2;
-    bytes32 private _rewardedPlatform;
     uint256 private constant _percentDivider = 10000;
     uint256 private _platformTotalFeePercent;
     uint256 private _rewardPlatformFeePercent;
     uint256 public protocolFeePercent;
-    uint256 private _specifiedTime;
-    address private _protocolAdmin;
+    address public protocolAddress;
 
-    mapping(bytes32 => address) _platformAdmins;
+    mapping(bytes32 => address) public platformAddresses;
 
-    constructor(address protocolAdmin_) {
-        _protocolAdmin = protocolAdmin_;
-        transferOwnership(_protocolAdmin);
+    constructor(address _protocolAddress) {
+        transferOwnership(_protocolAddress);
     }
 
     function denominator() external view returns (uint256) {
         return _denominator;
     }
 
-    function rewardedPlatform() external view returns (bytes32) {
-        return _rewardedPlatform;
+    function protocol() external view override returns (address) {
+        return owner();
     }
+
+    // function rewardedPlatform() external view returns (bytes32) {
+    //     return _rewardedPlatform;
+    // }
 
     function percentDivider() external pure returns (uint256) {
         return _percentDivider;
@@ -40,23 +42,11 @@ contract CampaignGlobalParameters is Ownable {
         return _rewardPlatformFeePercent;
     }
 
-    function specifiedTime() external view returns (uint256) {
-        return _specifiedTime;
-    }
-
-    function protocolAdmin() external view returns (address) {
-        return _protocolAdmin;
-    }
-
-    function platformAdmin(bytes32 platformHex) external view returns (address) {
-        return _platformAdmins[platformHex];
-    }
-
-    function setPlatformAdmin(
+    function setPlatformAddress(
         bytes32 platformHex_,
-        address platformAdmin_
+        address platformAddress_
     ) external {
-        _platformAdmins[platformHex_] = platformAdmin_;
+        platformAddresses[platformHex_] = platformAddress_;
     }
 
     // function setProtocolAdmin(address protocolAdmin_) external onlyOwner {
@@ -67,11 +57,13 @@ contract CampaignGlobalParameters is Ownable {
         _denominator = denominator_;
     }
 
-    function setRewardedPlatform(bytes32 rewardedPlatform_) external onlyOwner {
-        _rewardedPlatform = rewardedPlatform_;
-    }
+    // function setRewardedPlatform(bytes32 rewardedPlatform_) external onlyOwner {
+    //     _rewardedPlatform = rewardedPlatform_;
+    // }
 
-    function setProtocolFeePercent(uint256 protocolFeePercent_) external onlyOwner {
+    function setProtocolFeePercent(
+        uint256 protocolFeePercent_
+    ) external onlyOwner {
         protocolFeePercent = protocolFeePercent_;
     }
 
@@ -87,7 +79,11 @@ contract CampaignGlobalParameters is Ownable {
         _rewardPlatformFeePercent = rewardPlatformFeePercent_;
     }
 
-    function setSpecifiedTime(uint256 specifiedTime_) external onlyOwner {
-        _specifiedTime = specifiedTime_;
-    }
+    function rewardedPlatform() external view override returns (bytes32) {}
+
+    function setProtocolAdmin(address protocolAdmin) external override {}
+
+    function platformAdmin(
+        bytes32 platformHex
+    ) external view override returns (address) {}
 }
