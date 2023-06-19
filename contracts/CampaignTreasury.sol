@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Interface/ICampaignTreasury.sol";
 
-contract CampaignTreasury {
-    address registryAddress;
-    address infoAddress;
-    bytes32 platformId;
+contract CampaignTreasury is ICampaignTreasury {
+    address immutable registry;
+    address immutable infoAddress;
+    bytes32 immutable platformId;
+    uint256 constant percentDivider = 10000;
     uint256 pledgedAmount;
     uint256 platformFeePercent;
-    uint256 constant percentDivider = 10000;
 
     constructor(
         address _registryAddress,
         address _infoAddress,
         bytes32 _platformId
     ) {
-        registryAddress = _registryAddress;
+        registry = _registryAddress;
         infoAddress = _infoAddress;
         platformId = _platformId;
     }
@@ -64,4 +64,6 @@ contract CampaignTreasury {
     ) external onlyCampaignInfo {
         IERC20(_token).transfer(_platform, _amount);
     }
+
+    function setPledgedAmount(uint256 _pledgedAmount) external override {}
 }
