@@ -9,7 +9,14 @@ contract CampaignContainers {
         bool isRewardTier;
     }
 
-    mapping(address => mapping (bytes32 => Container)) public containers;
+    mapping(address => mapping(bytes32 => Container)) containers;
+
+    function getContainer(
+        address creator,
+        bytes32 id
+    ) external view returns (uint256) {
+        return containers[creator][id].value;
+    }
 
     function addContainer(
         address creator,
