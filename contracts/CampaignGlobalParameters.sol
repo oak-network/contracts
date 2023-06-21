@@ -9,8 +9,10 @@ contract CampaignGlobalParameters is Ownable {
     uint256 private constant _percentDivider = 10000;
     uint256 private _platformTotalFeePercent;
     uint256 private _rewardPlatformFeePercent;
+    uint256 public protocolFeePercent;
     uint256 private _specifiedTime;
     address private _protocolAdmin;
+
     mapping(bytes32 => address) _platformAdmins;
 
     constructor(address protocolAdmin_) {
@@ -67,6 +69,10 @@ contract CampaignGlobalParameters is Ownable {
 
     function setRewardedPlatform(bytes32 rewardedPlatform_) external onlyOwner {
         _rewardedPlatform = rewardedPlatform_;
+    }
+
+    function setProtocolFeePercent(uint256 protocolFeePercent_) external onlyOwner {
+        protocolFeePercent = protocolFeePercent_;
     }
 
     function setPlatformTotalFeePercent(
