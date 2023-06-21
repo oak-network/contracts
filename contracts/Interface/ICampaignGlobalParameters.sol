@@ -7,7 +7,8 @@ interface ICampaignGlobalParameters {
     function rewardedPlatform() external view returns (bytes32);
 
     function percentDivider() external pure returns (uint256);
-
+    function protocolFeePercent() external view returns (uint256);
+    
     function platformTotalFeePercent() external view returns (uint256);
 
     function rewardPlatformFeePercent() external view returns (uint256);
