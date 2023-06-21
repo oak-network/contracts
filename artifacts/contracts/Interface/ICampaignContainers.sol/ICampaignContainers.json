@@ -70,39 +70,22 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
+        },
+        {
           "internalType": "bytes32",
-          "name": "key",
+          "name": "id",
           "type": "bytes32"
         }
       ],
-      "name": "containers",
+      "name": "getContainer",
       "outputs": [
         {
-          "components": [
-            {
-              "internalType": "uint256[]",
-              "name": "items",
-              "type": "uint256[]"
-            },
-            {
-              "internalType": "uint256[]",
-              "name": "itemQuantity",
-              "type": "uint256[]"
-            },
-            {
-              "internalType": "uint256",
-              "name": "value",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bool",
-              "name": "isRewardTier",
-              "type": "bool"
-            }
-          ],
-          "internalType": "struct ICampaignContainers.Container",
-          "name": "value",
-          "type": "tuple"
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",

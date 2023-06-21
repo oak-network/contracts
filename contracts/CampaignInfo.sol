@@ -297,10 +297,10 @@ contract CampaignInfo is Ownable, Pausable {
         address token = tokens[platformId];
         uint256 amount = ICampaignContainers(
             ICampaignRegistry(registryAddress).getCampaignContainers()
-        ).containers(reward).value +
+        ).getContainer(owner(), reward) +
             ICampaignContainers(
                 ICampaignRegistry(registryAddress).getCampaignContainers()
-            ).containers(addOn).value;
+            ).getContainer(owner(), addOn);
         if (earlyBackers[backer]) {
             amount = amount - earlyPledgeAmount;
             earlyBackers[backer] = false;
@@ -347,7 +347,7 @@ contract CampaignInfo is Ownable, Pausable {
             .getPledgeReceipt(tokenId);
         uint256 rewardValue = ICampaignContainers(
             ICampaignRegistry(registryAddress).getCampaignContainers()
-        ).containers(reward).value;
+        ).getContainer(owner(), reward);
         ICampaignNFT(campaignNFT).burn(tokenId);
         ICampaignTreasury(treasuryAddress[platformId]).disburseFeeToPlatform(
             backer,
