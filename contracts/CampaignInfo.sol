@@ -376,13 +376,24 @@ contract CampaignInfo is Ownable, Pausable {
     }
 
     function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
-        if (_feeShare > 0 && treasuryAddress[_platformId] != address(0)) {
+        address treasury = treasuryAddress[_platformId];
+        address token = tokens[_platformId];
+        address platform = platformWallet[_platformId];
+
+        ICampaignRegistry registry = ICampaignRegistry(registryAddress);
+        ICampaignGlobalParameters globalParams = ICampaignGlobalParameters(
+            registry.getCampaignGlobalParameters()
+        );
+        uint256 pledgedAmount = getPledgedAmountForAPlatformCrypto(_platformId);
+        if (_feeShare > 0 && treasury != address(0)) {
             ICampaignTreasury(treasuryAddress[_platformId])
-                .disburseFeeToPlatform(
-                    platformWallet[_platformId],
-                    tokens[_platformId],
-                    _feeShare
-                );
+                .disburseFeeToPlatform(platform, token, _feeShare);
+            ICampaignTreasury(treasury).disburseFeeToPlatform(
+                globalParams.protocolAdmin(),
+                token,
+                (pledgedAmount * (globalParams.protocolFeePercent())) /
+                    globalParams.percentDivider()
+            );
         }
     }
 
