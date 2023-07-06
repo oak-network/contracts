@@ -89,13 +89,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     function getCampaignData()
         public
         view
-        returns (
-            string memory,
-            uint256,
-            uint256,
-            uint256,
-            string memory
-        )
+        returns (string memory, uint256, uint256, uint256, string memory)
     {
         return (
             data.identifier,
@@ -458,6 +452,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
 
     function transferOwnership(
         address newOwner
-    ) public override(ICampaignInfo, Ownable) {}
-
+    ) public override(ICampaignInfo, Ownable) {
+        super.transferOwnership(newOwner);
+    }
 }
