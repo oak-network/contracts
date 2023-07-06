@@ -3,19 +3,16 @@ pragma solidity ^0.8.9;
 
 //import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignInfo.sol";
-import "./CampaignRegistry.sol";
+import "./Interface/ICampaignRegistry.sol";
+import "./Interface/ICampaignInfoFactory.sol";
 
-contract CampaignInfoFactory {
-    event campaignCreation(
-        string identifier,
-        address indexed campaignInfoAddress
-    );
+contract CampaignInfoFactory is ICampaignInfoFactory {
 
     CampaignInfo newCampaignInfo;
-    address campaignRegistry;
+    address registry;
 
     constructor(address _registry) {
-        campaignRegistry = _registry;
+        registry = _registry;
     }
 
     function createCampaign(
@@ -29,7 +26,7 @@ contract CampaignInfoFactory {
         newCampaignInfo = new CampaignInfo(
             _identifier,
             _creatorUrl,
-            campaignRegistry,
+            registry,
             _creator, 
             _earlyPledgeAmount,
             _originPlatform,
@@ -38,7 +35,7 @@ contract CampaignInfoFactory {
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));
 
-        CampaignRegistry(campaignRegistry).setCampaignInfoAddress(
+        ICampaignRegistry(registry).setCampaignInfoAddress(
             _identifier,
             newCampaignAddress
         );
