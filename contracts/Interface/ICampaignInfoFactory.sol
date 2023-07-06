@@ -2,6 +2,12 @@
 pragma solidity ^0.8.9;
 
 interface ICampaignInfoFactory {
+
+
+    event campaignCreation(
+        string identifier,
+        address indexed campaignInfoAddress
+    );
     function createCampaign(
         address _creator,
         string memory _identifier,
