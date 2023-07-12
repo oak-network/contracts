@@ -129,25 +129,17 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     }
 
     function totalCurrentBalance() public view returns (uint256) {
-        address tempOriginPlatform = state.treasuries[platforms.originPlatform];
-        require(
-            tempOriginPlatform != address(0),
-            "CampaignInfo: Origin platform treasury not set yet"
-        );
-        bytes32[] memory tempReachPlatforms = platforms.reachPlatforms;
-        uint256 length = tempReachPlatforms.length;
-        uint256 pledgedAmount = IERC20(state.tokens[platforms.originPlatform])
-            .balanceOf(tempOriginPlatform);
+        bytes32[] memory tempPlatforms = platforms;
+        uint256 length = platforms.length;
+        uint256 balance = 0;
+        address tempToken = token;
         for (uint256 i = 0; i < length; i++) {
-            address tempReachPlatform = state.treasuries[tempReachPlatforms[i]];
-            address tempToken = state.tokens[tempReachPlatforms[i]];
-            if (tempReachPlatform != address(0)) {
-                pledgedAmount =
-                    pledgedAmount +
-                    IERC20(tempToken).balanceOf(tempReachPlatform);
+            address tempTreasury = treasury[tempPlatforms[i]];
+            if (tempTreasury != address(0)) {
+                balance += IERC20(tempToken).balanceOf(tempTreasury);
             }
         }
-        return pledgedAmount;
+        return balance;
     }
 
     function getTreasuryAddress(
