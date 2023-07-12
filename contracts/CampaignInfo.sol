@@ -13,31 +13,38 @@ import "./Interface/ICampaignNFT.sol";
 import "./Interface/ICampaignContainers.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
-    CampaignData data;
-    CampaignPlatforms platforms;
-    CampaignState state;
+
+    address registry;
+    address creator;
+    address token;
+    uint256 launchTime;
+    uint256 deadline;
+    uint256 goal;
+    bytes32 platforms;
+
+    mapping (bytes32 => address) treasury;
+
+    string identifier;
 
     constructor(
-        string memory _identifier,
-        string memory _creatorUrl,
-        address _registryAddress,
+        address _registry,
         address _creator,
-        uint256 _earlyPledgeAmount,
-        bytes32 _originPlatform,
-        bytes32[] memory _reachPlatform
+        address _token,
+        uint256 _launchTime,
+        uint256 _deadline,
+        uint256 _goal,
+        string memory _identifier,
+        bytes32[] memory _platforms
     ) {
-        data.identifier = _identifier;
-        data.creatorUrl = _creatorUrl;
-        data.registry = _registryAddress;
-        data.earlyPledgeAmount = _earlyPledgeAmount;
-        platforms.originPlatform = _originPlatform;
-        platforms.reachPlatforms = _reachPlatform;
+        identifier = _identifier;
+        registry = _registry;
+        platforms = _platforms;
         transferOwnership(_creator);
     }
 
     modifier treasuryIsSet(bytes32 platformId) {
         require(
-            state.treasuries[platformId] != address(0),
+            treasury[platformId] != address(0),
             "CampaignInfo: Treasury address for platform is not set"
         );
         _;
@@ -121,7 +128,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             );
     }
 
-    function getTotalPledgedAmountCrypto() public view returns (uint256) {
+    function totalCurrentBalance() public view returns (uint256) {
         address tempOriginPlatform = state.treasuries[platforms.originPlatform];
         require(
             tempOriginPlatform != address(0),
