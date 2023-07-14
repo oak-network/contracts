@@ -14,15 +14,15 @@ import "./Interface/ICampaignContainers.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
 
-    address registry;
-    address creator;
-    address token;
-    uint256 launchTime;
-    uint256 deadline;
-    uint256 goal;
-    bytes32 platforms;
+    address public registry;
+    address public creator;
+    address public token;
+    uint256 public launchTime;
+    uint256 public deadline;
+    uint256 public goal;
+    bytes32 public platforms;
 
-    mapping (bytes32 => address) treasury;
+    mapping (bytes32 => address) public treasury;
 
     string identifier;
 
@@ -243,157 +243,6 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
 
     function addReachPlatform(bytes32 _platformId) external notEnded onlyOwner {
         platforms.reachPlatforms.push(_platformId);
-    }
-
-    function becomeAnEarlyBacker(
-        bytes32 platformId,
-        address backer,
-        bool isFiat
-    ) external notEnded whenNotPaused returns (uint256 tokenId) {
-        require(
-            !state.launchReady || data.launchTime > block.timestamp,
-            "CampaignInfo: Not allowed"
-        );
-        address treasury = state.treasuries[platformId];
-        address token = state.tokens[platformId];
-        _pledge(token, treasury, backer, data.earlyPledgeAmount, isFiat);
-        tokenId = ICampaignNFT(
-            ICampaignRegistry(data.registry).getCampaignNFTAddress()
-        ).safeMint(backer, token, data.earlyPledgeAmount, platformId);
-    }
-
-    function pledgeForAReward(
-        bytes32 platformId,
-        address backer,
-        bytes32 reward,
-        bytes32 addOn,
-        bool isFiat
-    ) public notEnded whenNotPaused returns (uint256 tokenId) {
-        require(
-            state.launchReady && data.launchTime < block.timestamp,
-            "CampaignInfo: Not Allowed"
-        );
-        address token = state.tokens[platformId];
-        uint256 amount = ICampaignContainers(
-            ICampaignRegistry(data.registry).getCampaignContainers()
-        ).getContainer(owner(), reward) +
-            ICampaignContainers(
-                ICampaignRegistry(data.registry).getCampaignContainers()
-            ).getContainer(owner(), addOn);
-        if (state.earlyBackers[backer]) {
-            amount = amount - data.earlyPledgeAmount;
-            state.earlyBackers[backer] = false;
-        }
-        _pledge(token, state.treasuries[platformId], backer, amount, isFiat);
-        tokenId = ICampaignNFT(
-            ICampaignRegistry(data.registry).getCampaignNFTAddress()
-        ).safeMint(
-                backer,
-                token,
-                amount + data.earlyPledgeAmount,
-                platformId,
-                reward
-            );
-    }
-
-    function pledgeWithoutAReward(
-        bytes32 platformId,
-        address backer,
-        uint256 amount,
-        bool isFiat
-    ) public notEnded whenNotPaused {
-        if (data.deadline < block.timestamp) {
-            require(
-                getTotalPledgedAmountCrypto() >= data.goalAmount &&
-                    state.latePledgeEnabled,
-                "CampaignInfo: Not allowed"
-            );
-        }
-        require(data.launchTime < block.timestamp);
-        address token = state.tokens[platformId];
-        _pledge(token, state.treasuries[platformId], backer, amount, isFiat);
-        state.backerPledgeInfoForPlatforms[backer][platformId] += amount;
-        // ICampaignNFT(ICampaignRegistry(registryAddress).getCampaignNFTAddress())
-        //     .safeMint(backer, token, amount, platformId);
-    }
-
-    function claimRefundForAReward(address backer, uint256 tokenId) external {
-        address campaignNFT = ICampaignRegistry(data.registry)
-            .getCampaignNFTAddress();
-        bytes32 reward;
-        bytes32 platformId;
-        (, , , , , platformId, reward) = ICampaignNFT(campaignNFT)
-            .getPledgeReceipt(tokenId);
-        uint256 rewardValue = ICampaignContainers(
-            ICampaignRegistry(data.registry).getCampaignContainers()
-        ).getContainer(owner(), reward);
-        ICampaignNFT(campaignNFT).burn(tokenId);
-        ICampaignTreasury(state.treasuries[platformId]).disburseFeeToPlatform(
-            backer,
-            state.tokens[platformId],
-            rewardValue
-        );
-    }
-
-    function claimRefundWithoutAReward(
-        address backer,
-        uint256 amount,
-        bytes32 platformId
-    ) external {
-        uint256 pledgedAmount = state.backerPledgeInfoForPlatforms[backer][
-            platformId
-        ];
-        require(amount <= pledgedAmount, "CampaignInfo: Invalid Amount");
-        state.backerPledgeInfoForPlatforms[backer][platformId] =
-            pledgedAmount -
-            amount;
-        ICampaignTreasury(state.treasuries[platformId]).disburseFeeToPlatform(
-            backer,
-            state.tokens[platformId],
-            amount
-        );
-    }
-
-    function disburseFee(bytes32 _platformId, uint256 _feeShare) private {
-        address treasury = state.treasuries[_platformId];
-        address token = state.tokens[_platformId];
-
-        ICampaignRegistry registry = ICampaignRegistry(data.registry);
-        ICampaignGlobalParameters globalParams = ICampaignGlobalParameters(
-            registry.getCampaignGlobalParameters()
-        );
-
-        address platform = globalParams.platformAddresses(_platformId);
-        uint256 pledgedAmount = getPledgedAmountForAPlatformCrypto(_platformId);
-        if (_feeShare > 0 && treasury != address(0)) {
-            ICampaignTreasury(state.treasuries[_platformId])
-                .disburseFeeToPlatform(platform, token, _feeShare);
-            ICampaignTreasury(treasury).disburseFeeToPlatform(
-                globalParams.protocol(),
-                token,
-                (pledgedAmount * (globalParams.protocolFeePercent())) /
-                    globalParams.percentDivider()
-            );
-        }
-    }
-
-    function disburseFees(
-        bytes32[] memory _platformIds,
-        uint256[] memory _feeShares
-    ) private {
-        uint256 length = _platformIds.length;
-        for (uint256 i = 0; i < length; i++) {
-            disburseFee(_platformIds[i], _feeShares[i]);
-        }
-    }
-
-    function getPledgedAmountForPlatformCrypto(
-        bytes32 platformId
-    ) public view treasuryIsSet(platformId) returns (uint256) {
-        return
-            IERC20(state.tokens[platformId]).balanceOf(
-                state.treasuries[platformId]
-            );
     }
 
     function splitFeesProportionately() public {
