@@ -128,7 +128,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             );
     }
 
-    function totalCurrentBalance() public view returns (uint256) {
+    function totalCurrentBalance() public view override returns (uint256) {
         bytes32[] memory tempPlatforms = platforms;
         uint256 length = platforms.length;
         uint256 balance = 0;
@@ -140,6 +140,20 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
             }
         }
         return balance;
+    }
+
+    function totalRaisedBalance() public view override returns (uint256) {
+        bytes32[] memory tempPlatforms = platforms;
+        uint256 length = platforms.length;
+        uint256 balance = 0;
+        address tempToken = token;
+        for (uint256 i = 0; i < length; i++) {
+            address tempTreasury = treasury[tempPlatforms[i]];
+            if (tempTreasury != address(0)) {
+                balance += ICampaignTreasury(tempTreasury).raisedBalance();
+            }
+        }
+        return balance;        
     }
 
     function getTreasuryAddress(
