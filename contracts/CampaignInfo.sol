@@ -233,84 +233,11 @@ contract CampaignInfo is ICampaignInfo, Ownable, Pausable {
     }
 
     function setPlatformInfo(
-        bytes32 _platformId,
-        address _treasury,
-        address _token
+        bytes32 _platform,
+        address _treasury
     ) external notEnded onlyOwner {
-        state.treasuries[_platformId] = _treasury;
-        state.tokens[_platformId] = _token;
+        treasury[_platform] = _treasury;
     }
-
-    function addReachPlatform(bytes32 _platformId) external notEnded onlyOwner {
-        platforms.reachPlatforms.push(_platformId);
-    }
-
-    function splitFeesProportionately() public {
-        address globalParams = ICampaignRegistry(data.registry)
-            .getCampaignGlobalParameters();
-
-        bytes32[] memory tempReachPlatforms = platforms.reachPlatforms;
-        bytes32[] memory tempPlatforms = new bytes32[](
-            tempReachPlatforms.length + 1
-        );
-        uint256[] memory pledgedAmountByPlatforms = new uint256[](
-            tempReachPlatforms.length + 1
-        );
-        for (uint256 i = 0; i < tempReachPlatforms.length; i++) {
-            tempPlatforms[i] = tempReachPlatforms[i];
-            pledgedAmountByPlatforms[i] = getPledgedAmountForPlatformCrypto(
-                tempReachPlatforms[i]
-            );
-        }
-        tempPlatforms[tempReachPlatforms.length] = platforms.originPlatform;
-        pledgedAmountByPlatforms[
-            tempReachPlatforms.length
-        ] = getPledgedAmountForPlatformCrypto(platforms.originPlatform);
-        uint256[] memory feeShareByPlatforms = ICampaignFeeSplitter(
-            ICampaignRegistry(data.registry).getCampaignFeeSplitter()
-        ).getFeeSplitsProportionately(
-                ICampaignGlobalParameters(globalParams)
-                    .platformTotalFeePercent(),
-                ICampaignGlobalParameters(globalParams).percentDivider(),
-                pledgedAmountByPlatforms
-            );
-        disburseFees(tempPlatforms, feeShareByPlatforms);
-    }
-
-    function addReward(
-        string calldata _rewardId,
-        uint256 _rewardValue,
-        string calldata _rewardDescription
-    ) external override {}
-
-    function addItem(
-        string calldata _itemId,
-        string calldata _description
-    ) external override {}
-
-    function addReward(
-        bool isAddOn,
-        uint256 rewardValue,
-        string calldata name,
-        string[] memory itemName,
-        uint256[] memory itemQuantity
-    ) external override {}
-
-    function setTreasuryAddress(
-        bytes32 platformId,
-        address treasuryAddress_
-    ) external override {}
-
-    function setTokenAddress(
-        bytes32 platformId,
-        address tokenAddress_
-    ) external override {}
-
-    function pledgeCrypto(
-        bytes32 platformId,
-        uint256 amount,
-        bool isEarlyPledge
-    ) external override {}
 
     function transferOwnership(
         address newOwner
