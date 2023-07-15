@@ -17,16 +17,10 @@ contract CampaignRegistry is Ownable {
 
     function initialize(
         address _factoryAddress,
-        address _campaignNFTAddress,
-        address _campaignGlobalParameters,
-        address _campaignFeeSplitter,
-        address _campaignContainers
+        address _campaignGlobalParameters
     ) public onlyOwner {
         factoryAddress = _factoryAddress;
-        campaignNFTAddress = _campaignNFTAddress;
         campaignGlobalParameters = _campaignGlobalParameters;
-        campaignFeeSplitter = _campaignFeeSplitter;
-        campaignContainers = _campaignContainers;
         initialized = true;
     }
 
