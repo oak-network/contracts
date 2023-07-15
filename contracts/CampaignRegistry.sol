@@ -89,9 +89,5 @@ contract CampaignRegistry is Ownable {
         address _campaignAddress
     ) public isInitialized onlyFactory {
         campaignIdentifierToAddress[_identifier] = _campaignAddress;
-        CampaignNFT(campaignNFTAddress).grantRole(
-            MINTER_ROLE,
-            _campaignAddress
-        );
     }
 }
