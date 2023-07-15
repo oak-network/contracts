@@ -7,7 +7,6 @@ import "./Interface/ICampaignRegistry.sol";
 import "./Interface/ICampaignInfoFactory.sol";
 
 contract CampaignInfoFactory is ICampaignInfoFactory {
-
     CampaignInfo newCampaignInfo;
     address registry;
 
@@ -17,20 +16,22 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
 
     function createCampaign(
         address _creator,
+        address _token,
+        uint256 _launchTime,
+        uint256 _deadline,
+        uint256 _goal,
         string memory _identifier,
-        bytes32 _originPlatform,
-        string memory _creatorUrl,
-        bytes32[] memory _reachPlatform,
-        uint256 _earlyPledgeAmount
-    ) external {
+        bytes32[] memory _platforms
+    ) external override {
         newCampaignInfo = new CampaignInfo(
-            _identifier,
-            _creatorUrl,
             registry,
-            _creator, 
-            _earlyPledgeAmount,
-            _originPlatform,
-            _reachPlatform
+            _creator,
+            _token,
+            _launchTime,
+            _deadline,
+            _goal,
+            _identifier,
+            _platforms
         );
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));
@@ -39,7 +40,6 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
             _identifier,
             newCampaignAddress
         );
-
         emit campaignCreation(_identifier, newCampaignAddress);
     }
 }
