@@ -2,14 +2,15 @@
 pragma solidity ^0.8.9;
 
 import "./Interface/ICampaignTreasury.sol";
+import "./Interface/ICampaignInfo.sol";
 
 contract CampaignTreasury is ICampaignTreasury {
-    address immutable registry;
-    address immutable infoAddress;
-    bytes32 immutable platformId;
+    address public immutable registry;
+    address public immutable infoAddress;
+    bytes32 public immutable platformId;
     uint256 constant percentDivider = 10000;
-    uint256 pledgedAmount;
-    uint256 platformFeePercent;
+    uint256 public pledgedAmount;
+    uint256 public platformFeePercent;
 
     constructor(
         address _registryAddress,
@@ -57,13 +58,9 @@ contract CampaignTreasury is ICampaignTreasury {
         platformFeePercent = _platformFeePercent;
     }
 
-    function disburseFeeToPlatform(
-        address _platform,
-        address _token,
-        uint256 _amount
-    ) external onlyCampaignInfo {
-        IERC20(_token).transfer(_platform, _amount);
-    }
+    function raisedBalance() external view override returns (uint256) {}
 
-    function setPledgedAmount(uint256 _pledgedAmount) external override {}
+    function currentBalance() external view override returns (uint256) {
+        return IERC20(ICampaignInfo(infoAddress).token()).balanceOf(address(this));
+    }
 }
