@@ -11,7 +11,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     using Counters for Counters.Counter;
 
     address public immutable registry;
-    address public immutable infoAddress;
+    address public immutable info;
     bytes32 public immutable platform;
     uint256 constant percentDivider = 10000;
     uint256 public pledgedAmount;
@@ -47,13 +47,14 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         bytes32 _platform
     ) ERC721("CampaignNFT", "CNFT") {
         registry = _registry;
-        infoAddress = _info;
+        info = _info;
         platform = _platform;
     }
 
     function pledge(address backer, bytes32 reward) public {
         uint256 amount = rewards[reward].rewardValue;
-        IERC20(ICampaignInfo(infoAddress).token()).transferFrom(
+        require(amount != 0);
+        IERC20(ICampaignInfo(info).token()).transferFrom(
             backer,
             address(this),
             amount
@@ -64,6 +65,14 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
             _safeMint(backer, tokenId);
         }
         emit receipt(backer, reward, amount, tokenId);
+    }
+
+    function collect() public {
+        ICampaignInfo campaign = ICampaignInfo(info);
+        require(block.timestamp >= campaign.deadline());
+        uint256 balance = currentBalance();
+        require(balance >= campaign.goal() / campaign.platforms().length);
+        IERC20(address(this)).transfer(campaign.creator(), balance);
     }
 
     // function burn(uint256 tokenId) private override {
@@ -78,7 +87,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     }
 
     function getplatformId() public view returns (bytes32) {
-        return platformId;
+        return platform;
     }
 
     function getplatformFeePercent() public view returns (uint256) {
@@ -107,8 +116,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     // function raisedBalance() external view override returns (uint256) {}
 
-    function currentBalance() external view override returns (uint256) {
+    function currentBalance() public view override returns (uint256) {
         return
-            IERC20(ICampaignInfo(infoAddress).token()).balanceOf(address(this));
+            IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
     }
 }
