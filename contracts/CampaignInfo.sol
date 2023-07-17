@@ -19,7 +19,7 @@ contract CampaignInfo is ICampaignInfo, Ownable {
     uint256 public launchTime;
     uint256 public deadline;
     uint256 public goal;
-    bytes32[] public platforms;
+    bytes32[] private allowedPlatforms;
 
     mapping(bytes32 => address) public treasury;
 
@@ -35,15 +35,24 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         string memory _identifier,
         bytes32[] memory _platforms
     ) {
-        identifier = _identifier;
         registry = _registry;
-        platforms = _platforms;
+        creator = _creator;
+        token = _token;
+        launchTime = _launchTime;
+        deadline = _deadline;
+        goal = _goal;
+        identifier = _identifier;
+        allowedPlatforms = _platforms;
         transferOwnership(_creator);
     }
 
+    function platforms() public view override returns (bytes32[] memory) {
+        return allowedPlatforms;
+    }
+
     function totalCurrentBalance() public view override returns (uint256) {
-        bytes32[] memory tempPlatforms = platforms;
-        uint256 length = platforms.length;
+        bytes32[] memory tempPlatforms = allowedPlatforms;
+        uint256 length = allowedPlatforms.length;
         uint256 balance = 0;
         address tempToken = token;
         for (uint256 i = 0; i < length; i++) {
@@ -56,8 +65,8 @@ contract CampaignInfo is ICampaignInfo, Ownable {
     }
 
     function totalRaisedBalance() public view override returns (uint256) {
-        bytes32[] memory tempPlatforms = platforms;
-        uint256 length = platforms.length;
+        bytes32[] memory tempPlatforms = allowedPlatforms;
+        uint256 length = allowedPlatforms.length;
         uint256 balance = 0;
         address tempToken = token;
         for (uint256 i = 0; i < length; i++) {
