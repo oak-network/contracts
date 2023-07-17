@@ -11,6 +11,8 @@ contract CampaignTreasury is ICampaignTreasury {
     uint256 constant percentDivider = 10000;
     uint256 public pledgedAmount;
     uint256 public platformFeePercent;
+    uint256 public balanceSinceEpoch;
+    uint256 public raisedBalance;
 
     constructor(
         address _registryAddress,
@@ -58,7 +60,7 @@ contract CampaignTreasury is ICampaignTreasury {
         platformFeePercent = _platformFeePercent;
     }
 
-    function raisedBalance() external view override returns (uint256) {}
+    // function raisedBalance() external view override returns (uint256) {}
 
     function currentBalance() external view override returns (uint256) {
         return IERC20(ICampaignInfo(infoAddress).token()).balanceOf(address(this));
