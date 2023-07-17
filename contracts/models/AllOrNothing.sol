@@ -12,7 +12,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     address public immutable registry;
     address public immutable infoAddress;
-    bytes32 public immutable platformId;
+    bytes32 public immutable platform;
     uint256 constant percentDivider = 10000;
     uint256 public pledgedAmount;
     uint256 public platformFeePercent;
@@ -25,7 +25,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 tokenId
     );
 
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     Counters.Counter private _tokenIdCounter;
 
     struct Item {
@@ -43,18 +42,22 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     mapping(bytes32 => Reward) rewards;
 
     constructor(
-        address _registryAddress,
-        address _infoAddress,
-        bytes32 _platformId
+        address _registry,
+        address _info,
+        bytes32 _platform
     ) ERC721("CampaignNFT", "CNFT") {
-        registry = _registryAddress;
-        infoAddress = _infoAddress;
-        platformId = _platformId;
+        registry = _registry;
+        infoAddress = _info;
+        platform = _platform;
     }
 
     function pledge(address backer, bytes32 reward) public {
         uint256 amount = rewards[reward].rewardValue;
-        IERC20(token).transferFrom(backer, address(this), amount);
+        IERC20(ICampaignInfo(infoAddress).token()).transferFrom(
+            backer,
+            address(this),
+            amount
+        );
         uint256 tokenId = _tokenIdCounter.current();
         if (reward != 0x00) {
             _tokenIdCounter.increment();
@@ -105,6 +108,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     // function raisedBalance() external view override returns (uint256) {}
 
     function currentBalance() external view override returns (uint256) {
-        return IERC20(ICampaignInfo(infoAddress).token()).balanceOf(address(this));
+        return
+            IERC20(ICampaignInfo(infoAddress).token()).balanceOf(address(this));
     }
 }
