@@ -33,4 +33,15 @@ contract KeepWhatsRaised is ICampaignTreasury {
         IERC20(address(this)).transfer(campaign.creator(), currentBalance());
     }
 
+    function getplatformId() external view override returns (bytes32) {}
+
+    function getplatformFeePercent() external view override returns (uint256) {}
+
+    function getplatformFee() external view override returns (uint256) {}
+
+    // function raisedBalance() external view override returns (uint256) {}
+
+    function currentBalance() public view override returns (uint256) {
+        return IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
+    }
 }
