@@ -19,4 +19,18 @@ contract KeepWhatsRaised is ICampaignTreasury {
         platform = _platform;
     }
 
+    function contribute(address contributor, uint256 amount) public {
+        IERC20(ICampaignInfo(info).token()).transferFrom(
+            contributor,
+            address(this),
+            amount
+        );
+        raisedBalance += amount;
+    }
+
+    function collect() public {
+        ICampaignInfo campaign = ICampaignInfo(info);
+        IERC20(address(this)).transfer(campaign.creator(), currentBalance());
+    }
+
 }
