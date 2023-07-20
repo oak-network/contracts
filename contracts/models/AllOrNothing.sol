@@ -39,6 +39,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     }
 
     address token;
+    mapping (bytes32 => Item) items;
     mapping(bytes32 => Reward) rewards;
 
     constructor(
@@ -49,6 +50,28 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         registry = _registry;
         info = _info;
         platform = _platform;
+    }
+
+    function addItem(
+        bytes32 item,
+        string calldata description
+    ) external {
+        items[item].description = description;
+    }
+
+    function addReward(
+        bytes32 name,
+        uint256 rewardValue,
+        bytes32[] memory itemIds,
+        uint256[] memory itemQuantity
+    ) external {
+        Reward storage reward = rewards[name];
+        reward.rewardValue = rewardValue;
+        reward.itemId = itemIds;
+        uint256 len = itemQuantity.length;
+        for (uint256 i = 0; i < len; i++) {
+            reward.itemQuantity[itemIds[i]] = itemQuantity[i];
+        }
     }
 
     function pledge(address backer, bytes32 reward) public {
