@@ -30,7 +30,7 @@ contract KeepWhatsRaised is ICampaignTreasury {
 
     function collect() public {
         ICampaignInfo campaign = ICampaignInfo(info);
-        IERC20(address(this)).transfer(campaign.creator(), currentBalance());
+        IERC20(campaign.token()).transfer(campaign.creator(), currentBalance());
     }
 
     function getplatformId() external view override returns (bytes32) {}
