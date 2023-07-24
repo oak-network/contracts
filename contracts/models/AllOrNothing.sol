@@ -39,7 +39,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     }
 
     address token;
-    mapping (bytes32 => Item) items;
+    mapping(bytes32 => Item) items;
     mapping(bytes32 => Reward) rewards;
 
     constructor(
@@ -52,10 +52,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         platform = _platform;
     }
 
-    function addItem(
-        bytes32 item,
-        string calldata description
-    ) external {
+    function addItem(bytes32 item, string calldata description) external {
         items[item].description = description;
     }
 
@@ -74,20 +71,22 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         }
     }
 
-    function pledge(address backer, bytes32 reward) public {
-        uint256 amount = rewards[reward].rewardValue;
-        require(amount != 0);
-        IERC20(ICampaignInfo(info).token()).transferFrom(
-            backer,
-            address(this),
-            amount
-        );
+    function pledge(address backer, bytes32 reward, uint256 amount) public {
         uint256 tokenId = _tokenIdCounter.current();
+        address pledgeToken = ICampaignInfo(info).token();
+        uint256 pledgeAmount = 0;
         if (reward != 0x00) {
+            uint256 value = rewards[reward].rewardValue;
+            require(value != 0);
+            IERC20(pledgeToken).transferFrom(backer, address(this), value);
+            pledgeAmount = value;
             _tokenIdCounter.increment();
             _safeMint(backer, tokenId);
+        } else {
+            IERC20(pledgeToken).transferFrom(backer, address(this), amount);
+            pledgeAmount = amount;
         }
-        emit receipt(backer, reward, amount, tokenId);
+        emit receipt(backer, reward, pledgeAmount, tokenId);
     }
 
     function collect() public {
@@ -140,7 +139,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     // function raisedBalance() external view override returns (uint256) {}
 
     function currentBalance() public view override returns (uint256) {
-        return
-            IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
+        return IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
     }
 }
