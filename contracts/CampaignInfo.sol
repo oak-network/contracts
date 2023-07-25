@@ -90,5 +90,16 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         super.transferOwnership(newOwner);
     }
 
+    function updateLaunchTime(uint256 _launchTime) external {
+        launchTime = _launchTime;
+    }
+
+    function updateDeadline(uint256 _deadline) external {
+        deadline = _deadline;
+    }
+
+    function updateGoal(uint256 _goal) external +
+        goal = _goal;
+
 }
 
