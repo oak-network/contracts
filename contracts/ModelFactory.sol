@@ -10,4 +10,14 @@ contract ModelFactory {
     KeepWhatsRaised newKeepWhatsRaised;
     mapping(bytes32 => mapping(address => address)) public bytesToInfoToModel;
 
+    function createAllOrNothing(
+        address _registry,
+        address _info,
+        bytes32 _platform
+    ) external {
+        newAllOrNothing = new AllOrNothing(_registry, _info, _platform);
+        address newAllOrNothing = address(newAllOrNothing);
+        require(newAllOrNothing != address(0));
+        bytesToInfoToModel[_platform][_info] = newAllOrNothing;
+    }
 }
