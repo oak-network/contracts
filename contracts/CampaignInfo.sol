@@ -98,8 +98,8 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         deadline = _deadline;
     }
 
-    function updateGoal(uint256 _goal) external +
+    function updateGoal(uint256 _goal) external {
         goal = _goal;
-
+    }
 }
 
