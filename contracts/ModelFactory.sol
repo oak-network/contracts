@@ -8,13 +8,20 @@ import "./models/KeepWhatsRaised.sol";
 contract ModelFactory {
     AllOrNothing newAllOrNothing;
     KeepWhatsRaised newKeepWhatsRaised;
-    mapping(bytes32 => mapping(address => address)) public bytesToInfoToModel;
+    mapping(bytes32 => mapping(address => address)) bytesToInfoToModel;
+
+    function getModelAddress(
+        bytes32 platform,
+        address info
+    ) external view returns (address) {
+        return bytesToInfoToModel[platform][info];
+    }
 
     function createAllOrNothing(
         address _registry,
         address _info,
         bytes32 _platform
-    ) external {
+    ) public {
         newAllOrNothing = new AllOrNothing(_registry, _info, _platform);
         address allOrNothing = address(newAllOrNothing);
         require(allOrNothing != address(0));
@@ -25,11 +32,19 @@ contract ModelFactory {
         address _registry,
         address _info,
         bytes32 _platform
-    ) external {
+    ) public {
         newKeepWhatsRaised = new KeepWhatsRaised(_registry, _info, _platform);
         address keepWhatsRaised = address(newKeepWhatsRaised);
         require(keepWhatsRaised != address(0));
         bytesToInfoToModel[_platform][_info] = keepWhatsRaised;
     }
 
+    function createModels(
+        address _registry,
+        address _info,
+        bytes32 _platform
+    ) external {
+        createAllOrNothing(_registry, _info, _platform);
+        createKeepWhatsRaised(_registry, _info, _platform);
+    }
 }
