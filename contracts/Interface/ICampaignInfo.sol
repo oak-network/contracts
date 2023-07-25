@@ -14,7 +14,7 @@ interface ICampaignInfo {
 
     // function feeSplitModel() external view returns (bytes32);
 
-    // function launchTime() external view returns (uint256);
+    function launchTime() external view returns (uint256);
 
     function deadline() external view returns (uint256);
 
