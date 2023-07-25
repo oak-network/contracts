@@ -68,7 +68,6 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         bytes32[] memory tempPlatforms = allowedPlatforms;
         uint256 length = allowedPlatforms.length;
         uint256 balance = 0;
-        address tempToken = token;
         for (uint256 i = 0; i < length; i++) {
             address tempTreasury = treasury[tempPlatforms[i]];
             if (tempTreasury != address(0)) {
