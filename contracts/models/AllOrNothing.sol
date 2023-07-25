@@ -18,6 +18,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     uint256 public platformFeePercent;
     uint256 public raisedBalance;
     uint256 public preLaunchPledge = 1 ether;
+    mapping (uint256 => uint256) tokenToPledgeAmount;
 
     event receipt(
         address indexed backer,
@@ -93,6 +94,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                     tokenId,
                     abi.encodePacked(backer, " ", reward)
                 );
+                tokenToPledgeAmount[tokenId] = value;
             } else {
                 IERC20(token).transferFrom(backer, address(this), amount);
                 pledgeAmount = amount;
@@ -115,6 +117,15 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 balance = currentBalance();
         require(balance >= campaign.goal() / campaign.platforms().length);
         IERC20(address(this)).transfer(campaign.creator(), balance);
+    }
+
+    function claimRefund(uint256 tokenId) external {
+        uint256 amount = tokenToPledgeAmount[tokenId];
+        require(ownerOf(tokenId) == msg.sender, "AllOrNothing: Not token owner");
+        require(amount !=0, "AllOrNothing: PreLaunch pledge");
+        tokenToPledgeAmount[tokenId] = 0;
+        _burn(tokenId);
+        IERC20(token).transfer(msg.sender, amount);
     }
 
     // function burn(uint256 tokenId) private override {
