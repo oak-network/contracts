@@ -22,8 +22,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     event receipt(
         address indexed backer,
         bytes32 indexed reward,
-        uint256 pledgedAmount,
-        uint256 tokenId
+        uint256 pledgeAmount,
+        uint256 tokenId,
+        bool isPreLaunchPledge
     );
 
     Counters.Counter private _tokenIdCounter;
@@ -79,6 +80,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 launchTime = campaign.launchTime();
         uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
+        bool isPreLaunchPledge;
         require(block.timestamp <= deadline, "AllOrNothing: Deadline reached");
         if (block.timestamp > launchTime) {
             if (reward != 0x00) {
@@ -97,6 +99,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 pledgeAmount = amount;
             }
         } else {
+            isPreLaunchPledge = true;
             IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
             _safeMint(
                 backer,
@@ -104,7 +107,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 abi.encodePacked(backer, " PreLaunchPledge")
             );
         }
-        emit receipt(backer, reward, pledgeAmount, tokenId);
+        emit receipt(backer, reward, pledgeAmount, tokenId, isPreLaunchPledge);
     }
 
     function collect() public {
