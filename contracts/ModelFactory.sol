@@ -16,8 +16,20 @@ contract ModelFactory {
         bytes32 _platform
     ) external {
         newAllOrNothing = new AllOrNothing(_registry, _info, _platform);
-        address newAllOrNothing = address(newAllOrNothing);
-        require(newAllOrNothing != address(0));
-        bytesToInfoToModel[_platform][_info] = newAllOrNothing;
+        address allOrNothing = address(newAllOrNothing);
+        require(allOrNothing != address(0));
+        bytesToInfoToModel[_platform][_info] = allOrNothing;
     }
+
+    function createKeepWhatsRaised(
+        address _registry,
+        address _info,
+        bytes32 _platform
+    ) external {
+        newKeepWhatsRaised = new KeepWhatsRaised(_registry, _info, _platform);
+        address keepWhatsRaised = address(newKeepWhatsRaised);
+        require(keepWhatsRaised != address(0));
+        bytesToInfoToModel[_platform][_info] = keepWhatsRaised;
+    }
+
 }
