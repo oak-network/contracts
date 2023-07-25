@@ -76,7 +76,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     function pledge(address backer, bytes32 reward, uint256 amount) public {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
-        address token = campaign.token();
         uint256 launchTime = campaign.launchTime();
         uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
