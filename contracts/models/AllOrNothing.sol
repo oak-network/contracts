@@ -41,7 +41,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         mapping(bytes32 => uint256) itemQuantity;
     }
 
-    address token;
+    // address token;
     mapping(bytes32 => Item) items;
     mapping(bytes32 => Reward) rewards;
 
@@ -77,6 +77,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     function pledge(address backer, bytes32 reward, uint256 amount) public {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
+        address token = campaign.token();
         uint256 launchTime = campaign.launchTime();
         uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
@@ -121,6 +122,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     function claimRefund(uint256 tokenId) external {
         uint256 amount = tokenToPledgeAmount[tokenId];
+        address token = ICampaignInfo(info).token();
         require(ownerOf(tokenId) == msg.sender, "AllOrNothing: Not token owner");
         require(amount !=0, "AllOrNothing: PreLaunch pledge");
         tokenToPledgeAmount[tokenId] = 0;
