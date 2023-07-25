@@ -17,6 +17,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     uint256 public pledgedAmount;
     uint256 public platformFeePercent;
     uint256 public raisedBalance;
+    uint256 public preLaunchPledge = 1 ether;
 
     event receipt(
         address indexed backer,
@@ -73,18 +74,35 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     function pledge(address backer, bytes32 reward, uint256 amount) public {
         uint256 tokenId = _tokenIdCounter.current();
-        address pledgeToken = ICampaignInfo(info).token();
+        ICampaignInfo campaign = ICampaignInfo(info);
+        address token = campaign.token();
+        uint256 launchTime = campaign.launchTime();
+        uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
-        if (reward != 0x00) {
-            uint256 value = rewards[reward].rewardValue;
-            require(value != 0);
-            IERC20(pledgeToken).transferFrom(backer, address(this), value);
-            pledgeAmount = value;
-            _tokenIdCounter.increment();
-            _safeMint(backer, tokenId);
+        require(block.timestamp <= deadline, "AllOrNothing: Deadline reached");
+        if (block.timestamp > launchTime) {
+            if (reward != 0x00) {
+                uint256 value = rewards[reward].rewardValue;
+                require(value != 0);
+                IERC20(token).transferFrom(backer, address(this), value);
+                pledgeAmount = value;
+                _tokenIdCounter.increment();
+                _safeMint(
+                    backer,
+                    tokenId,
+                    abi.encodePacked(backer, " ", reward)
+                );
+            } else {
+                IERC20(token).transferFrom(backer, address(this), amount);
+                pledgeAmount = amount;
+            }
         } else {
-            IERC20(pledgeToken).transferFrom(backer, address(this), amount);
-            pledgeAmount = amount;
+            IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
+            _safeMint(
+                backer,
+                tokenId,
+                abi.encodePacked(backer, " PreLaunchPledge")
+            );
         }
         emit receipt(backer, reward, pledgeAmount, tokenId);
     }
