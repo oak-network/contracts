@@ -64,11 +64,13 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     function addReward(
         bytes32 name,
         uint256 rewardValue,
+        bool isRewardTier,
         bytes32[] memory itemIds,
         uint256[] memory itemQuantity
     ) external {
         Reward storage reward = rewards[name];
         reward.rewardValue = rewardValue;
+        reward.isRewardTier = isRewardTier;
         reward.itemId = itemIds;
         uint256 len = itemQuantity.length;
         for (uint256 i = 0; i < len; i++) {
