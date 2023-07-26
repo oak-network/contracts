@@ -93,12 +93,12 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         require(block.timestamp <= deadline, "AllOrNothing: Deadline reached");
         if (block.timestamp > launchTime) {
             if (reward[0] != 0x00) {
-                uint256 value = rewards[reward[0]].rewardValue;
+                // uint256 value = rewards[reward[0]].rewardValue;
                 bool isRewardTier = rewards[reward[0]].isRewardTier;
-                require(value != 0 && isRewardTier == true);
+                require(isRewardTier == true);
                 uint256 rewardLen = reward.length;
-                uint256 totalValue = value;
-                for (uint256 i = 1; i < rewardLen; i++) {
+                uint256 totalValue;
+                for (uint256 i = 0; i < rewardLen; i++) {
                     totalValue += rewards[reward[i]].rewardValue;
                 }
                 IERC20(token).transferFrom(backer, address(this), totalValue);
@@ -106,8 +106,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 _tokenIdCounter.increment();
                 _safeMint(
                     backer,
-                    tokenId,
-                    abi.encodePacked(backer, " ", reward[0])
+                    tokenId
+                    // ,
+                    // abi.encodePacked(backer, " ", reward[0])
                 );
                 tokenToPledgeAmount[tokenId] = totalValue;
             } else {
@@ -120,8 +121,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
             pledgeAmount = preLaunchPledge;
             _safeMint(
                 backer,
-                tokenId,
-                abi.encodePacked(backer, " PreLaunchPledge")
+                tokenId
+                // ,
+                // abi.encodePacked(backer, " PreLaunchPledge")
             );
         }
         raisedBalance += pledgeAmount;
