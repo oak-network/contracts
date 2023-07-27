@@ -119,6 +119,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
             isPreLaunchPledge = true;
             IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
             pledgeAmount = preLaunchPledge;
+            _tokenIdCounter.increment();
             _safeMint(
                 backer,
                 tokenId
