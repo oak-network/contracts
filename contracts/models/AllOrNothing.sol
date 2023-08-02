@@ -82,7 +82,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         address backer,
         bytes32[] calldata reward,
         uint256 amount
-    ) public {
+    ) external {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
         address token = campaign.token();
@@ -90,6 +90,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
         bool isPreLaunchPledge;
+        bool success;
         require(block.timestamp <= deadline, "AllOrNothing: Deadline reached");
         if (block.timestamp > launchTime) {
             if (reward[0] != 0x00) {
@@ -101,7 +102,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 for (uint256 i = 0; i < rewardLen; i++) {
                     totalValue += rewards[reward[i]].rewardValue;
                 }
-                IERC20(token).transferFrom(backer, address(this), totalValue);
+                success = IERC20(token).transferFrom(backer, address(this), totalValue);
+                require(success);
                 pledgeAmount = totalValue;
                 _tokenIdCounter.increment();
                 _safeMint(
@@ -112,12 +114,14 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 );
                 tokenToPledgeAmount[tokenId] = totalValue;
             } else {
-                IERC20(token).transferFrom(backer, address(this), amount);
+                success = IERC20(token).transferFrom(backer, address(this), amount);
+                require(success);
                 pledgeAmount = amount;
             }
         } else {
             isPreLaunchPledge = true;
-            IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
+            success = IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
+            require(success);
             pledgeAmount = preLaunchPledge;
             _tokenIdCounter.increment();
             _safeMint(
@@ -138,34 +142,23 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         );
     }
 
-    function collect() public {
+    function collect() external {
         ICampaignInfo campaign = ICampaignInfo(info);
         require(block.timestamp >= campaign.deadline());
         uint256 balance = currentBalance();
         require(balance >= campaign.goal() / campaign.platforms().length);
-        IERC20(address(this)).transfer(campaign.creator(), balance);
+        IERC20(campaign.token()).transfer(campaign.creator(), balance);
     }
 
     function claimRefund(uint256 tokenId) external {
         uint256 amount = tokenToPledgeAmount[tokenId];
         address token = ICampaignInfo(info).token();
-        require(
-            ownerOf(tokenId) == msg.sender,
-            "AllOrNothing: Not token owner"
-        );
         require(amount != 0, "AllOrNothing: PreLaunch pledge");
         tokenToPledgeAmount[tokenId] = 0;
-        _burn(tokenId);
-        require(
-            IERC20(token).balanceOf(address(this)) >= amount,
-            "AllOrNothing: Insufficient balance"
-        );
-        IERC20(token).transfer(msg.sender, amount);
+        burn(tokenId);
+        bool success = IERC20(token).transfer(_msgSender(), amount);
+        require(success);
     }
-
-    // function burn(uint256 tokenId) private override {
-    //     _burn(tokenId);
-    // }
 
     // The following functions are overrides required by Solidity.
     function supportsInterface(
@@ -174,35 +167,21 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         return super.supportsInterface(interfaceId);
     }
 
-    function getplatformId() public view returns (bytes32) {
+    function getplatformId() external view returns (bytes32) {
         return platform;
     }
 
-    function getplatformFeePercent() public view returns (uint256) {
+    function getplatformFeePercent() external view returns (uint256) {
         return platformFeePercent;
     }
 
-    function getplatformFee() public view returns (uint256) {
+    function getplatformFee() external view returns (uint256) {
         return (pledgedAmount * platformFeePercent) / percentDivider;
-    }
-
-    function getTotalCollectableByCreator() public view returns (uint256) {
-        return pledgedAmount - getplatformFee();
-    }
-
-    function getPledgedAmount() public view returns (uint256) {
-        return pledgedAmount;
-    }
-
-    function pledgeInFiat(uint256 amount) external {
-        pledgedAmount += amount;
     }
 
     function setplatformFeePercent(uint256 _platformFeePercent) external {
         platformFeePercent = _platformFeePercent;
     }
-
-    // function raisedBalance() external view override returns (uint256) {}
 
     function currentBalance() public view override returns (uint256) {
         return IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
