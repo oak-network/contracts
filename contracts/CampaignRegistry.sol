@@ -2,25 +2,15 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./CampaignTreasury.sol";
-import "./CampaignNFT.sol";
+import "./Interface/ICampaignRegistry.sol";
 
-contract CampaignRegistry is Ownable {
+contract CampaignRegistry is Ownable, ICampaignRegistry {
     address factoryAddress;
-    address campaignNFTAddress;
-    address campaignGlobalParameters;
-    address campaignFeeSplitter;
-    address campaignContainers;
     bool initialized;
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     mapping(string => address) campaignIdentifierToAddress;
 
-    function initialize(
-        address _factoryAddress,
-        address _campaignGlobalParameters
-    ) public onlyOwner {
+    function initialize(address _factoryAddress) external onlyOwner {
         factoryAddress = _factoryAddress;
-        campaignGlobalParameters = _campaignGlobalParameters;
         initialized = true;
     }
 
@@ -34,40 +24,19 @@ contract CampaignRegistry is Ownable {
         _;
     }
 
-    function getFactoryAddress() public view isInitialized returns (address) {
+    function getFactoryAddress()
+        external
+        view
+        override
+        isInitialized
+        returns (address)
+    {
         return factoryAddress;
-    }
-
-    function getCampaignNFTAddress()
-        public
-        view
-        isInitialized
-        returns (address)
-    {
-        return campaignNFTAddress;
-    }
-
-    function getCampaignGlobalParameters()
-        public
-        view
-        isInitialized
-        returns (address)
-    {
-        return campaignGlobalParameters;
-    }
-
-    function getCampaignFeeSplitter()
-        public
-        view
-        isInitialized
-        returns (address)
-    {
-        return campaignFeeSplitter;
     }
 
     function getCampaignInfoAddress(
         string calldata identifier
-    ) public view isInitialized returns (address) {
+    ) external view override isInitialized returns (address) {
         require(
             campaignIdentifierToAddress[identifier] != address(0),
             "CampaignRegistry: CampaignInfo not created"
@@ -75,19 +44,10 @@ contract CampaignRegistry is Ownable {
         return campaignIdentifierToAddress[identifier];
     }
 
-    function getCampaignContainers()
-        public
-        view
-        isInitialized
-        returns (address)
-    {
-        return campaignContainers;
-    }
-
     function setCampaignInfoAddress(
         string calldata _identifier,
         address _campaignAddress
-    ) public isInitialized onlyFactory {
+    ) external override isInitialized onlyFactory {
         campaignIdentifierToAddress[_identifier] = _campaignAddress;
     }
 }
