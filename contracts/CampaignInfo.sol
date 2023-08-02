@@ -5,12 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interface/ICampaignInfo.sol";
-import "./Interface/ICampaignGlobalParameters.sol";
-import "./Interface/ICampaignFeeSplitter.sol";
 import "./Interface/ICampaignTreasury.sol";
 import "./Interface/ICampaignRegistry.sol";
-import "./Interface/ICampaignNFT.sol";
-import "./Interface/ICampaignContainers.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable {
     address public registry;
