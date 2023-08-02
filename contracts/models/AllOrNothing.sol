@@ -86,13 +86,11 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
         address token = campaign.token();
-        uint256 launchTime = campaign.launchTime();
-        uint256 deadline = campaign.deadline();
         uint256 pledgeAmount = 0;
         bool isPreLaunchPledge;
         bool success;
-        require(block.timestamp <= deadline, "AllOrNothing: Deadline reached");
-        if (block.timestamp > launchTime) {
+        require(block.timestamp <= campaign.deadline(), "AllOrNothing: Deadline reached");
+        if (block.timestamp > campaign.launchTime()) {
             if (reward[0] != 0x00) {
                 // uint256 value = rewards[reward[0]].rewardValue;
                 bool isRewardTier = rewards[reward[0]].isRewardTier;
