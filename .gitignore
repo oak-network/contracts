@@ -3,7 +3,7 @@ node_modules
 .deps
 .temp
 .vscode
-DS_Store
+.DS_Store
 coverage
 coverage.json
 typechain
