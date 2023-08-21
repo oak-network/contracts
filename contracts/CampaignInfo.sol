@@ -82,20 +82,19 @@ contract CampaignInfo is ICampaignInfo, Ownable {
 
     function transferOwnership(
         address newOwner
-    ) public override(ICampaignInfo, Ownable) {
+    ) public override(ICampaignInfo, Ownable) onlyOwner {
         super.transferOwnership(newOwner);
     }
 
-    function updateLaunchTime(uint256 _launchTime) external {
+    function updateLaunchTime(uint256 _launchTime) external onlyOwner {
         launchTime = _launchTime;
     }
 
-    function updateDeadline(uint256 _deadline) external {
+    function updateDeadline(uint256 _deadline) external onlyOwner {
         deadline = _deadline;
     }
 
-    function updateGoal(uint256 _goal) external {
+    function updateGoal(uint256 _goal) external onlyOwner {
         goal = _goal;
     }
 }
-
