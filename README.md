@@ -22,4 +22,4 @@ Deploy and test for multilisting:
 `npx hardhat run scripts/deployCampaign.ts`
 
 ## 🤨 How it all works
-![High Level Contract Architecture](./docs/box-diagram.jpeg)
+![High Level Contract Architecture](./docs/box-diagram.svg)
