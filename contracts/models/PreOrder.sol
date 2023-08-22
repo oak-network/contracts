@@ -17,15 +17,14 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
     uint256 public pledgedAmount;
     uint256 public platformFeePercent;
     uint256 public raisedBalance;
+    uint256 public pledgeCount;
     mapping(uint256 => uint256) tokenToPledgeAmount;
 
     event receipt(
         address indexed backer,
         bytes32 indexed reward,
         uint256 pledgeAmount,
-        uint256 tokenId,
-        bool isPreLaunchPledge,
-        bytes32[] rewards
+        uint256 tokenId
     );
 
     Counters.Counter private _tokenIdCounter;
@@ -48,77 +47,43 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
         platform = _platform;
     }
 
-    function getReward(bytes32 rewardName) external  view returns (Reward memory) {
+    function getReward(
+        bytes32 rewardName
+    ) external view returns (Reward memory) {
         return rewards[rewardName];
     }
 
-    function addReward(
-        bytes32 rewardName,
-        Reward calldata reward
-    ) external {
+    function addReward(bytes32 rewardName, Reward calldata reward) external {
         rewards[rewardName] = reward;
     }
 
-    function pledge(
-        address backer,
-        bytes32[] calldata reward,
-        uint256 amount
-    ) external {
+    function pledge(address backer, bytes32 rewardName) external {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
         address token = campaign.token();
-        uint256 pledgeAmount = 0;
-        bool isPreLaunchPledge;
-        bool success;
-        require(block.timestamp <= campaign.deadline(), "AllOrNothing: Deadline reached");
-        if (block.timestamp > campaign.launchTime()) {
-            if (reward[0] != 0x00) {
-                // uint256 value = rewards[reward[0]].rewardValue;
-                bool isRewardTier = rewards[reward[0]].isRewardTier;
-                require(isRewardTier == true);
-                uint256 rewardLen = reward.length;
-                uint256 totalValue;
-                for (uint256 i = 0; i < rewardLen; i++) {
-                    totalValue += rewards[reward[i]].rewardValue;
-                }
-                success = IERC20(token).transferFrom(backer, address(this), totalValue);
-                require(success);
-                pledgeAmount = totalValue;
-                _tokenIdCounter.increment();
-                _safeMint(
-                    backer,
-                    tokenId
-                    // ,
-                    // abi.encodePacked(backer, " ", reward[0])
-                );
-                tokenToPledgeAmount[tokenId] = totalValue;
-            } else {
-                success = IERC20(token).transferFrom(backer, address(this), amount);
-                require(success);
-                pledgeAmount = amount;
-            }
-        } else {
-            isPreLaunchPledge = true;
-            success = IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
-            require(success);
-            pledgeAmount = preLaunchPledge;
-            _tokenIdCounter.increment();
-            _safeMint(
-                backer,
-                tokenId
-                // ,
-                // abi.encodePacked(backer, " PreLaunchPledge")
-            );
-        }
-        raisedBalance += pledgeAmount;
-        emit receipt(
-            backer,
-            reward[0],
-            pledgeAmount,
-            tokenId,
-            isPreLaunchPledge,
-            reward
+        require(
+            block.timestamp <= campaign.deadline(),
+            "AllOrNothing: Deadline reached"
         );
+
+        uint256 rewardValue = rewards[rewardName].rewardValue;
+        bool success = IERC20(token).transferFrom(
+            backer,
+            address(this),
+            rewardValue
+        );
+        require(success);
+        _tokenIdCounter.increment();
+        _safeMint(
+            backer,
+            tokenId
+            // ,
+            // abi.encodePacked(backer, " ", reward[0])
+        );
+        raisedBalance += rewardValue;
+        tokenToPledgeAmount[tokenId] = rewardValue;
+        pledgeCount ++;
+        emit receipt(backer, rewardName, rewardValue, tokenId);
     }
 
     function collect() external {
