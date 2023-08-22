@@ -30,7 +30,34 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
 
     Counters.Counter private _tokenIdCounter;
 
+    struct Reward {
+        uint256 rewardValue;
+        bytes32[] itemId;
+        uint256[] itemValue;
+        uint256[] itemQuantity;
+    }
+    mapping(bytes32 => Reward) rewards;
 
+    constructor(
+        address _registry,
+        address _info,
+        bytes32 _platform
+    ) ERC721("CampaignNFT", "CNFT") {
+        registry = _registry;
+        info = _info;
+        platform = _platform;
+    }
+
+    function getReward(bytes32 rewardName) external  view returns (Reward memory) {
+        return rewards[rewardName];
+    }
+
+    function addReward(
+        bytes32 rewardName,
+        Reward calldata reward
+    ) external {
+        rewards[rewardName] = reward;
+    }
 
     function pledge(
         address backer,
