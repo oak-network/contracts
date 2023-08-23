@@ -3,6 +3,7 @@ import {
   CampaignInfoFactory,
   CampaignRegistry,
   TestUSD,
+  ItemRegistry,
   ModelFactory
 } from "../typechain-types";
 import { getHexString } from "../lib/utils";
@@ -33,6 +34,16 @@ async function main() {
   await campaignRegistry.deployed();
 
   console.log(`CampaignRegistry deployed to ${campaignRegistry.address}`);
+
+  const itemRegistryFactory = await ethers.getContractFactory(
+    "ItemRegistry"
+  );
+  const itemRegistry: ItemRegistry =
+    await itemRegistryFactory.deploy();
+
+  await itemRegistry.deployed();
+
+  console.log(`ItemRegistry deployed to ${itemRegistry.address}`);
 
   const campaignInfoFactoryFactory = await ethers.getContractFactory(
     "CampaignInfoFactory"
@@ -89,7 +100,9 @@ async function main() {
       "\nNEXT_PUBLIC_TEST_USD=" +
       testUSD.address,
       "\nNEXT_PUBLIC_MODEL_FACTORY=" +
-      modelFactory.address
+      modelFactory.address,
+      "\nNEXT_PUBLIC_ITEM_REGISTRY=" +
+      itemRegistry.address
   );
 }
 
