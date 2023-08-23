@@ -13,11 +13,14 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
     address public immutable registry;
     address public immutable info;
     bytes32 public immutable platform;
+    uint256 public immutable minimumPledgeCount;
     uint256 constant percentDivider = 10000;
     uint256 public pledgedAmount;
     uint256 public platformFeePercent;
     uint256 public raisedBalance;
     uint256 public pledgeCount;
+    address constant platformAddress = 0x9Aee2Bb8906D3f3B1BB957765eb76a880bc47788;
+    address constant protocolAddress = 0x9Aee2Bb8906D3f3B1BB957765eb76a880bc47788;
     mapping(uint256 => uint256) tokenToPledgeAmount;
 
     event receipt(
@@ -40,11 +43,13 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
     constructor(
         address _registry,
         address _info,
-        bytes32 _platform
+        bytes32 _platform,
+        uint256 _minimumPledgeCount
     ) ERC721("CampaignNFT", "CNFT") {
         registry = _registry;
         info = _info;
         platform = _platform;
+        minimumPledgeCount = _minimumPledgeCount;
     }
 
     function getReward(
@@ -82,22 +87,30 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
         );
         raisedBalance += rewardValue;
         tokenToPledgeAmount[tokenId] = rewardValue;
-        pledgeCount ++;
+        pledgeCount++;
         emit receipt(backer, rewardName, rewardValue, tokenId);
     }
 
     function collect() external {
         ICampaignInfo campaign = ICampaignInfo(info);
-        require(block.timestamp >= campaign.deadline());
+        address token = campaign.token();
+        require(block.timestamp >= campaign.deadline(), "PreOrder: Deadline not reached");
+        require(pledgeCount >= minimumPledgeCount, "PreOrder: Campaign not successful");
         uint256 balance = currentBalance();
-        require(balance >= campaign.goal() / campaign.platforms().length);
-        IERC20(campaign.token()).transfer(campaign.creator(), balance);
+        uint256 protocolShare = balance * 200 / percentDivider;
+        uint256 platformShare = balance * 300 / percentDivider;
+        bool success = IERC20(campaign.token()).transfer(platformAddress, platformShare);
+        require (success);
+        success = IERC20(campaign.token()).transfer(protocolAddress, protocolShare);
+        require (success);
+        success = IERC20(campaign.token()).transfer(campaign.creator(), currentBalance());
+        require (success);
+        
     }
 
     function claimRefund(uint256 tokenId) external {
         uint256 amount = tokenToPledgeAmount[tokenId];
         address token = ICampaignInfo(info).token();
-        require(amount != 0, "AllOrNothing: PreLaunch pledge");
         tokenToPledgeAmount[tokenId] = 0;
         burn(tokenId);
         bool success = IERC20(token).transfer(_msgSender(), amount);
