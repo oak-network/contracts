@@ -99,11 +99,11 @@ contract PreOrder is ICampaignTreasury, ERC721Burnable {
         uint256 balance = currentBalance();
         uint256 protocolShare = balance * 200 / percentDivider;
         uint256 platformShare = balance * 300 / percentDivider;
-        bool success = IERC20(campaign.token()).transfer(platformAddress, platformShare);
+        bool success = IERC20(token).transfer(platformAddress, platformShare);
         require (success);
-        success = IERC20(campaign.token()).transfer(protocolAddress, protocolShare);
+        success = IERC20(token).transfer(protocolAddress, protocolShare);
         require (success);
-        success = IERC20(campaign.token()).transfer(campaign.creator(), currentBalance());
+        success = IERC20(token).transfer(campaign.creator(), currentBalance());
         require (success);
         
     }
