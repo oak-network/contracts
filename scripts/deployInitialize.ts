@@ -99,10 +99,10 @@ async function main() {
       campaignInfoFactory.address +
       "\nNEXT_PUBLIC_TEST_USD=" +
       testUSD.address,
-      "\nNEXT_PUBLIC_MODEL_FACTORY=" +
-      modelFactory.address,
       "\nNEXT_PUBLIC_ITEM_REGISTRY=" +
-      itemRegistry.address
+      itemRegistry.address,
+      "\nNEXT_PUBLIC_MODEL_FACTORY=" +
+      modelFactory.address
   );
 }
 
