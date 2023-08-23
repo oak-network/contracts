@@ -4,10 +4,12 @@ pragma solidity ^0.8.9;
 import "./CampaignInfo.sol";
 import "./models/AllOrNothing.sol";
 import "./models/KeepWhatsRaised.sol";
+import "./models/PreOrder.sol";
 
 contract ModelFactory {
     AllOrNothing newAllOrNothing;
     KeepWhatsRaised newKeepWhatsRaised;
+    PreOrder newPreOrder;
     mapping(bytes32 => mapping(address => address)) bytesToInfoToModel;
 
     function getModelAddress(
@@ -37,6 +39,18 @@ contract ModelFactory {
         address keepWhatsRaised = address(newKeepWhatsRaised);
         require(keepWhatsRaised != address(0));
         bytesToInfoToModel[_platform][_info] = keepWhatsRaised;
+    }
+
+    function createPreOrder(
+        address _registry,
+        address _info,
+        bytes32 _platform,
+        uint256 _minimumPledgeCount
+    ) public {
+        newPreOrder = new PreOrder(_registry, _info, _platform, _minimumPledgeCount);
+        address preOrder = address(newPreOrder);
+        require(preOrder != address(0));
+        bytesToInfoToModel[_platform][_info] = preOrder;
     }
 
     function createModels(
