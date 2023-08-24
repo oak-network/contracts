@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 contract GlobalParams is Ownable, Pausable {
-
     error GlobalParamsInvalidAddress(address account);
+    error GlobalParamsPlatformNotListed(bytes32 platformBytes, address platformAdminAddress)
 
     address public protocolAdminAddress;
     address public tokenAddress;
@@ -29,6 +29,14 @@ contract GlobalParams is Ownable, Pausable {
         _;
     }
 
+    function checkIfplatformIsListed(bytes32 _platformBytes) external view returns (bool) {
+        if (platformIsListed[_platformBytes]) {
+            return true;
+        }
+        else
+            return false;
+    }
+
     function _checkIfAddressZero(address _account) internal pure {
         if (_account == address(0)) {
             revert GlobalParamsInvalidAddress(_account);
@@ -37,11 +45,13 @@ contract GlobalParams is Ownable, Pausable {
 
     function updateProtocolAdminAddress(
         address _protocolAdminAddress
-    ) external onlyOwner {
+    ) external onlyOwner notAddressZero(_protocolAdminAddress) {
         protocolAdminAddress = _protocolAdminAddress;
     }
 
-    function updateTokenAddress(address _tokenAddress) external onlyOwner {
+    function updateTokenAddress(
+        address _tokenAddress
+    ) external onlyOwner notAddressZero(_tokenAddress) {
         tokenAddress = _tokenAddress;
     }
 
@@ -55,6 +65,11 @@ contract GlobalParams is Ownable, Pausable {
         bytes32 _platformBytes,
         address _platformAdminAddress
     ) external onlyOwner {
-        platformAdminAddress[_platformBytes] = _platformAdminAddress;
+        if (platformIsListed[_platformBytes]) {
+            platformAdminAddress[_platformBytes] = _platformAdminAddress;
+        }
+        else 
+            revert GlobalParamsPlatformNotListed(_platformBytes, _platformAdminAddress);
+        
     }
 }
