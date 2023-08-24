@@ -11,6 +11,7 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
     address registry;
 
     constructor(address _registry) {
+        // @audit-info lacks zero address checking
         registry = _registry;
     }
 
@@ -23,6 +24,9 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
         string memory _identifier,
         bytes32[] memory _platforms
     ) external override {
+        // @audit-info lacks zero address checking
+        // @audit-info `_launchTime` can be set any value to the past. Check `_launchTime` value
+        // @audit-info lacks `_goal` value zero checking
         newCampaignInfo = new CampaignInfo(
             registry,
             _creator,
@@ -34,7 +38,7 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
             _platforms
         );
         address newCampaignAddress = address(newCampaignInfo);
-        require(newCampaignAddress != address(0));
+        require(newCampaignAddress != address(0)); //@audit-info add an error message
 
         ICampaignRegistry(registry).setCampaignInfoAddress(
             _identifier,

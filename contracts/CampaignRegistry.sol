@@ -10,6 +10,7 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
     mapping(string => address) campaignIdentifierToAddress;
 
     function initialize(address _factoryAddress) external onlyOwner {
+        // @audit-info lacks zero address checking
         factoryAddress = _factoryAddress;
         initialized = true;
     }
@@ -48,6 +49,7 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
         string calldata _identifier,
         address _campaignAddress
     ) external override isInitialized onlyFactory {
+        // @audit-info lacks zero address checking
         campaignIdentifierToAddress[_identifier] = _campaignAddress;
     }
 }

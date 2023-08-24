@@ -13,11 +13,11 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     address public immutable registry;
     address public immutable info;
     bytes32 public immutable platform;
-    uint256 constant percentDivider = 10000;
-    uint256 public pledgedAmount;
+    uint256 constant percentDivider = 10000; // @audit-issue unused `percentDivider` variable
+    uint256 public pledgedAmount; // @audit-issue `pledgedAmount` never initialized
     uint256 public platformFeePercent;
     uint256 public raisedBalance;
-    uint256 public preLaunchPledge = 1 ether;
+    uint256 public preLaunchPledge = 1 ether; //@audit-info Is the `preLaunchPledge` value always same? It can be used as a constant variable for gas optimization
     mapping(uint256 => uint256) tokenToPledgeAmount;
 
     event receipt(
@@ -32,7 +32,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     Counters.Counter private _tokenIdCounter;
 
     struct Item {
-        string description;
+        string description; //@audit-info if `description` can be at most 32-bytes long use bytes32 instead for gas optimization
     }
 
     struct Reward {
@@ -40,7 +40,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         bool isRewardTier;
         string rewardDescription;
         bytes32[] itemId;
-        mapping(bytes32 => uint256) itemQuantity;
+        mapping(bytes32 => uint256) itemQuantity; //@audit-info why `itemQuantity` is a mapping not an array?
     }
 
     // address token;
@@ -52,6 +52,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         address _info,
         bytes32 _platform
     ) ERC721("CampaignNFT", "CNFT") {
+        //@audit-issue lacks zero address validation check
         registry = _registry;
         info = _info;
         platform = _platform;
@@ -68,21 +69,25 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         bytes32[] memory itemIds,
         uint256[] memory itemQuantity
     ) external {
-        Reward storage reward = rewards[name];
+        //@audit-issue lacks `itemIds` and `itemQuantity` length check
+
+        Reward storage reward = rewards[name]; //@audit-issue shadow local variable. Already ERC721 has `name` variable. Please use different name.
         reward.rewardValue = rewardValue;
         reward.isRewardTier = isRewardTier;
         reward.itemId = itemIds;
         uint256 len = itemQuantity.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len; i++) { //@audit-issue this for loop can be avoided
             reward.itemQuantity[itemIds[i]] = itemQuantity[i];
         }
     }
 
+    // @audit Reentrancy Guard issue
     function pledge(
         address backer,
         bytes32[] calldata reward,
         uint256 amount
     ) external {
+        // @audit-issue lacks parameter filtering like zero address checking, amount checking
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
         address token = campaign.token();
@@ -94,34 +99,34 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
             if (reward[0] != 0x00) {
                 // uint256 value = rewards[reward[0]].rewardValue;
                 bool isRewardTier = rewards[reward[0]].isRewardTier;
-                require(isRewardTier == true);
+                require(isRewardTier == true); // @audit-issue Remove the boolean equality check and add an Error message e.g. require(isRewardTier, "Message")
                 uint256 rewardLen = reward.length;
                 uint256 totalValue;
                 for (uint256 i = 0; i < rewardLen; i++) {
                     totalValue += rewards[reward[i]].rewardValue;
                 }
-                success = IERC20(token).transferFrom(backer, address(this), totalValue);
-                require(success);
                 pledgeAmount = totalValue;
                 _tokenIdCounter.increment();
+                tokenToPledgeAmount[tokenId] = totalValue;
+                success = IERC20(token).transferFrom(backer, address(this), totalValue);
+                require(success);
                 _safeMint(
                     backer,
                     tokenId
                     // ,
                     // abi.encodePacked(backer, " ", reward[0])
                 );
-                tokenToPledgeAmount[tokenId] = totalValue;
             } else {
+                pledgeAmount = amount;
                 success = IERC20(token).transferFrom(backer, address(this), amount);
                 require(success);
-                pledgeAmount = amount;
             }
         } else {
             isPreLaunchPledge = true;
-            success = IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
-            require(success);
             pledgeAmount = preLaunchPledge;
             _tokenIdCounter.increment();
+            success = IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
+            require(success);
             _safeMint(
                 backer,
                 tokenId
@@ -142,16 +147,16 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     function collect() external {
         ICampaignInfo campaign = ICampaignInfo(info);
-        require(block.timestamp >= campaign.deadline());
+        require(block.timestamp >= campaign.deadline());//@audit-info Add an Error Message
         uint256 balance = currentBalance();
-        require(balance >= campaign.goal() / campaign.platforms().length);
+        require(balance >= campaign.goal() / campaign.platforms().length); //@audit-info Add an Error Message
         IERC20(campaign.token()).transfer(campaign.creator(), balance);
     }
 
     function claimRefund(uint256 tokenId) external {
         uint256 amount = tokenToPledgeAmount[tokenId];
         address token = ICampaignInfo(info).token();
-        require(amount != 0, "AllOrNothing: PreLaunch pledge");
+        require(amount != 0, "AllOrNothing: PreLaunch pledge"); // @audit-issue use `>` symbol for Gas Optimization
         tokenToPledgeAmount[tokenId] = 0;
         burn(tokenId);
         bool success = IERC20(token).transfer(_msgSender(), amount);

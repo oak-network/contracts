@@ -19,7 +19,7 @@ contract CampaignInfo is ICampaignInfo, Ownable {
 
     mapping(bytes32 => address) public treasury;
 
-    string identifier;
+    string identifier; //@audit-info if `identifier` can be at most 32-bytes long use bytes32 instead for gas optimization
 
     constructor(
         address _registry,
@@ -28,9 +28,12 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         uint256 _launchTime,
         uint256 _deadline,
         uint256 _goal,
-        string memory _identifier,
-        bytes32[] memory _platforms
+        string memory _identifier, //@audit-info use calldata for gas optimization
+        bytes32[] memory _platforms // @audit-info use calldata for gas optimization
     ) {
+        // @audit-info lacks zero address checking
+        // @audit-info `_launchTime` can be set any value to the past. Check `_launchTime` value
+        // @audit-info lacks `_goal` value zero checking
         registry = _registry;
         creator = _creator;
         token = _token;
@@ -46,6 +49,8 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         return allowedPlatforms;
     }
 
+    // @audit-info `totalCurrentBalance()` and `totalRaisedBalance()` functions are almost identical, with only one line difference.
+    // These two functions can be replaced with one function and it will reduce the byte code size. 
     function totalCurrentBalance() public view override returns (uint256) {
         bytes32[] memory tempPlatforms = allowedPlatforms;
         uint256 length = allowedPlatforms.length;
