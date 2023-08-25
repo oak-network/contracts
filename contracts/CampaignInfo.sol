@@ -7,38 +7,36 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interface/ICampaignInfo.sol";
 import "./Interface/ICampaignTreasury.sol";
 import "./Interface/ICampaignRegistry.sol";
-
+   
 contract CampaignInfo is ICampaignInfo, Ownable {
-    address public registry;
-    address public creator;
-    address public token;
+    address public immutable GLOBAL_PARAMS;
+    address public immutable TOKEN;
+    bytes32 public identifierHash;
     uint256 public launchTime;
     uint256 public deadline;
-    uint256 public goal;
-    bytes32[] private allowedPlatforms;
+    uint256 public goalAmount;
+    bytes32[] private selectedPlatformBytes;
 
-    mapping(bytes32 => address) public treasury;
+    mapping(bytes32 => address) public platformTreasuryAddress;
 
-    string identifier;
 
     constructor(
-        address _registry,
-        address _creator,
+        address _globalParams,
         address _token,
+        bytes32 _identifierHash,
+        address _creator,
         uint256 _launchTime,
         uint256 _deadline,
-        uint256 _goal,
-        string memory _identifier,
-        bytes32[] memory _platforms
+        uint256 _goalAmount,
+        bytes32[] memory _selectedPlatformBytes
     ) {
-        registry = _registry;
-        creator = _creator;
-        token = _token;
+        GLOBAL_PARAMS = _globalParams;
+        TOKEN = _token;
         launchTime = _launchTime;
         deadline = _deadline;
-        goal = _goal;
-        identifier = _identifier;
-        allowedPlatforms = _platforms;
+        goalAmount = _goalAmount;
+        identifierHash = _identifierHash;
+        selectedPlatformBytes = _selectedPlatformBytes;
         transferOwnership(_creator);
     }
 
