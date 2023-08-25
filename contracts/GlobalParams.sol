@@ -18,103 +18,129 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
     error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
 
-    Counters.Counter private numberOfListedPlatforms;
+    address private s_protocolAdminAddress;
+    address private s_tokenAddress;
+    uint256 private s_protocolFeePercent;
+    mapping(bytes32 => bool) private s_platformIsListed;
+    mapping(bytes32 => address) private s_platformAdminAddress;
 
-    address public protocolAdminAddress;
-    address public tokenAddress;
-    uint256 public protocolFeePercent;
-    mapping(bytes32 => bool) private platformIsListed;
-    mapping(bytes32 => address) private platformAdminAddress;
+    Counters.Counter private s_numberOfListedPlatforms;
 
     constructor(
         address _protocolAdminAddress,
         address _tokenAddress,
         uint256 _protocolFeePercent
     ) {
-        protocolAdminAddress = _protocolAdminAddress;
-        tokenAddress = _tokenAddress;
-        protocolFeePercent = _protocolFeePercent;
+        s_protocolAdminAddress = _protocolAdminAddress;
+        s_tokenAddress = _tokenAddress;
+        s_protocolFeePercent = _protocolFeePercent;
     }
 
-    modifier notAddressZero(address _account) {
-        _checkIfAddressZero(_account);
+    modifier notAddressZero(address account) {
+        _checkIfAddressZero(account);
         _;
     }
 
     function checkIfplatformIsListed(
         bytes32 _platformBytes
     ) external view override returns (bool) {
-        if (platformIsListed[_platformBytes]) {
+        if (s_platformIsListed[_platformBytes]) {
             return true;
         } else return false;
     }
 
     function getPlatformAdminAddress(
-        bytes32 _platformBytes
+        bytes32 platformBytes
     ) external view override returns (address account) {
-        account = platformAdminAddress[_platformBytes];
+        account = s_platformAdminAddress[platformBytes];
         if (account == address(0)) {
-            revert GlobalParamsPlatformAdminNotSet(_platformBytes);
+            revert GlobalParamsPlatformAdminNotSet(platformBytes);
         }
     }
 
-    function _checkIfAddressZero(address _account) internal pure {
-        if (_account == address(0)) {
-            revert GlobalParamsInvalidAddress(_account);
+    function getNumberOfListedPlatforms()
+        external
+        view
+        override
+        returns (uint256)
+    {
+        return s_numberOfListedPlatforms.current();
+    }
+
+    function getProtocolAdminAddress()
+        external
+        view
+        override
+        returns (address)
+    {
+        return s_protocolAdminAddress;
+    }
+
+    function getTokenAddress() external view override returns (address) {
+        return s_tokenAddress;
+    }
+
+    function getProtocolFeePercent() external view override returns (uint256) {
+        return s_protocolFeePercent;
+    }
+
+    function _checkIfAddressZero(address account) internal pure {
+        if (account == address(0)) {
+            revert GlobalParamsInvalidAddress(account);
         }
     }
 
     function enlistPlatform(
-        bytes32 _platformBytes,
-        address _platformAdminAddress
-    ) external {
-        if (platformIsListed[_platformBytes]) {
-            revert GlobalParamsPlatformAlreadyListed(_platformBytes);
+        bytes32 platformBytes,
+        address platformAdminAddress
+    ) external onlyOwner {
+        if (s_platformIsListed[platformBytes]) {
+            revert GlobalParamsPlatformAlreadyListed(platformBytes);
         } else {
-            platformIsListed[_platformBytes] = true;
-            platformAdminAddress[_platformBytes] = _platformAdminAddress;
-            numberOfListedPlatforms.increment();
+            s_platformIsListed[platformBytes] = true;
+            s_platformAdminAddress[platformBytes] = platformAdminAddress;
+            s_numberOfListedPlatforms.increment();
         }
     }
 
-    function delistPlatform(bytes32 _platformBytes) external {
-        if (platformIsListed[_platformBytes]) {
-            platformIsListed[_platformBytes] = false;
-            platformAdminAddress[_platformBytes] = address(0);
-            numberOfListedPlatforms.decrement();
+    function delistPlatform(bytes32 platformBytes) external onlyOwner {
+        if (s_platformIsListed[platformBytes]) {
+            s_platformIsListed[platformBytes] = false;
+            s_platformAdminAddress[platformBytes] = address(0);
+            s_numberOfListedPlatforms.decrement();
         } else {
-            revert GlobalParamsPlatformNotListed(_platformBytes, address(0));
+            revert GlobalParamsPlatformNotListed(platformBytes, address(0));
         }
     }
 
     function updateProtocolAdminAddress(
-        address _protocolAdminAddress
-    ) external override onlyOwner notAddressZero(_protocolAdminAddress) {
-        protocolAdminAddress = _protocolAdminAddress;
+        address protocolAdminAddress
+    ) external override onlyOwner notAddressZero(protocolAdminAddress) {
+        s_protocolAdminAddress = protocolAdminAddress;
     }
 
     function updateTokenAddress(
-        address _tokenAddress
-    ) external override onlyOwner notAddressZero(_tokenAddress) {
-        tokenAddress = _tokenAddress;
+        address tokenAddress
+    ) external override onlyOwner notAddressZero(tokenAddress) {
+        s_tokenAddress = tokenAddress;
     }
 
     function updateProtocolFeePercent(
-        uint256 _protocolFeePercent
+        uint256 protocolFeePercent
     ) external override onlyOwner {
-        protocolFeePercent = _protocolFeePercent;
+        s_protocolFeePercent = protocolFeePercent;
     }
 
     function updatePlatformAdminAddress(
-        bytes32 _platformBytes,
-        address _platformAdminAddress
-    ) external override onlyOwner notAddressZero(_platformAdminAddress) {
-        if (platformIsListed[_platformBytes]) {
-            platformAdminAddress[_platformBytes] = _platformAdminAddress;
+        bytes32 platformBytes,
+        address platformAdminAddress
+    ) external override onlyOwner notAddressZero(platformAdminAddress) {
+        if (s_platformIsListed[platformBytes]) {
+            s_platformAdminAddress[platformBytes] = platformAdminAddress;
         } else
             revert GlobalParamsPlatformNotListed(
-                _platformBytes,
-                _platformAdminAddress
+                platformBytes,
+                platformAdminAddress
             );
     }
 }
