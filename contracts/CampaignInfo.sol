@@ -5,39 +5,44 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interface/ICampaignInfo.sol";
+import "./Interface/IGlobalParams.sol";
 import "./Interface/ICampaignTreasury.sol";
 import "./Interface/ICampaignRegistry.sol";
    
 contract CampaignInfo is ICampaignInfo, Ownable {
-    address public immutable GLOBAL_PARAMS;
-    address public immutable TOKEN;
-    bytes32 public identifierHash;
-    uint256 public launchTime;
-    uint256 public deadline;
-    uint256 public goalAmount;
-    bytes32[] private selectedPlatformBytes;
+    
+    address private immutable GLOBAL_PARAMS;
+    address private immutable TOKEN;
+    uint256 private immutable PROTOCOL_FEE_PERCENT;
+    bytes32 private immutable IDENTIFIER_HASH;
 
-    mapping(bytes32 => address) public platformTreasuryAddress;
+    struct CampaignData {
+        uint256 launchTime;
+        uint256 deadline;
+        uint256 goalAmount;
+        bytes32[] selectedPlatformBytes;
+    }
+
+    CampaignData private s_campaignData;
+
+    mapping(bytes32 => address) private s_platformTreasuryAddress;
 
 
     constructor(
-        address _globalParams,
-        address _token,
-        bytes32 _identifierHash,
-        address _creator,
-        uint256 _launchTime,
-        uint256 _deadline,
-        uint256 _goalAmount,
-        bytes32[] memory _selectedPlatformBytes
+        address globalParams,
+        address token,
+        address creator,
+        uint256 protocolFeePercent,
+        bytes32 identifierHash,
+        CampaignData memory campaignData
     ) {
-        GLOBAL_PARAMS = _globalParams;
-        TOKEN = _token;
-        launchTime = _launchTime;
-        deadline = _deadline;
-        goalAmount = _goalAmount;
-        identifierHash = _identifierHash;
-        selectedPlatformBytes = _selectedPlatformBytes;
-        transferOwnership(_creator);
+        GLOBAL_PARAMS = globalParams;
+        TOKEN = token;
+        IDENTIFIER_HASH = identifierHash;
+        PROTOCOL_FEE_PERCENT = globalParams.protocolFeePercent;
+        s_campaignData = campaignData;  
+
+        transferOwnership(creator);
     }
 
     function platforms() public view override returns (bytes32[] memory) {
