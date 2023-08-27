@@ -45,8 +45,20 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         transferOwnership(creator);
     }
 
-    function platforms() public view override returns (bytes32[] memory) {
-        return allowedPlatforms;
+    function getSelectedPlatforms() external view override returns (bytes32[] memory) {
+        return s_campaignData.selectedPlatformBytes;
+    }
+
+    function getLaunchTime() external view override returns (uint256) {
+        return s_campaignData.launchTime;
+    }
+
+    function getDeadline() external view override returns (uint256) {
+        return s_campaignData.deadline;
+    }
+
+    function getGoalAmount() external view override returns (uint256) {
+        return s_campaignData.goalAmount;
     }
 
     function totalCurrentBalance() public view override returns (uint256) {
