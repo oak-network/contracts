@@ -3,11 +3,8 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ICampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
-import "./interfaces/ICampaignTreasury.sol";
-import "./interfaces/ICampaignRegistry.sol";
 import "./utils/TimestampChecker.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
@@ -58,6 +55,14 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         bytes32 platformBytes
     ) public view override returns (bool) {
         return s_selectedPlatformBytes[platformBytes];
+    }
+
+    function getProtocolAdminAddress() external view returns (address) {
+        return IGlobalParams(GLOBAL_PARAMS).getProtocolAdminAddress();
+    }
+
+    function getPlatformAdminAddress() external view returns (address) {
+        return IGlobalParams(GLOBAL_PARAMS).getPlatformAdminAddress();
     }
 
     function getLaunchTime() external view override returns (uint256) {
@@ -144,7 +149,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         s_campaignData.deadline = deadline;
     }
 
-    function updateGoal(
+    function updateGoalAmount(
         uint256 goalAmount
     ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         s_campaignData.goalAmount = goalAmount;
