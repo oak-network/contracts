@@ -66,17 +66,17 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
-            tempTreasury = s_platformTreasuryAddress;
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
             amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
         }
         return amount; 
     }
 
-    function getProtocolAdminAddress() external view returns (address) {
+    function getProtocolAdminAddress() external view override returns (address) {
         return IGlobalParams(GLOBAL_PARAMS).getProtocolAdminAddress();
     }
 
-    function getPlatformAdminAddress() external view returns (address) {
+    function getPlatformAdminAddress() external view override returns (address) {
         return IGlobalParams(GLOBAL_PARAMS).getPlatformAdminAddress();
     }
 
@@ -134,20 +134,20 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
 
     function updateDeadline(
         uint256 deadline
-    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         s_campaignData.deadline = deadline;
     }
 
     function updateGoalAmount(
         uint256 goalAmount
-    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         s_campaignData.goalAmount = goalAmount;
     }
 
     function updateSelectedPlatform(
         bytes32 platformBytes,
         bool selection
-    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         if (s_selectedPlatformBytes[platformBytes] == selection)
             revert CampaignInfoInvalidPlatformUpdate(platformBytes, selection);
         else {
