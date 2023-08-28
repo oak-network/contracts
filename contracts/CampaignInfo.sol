@@ -12,11 +12,17 @@ import "./utils/TimestampChecker.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
     address private immutable GLOBAL_PARAMS;
+    address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
     bytes32 private immutable IDENTIFIER_HASH;
 
-    error InvalidPlatformUpdate(bytes32 platformBytes, bool selection);
+    error CampaignInfoInvalidPlatformUpdate(
+        bytes32 platformBytes,
+        bool selection
+    );
+    error CampaignInfoPlatformNotSelected(bytes32 platformBytes);
+    error CampaignInfoUnauthorized();
 
     struct CampaignData {
         uint256 launchTime;
@@ -31,6 +37,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
 
     constructor(
         address globalParams,
+        address treasuryFactory,
         address token,
         address creator,
         uint256 protocolFeePercent,
@@ -38,6 +45,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         CampaignData memory campaignData
     ) {
         GLOBAL_PARAMS = globalParams;
+        TREASURY_FACTORY = treasuryFactory;
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
         PROTOCOL_FEE_PERCENT = globalParams.protocolFeePercent;
@@ -104,10 +112,18 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
     }
 
     function setPlatformInfo(
-        bytes32 _platform,
-        address _treasury
-    ) external override onlyOwner {
-        treasury[_platform] = _treasury;
+        bytes32 platformBytes,
+        address platformTreasuryAddress
+    ) external override {
+        if (msg.sender != TREASURY_FACTORY) {
+            revert CampaignInfoUnauthorized();
+        }
+        bool selected = checkIfPlatformSelected(platformBytes);
+        if (selected) {
+            s_platformTreasuryAddress[platformBytes] = platformTreasuryAddress;
+        } else {
+            revert CampaignInfoPlatformNotSelected(platformBytes);
+        }
     }
 
     function transferOwnership(
@@ -139,7 +155,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         bool selection
     ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         if (s_selectedPlatformBytes[platformBytes] == selection)
-            revert InvalidPlatformUpdate(platformBytes, selection);
+            revert CampaignInfoInvalidPlatformUpdate(platformBytes, selection);
         else {
             s_selectedPlatformBytes[platformBytes] = selection;
         }
