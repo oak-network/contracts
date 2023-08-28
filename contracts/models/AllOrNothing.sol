@@ -10,15 +10,31 @@ import "../Interface/ICampaignInfo.sol";
 contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     using Counters for Counters.Counter;
 
-    address public immutable registry;
-    address public immutable info;
-    bytes32 public immutable platform;
-    uint256 constant percentDivider = 10000;
-    uint256 public pledgedAmount;
-    uint256 public platformFeePercent;
-    uint256 public raisedBalance;
-    uint256 public preLaunchPledge = 1 ether;
-    mapping(uint256 => uint256) tokenToPledgeAmount;
+    struct Reward {
+        uint256 rewardValue;
+        bool isRewardTier;
+        bytes32[] itemId;
+        uint256[] itemValue;
+        uint256[] itemQuantity;
+    }
+
+    /// Xstarter bytes
+    bytes32 private constant PLATFORM_BYTES =
+        0x5873746172746572000000000000000000000000000000000000000000000000;
+    uint256 private constant PERCENT_DIVIDER = 10000;
+    uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
+    uint256 private constant PLATFORM_FEE_PERCENT = 300;
+
+    address private immutable CAMPAIGN_INFO;
+
+    uint256 private s_totalPledgedAmount;
+    uint256 private s_pledgedAmountInCrypto;
+    uint256 private s_pledgedAmountInFiat;
+
+    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+    mapping(bytes32 => Reward) private s_reward;
+
+    Counters.Counter private s_tokenIdCounter;
 
     event receipt(
         address indexed backer,
@@ -28,24 +44,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         bool isPreLaunchPledge,
         bytes32[] rewards
     );
-
-    Counters.Counter private _tokenIdCounter;
-
-    struct Item {
-        string description;
-    }
-
-    struct Reward {
-        uint256 rewardValue;
-        bool isRewardTier;
-        string rewardDescription;
-        bytes32[] itemId;
-        mapping(bytes32 => uint256) itemQuantity;
-    }
-
-    // address token;
-    mapping(bytes32 => Item) items;
-    mapping(bytes32 => Reward) rewards;
 
     constructor(
         address _registry,
@@ -57,25 +55,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         platform = _platform;
     }
 
-    function addItem(bytes32 item, string calldata description) external {
-        items[item].description = description;
-    }
-
-    function addReward(
-        bytes32 name,
-        uint256 rewardValue,
-        bool isRewardTier,
-        bytes32[] memory itemIds,
-        uint256[] memory itemQuantity
-    ) external {
-        Reward storage reward = rewards[name];
-        reward.rewardValue = rewardValue;
-        reward.isRewardTier = isRewardTier;
-        reward.itemId = itemIds;
-        uint256 len = itemQuantity.length;
-        for (uint256 i = 0; i < len; i++) {
-            reward.itemQuantity[itemIds[i]] = itemQuantity[i];
-        }
+    function addReward(bytes32 rewardName, Reward calldata reward) external {
+        s_reward[rewardName] = reward;
     }
 
     function pledge(
@@ -89,7 +70,10 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         uint256 pledgeAmount = 0;
         bool isPreLaunchPledge;
         bool success;
-        require(block.timestamp <= campaign.deadline(), "AllOrNothing: Deadline reached");
+        require(
+            block.timestamp <= campaign.deadline(),
+            "AllOrNothing: Deadline reached"
+        );
         if (block.timestamp > campaign.launchTime()) {
             if (reward[0] != 0x00) {
                 // uint256 value = rewards[reward[0]].rewardValue;
@@ -100,7 +84,11 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 for (uint256 i = 0; i < rewardLen; i++) {
                     totalValue += rewards[reward[i]].rewardValue;
                 }
-                success = IERC20(token).transferFrom(backer, address(this), totalValue);
+                success = IERC20(token).transferFrom(
+                    backer,
+                    address(this),
+                    totalValue
+                );
                 require(success);
                 pledgeAmount = totalValue;
                 _tokenIdCounter.increment();
@@ -112,13 +100,21 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
                 );
                 tokenToPledgeAmount[tokenId] = totalValue;
             } else {
-                success = IERC20(token).transferFrom(backer, address(this), amount);
+                success = IERC20(token).transferFrom(
+                    backer,
+                    address(this),
+                    amount
+                );
                 require(success);
                 pledgeAmount = amount;
             }
         } else {
             isPreLaunchPledge = true;
-            success = IERC20(token).transferFrom(backer, address(this), preLaunchPledge);
+            success = IERC20(token).transferFrom(
+                backer,
+                address(this),
+                preLaunchPledge
+            );
             require(success);
             pledgeAmount = preLaunchPledge;
             _tokenIdCounter.increment();
