@@ -4,11 +4,13 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
-import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 
 contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
+    
+    bytes4 private constant SELECTOR = bytes4(keccak256(bytes('getRaisedAmount()')));
+    
     address private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
@@ -65,9 +67,14 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         uint256 length = s_approvedPlatformBytes.length;
         uint256 amount;
         address tempTreasury;
+        bool success;
+        bytes memory data;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
-            amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            (success, data) = tempTreasury.call(abi.encodeWithSelector(SELECTOR));
+            if (success) {
+                amount += abi.decode(data, (uint256));
+            }
         }
         return amount; 
     }
@@ -76,8 +83,8 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         return IGlobalParams(GLOBAL_PARAMS).getProtocolAdminAddress();
     }
 
-    function getPlatformAdminAddress() external view override returns (address) {
-        return IGlobalParams(GLOBAL_PARAMS).getPlatformAdminAddress();
+    function getPlatformAdminAddress(bytes32 platformBytes) external view override returns (address) {
+        return IGlobalParams(GLOBAL_PARAMS).getPlatformAdminAddress(platformBytes);
     }
 
     function getLaunchTime() external view override returns (uint256) {
@@ -96,7 +103,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         return TOKEN;
     }
 
-    function getProtocolFeePercent() external view override returns (address) {
+    function getProtocolFeePercent() external view override returns (uint256) {
         return PROTOCOL_FEE_PERCENT;
     }
 
