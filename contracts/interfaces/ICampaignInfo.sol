@@ -5,12 +5,12 @@ interface ICampaignInfo {
     function checkIfPlatformSelected(bytes32 platformBytes) external view returns (bool);
     function getTotalRaisedAmount() external view returns (uint256);
     function getProtocolAdminAddress() external view returns (address);
-    function getPlatformAdminAddress() external view returns (address);
+    function getPlatformAdminAddress(bytes32 platformBytes) external view returns (address);
     function getLaunchTime() external view returns (uint256);
     function getDeadline() external view returns (uint256);
     function getGoalAmount() external view returns (uint256);
     function getTokenAddress() external view returns (address);
-    function getProtocolFeePercent() external view returns (address);
+    function getProtocolFeePercent() external view returns (uint256);
     function getIdentifierHash() external view returns (bytes32);
     function setPlatformInfo(bytes32 platformBytes, address platformTreasuryAddress) external;
     function transferOwnership(address newOwner) external;
