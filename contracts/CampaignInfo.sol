@@ -4,16 +4,19 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./Interface/ICampaignInfo.sol";
-import "./Interface/IGlobalParams.sol";
-import "./Interface/ICampaignTreasury.sol";
-import "./Interface/ICampaignRegistry.sol";
+import "./interfaces/ICampaignInfo.sol";
+import "./interfaces/IGlobalParams.sol";
+import "./interfaces/ICampaignTreasury.sol";
+import "./interfaces/ICampaignRegistry.sol";
+import "./utils/TimestampChecker.sol";
 
-contract CampaignInfo is ICampaignInfo, Ownable {
+contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
     address private immutable GLOBAL_PARAMS;
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
     bytes32 private immutable IDENTIFIER_HASH;
+
+    error InvalidPlatformUpdate(bytes32 platformBytes, bool selection);
 
     struct CampaignData {
         uint256 launchTime;
@@ -113,19 +116,32 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         super.transferOwnership(newOwner);
     }
 
-    function updateLaunchTime(uint256 _launchTime) external onlyOwner {
-        launchTime = _launchTime;
+    function updateLaunchTime(
+        uint256 launchTime
+    ) external onlyOwner currentTimeIsLess(launchTime) {
+        s_campaignData.launchTime = launchTime;
     }
 
-    function updateDeadline(uint256 _deadline) external onlyOwner {
-        deadline = _deadline;
+    function updateDeadline(
+        uint256 deadline
+    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+        s_campaignData.deadline = deadline;
     }
 
-    function updateGoal(uint256 goal) external onlyOwner {
-        goal = _goal;
+    function updateGoal(
+        uint256 goalAmount
+    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+        s_campaignData.goalAmount = goalAmount;
     }
 
-    function updateSelectedPlatform(bytes32 platformBytes, bool selection) external onlyOwner {
-        s_selectedPlatformBytes[platformBytes] = selection;
+    function updateSelectedPlatform(
+        bytes32 platformBytes,
+        bool selection
+    ) external onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+        if (s_selectedPlatformBytes[platformBytes] == selection)
+            revert InvalidPlatformUpdate(platformBytes, selection);
+        else {
+            s_selectedPlatformBytes[platformBytes] = selection;
+        }
     }
 }
