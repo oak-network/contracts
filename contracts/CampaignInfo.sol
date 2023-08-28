@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
+import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 
@@ -32,6 +33,8 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
     mapping(bytes32 => bool) private s_selectedPlatformBytes;
     mapping(bytes32 => address) private s_platformTreasuryAddress;
 
+    bytes32[] private s_approvedPlatformBytes;
+
     constructor(
         address globalParams,
         address treasuryFactory,
@@ -45,7 +48,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         TREASURY_FACTORY = treasuryFactory;
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
-        PROTOCOL_FEE_PERCENT = globalParams.protocolFeePercent;
+        PROTOCOL_FEE_PERCENT = protocolFeePercent;
         s_campaignData = campaignData;
 
         transferOwnership(creator);
@@ -55,6 +58,18 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         bytes32 platformBytes
     ) public view override returns (bool) {
         return s_selectedPlatformBytes[platformBytes];
+    }
+
+    function getTotalRaisedAmount() public view override returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformBytes;
+        uint256 length = s_approvedPlatformBytes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress;
+            amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+        }
+        return amount; 
     }
 
     function getProtocolAdminAddress() external view returns (address) {
@@ -89,33 +104,6 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         return IDENTIFIER_HASH;
     }
 
-    function totalCurrentBalance() public view override returns (uint256) {
-        bytes32[] memory tempPlatforms = allowedPlatforms;
-        uint256 length = allowedPlatforms.length;
-        uint256 balance = 0;
-        address tempToken = token;
-        for (uint256 i = 0; i < length; i++) {
-            address tempTreasury = treasury[tempPlatforms[i]];
-            if (tempTreasury != address(0)) {
-                balance += IERC20(tempToken).balanceOf(tempTreasury);
-            }
-        }
-        return balance;
-    }
-
-    function totalRaisedBalance() public view override returns (uint256) {
-        bytes32[] memory tempPlatforms = allowedPlatforms;
-        uint256 length = allowedPlatforms.length;
-        uint256 balance = 0;
-        for (uint256 i = 0; i < length; i++) {
-            address tempTreasury = treasury[tempPlatforms[i]];
-            if (tempTreasury != address(0)) {
-                balance += ICampaignTreasury(tempTreasury).raisedBalance();
-            }
-        }
-        return balance;
-    }
-
     function setPlatformInfo(
         bytes32 platformBytes,
         address platformTreasuryAddress
@@ -126,6 +114,7 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
         bool selected = checkIfPlatformSelected(platformBytes);
         if (selected) {
             s_platformTreasuryAddress[platformBytes] = platformTreasuryAddress;
+            s_approvedPlatformBytes.push(platformBytes);
         } else {
             revert CampaignInfoPlatformNotSelected(platformBytes);
         }
