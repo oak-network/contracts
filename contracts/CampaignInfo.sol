@@ -8,9 +8,8 @@ import "./Interface/ICampaignInfo.sol";
 import "./Interface/IGlobalParams.sol";
 import "./Interface/ICampaignTreasury.sol";
 import "./Interface/ICampaignRegistry.sol";
-   
+
 contract CampaignInfo is ICampaignInfo, Ownable {
-    
     address private immutable GLOBAL_PARAMS;
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
@@ -20,13 +19,12 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         uint256 launchTime;
         uint256 deadline;
         uint256 goalAmount;
-        bytes32[] selectedPlatformBytes;
     }
 
     CampaignData private s_campaignData;
 
+    mapping(bytes32 => bool) private s_selectedPlatformBytes;
     mapping(bytes32 => address) private s_platformTreasuryAddress;
-
 
     constructor(
         address globalParams,
@@ -40,13 +38,15 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
         PROTOCOL_FEE_PERCENT = globalParams.protocolFeePercent;
-        s_campaignData = campaignData;  
+        s_campaignData = campaignData;
 
         transferOwnership(creator);
     }
 
-    function getSelectedPlatforms() external view override returns (bytes32[] memory) {
-        return s_campaignData.selectedPlatformBytes;
+    function checkIfPlatformSelected(
+        bytes32 platformBytes
+    ) public view override returns (bool) {
+        return s_selectedPlatformBytes[platformBytes];
     }
 
     function getLaunchTime() external view override returns (uint256) {
@@ -59,6 +59,18 @@ contract CampaignInfo is ICampaignInfo, Ownable {
 
     function getGoalAmount() external view override returns (uint256) {
         return s_campaignData.goalAmount;
+    }
+
+    function getTokenAddress() external view override returns (address) {
+        return TOKEN;
+    }
+
+    function getProtocolFeePercent() external view override returns (address) {
+        return PROTOCOL_FEE_PERCENT;
+    }
+
+    function getIdentifierHash() external view override returns (bytes32) {
+        return IDENTIFIER_HASH;
     }
 
     function totalCurrentBalance() public view override returns (uint256) {
@@ -109,7 +121,11 @@ contract CampaignInfo is ICampaignInfo, Ownable {
         deadline = _deadline;
     }
 
-    function updateGoal(uint256 _goal) external onlyOwner {
+    function updateGoal(uint256 goal) external onlyOwner {
         goal = _goal;
+    }
+
+    function updateSelectedPlatform(bytes32 platformBytes, bool selection) external onlyOwner {
+        s_selectedPlatformBytes[platformBytes] = selection;
     }
 }
