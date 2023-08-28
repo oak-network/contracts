@@ -2,39 +2,20 @@
 pragma solidity ^0.8.9;
 
 interface ICampaignInfo {
-    function totalCurrentBalance() external view returns (uint256);
-
-    function totalRaisedBalance() external view returns (uint256);
-
-    function treasury(bytes32 platform) external view returns (address);
-
-    function token() external view returns (address);
-
-    // function feeSplitModel() external view returns (bytes32);
-
-    function launchTime() external view returns (uint256);
-
-    function deadline() external view returns (uint256);
-
-    function goal() external view returns (uint256);
-
-    function platforms() external view returns (bytes32[] memory);
-
-    function creator() external view returns (address);
-
-    // function claimFee(bytes32 platform) external;
-
-    function setPlatformInfo(bytes32 _platformId, address _treasury) external;
-
-    // function updateLaunchTime(uint256 _launchTime) external;
-
-    // function updateDeadline(uint256 _deadline) external;
-
-    // function updateGoal(uint256 _goalAmount) external;
-
-    // function pause() external;
-
-    // function unpause() external;
-
+    function checkIfPlatformSelected(bytes32 platformBytes) external view returns (bool);
+    function getTotalRaisedAmount() external view returns (uint256);
+    function getProtocolAdminAddress() external view returns (address);
+    function getPlatformAdminAddress() external view returns (address);
+    function getLaunchTime() external view returns (uint256);
+    function getDeadline() external view returns (uint256);
+    function getGoalAmount() external view returns (uint256);
+    function getTokenAddress() external view returns (address);
+    function getProtocolFeePercent() external view returns (address);
+    function getIdentifierHash() external view returns (bytes32);
+    function setPlatformInfo(bytes32 platformBytes, address platformTreasuryAddress) external;
     function transferOwnership(address newOwner) external;
+    function updateLaunchTime(uint256 launchTime) external;
+    function updateDeadline(uint256 deadline) external;
+    function updateGoalAmount(uint256 goalAmount) external;
+    function updateSelectedPlatform(bytes32 platformBytes, bool selection) external;
 }
