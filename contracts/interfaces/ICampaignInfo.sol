@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 interface ICampaignInfo {
+    function owner() external view returns (address);
     function checkIfPlatformSelected(bytes32 platformBytes) external view returns (bool);
     function getTotalRaisedAmount() external view returns (uint256);
     function getProtocolAdminAddress() external view returns (address);
