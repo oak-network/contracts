@@ -32,6 +32,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     uint256 private s_pledgedAmountInCrypto;
     uint256 private s_pledgedAmountInFiat;
 
+    bool private s_cryptoFeeDisbursed;
+    bool private s_fiatFeeDisbursed;
+
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     mapping(bytes32 => Reward) private s_reward;
     mapping(bytes32 => uint256) private s_fiatPledge;
@@ -53,6 +56,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     error AllOrNothingUnAuthorized();
     error AllOrNothingInvalidInput();
     error AllOrNothingTransferFailed();
+    error AllOrNothingNotSuccessful();
+    error AllOrNothingFeeNotDisbursed();
 
     constructor(address info) ERC721("Xstarter", "XNFT") {
         CAMPAIGN_INFO = info;
@@ -151,6 +156,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
                 tokenId,
                 abi.encodePacked(backer, " ", reward[0])
             );
+            s_tokenToPledgedAmount[tokenId] = pledgeAmount;
             s_tokenIdCounter[tokenId] = pledgeAmount;
             s_pledgedAmountInCrypto += pledgeAmount;
             emit receipt(
@@ -183,22 +189,46 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         }
     }
 
-    function collect() external {
-        ICampaignInfo campaign = ICampaignInfo(info);
-        require(block.timestamp >= campaign.deadline());
-        uint256 balance = currentBalance();
-        require(balance >= campaign.goal() / campaign.platforms().length);
-        IERC20(campaign.token()).transfer(campaign.creator(), balance);
+    function disburseFees() external currentTimeIsGreater(s_info.getDeadline()) { 
+        uint256 balance = s_pledgedAmountInCrypto;
+        if (s_info.getTotalRaisedAmount() > s_info.getGoalAmount()) {
+            uint256 protocolShare = balance * s_info.getProtocolFeePercent() / PERCENT_DIVIDER;
+            uint256 platformShare = balance * PLATFORM_FEE_PERCENT / PERCENT_DIVIDER;
+            bool success = IERC20(TOKEN).transfer(s_info.getProtocolAdminAddress, protocolShare);
+            if (!success) {
+                revert AllOrNothingTransferFailed();
+            }
+            success = IERC20(TOKEN).transfer(s_info.getPlatformAdminAddress, platformShare);
+            if (!success) {
+                revert AllOrNothingTransferFailed();
+            }
+            s_cryptoFeeDisbursed = true;
+        }
+        else {
+            revert AllOrNothingNotSuccessful();
+        }
     }
 
-    function claimRefund(uint256 tokenId) external {
-        uint256 amount = tokenToPledgeAmount[tokenId];
-        address token = ICampaignInfo(info).token();
+    function withdrawCrptoPledgedAmount() external {
+        if (s_cryptoFeeDisbursed) {
+            uint256 balance = IERC20(TOKEN).balanceOf(address.this);
+            IERC20(TOKEN).transfer(s_info.creator(), balance);
+        }
+        else {
+            revert AllOrNothingFeeNotDisbursed();
+        }
+    }
+
+    function claimRefund(uint256 tokenId) external CurrentTimeIsLess(s_info.getDeadline()) {
+        uint256 amount = s_tokenToPledgedAmount[tokenId];
+        if (amount == 0)
         require(amount != 0, "AllOrNothing: PreLaunch pledge");
-        tokenToPledgeAmount[tokenId] = 0;
+        s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
-        bool success = IERC20(token).transfer(_msgSender(), amount);
-        require(success);
+        bool success = IERC20(TOKEN).transfer(_msgSender(), amount);
+        if (!success) {
+            revert AllOrNothingTransferFailed();
+        }
     }
 
     function getplatformId() external view returns (bytes32) {
