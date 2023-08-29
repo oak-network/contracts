@@ -27,6 +27,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     uint256 private constant PLATFORM_FEE_PERCENT = 300;
 
     address private immutable CAMPAIGN_INFO;
+    address private immutable TOKEN;
 
     uint256 private s_totalPledgedAmount;
     uint256 private s_pledgedAmountInCrypto;
@@ -38,6 +39,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
+
+    ICampaignInfo s_info = ICampaignInfo(CAMPAIGN_INFO);
 
     event receipt(
         address indexed backer,
@@ -54,6 +57,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     constructor(address info) ERC721("Xstarter", "XNFT") {
         CAMPAIGN_INFO = info;
+        TOKEN = s_info.getTokenAddress();
     }
 
     modifier onlyPlatformAdmin() {
@@ -81,15 +85,27 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         s_fiatPledge[fiatPledgeId] = fiatPledgeAmount;
     }
 
+    function pledgeOnPreLaunch(
+        address backer
+    ) external currentTimeIsLess(s_info.getLaunchTime()) {
+        bool success = IERC20(ICampaignInfo(CAMPAIGN_INFO).getTokenAddress())
+            .transferFrom(backer, address(this), PRELAUNCH_PLEDGE);
+        require(success);
+        uint256 tokenId = s_tokenIdCounter.current();
+        s_tokenIdCounter.increment();
+        _safeMint(
+            backer,
+            tokenId,
+            abi.encodePacked(backer, " PreLaunchPledge")
+        );
+    }
+
     function pledgeForAReward(
         address backer,
         bytes32[] calldata reward
     )
         external
-        currentTimeIsWithinRange(
-            ICampaignInfo(CAMPAIGN_INFO).getLaunchTime(),
-            ICampaignInfo(CAMPAIGN_INFO).getDeadline
-        )
+        currentTimeIsWithinRange(s_info.getLaunchTime(), s_info.getDeadline)
     {
         uint256 tokenId = s_tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(CAMPAIGN_INFO);
@@ -119,13 +135,17 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         );
         if (success) {
             s_tokenIdCounter.increment();
-            _safeMint(backer, tokenId);
+            _safeMint(
+                backer,
+                tokenId,
+                abi.encodePacked(backer, " ", reward[0])
+            );
             s_tokenIdCounter[tokenId] = pledgeAmount;
         } else {
             revert AllOrNothingTransferFromFailed();
         }
     }
-    
+
     function collect() external {
         ICampaignInfo campaign = ICampaignInfo(info);
         require(block.timestamp >= campaign.deadline());
