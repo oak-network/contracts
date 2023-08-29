@@ -2,12 +2,16 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./Interface/ICampaignRegistry.sol";
+import "./interfaces/ICampaignRegistry.sol";
 
 contract CampaignRegistry is Ownable, ICampaignRegistry {
     address factoryAddress;
+    address treasuryFactoryAddress;
     bool initialized;
-    mapping(string => address) campaignIdentifierToAddress;
+    mapping(bytes32 => address) identifierHashToAddress;
+
+    error CampaignRegistryNotInitialized();
+    error CampaignRegistryCampaignInfoNotRegistered(address campaignAddress);
 
     function initialize(address _factoryAddress) external onlyOwner {
         factoryAddress = _factoryAddress;
@@ -20,8 +24,14 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
     }
 
     modifier isInitialized() {
-        require(initialized);
+        _checkIfInitialized();
         _;
+    }
+
+    function _checkIfInitialized() internal view {
+        if (!initialized) {
+            revert CampaignRegistryNotInitialized();
+        }
     }
 
     function getFactoryAddress()
@@ -34,20 +44,23 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
         return factoryAddress;
     }
 
+    function getTreasuryFactoryAddress() external view override isInitialized returns (address) {
+        return treasuryFactoryAddress;
+    }
+
     function getCampaignInfoAddress(
-        string calldata identifier
-    ) external view override isInitialized returns (address) {
-        require(
-            campaignIdentifierToAddress[identifier] != address(0),
-            "CampaignRegistry: CampaignInfo not created"
-        );
-        return campaignIdentifierToAddress[identifier];
+        bytes32 identifier
+    ) external view override isInitialized returns (address campaignAddress) {
+        campaignAddress = identifierHashToAddress[identifier];
+        if (campaignAddress == address(0)) {
+            revert CampaignRegistryCampaignInfoNotRegistered(campaignAddress);
+        }
     }
 
     function setCampaignInfoAddress(
-        string calldata _identifier,
-        address _campaignAddress
+        bytes32 identifierHash,
+        address campaignAddress
     ) external override isInitialized onlyFactory {
-        campaignIdentifierToAddress[_identifier] = _campaignAddress;
+        identifierHashToAddress[identifierHash] = campaignAddress;
     }
 }
