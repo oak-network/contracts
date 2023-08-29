@@ -2,18 +2,8 @@
 pragma solidity ^0.8.9;
 
 interface ICampaignRegistry {
-    function initialize(address _factoryAddress) external;
-
-    // function owner() external view returns (address);
-
-    function getFactoryAddress() external view returns (address);
-
-    function getCampaignInfoAddress(
-        string calldata identifier
-    ) external view returns (address);
-
-    function setCampaignInfoAddress(
-        string calldata _identifier,
-        address _campaignAddress
-    ) external;
+    function getCampaignInfoFactoryAddress() external view returns (address);
+    function getTreasuryFactoryAddress() external view returns (address);
+    function getCampaignInfoAddress(bytes32 identifierHash) external view returns (address campaignAddress);
+    function setCampaignInfoAddress(bytes32 identifierHash, address campaignAddress) external;
 }
