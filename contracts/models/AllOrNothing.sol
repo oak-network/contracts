@@ -29,8 +29,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
     uint256 private constant PLATFORM_FEE_PERCENT = 300;
 
-    address private immutable TOKEN;
-    address private CAMPAIGN_INFO;
+    ICampaignInfo private immutable INFO;
+    IERC20 private immutable TOKEN;
 
     uint256 private s_pledgedAmountInCrypto;
     uint256 private s_pledgedAmountInFiat;
@@ -44,8 +44,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
-
-    ICampaignInfo s_info = ICampaignInfo(CAMPAIGN_INFO);
 
     event receipt(
         address indexed backer,
@@ -63,8 +61,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     error AllOrNothingFeeNotDisbursed();
 
     constructor(address info) ERC721("Xstarter", "XNFT") {
-        CAMPAIGN_INFO = info;
-        TOKEN = s_info.getTokenAddress();
+        INFO = ICampaignInfo(info);
+        TOKEN = IERC20(INFO.getTokenAddress());
 
         s_tokenIdCounter.increment();
     }
@@ -75,10 +73,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     }
 
     function _checkIfPlatformAdmin() internal view {
-        if (
-            msg.sender !=
-            ICampaignInfo(CAMPAIGN_INFO).getPlatformAdminAddress(PLATFORM_BYTES)
-        ) {
+        if (msg.sender != INFO.getPlatformAdminAddress(PLATFORM_BYTES)) {
             revert AllOrNothingUnAuthorized();
         }
     }
@@ -108,9 +103,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     function pledgeOnPreLaunch(
         address backer
-    ) external currentTimeIsLess(s_info.getLaunchTime()) {
+    ) external currentTimeIsLess(INFO.getLaunchTime()) {
         uint256 prelaunchPledgeAmount = PRELAUNCH_PLEDGE;
-        bool success = IERC20(s_info.getTokenAddress()).transferFrom(
+        bool success = TOKEN.transferFrom(
             backer,
             address(this),
             prelaunchPledgeAmount
@@ -142,11 +137,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         bytes32[] calldata reward
     )
         external
-        currentTimeIsWithinRange(s_info.getLaunchTime(), s_info.getDeadline())
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     {
         uint256 tokenId = s_tokenIdCounter.current();
-        ICampaignInfo campaign = ICampaignInfo(CAMPAIGN_INFO);
-        address token = campaign.getTokenAddress();
         bool success;
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
@@ -165,11 +158,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        success = IERC20(token).transferFrom(
-            backer,
-            address(this),
-            pledgeAmount
-        );
+        success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
         if (success) {
             s_tokenIdCounter.increment();
             _safeMint(
@@ -196,11 +185,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         address backer,
         uint256 pledgeAmount
     ) external {
-        bool success = IERC20(TOKEN).transferFrom(
-            backer,
-            address(this),
-            pledgeAmount
-        );
+        bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
         if (success) {
             s_pledgedAmountInCrypto += pledgeAmount;
             bytes32[] memory emptyByteArray = new bytes32[](0);
@@ -210,25 +195,22 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         }
     }
 
-    function disburseFees()
-        external
-        currentTimeIsGreater(s_info.getDeadline())
-    {
+    function disburseFees() external currentTimeIsGreater(INFO.getDeadline()) {
         uint256 balance = s_pledgedAmountInCrypto;
-        if (s_info.getTotalRaisedAmount() > s_info.getGoalAmount()) {
-            uint256 protocolShare = (balance * s_info.getProtocolFeePercent()) /
+        if (INFO.getTotalRaisedAmount() > INFO.getGoalAmount()) {
+            uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
                 PERCENT_DIVIDER;
             uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) /
                 PERCENT_DIVIDER;
-            bool success = IERC20(TOKEN).transfer(
-                s_info.getProtocolAdminAddress(),
+            bool success = TOKEN.transfer(
+                INFO.getProtocolAdminAddress(),
                 protocolShare
             );
             if (!success) {
                 revert AllOrNothingTransferFailed();
             }
-            success = IERC20(TOKEN).transfer(
-                s_info.getPlatformAdminAddress(PLATFORM_BYTES),
+            success = TOKEN.transfer(
+                INFO.getPlatformAdminAddress(PLATFORM_BYTES),
                 platformShare
             );
             if (!success) {
@@ -242,8 +224,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     function withdrawCrptoPledgedAmount() external {
         if (s_cryptoFeeDisbursed) {
-            uint256 balance = IERC20(TOKEN).balanceOf(address(this));
-            IERC20(TOKEN).transfer(s_info.owner(), balance);
+            uint256 balance = TOKEN.balanceOf(address(this));
+            bool success = TOKEN.transfer(INFO.owner(), balance);
+            if (!success) revert AllOrNothingTransferFailed();
         } else {
             revert AllOrNothingFeeNotDisbursed();
         }
@@ -253,13 +236,13 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         uint256 tokenId
     )
         external
-        currentTimeIsWithinRange(s_info.getLaunchTime(), s_info.getDeadline())
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     {
         uint256 amount = s_tokenToPledgedAmount[tokenId];
         if (amount == 0) require(amount != 0, "AllOrNothing: PreLaunch pledge");
         s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
-        bool success = IERC20(TOKEN).transfer(_msgSender(), amount);
+        bool success = TOKEN.transfer(_msgSender(), amount);
         if (!success) {
             revert AllOrNothingTransferFailed();
         }
