@@ -29,7 +29,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     address private immutable CAMPAIGN_INFO;
     address private immutable TOKEN;
 
-    uint256 private s_totalPledgedAmount;
     uint256 private s_pledgedAmountInCrypto;
     uint256 private s_pledgedAmountInFiat;
 
@@ -88,8 +87,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     function pledgeOnPreLaunch(
         address backer
     ) external currentTimeIsLess(s_info.getLaunchTime()) {
+        uint256 prelaunchPledgeAmount = PRELAUNCH_PLEDGE;
         bool success = IERC20(ICampaignInfo(CAMPAIGN_INFO).getTokenAddress())
-            .transferFrom(backer, address(this), PRELAUNCH_PLEDGE);
+            .transferFrom(backer, address(this), prelaunchPledgeAmount);
         require(success);
         uint256 tokenId = s_tokenIdCounter.current();
         s_tokenIdCounter.increment();
@@ -97,6 +97,15 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
             backer,
             tokenId,
             abi.encodePacked(backer, " PreLaunchPledge")
+        );
+        s_pledgedAmountInCrypto += prelaunchPledgeAmount;
+        emit receipt(
+            backer,
+            0x00,
+            prelaunchPledgeAmount,
+            tokenId,
+            true,
+            [0x00]
         );
     }
 
@@ -115,9 +124,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         s_reward storage tempReward;
         if (
             backer == address(0) ||
-            rewardLen != s_rewardCounter.current() ||
+            rewardLen > s_rewardCounter.current() ||
             reward[0] == 0x00 ||
-            tempReward[reward[0]].isRewardTier
+            !tempReward[reward[0]].isRewardTier
         ) {
             revert AllOrNothingInvalidInput();
         }
@@ -141,6 +150,15 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
                 abi.encodePacked(backer, " ", reward[0])
             );
             s_tokenIdCounter[tokenId] = pledgeAmount;
+            s_pledgedAmountInCrypto += pledgeAmount;
+            emit receipt(
+                backer,
+                reward[0],
+                pledgeAmount,
+                tokenId,
+                false,
+                reward
+            );
         } else {
             revert AllOrNothingTransferFromFailed();
         }
