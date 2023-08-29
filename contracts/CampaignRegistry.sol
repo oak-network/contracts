@@ -11,6 +11,7 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
     mapping(bytes32 => address) identifierHashToAddress;
 
     error CampaignRegistryNotInitialized();
+    error CampaignRegistryNotAuthorized();
     error CampaignRegistryCampaignInfoNotRegistered(address campaignAddress);
 
     function initialize(address _factoryAddress) external onlyOwner {
@@ -19,7 +20,7 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
     }
 
     modifier onlyFactory() {
-        require(msg.sender == factoryAddress);
+        _checkIfCampaignFactory();
         _;
     }
 
@@ -31,6 +32,12 @@ contract CampaignRegistry is Ownable, ICampaignRegistry {
     function _checkIfInitialized() internal view {
         if (!initialized) {
             revert CampaignRegistryNotInitialized();
+        }
+    }
+
+    function _checkIfCampaignFactory() internal view {
+        if (msg.sender != factoryAddress) {
+            revert CampaignRegistryNotAuthorized();
         }
     }
 
