@@ -52,11 +52,13 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     error AllOrNothingUnAuthorized();
     error AllOrNothingInvalidInput();
-    error AllOrNothingTransferFromFailed();
+    error AllOrNothingTransferFailed();
 
     constructor(address info) ERC721("Xstarter", "XNFT") {
         CAMPAIGN_INFO = info;
         TOKEN = s_info.getTokenAddress();
+
+        s_tokenIdCounter.increment();
     }
 
     modifier onlyPlatformAdmin() {
@@ -160,7 +162,24 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
                 reward
             );
         } else {
-            revert AllOrNothingTransferFromFailed();
+            revert AllOrNothingTransferFailed();
+        }
+    }
+
+    function pledgeWithoutAReward(
+        address backer,
+        uint256 pledgeAmount
+    ) external {
+        bool success = IERC20(TOKEN).transferFrom(
+            backer,
+            address(this),
+            pledgeAmount
+        );
+        if (success) {
+            s_pledgedAmountInCrypto += pledgeAmount;
+            emit receipt(backer, 0x00, pledgeAmount, 0, false, [0x00]);
+        } else {
+            revert AllOrNothingTransferFailed();
         }
     }
 
@@ -182,13 +201,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         require(success);
     }
 
-    // The following functions are overrides required by Solidity.
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
-    }
-
     function getplatformId() external view returns (bytes32) {
         return platform;
     }
@@ -207,5 +219,12 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     function currentBalance() public view override returns (uint256) {
         return IERC20(ICampaignInfo(info).token()).balanceOf(address(this));
+    }
+
+    // The following functions are overrides required by Solidity.
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }
