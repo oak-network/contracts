@@ -33,6 +33,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
 
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     mapping(bytes32 => Reward) private s_reward;
+    mapping(bytes32 => uint256) private s_fiatPledge;
 
     Counters.Counter private s_tokenIdCounter;
 
@@ -45,24 +46,41 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         bytes32[] rewards
     );
 
-    constructor(
-        address _registry,
-        address _info,
-        bytes32 _platform
-    ) ERC721("CampaignNFT", "CNFT") {
-        registry = _registry;
-        info = _info;
-        platform = _platform;
+    error AllOrNothingUnAuthorized();
+
+    constructor(address info) ERC721("Xstarter", "XNFT") {
+        CAMPAIGN_INFO = info;
+    }
+
+    modifier onlyPlatformAdmin() {
+        _checkIfPlatformAdmin();
+        _;
+    }
+
+    function _checkIfPlatformAdmin() internal view {
+        if (
+            msg.sender !=
+            ICampaignInfo(CAMPAIGN_INFO).getPlatformAdminAddress(PLATFORM_BYTES)
+        ) {
+            revert AllOrNothingUnAuthorized();
+        }
     }
 
     function addReward(bytes32 rewardName, Reward calldata reward) external {
         s_reward[rewardName] = reward;
     }
 
+    function updateFiatPledge(
+        bytes32 fiatPledgeId,
+        uint256 fiatPledgeAmount
+    ) external onlyPlatformAdmin {
+        s_fiatPledge[fiatPledgeId] = fiatPledgeAmount;
+    }
+
     function pledge(
         address backer,
-        bytes32[] calldata reward,
-        uint256 amount
+        uint256 amount,
+        bytes32[] calldata reward
     ) external {
         uint256 tokenId = _tokenIdCounter.current();
         ICampaignInfo campaign = ICampaignInfo(info);
