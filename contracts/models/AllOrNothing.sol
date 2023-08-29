@@ -4,10 +4,11 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "../Interface/ICampaignTreasury.sol";
-import "../Interface/ICampaignInfo.sol";
+import "../interfaces/ICampaignTreasury.sol";
+import "../interfaces/ICampaignInfo.sol";
+import "../utils/TimestampChecker.sol";
 
-contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
+contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     using Counters for Counters.Counter;
 
     struct Reward {
@@ -36,6 +37,7 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     mapping(bytes32 => uint256) private s_fiatPledge;
 
     Counters.Counter private s_tokenIdCounter;
+    Counters.Counter private s_rewardCounter;
 
     event receipt(
         address indexed backer,
@@ -47,6 +49,8 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
     );
 
     error AllOrNothingUnAuthorized();
+    error AllOrNothingInvalidInput();
+    error AllOrNothingTransferFromFailed();
 
     constructor(address info) ERC721("Xstarter", "XNFT") {
         CAMPAIGN_INFO = info;
@@ -77,83 +81,51 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable {
         s_fiatPledge[fiatPledgeId] = fiatPledgeAmount;
     }
 
-    function pledge(
+    function pledgeForAReward(
         address backer,
-        uint256 amount,
         bytes32[] calldata reward
-    ) external {
-        uint256 tokenId = _tokenIdCounter.current();
-        ICampaignInfo campaign = ICampaignInfo(info);
-        address token = campaign.token();
-        uint256 pledgeAmount = 0;
-        bool isPreLaunchPledge;
+    )
+        external
+        currentTimeIsWithinRange(
+            ICampaignInfo(CAMPAIGN_INFO).getLaunchTime(),
+            ICampaignInfo(CAMPAIGN_INFO).getDeadline
+        )
+    {
+        uint256 tokenId = s_tokenIdCounter.current();
+        ICampaignInfo campaign = ICampaignInfo(CAMPAIGN_INFO);
+        address token = campaign.getTokenAddress();
         bool success;
-        require(
-            block.timestamp <= campaign.deadline(),
-            "AllOrNothing: Deadline reached"
-        );
-        if (block.timestamp > campaign.launchTime()) {
-            if (reward[0] != 0x00) {
-                // uint256 value = rewards[reward[0]].rewardValue;
-                bool isRewardTier = rewards[reward[0]].isRewardTier;
-                require(isRewardTier == true);
-                uint256 rewardLen = reward.length;
-                uint256 totalValue;
-                for (uint256 i = 0; i < rewardLen; i++) {
-                    totalValue += rewards[reward[i]].rewardValue;
-                }
-                success = IERC20(token).transferFrom(
-                    backer,
-                    address(this),
-                    totalValue
-                );
-                require(success);
-                pledgeAmount = totalValue;
-                _tokenIdCounter.increment();
-                _safeMint(
-                    backer,
-                    tokenId
-                    // ,
-                    // abi.encodePacked(backer, " ", reward[0])
-                );
-                tokenToPledgeAmount[tokenId] = totalValue;
-            } else {
-                success = IERC20(token).transferFrom(
-                    backer,
-                    address(this),
-                    amount
-                );
-                require(success);
-                pledgeAmount = amount;
-            }
-        } else {
-            isPreLaunchPledge = true;
-            success = IERC20(token).transferFrom(
-                backer,
-                address(this),
-                preLaunchPledge
-            );
-            require(success);
-            pledgeAmount = preLaunchPledge;
-            _tokenIdCounter.increment();
-            _safeMint(
-                backer,
-                tokenId
-                // ,
-                // abi.encodePacked(backer, " PreLaunchPledge")
-            );
+        uint256 rewardLen = reward.length;
+        s_reward storage tempReward;
+        if (
+            backer == address(0) ||
+            rewardLen != s_rewardCounter.current() ||
+            reward[0] == 0x00 ||
+            tempReward[reward[0]].isRewardTier
+        ) {
+            revert AllOrNothingInvalidInput();
         }
-        raisedBalance += pledgeAmount;
-        emit receipt(
+        uint256 pledgeAmount = tempReward[reward[0]].rewardValue;
+        for (uint256 i = 1; i < rewardLen; i++) {
+            if (reward[i] == 0x00) {
+                revert AllOrNothingInvalidInput();
+            }
+            pledgeAmount += tempReward[reward[i]].rewardValue;
+        }
+        success = IERC20(token).transferFrom(
             backer,
-            reward[0],
-            pledgeAmount,
-            tokenId,
-            isPreLaunchPledge,
-            reward
+            address(this),
+            pledgeAmount
         );
+        if (success) {
+            s_tokenIdCounter.increment();
+            _safeMint(backer, tokenId);
+            s_tokenIdCounter[tokenId] = pledgeAmount;
+        } else {
+            revert AllOrNothingTransferFromFailed();
+        }
     }
-
+    
     function collect() external {
         ICampaignInfo campaign = ICampaignInfo(info);
         require(block.timestamp >= campaign.deadline());
