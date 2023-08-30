@@ -24,8 +24,9 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
     function createCampaign(
         address creator,
         bytes32 identifierHash,
-        CampaignData memory campaignData
-    ) external override {
+        CampaignData memory campaignData,
+        bytes32[] memory selectedPlatformBytes
+    ) external override  {
         bytes memory bytecode = type(CampaignInfo).creationCode;
         address treasuryFactory = CAMPAIGN_REGISTRY.getTreasuryFactoryAddress();
         address token = GLOBAL_PARAMS.getTokenAddress();
@@ -39,7 +40,8 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
                 creator,
                 protocolFeePercent,
                 identifierHash,
-                campaignData
+                campaignData,
+                selectedPlatformBytes
             )
         );
         address info;
