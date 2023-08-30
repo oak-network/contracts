@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import "./Interface/IGlobalParams.sol";
+import "./interfaces/IGlobalParams.sol";
 
 contract GlobalParams is IGlobalParams, Ownable, Pausable {
     using Counters for Counters.Counter;
@@ -27,13 +27,13 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     Counters.Counter private s_numberOfListedPlatforms;
 
     constructor(
-        address _protocolAdminAddress,
-        address _tokenAddress,
-        uint256 _protocolFeePercent
+        address protocolAdminAddress,
+        address tokenAddress,
+        uint256 protocolFeePercent
     ) {
-        s_protocolAdminAddress = _protocolAdminAddress;
-        s_tokenAddress = _tokenAddress;
-        s_protocolFeePercent = _protocolFeePercent;
+        s_protocolAdminAddress = protocolAdminAddress;
+        s_tokenAddress = tokenAddress;
+        s_protocolFeePercent = protocolFeePercent;
     }
 
     modifier notAddressZero(address account) {
@@ -42,9 +42,9 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     }
 
     function checkIfplatformIsListed(
-        bytes32 _platformBytes
+        bytes32 platformBytes
     ) external view override returns (bool) {
-        if (s_platformIsListed[_platformBytes]) {
+        if (s_platformIsListed[platformBytes]) {
             return true;
         } else return false;
     }
