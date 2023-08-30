@@ -17,6 +17,7 @@ contract TreasuryFactory {
     error TreasuryFactoryInvalidKey();
     error TreasuryFactoryByteCodeAlreadyApproved();
     error TreasuryFactoryByteCodeNotApproved();
+    error TreasuryFactoryTreasuryCreationFailed();
 
     constructor(address globalParams, address campaignRegistry) {
         GLOBAL_PARAMS = IGlobalParams(globalParams);
@@ -96,6 +97,23 @@ contract TreasuryFactory {
                 tokenAddress
             )
         );
+        bytes32 salt = keccak256(
+            abi.encodePacked(identifierHash, platformBytes)
+        );
+        address treasury;
+        assembly {
+            treasury := create2(
+                0,
+                add(argsByteCode, 0x20),
+                mload(argsByteCode),
+                salt
+            )
+        }
+        if (treasury == address(0)) {
+            revert TreasuryFactoryTreasuryCreationFailed();
+        } else {
+            CampaignInfo(infoAddress).setPlatformInfo(platformBytes, treasury);
+        }
     }
 
     function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
