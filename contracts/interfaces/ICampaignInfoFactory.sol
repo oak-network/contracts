@@ -13,6 +13,7 @@ interface ICampaignInfoFactory is ICampaignData {
     function createCampaign(
         address creator,
         bytes32 identifierHash,
-        CampaignData memory campaignData
+        CampaignData memory campaignData,
+        bytes32[] memory selectedPlatformBytes
     ) external;
 }
