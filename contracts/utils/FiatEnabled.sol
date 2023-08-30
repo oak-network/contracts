@@ -19,6 +19,24 @@ abstract contract FiatEnabled {
 
     error FiatEnabledAlreadySet();
     error FiatEnabledDisallowedState();
+    error FiatEnabledInvalidTransaction();
+
+    function getFiatRaisedAmount() external view returns (uint256) {
+        return s_fiatRaisedAmount;
+    }
+
+    function getFiatTransactionAmount(
+        bytes32 fiatTransactionId
+    ) external view returns (uint256 amount) {
+        amount = s_fiatAmountById[fiatTransactionId];
+        if (amount == 0) {
+            revert FiatEnabledInvalidTransaction();
+        }
+    }
+
+    function checkIfFiatFeeDisbursed() external view returns (bool) {
+        return s_fiatFeeIsDisbursed;
+    }
 
     function _updateFiatTransaction(
         bytes32 fiatTransactionId,
