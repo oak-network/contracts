@@ -87,8 +87,9 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         return s_protocolFeePercent;
     }
 
-    function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256) {
-        if (s_platformFeePercent[platformBytes] == 0) {
+    function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256 platformFeePercent) {
+        platformFeePercent = s_platformFeePercent[platformBytes];
+        if (platformFeePercent == 0) {
             revert GlobalParamesFeePercentIsZero(platformBytes);
         }
     }
