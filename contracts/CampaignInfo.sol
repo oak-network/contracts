@@ -9,8 +9,12 @@ import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 
-contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker {
-
+contract CampaignInfo is
+    ICampaignData,
+    ICampaignInfo,
+    Ownable,
+    TimestampChecker
+{
     address private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
@@ -28,6 +32,7 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
 
     mapping(bytes32 => bool) private s_selectedPlatformBytes;
     mapping(bytes32 => address) private s_platformTreasuryAddress;
+    mapping(bytes32 => uint256) private s_platformFeePercent;
 
     bytes32[] private s_approvedPlatformBytes;
 
@@ -38,7 +43,8 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         address creator,
         uint256 protocolFeePercent,
         bytes32 identifierHash,
-        CampaignData memory campaignData
+        CampaignData memory campaignData,
+        bytes32[] memory selectedPlatformBytes
     ) {
         GLOBAL_PARAMS = globalParams;
         TREASURY_FACTORY = treasuryFactory;
@@ -46,6 +52,13 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         IDENTIFIER_HASH = identifierHash;
         PROTOCOL_FEE_PERCENT = protocolFeePercent;
         s_campaignData = campaignData;
+
+        uint256 len = selectedPlatformBytes.length;
+        for (uint256 i = 0; i < len; i++) {
+            s_platformFeePercent[selectedPlatformBytes[i]] = IGlobalParams(
+                GLOBAL_PARAMS
+            ).getPlatformFeePercent(selectedPlatformBytes[i]);
+        }
 
         transferOwnership(creator);
     }
