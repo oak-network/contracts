@@ -47,6 +47,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
     error AllOrNothingTransferFailed();
     error AllOrNothingNotSuccessful();
     error AllOrNothingFeeNotDisbursed();
+    error AllOrNothingNotClaimable(uint256 tokenId);
 
     constructor(
         bytes32 platformBytes,
@@ -54,7 +55,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         address tokenAddress,
         uint256 platformFeePercent
     )
-        ERC721("Xstarter", "XNFT")
+        ERC721("", "")
         BasicTreasury(
             platformBytes,
             platformFeePercent,
@@ -68,12 +69,6 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
     modifier onlyPlatformAdmin() {
         _checkIfPlatformAdmin();
         _;
-    }
-
-    function _checkIfPlatformAdmin() internal view {
-        if (msg.sender != INFO.getPlatformAdminAddress(PLATFORM_BYTES)) {
-            revert AllOrNothingUnAuthorized();
-        }
     }
 
     function addReward(bytes32 rewardName, Reward calldata reward) external {
@@ -114,7 +109,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         bytes32[] memory emptyByteArray = new bytes32[](0);
         emit receipt(
             backer,
-            0x00,
+            ZERO_BYTES,
             prelaunchPledgeAmount,
             tokenId,
             true,
@@ -143,7 +138,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         }
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
-            if (reward[i] == 0x00) {
+            if (reward[i] == ZERO_BYTES) {
                 revert AllOrNothingInvalidInput();
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
@@ -182,7 +177,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         if (success) {
             s_pledgedAmountInCrypto += pledgeAmount;
             bytes32[] memory emptyByteArray = new bytes32[](0);
-            emit receipt(backer, 0x00, pledgeAmount, 0, false, emptyByteArray);
+            emit receipt(backer, ZERO_BYTES, pledgeAmount, 0, false, emptyByteArray);
         } else {
             revert AllOrNothingTransferFailed();
         }
@@ -195,7 +190,9 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     {
         uint256 amount = s_tokenToPledgedAmount[tokenId];
-        if (amount == 0) require(amount != 0, "AllOrNothing: PreLaunch pledge");
+        if (amount == 0) {
+            revert AllOrNothingNotClaimable(tokenId);
+        }
         s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
         bool success = TOKEN.transfer(_msgSender(), amount);
@@ -204,6 +201,11 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         }
     }
 
+    function _checkIfPlatformAdmin() internal view {
+        if (msg.sender != INFO.getPlatformAdminAddress(PLATFORM_BYTES)) {
+            revert AllOrNothingUnAuthorized();
+        }
+    }
     function _checkSuccessCondition() internal view override returns (bool) {
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
     }
