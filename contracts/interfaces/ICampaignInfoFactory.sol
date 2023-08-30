@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-interface ICampaignInfoFactory {
+import "./ICampaignData.sol";
+
+interface ICampaignInfoFactory is ICampaignData {
 
     event campaignCreation(
-        string identifier,
+        bytes32 indexed identifierHash,
         address indexed campaignInfoAddress
     );
 
     function createCampaign(
-        address _creator,
-        address _token,
-        uint256 _launchTime,
-        uint256 _deadline,
-        uint256 _goal,
-        string memory _identifier,
-        bytes32[] memory _platforms
+        address creator,
+        bytes32 identifierHash,
+        CampaignData memory campaignData
     ) external;
 }
