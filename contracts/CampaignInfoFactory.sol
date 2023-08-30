@@ -3,46 +3,43 @@ pragma solidity ^0.8.9;
 
 //import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignInfo.sol";
-import "./CampaignRegistry.sol";
+import "./Interface/ICampaignRegistry.sol";
+import "./Interface/ICampaignInfoFactory.sol";
 
-contract CampaignInfoFactory {
-    event campaignCreation(
-        string identifier,
-        address indexed campaignInfoAddress
-    );
-
+contract CampaignInfoFactory is ICampaignInfoFactory {
     CampaignInfo newCampaignInfo;
-    address campaignRegistry;
+    address registry;
 
     constructor(address _registry) {
-        campaignRegistry = _registry;
+        registry = _registry;
     }
 
     function createCampaign(
         address _creator,
+        address _token,
+        uint256 _launchTime,
+        uint256 _deadline,
+        uint256 _goal,
         string memory _identifier,
-        bytes32 _originPlatform,
-        string memory _creatorUrl,
-        bytes32[] memory _reachPlatform,
-        uint256 _earlyPledgeAmount
-    ) external {
+        bytes32[] memory _platforms
+    ) external override {
         newCampaignInfo = new CampaignInfo(
+            registry,
+            _creator,
+            _token,
+            _launchTime,
+            _deadline,
+            _goal,
             _identifier,
-            _originPlatform,
-            _creatorUrl,
-            _reachPlatform,
-            campaignRegistry,
-            _creator, 
-            _earlyPledgeAmount
+            _platforms
         );
         address newCampaignAddress = address(newCampaignInfo);
         require(newCampaignAddress != address(0));
 
-        CampaignRegistry(campaignRegistry).setCampaignInfoAddress(
+        ICampaignRegistry(registry).setCampaignInfoAddress(
             _identifier,
             newCampaignAddress
         );
-
         emit campaignCreation(_identifier, newCampaignAddress);
     }
 }

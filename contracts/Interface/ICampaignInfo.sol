@@ -2,135 +2,39 @@
 pragma solidity ^0.8.9;
 
 interface ICampaignInfo {
-    struct CampaignData {
-        string identifier;
-        bytes32 originPlatform;
-        uint256 goalAmount;
-        uint256 launchTime;
-        uint256 createdAt;
-        uint256 deadline;
-        string creatorUrl;
-        bytes32[] reachPlatforms;
-    }
+    function totalCurrentBalance() external view returns (uint256);
 
-    struct Item {
-        string description;
-    }
+    function totalRaisedBalance() external view returns (uint256);
 
-    struct Reward {
-        uint256 rewardValue;
-        string rewardDescription;
-        string[] itemId;
-        mapping(string => uint256) itemQuantity;
-    }
+    function treasury(bytes32 platform) external view returns (address);
 
-    enum State {
-        LaunchNotSet,
-        LaunchSet,
-        Live,
-        Over
-    }
+    function token() external view returns (address);
 
-    function getBackerPledgeInfoForAPlatform(
-        address backer,
-        bytes32 platformId
-    ) external view returns (uint256);
+    // function feeSplitModel() external view returns (bytes32);
 
-    function getCampaignData()
-        external
-        view
-        returns (
-            string memory,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            string memory
-        );
+    function launchTime() external view returns (uint256);
 
-    function getCampaignOriginPlatform() external view returns (bytes32);
+    function deadline() external view returns (uint256);
 
-    function getCampaignReachPlatforms()
-        external
-        view
-        returns (bytes32[] memory);
+    function goal() external view returns (uint256);
 
-    function getPledgedAmountForAPlatformCrypto(
-        bytes32 platformId
-    ) external view returns (uint256);
+    function platforms() external view returns (bytes32[] memory);
 
-    function getTotalPledgedAmountCrypto() external view returns (uint256);
+    function creator() external view returns (address);
 
-    function getTreasuryAddress(
-        bytes32 platformId
-    ) external view returns (address);
+    // function claimFee(bytes32 platform) external;
 
-    function setPlatformInfo(
-        bytes32 _platformId,
-        address _platformWallet,
-        address _treasury,
-        address _token
-    ) external;
+    function setPlatformInfo(bytes32 _platformId, address _treasury) external;
 
-    function setLaunch(
-        uint256 launchTime,
-        uint256 deadline,
-        uint256 goalAmount,
-        bool enableLatePledge
-    ) external;
+    // function updateLaunchTime(uint256 _launchTime) external;
 
-    function addReward(
-        string calldata _rewardId,
-        uint256 _rewardValue,
-        string calldata _rewardDescription
-    ) external;
+    // function updateDeadline(uint256 _deadline) external;
 
-    function addItem(
-        string calldata _itemId,
-        string calldata _description
-    ) external;
+    // function updateGoal(uint256 _goalAmount) external;
 
-    function addReward(
-        string calldata name,
-        uint256 rewardValue,
-        string[] memory itemName,
-        uint256[] memory itemQuantity
-    ) external;
+    // function pause() external;
 
-    function setTreasuryAddress(
-        bytes32 platformId,
-        address treasuryAddress_
-    ) external;
-
-    function setTokenAddress(
-        bytes32 platformId,
-        address tokenAddress_
-    ) external;
-
-    function setPlatformWallet(
-        bytes32 platformId,
-        address platformWallet_
-    ) external;
-
-    function pledgeCrypto(
-        bytes32 platformId,
-        uint256 amount,
-        bool isEarlyPledge
-    ) external;
-
-    function distributePledge(
-        address backer,
-        bytes32 platformId
-    ) external returns (bool);
-
-    function claimReward(
-        address backer,
-        string calldata rewardId
-    ) external returns (bool);
-
-    function pause() external;
-
-    function unpause() external;
+    // function unpause() external;
 
     function transferOwnership(address newOwner) external;
 }
