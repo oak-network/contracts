@@ -8,6 +8,7 @@ interface IGlobalParams {
     function getProtocolAdminAddress() external view returns (address);
     function getTokenAddress() external view returns (address);
     function getProtocolFeePercent() external view returns (uint256);
+    function getPlatformFeePercent(bytes32 platformBytes) external view returns (uint256);
     function updateProtocolAdminAddress(address _protocolAdminAddress) external;
     function updateTokenAddress(address _tokenAddress) external;
     function updateProtocolFeePercent(uint256 _protocolFeePercent) external;
