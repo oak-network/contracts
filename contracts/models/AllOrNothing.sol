@@ -70,9 +70,32 @@ contract AllOrNothing is
         _;
     }
 
-    function addReward(bytes32 rewardName, Reward calldata reward) external {
-        s_reward[rewardName] = reward;
-        s_rewardCounter.increment();
+    modifier onlyOwner() {
+        _checkIfCampaignOwner();
+        _;
+    }
+
+    function addReward(
+        bytes32 rewardName,
+        Reward calldata reward
+    ) external onlyOwner {
+        Reward storage tempReward = s_reward[rewardName];
+        if (
+            tempReward.rewardValue != 0 &&
+            tempReward.itemId.length > 0 &&
+            tempReward.itemId.length == tempReward.itemValue.length &&
+            tempReward.itemId.length == tempReward.itemQuantity.length
+        ) {
+            s_reward[rewardName] = reward;
+            s_rewardCounter.increment();
+        } else {
+            revert AllOrNothingInvalidInput();
+        }
+    }
+
+    function removeReward(bytes32 rewardName) external onlyOwner {
+        delete s_reward[rewardName];
+        s_rewardCounter.decrement();
     }
 
     function getRaisedAmount() external view override returns (uint256) {
@@ -228,6 +251,14 @@ contract AllOrNothing is
 
     function _checkSuccessCondition() internal view override returns (bool) {
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
+    }
+
+    function _checkIfCampaignOwner() private view returns (bool) {
+        if (INFO.owner() == msg.sender) {
+            return true;
+        } else {
+            revert AllOrNothingUnAuthorized();
+        }
     }
 
     // The following functions are overrides required by Solidity.
