@@ -19,14 +19,14 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256[] itemQuantity;
     }
 
-    uint256 private constant MINIMUM_NO_OF_ORDER_REQUIRED = 1000;
-    uint256 private s_orderValueAmount;
+    uint256 private constant MINIMUM_PREORDER_REQUIRED = 1000;
+    uint256 private s_preOrderValueAmount;
     uint256 public s_platformFeePercent;
 
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
 
     Counters.Counter private s_tokenIdCounter;
-    Counters.Counter private s_numberOfOrders;
+    Counters.Counter private s_numberOfPreOrders;
 
     mapping(bytes32 => Reward) rewards;
 
@@ -36,6 +36,8 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256 pledgeAmount,
         uint256 tokenId
     );
+
+    error PreOrderTransferFailed();
 
     constructor(
         bytes32 platformBytes,
@@ -50,8 +52,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
             infoAddress,
             tokenAddress
         )
-    {
-    }
+    {}
 
     function getReward(
         bytes32 rewardName
@@ -59,21 +60,24 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         return rewards[rewardName];
     }
 
+    function getRaisedAmount() external view returns (uint256) {
+        return s_preOrderValueAmount;
+    }
+
     function addReward(bytes32 rewardName, Reward calldata reward) external {
         rewards[rewardName] = reward;
     }
 
-    function pledge(address backer, bytes32 rewardName) external {
+    function PreOrderForAReward(
+        address backer,
+        bytes32 rewardName
+    )
+        external
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+    {
         uint256 tokenId = s_tokenIdCounter.current();
-        ICampaignInfo campaign = ICampaignInfo(info);
-        address token = campaign.token();
-        require(
-            block.timestamp <= campaign.deadline(),
-            "AllOrNothing: Deadline reached"
-        );
-
         uint256 rewardValue = rewards[rewardName].rewardValue;
-        bool success = IERC20(token).transferFrom(
+        bool success = TOKEN.transferFrom(
             backer,
             address(this),
             rewardValue
@@ -83,27 +87,28 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         _safeMint(
             backer,
             tokenId
-            // ,
-            // abi.encodePacked(backer, " ", reward[0])
+            ,
+            abi.encodePacked(backer, " ", rewardName)
         );
-        raisedBalance += rewardValue;
-        tokenToPledgeAmount[tokenId] = rewardValue;
-        noOfPledges.increment();
+        s_preOrderValueAmount += rewardValue;
+        s_tokenToPledgedAmount[tokenId] = rewardValue;
+        s_numberOfPreOrders.increment();
         emit receipt(backer, rewardName, rewardValue, tokenId);
     }
 
     function claimRefund(uint256 tokenId) external {
-        uint256 amount = tokenToPledgeAmount[tokenId];
-        address token = ICampaignInfo(info).token();
-        tokenToPledgeAmount[tokenId] = 0;
+        uint256 amount = s_tokenToPledgedAmount[tokenId];
+        s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
-        bool success = IERC20(token).transfer(_msgSender(), amount);
-        require(success);
+        bool success = TOKEN.transfer(_msgSender(), amount);
+        if (!success) {
+            revert PreOrderTransferFailed();
+        }
     }
 
     function _checkSuccessCondition() internal view override returns (bool) {
-        return (s_numberOfOrders > MINIMUM_NO_OF_ORDER_REQUIRED);
-    } 
+        return (s_numberOfPreOrders.current() > MINIMUM_PREORDER_REQUIRED);
+    }
 
     // The following functions are overrides required by Solidity.
     function supportsInterface(
