@@ -2,8 +2,8 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/ICampaignInfo.sol";
-import "./interfaces/ICampaignTreasury.sol";
+import "../interfaces/ICampaignInfo.sol";
+import "../interfaces/ICampaignTreasury.sol";
 
 abstract contract BasicTreasury is ICampaignTreasury {
     bytes32 internal constant ZERO_BYTES =
@@ -39,7 +39,7 @@ abstract contract BasicTreasury is ICampaignTreasury {
         if (_checkSuccessCondition()) {
             uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
                 PERCENT_DIVIDER;
-            uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) /
+            uint256 platformShare = (balance * INFO.getPlatformFeePercent(PLATFORM_BYTES)) /
                 PERCENT_DIVIDER;
             bool success = TOKEN.transfer(
                 INFO.getProtocolAdminAddress(),
