@@ -8,8 +8,9 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "../interfaces/ICampaignInfo.sol";
 import "../utils/TimestampChecker.sol";
+import "../utils/BasicTreasury.sol";
 
-contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
+contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
     using Counters for Counters.Counter;
 
     struct Reward {
@@ -20,22 +21,9 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         uint256[] itemQuantity;
     }
 
-    /// Xstarter bytes
-    bytes32 private constant PLATFORM_BYTES =
-        0x5873746172746572000000000000000000000000000000000000000000000000;
-    bytes32 private constant ZERO_BYTES =
-        0x0000000000000000000000000000000000000000000000000000000000000000;
-    uint256 private constant PERCENT_DIVIDER = 10000;
     uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
-    uint256 private constant PLATFORM_FEE_PERCENT = 300;
 
-    ICampaignInfo private immutable INFO;
-    IERC20 private immutable TOKEN;
-
-    uint256 private s_pledgedAmountInCrypto;
     uint256 private s_pledgedAmountInFiat;
-
-    bool private s_cryptoFeeDisbursed;
     bool private s_fiatFeeDisbursed;
 
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
@@ -60,10 +48,20 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     error AllOrNothingNotSuccessful();
     error AllOrNothingFeeNotDisbursed();
 
-    constructor(address info) ERC721("Xstarter", "XNFT") {
-        INFO = ICampaignInfo(info);
-        TOKEN = IERC20(INFO.getTokenAddress());
-
+    constructor(
+        bytes32 platformBytes,
+        address infoAddress,
+        address tokenAddress,
+        uint256 platformFeePercent
+    )
+        ERC721("Xstarter", "XNFT")
+        BasicTreasury(
+            platformBytes,
+            platformFeePercent,
+            infoAddress,
+            tokenAddress
+        )
+    {
         s_tokenIdCounter.increment();
     }
 
@@ -80,14 +78,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
 
     function addReward(bytes32 rewardName, Reward calldata reward) external {
         s_reward[rewardName] = reward;
-    }
-
-    function getplatformBytes() external pure override returns (bytes32) {
-        return PLATFORM_BYTES;
-    }
-
-    function getplatformFeePercent() external pure override returns (uint256) {
-        return PLATFORM_FEE_PERCENT;
     }
 
     function getRaisedAmount() external view override returns (uint256) {
@@ -184,7 +174,10 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
     function pledgeWithoutAReward(
         address backer,
         uint256 pledgeAmount
-    ) external {
+    )
+        external
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+    {
         bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
         if (success) {
             s_pledgedAmountInCrypto += pledgeAmount;
@@ -192,43 +185,6 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
             emit receipt(backer, 0x00, pledgeAmount, 0, false, emptyByteArray);
         } else {
             revert AllOrNothingTransferFailed();
-        }
-    }
-
-    function disburseFees() external currentTimeIsGreater(INFO.getDeadline()) {
-        uint256 balance = s_pledgedAmountInCrypto;
-        if (INFO.getTotalRaisedAmount() > INFO.getGoalAmount()) {
-            uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
-                PERCENT_DIVIDER;
-            uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) /
-                PERCENT_DIVIDER;
-            bool success = TOKEN.transfer(
-                INFO.getProtocolAdminAddress(),
-                protocolShare
-            );
-            if (!success) {
-                revert AllOrNothingTransferFailed();
-            }
-            success = TOKEN.transfer(
-                INFO.getPlatformAdminAddress(PLATFORM_BYTES),
-                platformShare
-            );
-            if (!success) {
-                revert AllOrNothingTransferFailed();
-            }
-            s_cryptoFeeDisbursed = true;
-        } else {
-            revert AllOrNothingNotSuccessful();
-        }
-    }
-
-    function withdrawCrptoPledgedAmount() external {
-        if (s_cryptoFeeDisbursed) {
-            uint256 balance = TOKEN.balanceOf(address(this));
-            bool success = TOKEN.transfer(INFO.owner(), balance);
-            if (!success) revert AllOrNothingTransferFailed();
-        } else {
-            revert AllOrNothingFeeNotDisbursed();
         }
     }
 
@@ -246,6 +202,10 @@ contract AllOrNothing is ICampaignTreasury, ERC721Burnable, TimestampChecker {
         if (!success) {
             revert AllOrNothingTransferFailed();
         }
+    }
+
+    function _checkSuccessCondition() internal view override returns (bool) {
+        return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
     }
 
     // The following functions are overrides required by Solidity.
