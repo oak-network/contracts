@@ -4,12 +4,13 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
+import "./interfaces/ICampaignData.sol";
 import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 
-contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
-    
+contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker {
+
     address private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
@@ -22,12 +23,6 @@ contract CampaignInfo is ICampaignInfo, Ownable, TimestampChecker {
     );
     error CampaignInfoPlatformNotSelected(bytes32 platformBytes);
     error CampaignInfoUnauthorized();
-
-    struct CampaignData {
-        uint256 launchTime;
-        uint256 deadline;
-        uint256 goalAmount;
-    }
 
     CampaignData private s_campaignData;
 
