@@ -6,8 +6,14 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../utils/TimestampChecker.sol";
 import "../utils/BasicTreasury.sol";
+import "../utils/FiatEnabled.sol";
 
-contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
+contract AllOrNothing is
+    BasicTreasury,
+    TimestampChecker,
+    FiatEnabled,
+    ERC721Burnable
+{
     using Counters for Counters.Counter;
 
     struct Reward {
@@ -20,12 +26,8 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
 
     uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
 
-    uint256 private s_pledgedAmountInFiat;
-    bool private s_fiatFeeDisbursed;
-
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     mapping(bytes32 => Reward) private s_reward;
-    mapping(bytes32 => uint256) private s_fiatPledge;
 
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
@@ -70,17 +72,30 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
 
     function addReward(bytes32 rewardName, Reward calldata reward) external {
         s_reward[rewardName] = reward;
+        s_rewardCounter.increment();
     }
 
     function getRaisedAmount() external view override returns (uint256) {
-        return s_pledgedAmountInFiat + s_pledgedAmountInCrypto;
+        return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
     }
 
     function updateFiatPledge(
         bytes32 fiatPledgeId,
         uint256 fiatPledgeAmount
     ) external onlyPlatformAdmin {
-        s_fiatPledge[fiatPledgeId] = fiatPledgeAmount;
+        _updateFiatTransaction(fiatPledgeId, fiatPledgeAmount);
+    }
+
+    function updateFiatFeeDisbursementState(
+        bool isDisbursed,
+        uint256 protocolFeeAmount,
+        uint256 platformFeeAmount
+    ) external onlyPlatformAdmin {
+        _updateFiatFeeDisbusementState(
+            isDisbursed,
+            protocolFeeAmount,
+            platformFeeAmount
+        );
     }
 
     function pledgeOnPreLaunch(
@@ -174,7 +189,14 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
         if (success) {
             s_pledgedAmountInCrypto += pledgeAmount;
             bytes32[] memory emptyByteArray = new bytes32[](0);
-            emit receipt(backer, ZERO_BYTES, pledgeAmount, 0, false, emptyByteArray);
+            emit receipt(
+                backer,
+                ZERO_BYTES,
+                pledgeAmount,
+                0,
+                false,
+                emptyByteArray
+            );
         } else {
             revert AllOrNothingTransferFailed();
         }
@@ -203,6 +225,7 @@ contract AllOrNothing is BasicTreasury, ERC721Burnable, TimestampChecker {
             revert AllOrNothingUnAuthorized();
         }
     }
+
     function _checkSuccessCondition() internal view override returns (bool) {
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
     }
