@@ -21,7 +21,7 @@ abstract contract FiatEnabled {
     error FiatEnabledDisallowedState();
     error FiatEnabledInvalidTransaction();
 
-    function getFiatRaisedAmount() external view returns (uint256) {
+    function getFiatRaisedAmount() public view returns (uint256) {
         return s_fiatRaisedAmount;
     }
 

@@ -150,10 +150,11 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     ) external override onlyOwner notAddressZero(platformAdminAddress) {
         if (s_platformIsListed[platformBytes]) {
             s_platformAdminAddress[platformBytes] = platformAdminAddress;
-        } else
+        } else {
             revert GlobalParamsPlatformNotListed(
                 platformBytes,
                 platformAdminAddress
             );
+        }
     }
 }

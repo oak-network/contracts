@@ -249,7 +249,13 @@ contract AllOrNothing is
         }
     }
 
-    function _checkSuccessCondition() internal view override returns (bool) {
+    function _checkSuccessCondition()
+        internal
+        view
+        virtual
+        override
+        returns (bool)
+    {
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
     }
 

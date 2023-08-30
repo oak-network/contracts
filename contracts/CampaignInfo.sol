@@ -126,6 +126,10 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
+    function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256) {
+        return s_platformFeePercent[platformBytes];
+    }
+
     function getIdentifierHash() external view override returns (bytes32) {
         return IDENTIFIER_HASH;
     }
