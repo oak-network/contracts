@@ -3,43 +3,60 @@ pragma solidity ^0.8.9;
 
 //import "@openzeppelin/contracts/access/Ownable.sol";
 import "./CampaignInfo.sol";
-import "./Interface/ICampaignRegistry.sol";
-import "./Interface/ICampaignInfoFactory.sol";
+import "./interfaces/ICampaignRegistry.sol";
+import "./interfaces/IGlobalParams.sol";
+import "./interfaces/ICampaignInfoFactory.sol";
 
 contract CampaignInfoFactory is ICampaignInfoFactory {
     CampaignInfo newCampaignInfo;
     address registry;
 
-    constructor(address _registry) {
-        registry = _registry;
+    IGlobalParams private immutable GLOBAL_PARAMS;
+    ICampaignRegistry private immutable CAMPAIGN_REGISTRY;
+
+    error CampaignInfoFactoryCampaignCreationFailed();
+
+    constructor(address campaignRegistry, address globalParams) {
+        CAMPAIGN_REGISTRY = ICampaignRegistry(campaignRegistry);
+        GLOBAL_PARAMS = IGlobalParams(globalParams);
     }
 
     function createCampaign(
-        address _creator,
-        address _token,
-        uint256 _launchTime,
-        uint256 _deadline,
-        uint256 _goal,
-        string memory _identifier,
-        bytes32[] memory _platforms
+        address creator,
+        bytes32 identifierHash,
+        CampaignData memory campaignData
     ) external override {
-        newCampaignInfo = new CampaignInfo(
-            registry,
-            _creator,
-            _token,
-            _launchTime,
-            _deadline,
-            _goal,
-            _identifier,
-            _platforms
+        bytes memory bytecode = type(CampaignInfo).creationCode;
+        address treasuryFactory = CAMPAIGN_REGISTRY.getTreasuryFactoryAddress();
+        address token = GLOBAL_PARAMS.getTokenAddress();
+        uint256 protocolFeePercent = GLOBAL_PARAMS.getProtocolFeePercent();
+        bytes memory argsByteCode = abi.encodePacked(
+            bytecode,
+            abi.encode(
+                GLOBAL_PARAMS,
+                treasuryFactory,
+                token,
+                creator,
+                protocolFeePercent,
+                identifierHash,
+                campaignData
+            )
         );
-        address newCampaignAddress = address(newCampaignInfo);
-        require(newCampaignAddress != address(0));
-
-        ICampaignRegistry(registry).setCampaignInfoAddress(
-            _identifier,
-            newCampaignAddress
-        );
-        emit campaignCreation(_identifier, newCampaignAddress);
+        address info;
+        assembly {
+            info := create2(
+                0,
+                add(argsByteCode, 0x20),
+                mload(argsByteCode),
+                identifierHash
+            )
+        }
+        if (info == address(0)) {
+            revert CampaignInfoFactoryCampaignCreationFailed();
+        }
+        else {
+            CAMPAIGN_REGISTRY.setCampaignInfoAddress(identifierHash, info); 
+            emit campaignCreation(identifierHash, info);
+        }
     }
 }
