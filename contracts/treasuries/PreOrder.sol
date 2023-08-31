@@ -28,7 +28,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_numberOfPreOrders;
 
-    mapping(bytes32 => Reward) rewards;
+    mapping(bytes32 => Reward) s_reward;
 
     event receipt(
         address indexed backer,
@@ -38,6 +38,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     );
 
     error PreOrderTransferFailed();
+    error PreOrderInvalidInput();
 
     constructor(
         bytes32 platformBytes,
@@ -65,7 +66,17 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     }
 
     function addReward(bytes32 rewardName, Reward calldata reward) external {
-        rewards[rewardName] = reward;
+        Reward storage tempReward = s_reward[rewardName];
+        if (
+            tempReward.rewardValue != 0 &&
+            tempReward.itemId.length > 0 &&
+            tempReward.itemId.length == tempReward.itemValue.length &&
+            tempReward.itemId.length == tempReward.itemQuantity.length
+        ) {
+            s_reward[rewardName] = reward;
+        } else {
+            revert PreOrderInvalidInput();
+        }        
     }
 
     function PreOrderForAReward(
@@ -76,7 +87,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     {
         uint256 tokenId = s_tokenIdCounter.current();
-        uint256 rewardValue = rewards[rewardName].rewardValue;
+        uint256 rewardValue = s_reward[rewardName].rewardValue;
         bool success = TOKEN.transferFrom(
             backer,
             address(this),
