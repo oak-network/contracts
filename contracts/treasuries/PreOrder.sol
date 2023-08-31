@@ -82,7 +82,9 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
             address(this),
             rewardValue
         );
-        require(success);
+        if (!success) { 
+            revert PreOrderTransferFailed();
+        }        
         s_tokenIdCounter.increment();
         _safeMint(
             backer,
