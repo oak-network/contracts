@@ -32,7 +32,7 @@ contract AllOrNothing is
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
 
-    event receipt(
+    event Receipt(
         address indexed backer,
         bytes32 indexed reward,
         uint256 pledgeAmount,
@@ -75,6 +75,15 @@ contract AllOrNothing is
         _;
     }
 
+    function getReward(
+        bytes32 rewardName
+    ) external view returns (Reward memory) {
+        if (s_reward[rewardName].rewardValue == 0) {
+            revert AllOrNothingInvalidInput();
+        }
+        return s_reward[rewardName];
+    }
+
     function addReward(
         bytes32 rewardName,
         Reward calldata reward
@@ -94,6 +103,9 @@ contract AllOrNothing is
     }
 
     function removeReward(bytes32 rewardName) external onlyOwner {
+        if (s_reward[rewardName].rewardValue == 0) {
+            revert AllOrNothingInvalidInput();
+        }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
     }
@@ -142,7 +154,7 @@ contract AllOrNothing is
         );
         s_pledgedAmountInCrypto += prelaunchPledgeAmount;
         bytes32[] memory emptyByteArray = new bytes32[](0);
-        emit receipt(
+        emit Receipt(
             backer,
             ZERO_BYTES,
             prelaunchPledgeAmount,
@@ -188,7 +200,7 @@ contract AllOrNothing is
             );
             s_tokenToPledgedAmount[tokenId] = pledgeAmount;
             s_pledgedAmountInCrypto += pledgeAmount;
-            emit receipt(
+            emit Receipt(
                 backer,
                 reward[0],
                 pledgeAmount,
@@ -212,7 +224,7 @@ contract AllOrNothing is
         if (success) {
             s_pledgedAmountInCrypto += pledgeAmount;
             bytes32[] memory emptyByteArray = new bytes32[](0);
-            emit receipt(
+            emit Receipt(
                 backer,
                 ZERO_BYTES,
                 pledgeAmount,

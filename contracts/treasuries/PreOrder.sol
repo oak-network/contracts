@@ -30,7 +30,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
 
     mapping(bytes32 => Reward) s_reward;
 
-    event receipt(
+    event Receipt(
         address indexed backer,
         bytes32 indexed reward,
         uint256 pledgeAmount,
@@ -58,7 +58,10 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     function getReward(
         bytes32 rewardName
     ) external view returns (Reward memory) {
-        return rewards[rewardName];
+        if (s_reward[rewardName].rewardValue == 0) {
+            revert PreOrderInvalidInput();
+        }
+        return s_reward[rewardName];
     }
 
     function getRaisedAmount() external view returns (uint256) {
@@ -76,7 +79,14 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
             s_reward[rewardName] = reward;
         } else {
             revert PreOrderInvalidInput();
-        }        
+        }
+    }
+
+    function removeReward(bytes32 rewardName) external {
+        if (s_reward[rewardName].rewardValue == 0) {
+            revert PreOrderInvalidInput();
+        }
+        delete s_reward[rewardName];
     }
 
     function PreOrderForAReward(
@@ -88,25 +98,16 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     {
         uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardValue = s_reward[rewardName].rewardValue;
-        bool success = TOKEN.transferFrom(
-            backer,
-            address(this),
-            rewardValue
-        );
-        if (!success) { 
+        bool success = TOKEN.transferFrom(backer, address(this), rewardValue);
+        if (!success) {
             revert PreOrderTransferFailed();
-        }        
+        }
         s_tokenIdCounter.increment();
-        _safeMint(
-            backer,
-            tokenId
-            ,
-            abi.encodePacked(backer, " ", rewardName)
-        );
+        _safeMint(backer, tokenId, abi.encodePacked(backer, " ", rewardName));
         s_preOrderValueAmount += rewardValue;
         s_tokenToPledgedAmount[tokenId] = rewardValue;
         s_numberOfPreOrders.increment();
-        emit receipt(backer, rewardName, rewardValue, tokenId);
+        emit Receipt(backer, rewardName, rewardValue, tokenId);
     }
 
     function claimRefund(uint256 tokenId) external {
