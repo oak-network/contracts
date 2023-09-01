@@ -19,6 +19,31 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     Counters.Counter private s_numberOfListedPlatforms;
 
+    // Event emitted when a platform is enlisted
+    event PlatformEnlisted(
+        bytes32 indexed platformBytes,
+        address indexed platformAdminAddress,
+        uint256 platformFeePercent
+    );
+
+    // Event emitted when a platform is delisted
+    event PlatformDelisted(bytes32 indexed platformBytes);
+
+    // Event emitted when the protocol admin address is updated
+    event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
+
+    // Event emitted when the token address is updated
+    event TokenAddressUpdated(address indexed newTokenAddress);
+
+    // Event emitted when the protocol fee percent is updated
+    event ProtocolFeePercentUpdated(uint256 newFeePercent);
+
+    // Event emitted when the platform admin address is updated
+    event PlatformAdminAddressUpdated(
+        bytes32 indexed platformBytes,
+        address indexed newAdminAddress
+    );
+
     error GlobalParamsInvalidAddress(address account);
     error GlobalParamsPlatformNotListed(
         bytes32 platformBytes,
@@ -27,7 +52,6 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
     error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
     error GlobalParamesFeePercentIsZero(bytes32 platformBytes);
-
 
     constructor(
         address protocolAdminAddress,
@@ -87,7 +111,9 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         return s_protocolFeePercent;
     }
 
-    function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256 platformFeePercent) {
+    function getPlatformFeePercent(
+        bytes32 platformBytes
+    ) external view override returns (uint256 platformFeePercent) {
         platformFeePercent = s_platformFeePercent[platformBytes];
         if (platformFeePercent == 0) {
             revert GlobalParamesFeePercentIsZero(platformBytes);

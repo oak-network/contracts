@@ -24,11 +24,10 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     uint256 public s_platformFeePercent;
 
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+    mapping(bytes32 => Reward) private s_reward;
 
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_numberOfPreOrders;
-
-    mapping(bytes32 => Reward) s_reward;
 
     event Receipt(
         address indexed backer,
@@ -36,6 +35,12 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256 pledgeAmount,
         uint256 tokenId
     );
+
+    event RewardAdded(bytes32 indexed rewardName, Reward reward);
+
+    event RewardRemoved(bytes32 indexed rewardName);
+
+    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
     error PreOrderTransferFailed();
     error PreOrderInvalidInput();
@@ -77,16 +82,19 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
             tempReward.itemId.length == tempReward.itemQuantity.length
         ) {
             s_reward[rewardName] = reward;
+            emit RewardAdded(rewardName, tempReward);
         } else {
             revert PreOrderInvalidInput();
         }
     }
 
     function removeReward(bytes32 rewardName) external {
-        if (s_reward[rewardName].rewardValue == 0) {
+        uint256 tempRewardValue = s_reward[rewardName].rewardValue;
+        if (tempRewardValue == 0) {
             revert PreOrderInvalidInput();
         }
         delete s_reward[rewardName];
+        emit RewardRemoved(rewardName);
     }
 
     function PreOrderForAReward(
@@ -114,7 +122,8 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256 amount = s_tokenToPledgedAmount[tokenId];
         s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
-        bool success = TOKEN.transfer(_msgSender(), amount);
+        bool success = TOKEN.transfer(msg.sender, amount);
+        emit RefundClaimed(tokenId, amount, msg.sender);
         if (!success) {
             revert PreOrderTransferFailed();
         }

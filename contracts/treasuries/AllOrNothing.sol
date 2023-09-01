@@ -41,6 +41,12 @@ contract AllOrNothing is
         bytes32[] rewards
     );
 
+    event RewardAdded(bytes32 indexed rewardName, Reward reward);
+
+    event RewardRemoved(bytes32 indexed rewardName);
+
+    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
+
     error AllOrNothingUnAuthorized();
     error AllOrNothingInvalidInput();
     error AllOrNothingTransferFailed();
@@ -97,6 +103,7 @@ contract AllOrNothing is
         ) {
             s_reward[rewardName] = reward;
             s_rewardCounter.increment();
+            emit RewardAdded(rewardName, reward);
         } else {
             revert AllOrNothingInvalidInput();
         }
@@ -108,6 +115,7 @@ contract AllOrNothing is
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
+        emit RewardRemoved(rewardName);
     }
 
     function getRaisedAmount() external view override returns (uint256) {
@@ -249,10 +257,11 @@ contract AllOrNothing is
         }
         s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
-        bool success = TOKEN.transfer(_msgSender(), amount);
+        bool success = TOKEN.transfer(msg.sender, amount);
         if (!success) {
             revert AllOrNothingTransferFailed();
         }
+        emit RefundClaimed(tokenId, amount, msg.sender);
     }
 
     function _checkIfPlatformAdmin() internal view {
@@ -271,10 +280,8 @@ contract AllOrNothing is
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
     }
 
-    function _checkIfCampaignOwner() private view returns (bool) {
-        if (INFO.owner() == msg.sender) {
-            return true;
-        } else {
+    function _checkIfCampaignOwner() private view {
+        if (INFO.owner() != msg.sender) {
             revert AllOrNothingUnAuthorized();
         }
     }
