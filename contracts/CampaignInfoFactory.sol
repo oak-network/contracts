@@ -8,8 +8,6 @@ import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignInfoFactory.sol";
 
 contract CampaignInfoFactory is ICampaignInfoFactory {
-    CampaignInfo newCampaignInfo;
-    address registry;
 
     IGlobalParams private immutable GLOBAL_PARAMS;
     ICampaignRegistry private immutable CAMPAIGN_REGISTRY;
@@ -29,7 +27,7 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData
-    ) external override  {
+    ) external override {
         bytes memory bytecode = type(CampaignInfo).creationCode;
         address treasuryFactory = CAMPAIGN_REGISTRY.getTreasuryFactoryAddress();
         address token = GLOBAL_PARAMS.getTokenAddress();
@@ -63,9 +61,8 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
         }
         if (info == address(0)) {
             revert CampaignInfoFactoryCampaignCreationFailed();
-        }
-        else {
-            CAMPAIGN_REGISTRY.setCampaignInfoAddress(identifierHash, info); 
+        } else {
+            CAMPAIGN_REGISTRY.setCampaignInfoAddress(identifierHash, info);
             emit campaignCreation(identifierHash, info);
         }
     }
