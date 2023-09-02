@@ -30,6 +30,10 @@ interface ICampaignInfo {
         bytes32 platformBytes
     ) external view returns (uint256);
 
+    function getPlatformData(
+        bytes32 platformDataKey
+    ) external view returns (bytes32);
+
     function getIdentifierHash() external view returns (bytes32);
 
     function setPlatformInfo(

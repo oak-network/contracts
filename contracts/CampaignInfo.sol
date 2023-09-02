@@ -15,7 +15,7 @@ contract CampaignInfo is
     Ownable,
     TimestampChecker
 {
-    address private immutable GLOBAL_PARAMS;
+    IGlobalParams private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
@@ -27,12 +27,14 @@ contract CampaignInfo is
     );
     error CampaignInfoPlatformNotSelected(bytes32 platformBytes);
     error CampaignInfoUnauthorized();
+    error CampaignInfoInvalidInput();
 
     CampaignData private s_campaignData;
 
     mapping(bytes32 => bool) private s_selectedPlatformBytes;
     mapping(bytes32 => address) private s_platformTreasuryAddress;
     mapping(bytes32 => uint256) private s_platformFeePercent;
+    mapping(bytes32 => bytes32) private s_platformData;
 
     bytes32[] private s_approvedPlatformBytes;
 
@@ -43,10 +45,12 @@ contract CampaignInfo is
         address creator,
         uint256 protocolFeePercent,
         bytes32 identifierHash,
-        CampaignData memory campaignData,
-        bytes32[] memory selectedPlatformBytes
+        bytes32[] memory selectedPlatformBytes,
+        bytes32[] memory platformDataKey,
+        bytes32[] memory platformDataValue,
+        CampaignData memory campaignData
     ) {
-        GLOBAL_PARAMS = globalParams;
+        GLOBAL_PARAMS = IGlobalParams(globalParams);
         TREASURY_FACTORY = treasuryFactory;
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
@@ -54,10 +58,15 @@ contract CampaignInfo is
         s_campaignData = campaignData;
 
         uint256 len = selectedPlatformBytes.length;
-        for (uint256 i = 0; i < len; i++) {
-            s_platformFeePercent[selectedPlatformBytes[i]] = IGlobalParams(
-                GLOBAL_PARAMS
-            ).getPlatformFeePercent(selectedPlatformBytes[i]);
+        unchecked {
+            for (uint256 i = 0; i < len; ++i) {
+                s_platformFeePercent[selectedPlatformBytes[i]] = GLOBAL_PARAMS
+                    .getPlatformFeePercent(selectedPlatformBytes[i]);
+            }
+            len = platformDataKey.length;
+            for (uint256 i = 0; i < len; ++i) {
+                s_platformData[platformDataKey[i]] = platformDataValue[i];
+            }
         }
 
         transferOwnership(creator);
@@ -96,14 +105,13 @@ contract CampaignInfo is
         override
         returns (address)
     {
-        return IGlobalParams(GLOBAL_PARAMS).getProtocolAdminAddress();
+        return GLOBAL_PARAMS.getProtocolAdminAddress();
     }
 
     function getPlatformAdminAddress(
         bytes32 platformBytes
     ) external view override returns (address) {
-        return
-            IGlobalParams(GLOBAL_PARAMS).getPlatformAdminAddress(platformBytes);
+        return GLOBAL_PARAMS.getPlatformAdminAddress(platformBytes);
     }
 
     function getLaunchTime() external view override returns (uint256) {
@@ -126,8 +134,20 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
-    function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256) {
+    function getPlatformFeePercent(
+        bytes32 platformBytes
+    ) external view override returns (uint256) {
         return s_platformFeePercent[platformBytes];
+    }
+
+    function getPlatformData(
+        bytes32 platformDataKey
+    ) external view override returns (bytes32) {
+        bytes32 platformDataValue = s_platformData[platformDataKey];
+        if (platformDataValue == bytes32(0)) {
+            revert CampaignInfoInvalidInput();
+        }
+        return platformDataValue;
     }
 
     function getIdentifierHash() external view override returns (bytes32) {

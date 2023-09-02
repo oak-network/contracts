@@ -14,6 +14,7 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
     IGlobalParams private immutable GLOBAL_PARAMS;
     ICampaignRegistry private immutable CAMPAIGN_REGISTRY;
 
+    error CampaignInfoFactoryInvalidInput();
     error CampaignInfoFactoryCampaignCreationFailed();
 
     constructor(address campaignRegistry, address globalParams) {
@@ -24,13 +25,18 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
     function createCampaign(
         address creator,
         bytes32 identifierHash,
-        CampaignData memory campaignData,
-        bytes32[] memory selectedPlatformBytes
+        bytes32[] calldata selectedPlatformBytes,
+        bytes32[] calldata platformDataKey,
+        bytes32[] calldata platformDataValue,
+        CampaignData calldata campaignData
     ) external override  {
         bytes memory bytecode = type(CampaignInfo).creationCode;
         address treasuryFactory = CAMPAIGN_REGISTRY.getTreasuryFactoryAddress();
         address token = GLOBAL_PARAMS.getTokenAddress();
         uint256 protocolFeePercent = GLOBAL_PARAMS.getProtocolFeePercent();
+        if (platformDataKey.length != platformDataValue.length) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
         bytes memory argsByteCode = abi.encodePacked(
             bytecode,
             abi.encode(
@@ -40,8 +46,10 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
                 creator,
                 protocolFeePercent,
                 identifierHash,
-                campaignData,
-                selectedPlatformBytes
+                selectedPlatformBytes,
+                platformDataKey,
+                platformDataValue,
+                campaignData
             )
         );
         address info;
