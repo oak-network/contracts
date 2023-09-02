@@ -55,15 +55,14 @@ abstract contract FiatEnabled {
         if (s_fiatFeeIsDisbursed == true) {
             revert FiatEnabledAlreadySet();
         }
-        if (isDisbursed) {
-            s_fiatFeeIsDisbursed = true;
-            emit FiatFeeDisbusementStateUpdated(
-                isDisbursed,
-                protocolFeeAmount,
-                platformFeeAmount
-            );
-        } else {
+        if (!isDisbursed) {
             revert FiatEnabledDisallowedState();
         }
+        s_fiatFeeIsDisbursed = true;
+        emit FiatFeeDisbusementStateUpdated(
+            isDisbursed,
+            protocolFeeAmount,
+            platformFeeAmount
+        );
     }
 }
