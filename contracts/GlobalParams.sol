@@ -10,12 +10,16 @@ import "./interfaces/IGlobalParams.sol";
 contract GlobalParams is IGlobalParams, Ownable, Pausable {
     using Counters for Counters.Counter;
 
+    bytes32 private constant ZERO_BYTES =
+        0x0000000000000000000000000000000000000000000000000000000000000000;
     address private s_protocolAdminAddress;
     address private s_tokenAddress;
     uint256 private s_protocolFeePercent;
     mapping(bytes32 => bool) private s_platformIsListed;
     mapping(bytes32 => address) private s_platformAdminAddress;
-    mapping(bytes32 => uint256) s_platformFeePercent;
+    mapping(bytes32 => uint256) private s_platformFeePercent;
+    mapping(bytes32 => bytes32) private s_platformData;
+    mapping(bytes32 => bytes32) private s_platformDataOwner;
 
     Counters.Counter private s_numberOfListedPlatforms;
 
@@ -43,8 +47,18 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         bytes32 indexed platformBytes,
         address indexed newAdminAddress
     );
+    event PlatformDataAdded(
+        bytes32 indexed platformBytes,
+        bytes32 indexed platformDataKey,
+        bytes32 platformDataValue
+    );
+    event PlatformDataRemoved(
+        bytes32 indexed platformBytes,
+        bytes32 platformDataKey,
+        bytes32 platformDataValue
+    );
 
-    error GlobalParamsInvalidAddress(address account);
+    error GlobalParamsInvalidInput();
     error GlobalParamsPlatformNotListed(
         bytes32 platformBytes,
         address platformAdminAddress
@@ -52,6 +66,8 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
     error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
     error GlobalParamesFeePercentIsZero(bytes32 platformBytes);
+    error GlabalParamsPlatformDataAlreadySet();
+    error GlabalParamsPlatformDataNotSet();
 
     constructor(
         address protocolAdminAddress,
@@ -120,9 +136,27 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         }
     }
 
+    function getPlatformData(
+        bytes32 platformDataKey
+    ) external view override returns (bytes32 platformDataValue) {
+        platformDataValue = s_platformData[platformDataKey];
+        if (platformDataValue == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+    }
+
+    function getPlatformDataOwner(
+        bytes32 platformDataKey
+    ) external view override returns (bytes32 platformBytes) {
+        platformBytes = s_platformDataOwner[platformDataKey];
+        if (platformBytes == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+    }
+
     function _checkIfAddressZero(address account) internal pure {
         if (account == address(0)) {
-            revert GlobalParamsInvalidAddress(account);
+            revert GlobalParamsInvalidInput();
         }
     }
 
@@ -138,6 +172,11 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
             s_platformAdminAddress[platformBytes] = platformAdminAddress;
             s_platformFeePercent[platformBytes] = platformFeePercent;
             s_numberOfListedPlatforms.increment();
+            emit PlatformEnlisted(
+                platformBytes,
+                platformAdminAddress,
+                platformFeePercent
+            );
         }
     }
 
@@ -147,27 +186,70 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
             s_platformAdminAddress[platformBytes] = address(0);
             s_platformFeePercent[platformBytes] = 0;
             s_numberOfListedPlatforms.decrement();
+            emit PlatformDelisted(platformBytes);
         } else {
             revert GlobalParamsPlatformNotListed(platformBytes, address(0));
         }
+    }
+
+    function addPlatformData(
+        bytes32 platformBytes,
+        bytes32 platformDataKey,
+        bytes32 platformDataValue
+    ) external {
+        if (platformDataKey == ZERO_BYTES || platformDataValue == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        if (s_platformData[platformDataKey] != ZERO_BYTES) {
+            revert GlabalParamsPlatformDataAlreadySet();
+        }
+        s_platformData[platformDataKey] = platformDataValue;
+        s_platformDataOwner[platformDataKey] = platformBytes;
+        emit PlatformDataAdded(
+            platformBytes,
+            platformDataKey,
+            platformDataValue
+        );
+    }
+
+    function removePlatformData(
+        bytes32 platformBytes,
+        bytes32 platformDataKey
+    ) external {
+        if (platformDataKey == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        if (s_platformData[platformDataKey] == ZERO_BYTES) {
+            revert GlabalParamsPlatformDataNotSet();
+        }
+        s_platformData[platformDataKey] = ZERO_BYTES;
+        s_platformDataOwner[platformDataKey] = ZERO_BYTES;
+        emit PlatformDataRemoved(
+            platformBytes,
+            platformDataKey,
+            s_platformData[platformDataKey]
+        );
     }
 
     function updateProtocolAdminAddress(
         address protocolAdminAddress
     ) external override onlyOwner notAddressZero(protocolAdminAddress) {
         s_protocolAdminAddress = protocolAdminAddress;
+        emit ProtocolAdminAddressUpdated(protocolAdminAddress);
     }
 
     function updateTokenAddress(
         address tokenAddress
     ) external override onlyOwner notAddressZero(tokenAddress) {
         s_tokenAddress = tokenAddress;
+        emit TokenAddressUpdated(tokenAddress);
     }
 
     function updateProtocolFeePercent(
         uint256 protocolFeePercent
     ) external override onlyOwner {
         s_protocolFeePercent = protocolFeePercent;
+        emit ProtocolFeePercentUpdated(protocolFeePercent);
     }
 
     function updatePlatformAdminAddress(
@@ -176,6 +258,10 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     ) external override onlyOwner notAddressZero(platformAdminAddress) {
         if (s_platformIsListed[platformBytes]) {
             s_platformAdminAddress[platformBytes] = platformAdminAddress;
+            emit PlatformAdminAddressUpdated(
+                platformBytes,
+                platformAdminAddress
+            );
         } else {
             revert GlobalParamsPlatformNotListed(
                 platformBytes,
