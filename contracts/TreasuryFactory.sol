@@ -4,13 +4,13 @@ pragma solidity ^0.8.9;
 import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignInfo.sol";
+import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
 
-contract TreasuryFactory {
+contract TreasuryFactory is AdminAccessChecker {
     mapping(bytes32 => mapping(uint256 => bytes)) private s_platformByteCode;
     mapping(bytes => bool) private s_approvedByteCode;
 
-    IGlobalParams private immutable GLOBAL_PARAMS;
     address private immutable CAMPAIGN_INFO_FACTORY;
     bytes32 private immutable CAMPAIGNINFO_BYTECODEHASH;
 
@@ -25,20 +25,9 @@ contract TreasuryFactory {
         address globalParams,
         address infoFactory,
         bytes32 bytecodeHash
-    ) {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
+    ) AdminAccessChecker(globalParams) {
         CAMPAIGN_INFO_FACTORY = infoFactory;
         CAMPAIGNINFO_BYTECODEHASH = bytecodeHash;
-    }
-
-    modifier onlyPlatformAdmin(bytes32 platformBytes) {
-        _checkIfPlatformAdmin(platformBytes);
-        _;
-    }
-
-    modifier onlyProtocolAdmin() {
-        _checkIfProtocolAdmin();
-        _;
     }
 
     function computeTreasuryAddress(
@@ -95,7 +84,7 @@ contract TreasuryFactory {
         bytes32 platformBytes,
         uint256 bytecodeIndex,
         bytes32 identifierHash
-    ) external {
+    ) external onlyPlatformAdmin(platformBytes) {
         bytes memory bytecode = s_platformByteCode[platformBytes][
             bytecodeIndex
         ];
@@ -130,20 +119,6 @@ contract TreasuryFactory {
             revert TreasuryFactoryTreasuryCreationFailed();
         } else {
             CampaignInfo(infoAddress).setPlatformInfo(platformBytes, treasury);
-        }
-    }
-
-    function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
-        if (
-            GLOBAL_PARAMS.getPlatformAdminAddress(platformBytes) != msg.sender
-        ) {
-            revert TreasuryFactoryUnauthorized();
-        }
-    }
-
-    function _checkIfProtocolAdmin() private view {
-        if (GLOBAL_PARAMS.getProtocolAdminAddress() != msg.sender) {
-            revert TreasuryFactoryUnauthorized();
         }
     }
 }
