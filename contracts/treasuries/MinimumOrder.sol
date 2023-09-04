@@ -9,7 +9,7 @@ import "../interfaces/ICampaignInfo.sol";
 import "../utils/BasicTreasury.sol";
 import "../utils/TimestampChecker.sol";
 
-contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
+contract MinimumOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     using Counters for Counters.Counter;
 
     struct Reward {
@@ -19,7 +19,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256[] itemQuantity;
     }
 
-    uint256 private immutable MINIMUM_PREORDER_REQUIRED;
+    uint256 internal immutable SUCCESS_METRIC;
 
     uint256 private s_preOrderValueAmount;
     uint256 private s_platformFeePercent;
@@ -28,7 +28,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     mapping(bytes32 => Reward) private s_reward;
 
     Counters.Counter private s_tokenIdCounter;
-    Counters.Counter private s_numberOfPreOrders;
+    Counters.Counter internal s_numberOfPreOrders;
 
     event Receipt(
         address indexed backer,
@@ -50,12 +50,16 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         bytes32 platformBytes,
         address infoAddress
     ) ERC721("", "") BasicTreasury(platformBytes, infoAddress) {
-        MINIMUM_PREORDER_REQUIRED = uint256(
+        SUCCESS_METRIC = uint256(
             INFO.getPlatformData(
-                /// bytes32 of `PreOrder0(uint256)`
-                0x5072654f72646572302875696e74323536290000000000000000000000000000
+                /// bytes32 of `PreOrder0MinimumOrder(uint256)`
+                0x5072654f72646572304d696e696d756d4f726465722875696e74323536290000
             )
         );
+    }
+
+    function getNumberOfOrders() internal view returns (uint256) {
+        return s_numberOfPreOrders.current();
     }
 
     function getReward(
@@ -102,7 +106,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         address backer,
         bytes32 rewardName
     )
-        external
+        public virtual
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     {
         uint256 tokenId = s_tokenIdCounter.current();
@@ -130,8 +134,8 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         }
     }
 
-    function _checkSuccessCondition() internal view override returns (bool) {
-        return (s_numberOfPreOrders.current() > MINIMUM_PREORDER_REQUIRED);
+    function _checkSuccessCondition() internal view virtual override returns (bool) {
+        return (s_numberOfPreOrders.current() >= SUCCESS_METRIC);
     }
 
     // The following functions are overrides required by Solidity.
