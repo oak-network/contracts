@@ -5,23 +5,31 @@ import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignRegistry.sol";
 import "./interfaces/ICampaignInfo.sol";
+import "./utils/AddressCalculator.sol";
 
 contract TreasuryFactory {
     mapping(bytes32 => mapping(uint256 => bytes)) private s_platformByteCode;
     mapping(bytes => bool) private s_approvedByteCode;
 
     IGlobalParams private immutable GLOBAL_PARAMS;
-    ICampaignRegistry private immutable CAMPAIGN_REGISTRY;
+    address private immutable CAMPAIGN_INFO_FACTORY;
+    bytes32 private immutable CAMPAIGNINFO_BYTECODEHASH;
 
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
     error TreasuryFactoryByteCodeAlreadyApproved();
     error TreasuryFactoryByteCodeNotApproved();
     error TreasuryFactoryTreasuryCreationFailed();
+    error TreasuryFactoryInvalidAddress();
 
-    constructor(address globalParams, address campaignRegistry) {
+    constructor(
+        address globalParams,
+        address infoFactory,
+        bytes32 bytecodeHash
+    ) {
         GLOBAL_PARAMS = IGlobalParams(globalParams);
-        CAMPAIGN_REGISTRY = ICampaignRegistry(campaignRegistry);
+        CAMPAIGN_INFO_FACTORY = infoFactory;
+        CAMPAIGNINFO_BYTECODEHASH = bytecodeHash;
     }
 
     modifier onlyPlatformAdmin(bytes32 platformBytes) {
@@ -34,68 +42,78 @@ contract TreasuryFactory {
         _;
     }
 
+    function computeTreasuryAddress(
+        bytes32 identifierHash,
+        bytes32 platformBytes,
+        uint256 bytecodeIndex
+    ) external view returns (address treasuryAddress, bool isDeployed) {
+        (treasuryAddress, isDeployed) = AddressCalculator.computeAddress(
+            keccak256(abi.encodePacked(identifierHash, platformBytes)),
+            keccak256(s_platformByteCode[platformBytes][bytecodeIndex]),
+            address(this)
+        );
+    }
+
     function addByteCode(
         bytes32 platformBytes,
-        uint256 bytecCodeIndex,
-        bytes calldata byteCode
+        uint256 bytecodeIndex,
+        bytes calldata bytecode
     ) external onlyPlatformAdmin(platformBytes) {
-        s_platformByteCode[platformBytes][bytecCodeIndex] = byteCode;
+        s_platformByteCode[platformBytes][bytecodeIndex] = bytecode;
     }
 
     function enlistByteCode(
         bytes32 platformBytes,
-        uint256 byteCodeIndex
+        uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes memory byteCode = s_platformByteCode[platformBytes][
-            byteCodeIndex
+        bytes memory bytecode = s_platformByteCode[platformBytes][
+            bytecodeIndex
         ];
-        if (byteCode.length == 0) {
+        if (bytecode.length == 0) {
             revert TreasuryFactoryInvalidKey();
         }
-        if (s_approvedByteCode[byteCode]) {
+        if (s_approvedByteCode[bytecode]) {
             revert TreasuryFactoryByteCodeAlreadyApproved();
         }
-        s_approvedByteCode[byteCode] = true;
+        s_approvedByteCode[bytecode] = true;
     }
 
     function delistByteCode(
         bytes32 platformBytes,
-        uint256 byteCodeIndex
+        uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes storage byteCode = s_platformByteCode[platformBytes][
-            byteCodeIndex
+        bytes storage bytecode = s_platformByteCode[platformBytes][
+            bytecodeIndex
         ];
-        if (byteCode.length == 0) {
+        if (bytecode.length == 0) {
             revert TreasuryFactoryInvalidKey();
         }
-        s_approvedByteCode[byteCode] = false;
-        delete s_platformByteCode[platformBytes][byteCodeIndex];
+        s_approvedByteCode[bytecode] = false;
+        delete s_platformByteCode[platformBytes][bytecodeIndex];
     }
 
     function deploy(
         bytes32 platformBytes,
-        uint256 byteCodeIndex,
+        uint256 bytecodeIndex,
         bytes32 identifierHash
     ) external {
-        bytes memory byteCode = s_platformByteCode[platformBytes][
-            byteCodeIndex
+        bytes memory bytecode = s_platformByteCode[platformBytes][
+            bytecodeIndex
         ];
-        if (!s_approvedByteCode[byteCode]) {
+        if (!s_approvedByteCode[bytecode]) {
             revert TreasuryFactoryByteCodeNotApproved();
         }
-        address infoAddress = CAMPAIGN_REGISTRY.getCampaignInfoAddress(
-            identifierHash
+        (address infoAddress, bool isValid) = AddressCalculator.computeAddress(
+            identifierHash,
+            CAMPAIGNINFO_BYTECODEHASH,
+            CAMPAIGN_INFO_FACTORY
         );
-        address tokenAddress = ICampaignInfo(infoAddress).getTokenAddress();
-        uint256 platformFeePercent = 300; //ICampaignInfo(info).getPlatformFeePercent();
+        if (!isValid && infoAddress == address(0)) {
+            revert TreasuryFactoryInvalidAddress();
+        }
         bytes memory argsByteCode = abi.encodePacked(
-            byteCode,
-            abi.encode(
-                platformBytes,
-                platformFeePercent,
-                infoAddress,
-                tokenAddress
-            )
+            bytecode,
+            abi.encode(platformBytes, infoAddress)
         );
         bytes32 salt = keccak256(
             abi.encodePacked(identifierHash, platformBytes)
