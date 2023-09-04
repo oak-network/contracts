@@ -12,7 +12,7 @@ abstract contract AccessChecker {
         INFO = ICampaignInfo(campaignInfo);
     }
 
-    modifier onlyProtocolAdmin(bytes32 protocolAdmin) {
+    modifier onlyProtocolAdmin() {
         _checkIfProtocolAdmin();
         _;
     }
