@@ -71,16 +71,6 @@ contract AllOrNothing is
         s_tokenIdCounter.increment();
     }
 
-    modifier onlyPlatformAdmin() {
-        _checkIfPlatformAdmin();
-        _;
-    }
-
-    modifier onlyOwner() {
-        _checkIfCampaignOwner();
-        _;
-    }
-
     function getReward(
         bytes32 rewardName
     ) external view returns (Reward memory) {
@@ -93,7 +83,7 @@ contract AllOrNothing is
     function addReward(
         bytes32 rewardName,
         Reward calldata reward
-    ) external onlyOwner {
+    ) external onlyCampaignOwner {
         Reward storage tempReward = s_reward[rewardName];
         if (
             tempReward.rewardValue != 0 &&
@@ -109,7 +99,7 @@ contract AllOrNothing is
         }
     }
 
-    function removeReward(bytes32 rewardName) external onlyOwner {
+    function removeReward(bytes32 rewardName) external onlyCampaignOwner {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
         }
@@ -125,7 +115,7 @@ contract AllOrNothing is
     function updateFiatPledge(
         bytes32 fiatPledgeId,
         uint256 fiatPledgeAmount
-    ) external onlyPlatformAdmin {
+    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _updateFiatTransaction(fiatPledgeId, fiatPledgeAmount);
     }
 
@@ -133,7 +123,7 @@ contract AllOrNothing is
         bool isDisbursed,
         uint256 protocolFeeAmount,
         uint256 platformFeeAmount
-    ) external onlyPlatformAdmin {
+    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _updateFiatFeeDisbusementState(
             isDisbursed,
             protocolFeeAmount,
@@ -278,12 +268,6 @@ contract AllOrNothing is
         returns (bool)
     {
         return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
-    }
-
-    function _checkIfCampaignOwner() private view {
-        if (INFO.owner() != msg.sender) {
-            revert AllOrNothingUnAuthorized();
-        }
     }
 
     // The following functions are overrides required by Solidity.
