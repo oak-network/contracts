@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../utils/TimestampChecker.sol";
-import "../utils/BasicTreasury.sol";
+import "../utils/BaseTreasury.sol";
 import "../utils/FiatEnabled.sol";
 
 contract AllOrNothing is
-    BasicTreasury,
+    BaseTreasury,
     TimestampChecker,
     FiatEnabled,
     ERC721Burnable
@@ -57,7 +57,7 @@ contract AllOrNothing is
     constructor(
         bytes32 platformBytes,
         address infoAddress
-    ) ERC721("", "") BasicTreasury(platformBytes, infoAddress) {
+    ) ERC721("", "") BaseTreasury(platformBytes, infoAddress) {
         s_tokenIdCounter.increment();
     }
 

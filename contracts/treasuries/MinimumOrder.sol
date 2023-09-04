@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../interfaces/ICampaignInfo.sol";
-import "../utils/BasicTreasury.sol";
+import "../utils/BaseTreasury.sol";
 import "../utils/TimestampChecker.sol";
 
-contract MinimumOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
+contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
     using Counters for Counters.Counter;
 
     struct Reward {
@@ -49,7 +49,7 @@ contract MinimumOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
     constructor(
         bytes32 platformBytes,
         address infoAddress
-    ) ERC721("", "") BasicTreasury(platformBytes, infoAddress) {
+    ) ERC721("", "") BaseTreasury(platformBytes, infoAddress) {
         SUCCESS_METRIC = uint256(
             INFO.getPlatformData(
                 /// bytes32 of `PreOrder0MinimumOrder(uint256)`

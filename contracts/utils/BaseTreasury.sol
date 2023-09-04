@@ -6,7 +6,7 @@ import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "../utils/CampaignAccessChecker.sol";
 
-abstract contract BasicTreasury is ICampaignTreasury, CampaignAccessChecker {
+abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
