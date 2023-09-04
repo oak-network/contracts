@@ -6,15 +6,11 @@ import "./AllOrNothing.sol";
 contract KeepWhatsRaised is AllOrNothing {
     constructor(
         bytes32 platformBytes,
-        address infoAddress,
-        address tokenAddress,
-        uint256 platformFeePercent
+        address infoAddress
     )
         AllOrNothing(
             platformBytes,
-            infoAddress,
-            tokenAddress,
-            platformFeePercent
+            infoAddress
         )
     {}
 
