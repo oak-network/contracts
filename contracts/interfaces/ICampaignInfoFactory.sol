@@ -5,7 +5,7 @@ import "./ICampaignData.sol";
 
 interface ICampaignInfoFactory is ICampaignData {
 
-    event campaignCreation(
+    event campaignCreated(
         bytes32 indexed identifierHash,
         address indexed campaignInfoAddress
     );
