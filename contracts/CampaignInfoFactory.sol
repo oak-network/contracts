@@ -9,6 +9,8 @@ import "./interfaces/ICampaignInfoFactory.sol";
 
 contract CampaignInfoFactory is ICampaignInfoFactory {
 
+    bytes private constant bytecode = type(CampaignInfo).creationCode;
+    
     IGlobalParams private immutable GLOBAL_PARAMS;
     ICampaignRegistry private immutable CAMPAIGN_REGISTRY;
 
@@ -28,10 +30,6 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData
     ) external override {
-        bytes memory bytecode = type(CampaignInfo).creationCode;
-        address treasuryFactory = CAMPAIGN_REGISTRY.getTreasuryFactoryAddress();
-        address token = GLOBAL_PARAMS.getTokenAddress();
-        uint256 protocolFeePercent = GLOBAL_PARAMS.getProtocolFeePercent();
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
         }
@@ -39,10 +37,10 @@ contract CampaignInfoFactory is ICampaignInfoFactory {
             bytecode,
             abi.encode(
                 GLOBAL_PARAMS,
-                treasuryFactory,
-                token,
+                CAMPAIGN_REGISTRY.getTreasuryFactoryAddress(),
+                GLOBAL_PARAMS.getTokenAddress(),
                 creator,
-                protocolFeePercent,
+                GLOBAL_PARAMS.getProtocolFeePercent(),
                 identifierHash,
                 selectedPlatformBytes,
                 platformDataKey,
