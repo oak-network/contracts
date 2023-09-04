@@ -19,9 +19,10 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         uint256[] itemQuantity;
     }
 
-    uint256 private constant MINIMUM_PREORDER_REQUIRED = 1000;
+    uint256 private immutable MINIMUM_PREORDER_REQUIRED;
+
     uint256 private s_preOrderValueAmount;
-    uint256 public s_platformFeePercent;
+    uint256 private s_platformFeePercent;
 
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     mapping(bytes32 => Reward) private s_reward;
@@ -47,18 +48,15 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
 
     constructor(
         bytes32 platformBytes,
-        address infoAddress,
-        address tokenAddress,
-        uint256 platformFeePercent
-    )
-        ERC721("", "")
-        BasicTreasury(
-            platformBytes,
-            platformFeePercent,
-            infoAddress,
-            tokenAddress
-        )
-    {}
+        address infoAddress
+    ) ERC721("", "") BasicTreasury(platformBytes, infoAddress) {
+        MINIMUM_PREORDER_REQUIRED = uint256(
+            INFO.getPlatformData(
+                /// bytes32 of `PreOrder0(uint256)`
+                0x5072654f72646572302875696e74323536290000000000000000000000000000
+            )
+        );
+    }
 
     function getReward(
         bytes32 rewardName
@@ -73,7 +71,10 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         return s_preOrderValueAmount;
     }
 
-    function addReward(bytes32 rewardName, Reward calldata reward) external {
+    function addReward(
+        bytes32 rewardName,
+        Reward calldata reward
+    ) external onlyCampaignOwner {
         Reward storage tempReward = s_reward[rewardName];
         if (
             tempReward.rewardValue != 0 &&
@@ -88,7 +89,7 @@ contract PreOrder is BasicTreasury, ERC721Burnable, TimestampChecker {
         }
     }
 
-    function removeReward(bytes32 rewardName) external {
+    function removeReward(bytes32 rewardName) external onlyCampaignOwner {
         uint256 tempRewardValue = s_reward[rewardName].rewardValue;
         if (tempRewardValue == 0) {
             revert PreOrderInvalidInput();

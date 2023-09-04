@@ -39,7 +39,7 @@ contract CampaignInfo is
     bytes32[] private s_approvedPlatformBytes;
 
     constructor(
-        address globalParams,
+        IGlobalParams globalParams,
         address treasuryFactory,
         address token,
         address creator,
@@ -50,7 +50,7 @@ contract CampaignInfo is
         bytes32[] memory platformDataValue,
         CampaignData memory campaignData
     ) {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
+        GLOBAL_PARAMS = globalParams;
         TREASURY_FACTORY = treasuryFactory;
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
@@ -65,6 +65,7 @@ contract CampaignInfo is
             }
             len = platformDataKey.length;
             for (uint256 i = 0; i < len; ++i) {
+                GLOBAL_PARAMS.checkIfPlatformDataKeyValid(platformDataKey[i]);
                 s_platformData[platformDataKey[i]] = platformDataValue[i];
             }
         }

@@ -3,7 +3,6 @@ pragma solidity ^0.8.9;
 
 import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
-import "./interfaces/ICampaignRegistry.sol";
 import "./interfaces/ICampaignInfo.sol";
 import "./utils/AddressCalculator.sol";
 
