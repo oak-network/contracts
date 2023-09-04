@@ -18,8 +18,8 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     mapping(bytes32 => bool) private s_platformIsListed;
     mapping(bytes32 => address) private s_platformAdminAddress;
     mapping(bytes32 => uint256) private s_platformFeePercent;
-    mapping(bytes32 => bytes32) private s_platformData;
     mapping(bytes32 => bytes32) private s_platformDataOwner;
+    mapping(bytes32 => bool) private s_platformData;
 
     Counters.Counter private s_numberOfListedPlatforms;
 
@@ -49,13 +49,11 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     );
     event PlatformDataAdded(
         bytes32 indexed platformBytes,
-        bytes32 indexed platformDataKey,
-        bytes32 platformDataValue
+        bytes32 indexed platformDataKey
     );
     event PlatformDataRemoved(
         bytes32 indexed platformBytes,
-        bytes32 platformDataKey,
-        bytes32 platformDataValue
+        bytes32 platformDataKey
     );
 
     error GlobalParamsInvalidInput();
@@ -66,8 +64,9 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
     error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
     error GlobalParamesFeePercentIsZero(bytes32 platformBytes);
-    error GlabalParamsPlatformDataAlreadySet();
-    error GlabalParamsPlatformDataNotSet();
+    error GlobalParamsPlatformDataAlreadySet();
+    error GlobalParamsPlatformDataNotSet();
+    error GlobalParamsPlatformDataSlotTaken();
 
     constructor(
         address protocolAdminAddress,
@@ -136,15 +135,6 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         }
     }
 
-    function getPlatformData(
-        bytes32 platformDataKey
-    ) external view override returns (bytes32 platformDataValue) {
-        platformDataValue = s_platformData[platformDataKey];
-        if (platformDataValue == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
-        }
-    }
-
     function getPlatformDataOwner(
         bytes32 platformDataKey
     ) external view override returns (bytes32 platformBytes) {
@@ -154,9 +144,12 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         }
     }
 
-    function _checkIfAddressZero(address account) internal pure {
-        if (account == address(0)) {
-            revert GlobalParamsInvalidInput();
+    function checkIfPlatformDataKeyValid(
+        bytes32 platformDataKey
+    ) external view override returns (bool isValid) {
+        isValid = s_platformData[platformDataKey];
+        if (isValid == false) {
+            revert GlobalParamsPlatformDataNotSet();
         }
     }
 
@@ -194,22 +187,20 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     function addPlatformData(
         bytes32 platformBytes,
-        bytes32 platformDataKey,
-        bytes32 platformDataValue
+        bytes32 platformDataKey
     ) external {
-        if (platformDataKey == ZERO_BYTES || platformDataValue == ZERO_BYTES) {
+        if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] != ZERO_BYTES) {
-            revert GlabalParamsPlatformDataAlreadySet();
+        if (s_platformData[platformDataKey] != false) {
+            revert GlobalParamsPlatformDataAlreadySet();
         }
-        s_platformData[platformDataKey] = platformDataValue;
+        if (s_platformDataOwner[platformDataKey] == platformBytes) {
+            revert GlobalParamsPlatformDataSlotTaken();
+        }
+        s_platformData[platformDataKey] = true;
         s_platformDataOwner[platformDataKey] = platformBytes;
-        emit PlatformDataAdded(
-            platformBytes,
-            platformDataKey,
-            platformDataValue
-        );
+        emit PlatformDataAdded(platformBytes, platformDataKey);
     }
 
     function removePlatformData(
@@ -219,16 +210,12 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] == ZERO_BYTES) {
-            revert GlabalParamsPlatformDataNotSet();
+        if (s_platformData[platformDataKey] == false) {
+            revert GlobalParamsPlatformDataNotSet();
         }
-        s_platformData[platformDataKey] = ZERO_BYTES;
+        s_platformData[platformDataKey] = false;
         s_platformDataOwner[platformDataKey] = ZERO_BYTES;
-        emit PlatformDataRemoved(
-            platformBytes,
-            platformDataKey,
-            s_platformData[platformDataKey]
-        );
+        emit PlatformDataRemoved(platformBytes, platformDataKey);
     }
 
     function updateProtocolAdminAddress(
@@ -269,4 +256,11 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
             );
         }
     }
+
+    function _checkIfAddressZero(address account) internal pure {
+        if (account == address(0)) {
+            revert GlobalParamsInvalidInput();
+        }
+    }
+
 }

@@ -18,10 +18,6 @@ interface IGlobalParams {
 
     function getProtocolFeePercent() external view returns (uint256);
 
-    function getPlatformData(
-        bytes32 platformDataKey
-    ) external view returns (bytes32 platformDataValue);
-
     function getPlatformDataOwner(
         bytes32 platformDataKey
     ) external view returns (bytes32 platformBytes);
@@ -29,6 +25,10 @@ interface IGlobalParams {
     function getPlatformFeePercent(
         bytes32 platformBytes
     ) external view returns (uint256);
+
+    function checkIfPlatformDataKeyValid(
+        bytes32 platformDataKey
+    ) external view returns (bool isValid);
 
     function updateProtocolAdminAddress(address _protocolAdminAddress) external;
 
