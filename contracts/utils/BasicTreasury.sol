@@ -4,9 +4,9 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
-import "../utils/AccessChecker.sol";
+import "../utils/CampaignAccessChecker.sol";
 
-abstract contract BasicTreasury is ICampaignTreasury, AccessChecker {
+abstract contract BasicTreasury is ICampaignTreasury, CampaignAccessChecker {
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
@@ -35,7 +35,7 @@ abstract contract BasicTreasury is ICampaignTreasury, AccessChecker {
     constructor(
         bytes32 platformBytes,
         address infoAddress
-    ) AccessChecker(infoAddress) {
+    ) CampaignAccessChecker(infoAddress) {
         PLATFORM_BYTES = platformBytes;
         CAMPAIGN_INFO = ICampaignInfo(infoAddress);
         TOKEN = IERC20(INFO.getTokenAddress());

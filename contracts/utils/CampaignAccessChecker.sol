@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "../interfaces/IGlobalParams.sol";
 import "../interfaces/ICampaignInfo.sol";
 
-abstract contract AccessChecker {
+abstract contract CampaignAccessChecker {
     ICampaignInfo internal immutable INFO;
     error AccessCheckerUnauthorized();
 
@@ -27,13 +26,13 @@ abstract contract AccessChecker {
         _;
     }
 
-    function _checkIfProtocolAdmin() internal view {
+    function _checkIfProtocolAdmin() private view {
         if (msg.sender != INFO.getProtocolAdminAddress()) {
             revert AccessCheckerUnauthorized();
         }
     }
 
-    function _checkIfPlatformAdmin(bytes32 platformBytes) internal view {
+    function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
         if (msg.sender != INFO.getPlatformAdminAddress(platformBytes)) {
             revert AccessCheckerUnauthorized();
         }
