@@ -14,6 +14,7 @@ abstract contract BasicTreasury is ICampaignTreasury, AccessChecker {
     bytes32 internal immutable PLATFORM_BYTES;
     uint256 internal immutable PLATFORM_FEE_PERCENT;
     IERC20 internal immutable TOKEN;
+    ICampaignInfo internal immutable CAMPAIGN_INFO;
 
     uint256 internal s_pledgedAmountInCrypto;
     bool internal s_cryptoFeeDisbursed;
@@ -33,13 +34,12 @@ abstract contract BasicTreasury is ICampaignTreasury, AccessChecker {
 
     constructor(
         bytes32 platformBytes,
-        uint256 platformFeePercent,
-        address infoAddress,
-        address tokenAddress
+        address infoAddress
     ) AccessChecker(infoAddress) {
         PLATFORM_BYTES = platformBytes;
-        PLATFORM_FEE_PERCENT = platformFeePercent;
-        TOKEN = IERC20(tokenAddress);
+        CAMPAIGN_INFO = ICampaignInfo(infoAddress);
+        TOKEN = IERC20(INFO.getTokenAddress());
+        PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformBytes);
     }
 
     function disburseFees() public virtual override {

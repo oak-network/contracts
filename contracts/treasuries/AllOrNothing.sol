@@ -56,18 +56,8 @@ contract AllOrNothing is
 
     constructor(
         bytes32 platformBytes,
-        address infoAddress,
-        address tokenAddress,
-        uint256 platformFeePercent
-    )
-        ERC721("", "")
-        BasicTreasury(
-            platformBytes,
-            platformFeePercent,
-            infoAddress,
-            tokenAddress
-        )
-    {
+        address infoAddress
+    ) ERC721("", "") BasicTreasury(platformBytes, infoAddress) {
         s_tokenIdCounter.increment();
     }
 
