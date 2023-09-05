@@ -2,7 +2,6 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
 import "./interfaces/ICampaignData.sol";
 import "./interfaces/ICampaignTreasury.sol";
@@ -13,7 +12,12 @@ import "./utils/TimestampChecker.sol";
  * @title CampaignInfo
  * @notice Manages campaign information and platform data.
  */
-contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker {
+contract CampaignInfo is
+    ICampaignData,
+    ICampaignInfo,
+    Ownable,
+    TimestampChecker
+{
     IGlobalParams private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
@@ -28,6 +32,64 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
     mapping(bytes32 => bytes32) private s_platformData;
 
     bytes32[] private s_approvedPlatformBytes;
+
+    /**
+     * @dev Emitted when a platform is selected for the campaign.
+     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformTreasury The address of the platform's treasury.
+     */
+    event CampaignInfoPlatformSelected(
+        bytes32 indexed platformBytes,
+        address indexed platformTreasury
+    );
+
+    /**
+     * @dev Emitted when the launch time of the campaign is updated.
+     * @param newLaunchTime The new launch time.
+     */
+    event CampaignInfoLaunchTimeUpdated(uint256 newLaunchTime);
+
+    /**
+     * @dev Emitted when the deadline of the campaign is updated.
+     * @param newDeadline The new deadline.
+     */
+    event CampaignInfoDeadlineUpdated(uint256 newDeadline);
+
+    /**
+     * @dev Emitted when the goal amount of the campaign is updated.
+     * @param newGoalAmount The new goal amount.
+     */
+    event CampaignInfoGoalAmountUpdated(uint256 newGoalAmount);
+
+    /**
+     * @dev Emitted when the selection state of a platform is updated.
+     * @param platformBytes The bytes32 identifier of the platform.
+     * @param selection The new selection state.
+     */
+    event CampaignInfoSelectedPlatformUpdated(
+        bytes32 indexed platformBytes,
+        bool selection
+    );
+
+    /**
+     * @dev Emitted when platform information is updated for the campaign.
+     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformTreasury The address of the platform's treasury.
+     */
+    event CampaignInfoPlatformInfoUpdated(
+        bytes32 indexed platformBytes,
+        address indexed platformTreasury
+    );
+
+    /**
+     * @dev Emitted when ownership of the contract is transferred.
+     * @param previousOwner The address of the previous owner.
+     * @param newOwner The address of the new owner.
+     */
+    event CampaignInfoOwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
 
     /**
      * @dev Emitted when an invalid platform update is attempted.
@@ -95,7 +157,9 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
             len = platformDataKey.length;
             bool isValid;
             for (uint256 i = 0; i < len; ++i) {
-                isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(platformDataKey[i]);
+                isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
+                    platformDataKey[i]
+                );
                 if (!isValid) {
                     revert CampaignInfoInvalidInput();
                 }
@@ -228,27 +292,6 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
     }
 
     /**
-     * @notice Sets platform information for the campaign.
-     * @param platformBytes The bytes32 identifier of the platform.
-     * @param platformTreasuryAddress The address of the platform's treasury.
-     */
-    function setPlatformInfo(
-        bytes32 platformBytes,
-        address platformTreasuryAddress
-    ) external override {
-        if (msg.sender != TREASURY_FACTORY) {
-            revert CampaignInfoUnauthorized();
-        }
-        bool selected = checkIfPlatformSelected(platformBytes);
-        if (selected) {
-            s_platformTreasuryAddress[platformBytes] = platformTreasuryAddress;
-            s_approvedPlatformBytes.push(platformBytes);
-        } else {
-            revert CampaignInfoPlatformNotSelected(platformBytes);
-        }
-    }
-
-    /**
      * @inheritdoc Ownable
      */
     function transferOwnership(
@@ -264,6 +307,7 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         uint256 launchTime
     ) external override onlyOwner currentTimeIsLess(launchTime) {
         s_campaignData.launchTime = launchTime;
+        emit CampaignInfoLaunchTimeUpdated(launchTime);
     }
 
     /**
@@ -273,6 +317,7 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         uint256 deadline
     ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         s_campaignData.deadline = deadline;
+        emit CampaignInfoDeadlineUpdated(deadline);
     }
 
     /**
@@ -282,6 +327,7 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         uint256 goalAmount
     ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
         s_campaignData.goalAmount = goalAmount;
+        emit CampaignInfoGoalAmountUpdated(goalAmount);
     }
 
     /**
@@ -291,10 +337,34 @@ contract CampaignInfo is ICampaignData, ICampaignInfo, Ownable, TimestampChecker
         bytes32 platformBytes,
         bool selection
     ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
-        if (s_selectedPlatformBytes[platformBytes] == selection)
+        if (s_selectedPlatformBytes[platformBytes] != selection) {
             revert CampaignInfoInvalidPlatformUpdate(platformBytes, selection);
-        else {
-            s_selectedPlatformBytes[platformBytes] = selection;
         }
+        s_selectedPlatformBytes[platformBytes] = selection;
+        emit CampaignInfoSelectedPlatformUpdated(platformBytes, selection);
+    }
+
+    /**
+     * @notice Sets platform information for the campaign.
+     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformTreasuryAddress The address of the platform's treasury.
+     */
+    function setPlatformInfo(
+        bytes32 platformBytes,
+        address platformTreasuryAddress
+    ) external {
+        if (msg.sender != TREASURY_FACTORY) {
+            revert CampaignInfoUnauthorized();
+        }
+        bool selected = checkIfPlatformSelected(platformBytes);
+        if (!selected) {
+            revert CampaignInfoPlatformNotSelected(platformBytes);
+        }
+        s_platformTreasuryAddress[platformBytes] = platformTreasuryAddress;
+        s_approvedPlatformBytes.push(platformBytes);
+        emit CampaignInfoPlatformInfoUpdated(
+            platformBytes,
+            platformTreasuryAddress
+        );
     }
 }
