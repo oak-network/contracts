@@ -1,7 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+/**
+ * @title AddressCalculator
+ * @notice A Solidity library for computing contract addresses and checking if a contract is deployed at a given address.
+ */
 library AddressCalculator {
+    /**
+     * @dev Computes the contract address using CREATE2 and checks if the contract is deployed.
+     * @param salt The salt value used for address computation.
+     * @param bytecodeHash The keccak256 hash of the contract's bytecode.
+     * @param deployer The address that deploys the contract.
+     * @return addr The computed contract address.
+     * @return isValid True if a contract is deployed at the address; otherwise, false.
+     */
     function computeAddress(
         bytes32 salt,
         bytes32 bytecodeHash,
@@ -19,6 +31,11 @@ library AddressCalculator {
         return (addr, checkIfContractDeployed(addr));
     }
 
+    /**
+     * @dev Checks if a contract is deployed at the given address.
+     * @param addr The address to check for contract deployment.
+     * @return isValid True if a contract is deployed at the address; otherwise, false.
+     */
     function checkIfContractDeployed(
         address addr
     ) internal view returns (bool isValid) {

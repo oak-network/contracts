@@ -6,6 +6,10 @@ import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignInfoFactory.sol";
 
+/**
+ * @title CampaignInfoFactory
+ * @notice Factory contract for creating campaign information contracts.
+ */
 contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     bytes private constant bytecode = type(CampaignInfo).creationCode;
 
@@ -13,14 +17,33 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     address private s_treasuryFactoryAddress;
     bool private s_initialized;
 
+    /**
+     * @dev Emitted when the factory is initialized.
+     */
     error CampaignInfoFactoryAlreadyInitialized();
+
+    /**
+     * @dev Emitted when invalid input is provided.
+     */
     error CampaignInfoFactoryInvalidInput();
+
+    /**
+     * @dev Emitted when campaign creation fails.
+     */
     error CampaignInfoFactoryCampaignCreationFailed();
 
+    /**
+     * @param globalParams The address of the global parameters contract.
+     */
     constructor(address globalParams) {
         GLOBAL_PARAMS = IGlobalParams(globalParams);
     }
 
+    /**
+     * @dev Initializes the factory with treasury factory address.
+     * @param treasuryFactoryAddress The address of the treasury factory contract.
+     * @param globalParams The address of the global parameters contract.
+     */
     function _initialize(
         address treasuryFactoryAddress,
         address globalParams
@@ -33,6 +56,9 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
         s_initialized = true;
     }
 
+    /**
+     * @inheritdoc ICampaignInfoFactory
+     */
     function createCampaign(
         address creator,
         bytes32 identifierHash,
@@ -71,6 +97,6 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
         if (info == address(0)) {
             revert CampaignInfoFactoryCampaignCreationFailed();
         }
-        emit campaignCreated(identifierHash, info);
+        emit CampaignInfoFactoryCampaignCreated(identifierHash, info);
     }
 }

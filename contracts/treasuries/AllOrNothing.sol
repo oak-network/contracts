@@ -8,6 +8,10 @@ import "../utils/TimestampChecker.sol";
 import "../utils/BaseTreasury.sol";
 import "../utils/FiatEnabled.sol";
 
+/**
+ * @title AllOrNothing
+ * @notice A contract for handling crowdfunding campaigns with rewards.
+ */
 contract AllOrNothing is
     BaseTreasury,
     TimestampChecker,
@@ -16,6 +20,7 @@ contract AllOrNothing is
 {
     using Counters for Counters.Counter;
 
+    // Struct to represent a reward
     struct Reward {
         uint256 rewardValue;
         bool isRewardTier;
@@ -24,14 +29,20 @@ contract AllOrNothing is
         uint256[] itemQuantity;
     }
 
+    // Constant for the pre-launch pledge amount
     uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
 
+    // Mapping to store the pledged amount per token ID
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+
+    // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
+    // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
 
+    // Event emitted when a backer makes a pledge
     event Receipt(
         address indexed backer,
         bytes32 indexed reward,
@@ -41,19 +52,38 @@ contract AllOrNothing is
         bytes32[] rewards
     );
 
+    // Event emitted when a reward is added to the campaign
     event RewardAdded(bytes32 indexed rewardName, Reward reward);
 
+    // Event emitted when a reward is removed from the campaign
     event RewardRemoved(bytes32 indexed rewardName);
 
+    // Event emitted when a refund is claimed
     event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
+    // Error for unauthorized access
     error AllOrNothingUnAuthorized();
+
+    // Error for invalid input
     error AllOrNothingInvalidInput();
+
+    // Error for failed token transfer
     error AllOrNothingTransferFailed();
+
+    // Error for campaign not being successful
     error AllOrNothingNotSuccessful();
+
+    // Error for fees not being disbursed
     error AllOrNothingFeeNotDisbursed();
+
+    // Error for claiming an unclaimable refund
     error AllOrNothingNotClaimable(uint256 tokenId);
 
+    /**
+     * @dev Constructor for the AllOrNothing contract.
+     * @param platformBytes The unique identifier of the platform.
+     * @param infoAddress The address of the campaign information contract.
+     */
     constructor(
         bytes32 platformBytes,
         address infoAddress
@@ -61,15 +91,25 @@ contract AllOrNothing is
         s_tokenIdCounter.increment();
     }
 
+    /**
+     * @notice Retrieves the details of a reward.
+     * @param rewardName The name of the reward.
+     * @return reward The details of the reward as a `Reward` struct.
+     */
     function getReward(
         bytes32 rewardName
-    ) external view returns (Reward memory) {
+    ) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
         }
         return s_reward[rewardName];
     }
 
+    /**
+     * @notice Adds a reward to the campaign.
+     * @param rewardName The name of the reward.
+     * @param reward The details of the reward as a `Reward` struct.
+     */
     function addReward(
         bytes32 rewardName,
         Reward calldata reward
@@ -89,6 +129,10 @@ contract AllOrNothing is
         }
     }
 
+    /**
+     * @notice Removes a reward from the campaign.
+     * @param rewardName The name of the reward.
+     */
     function removeReward(bytes32 rewardName) external onlyCampaignOwner {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
@@ -98,10 +142,19 @@ contract AllOrNothing is
         emit RewardRemoved(rewardName);
     }
 
+    /**
+     * @notice Retrieves the total amount raised in both fiat and cryptocurrency.
+     * @return The total amount raised.
+     */
     function getRaisedAmount() external view override returns (uint256) {
         return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
     }
 
+    /**
+     * @notice Updates the fiat pledge transaction.
+     * @param fiatPledgeId The unique identifier of the fiat pledge.
+     * @param fiatPledgeAmount The amount of the fiat pledge.
+     */
     function updateFiatPledge(
         bytes32 fiatPledgeId,
         uint256 fiatPledgeAmount
@@ -109,18 +162,28 @@ contract AllOrNothing is
         _updateFiatTransaction(fiatPledgeId, fiatPledgeAmount);
     }
 
+    /**
+     * @notice Updates the state of fiat fee disbursement.
+     * @param isDisbursed Whether fiat fees are disbursed.
+     * @param protocolFeeAmount The protocol fee amount.
+     * @param platformFeeAmount The platform fee amount.
+     */
     function updateFiatFeeDisbursementState(
         bool isDisbursed,
         uint256 protocolFeeAmount,
         uint256 platformFeeAmount
     ) external onlyPlatformAdmin(PLATFORM_BYTES) {
-        _updateFiatFeeDisbusementState(
+        _updateFiatFeeDisbursementState(
             isDisbursed,
             protocolFeeAmount,
             platformFeeAmount
         );
     }
 
+    /**
+     * @notice Allows a backer to make a pre-launch pledge.
+     * @param backer The address of the backer making the pledge.
+     */
     function pledgeOnPreLaunch(
         address backer
     ) external currentTimeIsLess(INFO.getLaunchTime()) {
@@ -152,6 +215,11 @@ contract AllOrNothing is
         );
     }
 
+    /**
+     * @notice Allows a backer to pledge for a reward.
+     * @param backer The address of the backer making the pledge.
+     * @param reward An array of reward names.
+     */
     function pledgeForAReward(
         address backer,
         bytes32[] calldata reward
@@ -201,6 +269,11 @@ contract AllOrNothing is
         }
     }
 
+    /**
+     * @notice Allows a backer to pledge without selecting a reward.
+     * @param backer The address of the backer making the pledge.
+     * @param pledgeAmount The amount of the pledge.
+     */
     function pledgeWithoutAReward(
         address backer,
         uint256 pledgeAmount
@@ -225,6 +298,10 @@ contract AllOrNothing is
         }
     }
 
+    /**
+     * @notice Allows a backer to claim a refund.
+     * @param tokenId The ID of the token representing the pledge.
+     */
     function claimRefund(
         uint256 tokenId
     )
@@ -244,12 +321,19 @@ contract AllOrNothing is
         emit RefundClaimed(tokenId, amount, msg.sender);
     }
 
+    /**
+     * @dev Checks if the caller is the platform admin.
+     */
     function _checkIfPlatformAdmin() internal view {
         if (msg.sender != INFO.getPlatformAdminAddress(PLATFORM_BYTES)) {
             revert AllOrNothingUnAuthorized();
         }
     }
 
+    /**
+     * @dev Checks if the success condition for the campaign is met.
+     * @return True if the campaign is successful; otherwise, false.
+     */
     function _checkSuccessCondition()
         internal
         view

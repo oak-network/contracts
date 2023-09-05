@@ -4,23 +4,88 @@ pragma solidity ^0.8.9;
 import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignInfo.sol";
+import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
 
-contract TreasuryFactory is AdminAccessChecker {
-    mapping(bytes32 => mapping(uint256 => bytes)) private s_platformByteCode;
-    mapping(bytes => bool) private s_approvedByteCode;
+contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
+    mapping(bytes32 => mapping(uint256 => bytes)) private s_platformBytecode;
+    mapping(bytes => bool) private s_approvedBytecode;
 
     address private immutable CAMPAIGN_INFO_FACTORY;
     bytes32 private immutable CAMPAIGNINFO_BYTECODEHASH;
 
+    /**
+     * @dev Event emitted when a new bytecode is added for a specific platform and index.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the bytecode template.
+     * @param bytecode The bytecode template added.
+     */
+    event TreasuryFactoryBytecodeAdded(
+        bytes32 indexed platformBytes,
+        uint256 indexed bytecodeIndex,
+        bytes bytecode
+    );
+
+    /**
+     * @dev Event emitted when a bytecode is removed for a specific platform and index.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the bytecode template.
+     */
+    event TreasuryFactoryBytecodeRemoved(
+        bytes32 indexed platformBytes,
+        uint256 indexed bytecodeIndex
+    );
+
+    /**
+     * @dev Event emitted when a bytecode is enlisted for deployment.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the enlisted bytecode.
+     */
+    event TreasuryFactoryBytecodeEnlisted(
+        bytes32 indexed platformBytes,
+        uint256 indexed bytecodeIndex
+    );
+
+    /**
+     * @dev Event emitted when a bytecode is delisted and no longer available for deployment.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the delisted bytecode.
+     */
+    event TreasuryFactoryBytecodeDelisted(
+        bytes32 indexed platformBytes,
+        uint256 indexed bytecodeIndex
+    );
+
+    /**
+     * @dev Event emitted when a new treasury is deployed.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the deployed bytecode.
+     * @param treasuryAddress The address of the deployed treasury.
+     */
+    event TreasuryFactoryTreasuryDeployed(
+        bytes32 indexed platformBytes,
+        uint256 indexed bytecodeIndex,
+        bytes32 indexed identifierHash,
+        address treasuryAddress
+    );
+
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
-    error TreasuryFactoryByteCodeAlreadyApproved();
-    error TreasuryFactoryByteCodeNotApproved();
+    error TreasuryFactoryBytecodeAlreadyAdded();
+    error TreasuryFactoryBytecodeIsNotAdded();
+    error TreasuryFactoryBytecodeAlreadyApproved();
+    error TreasuryFactoryBytecodeNotApproved();
     error TreasuryFactoryTreasuryCreationFailed();
     error TreasuryFactoryInvalidAddress();
 
+    /**
+     * @notice Initializes the TreasuryFactory contract.
+     * @dev This constructor sets the address of the GlobalParams contract as the admin.
+     * @param globalParams Address of the GlobalParams contract.
+     * @param infoFactory Address of the CampaignInfoFactory contract.
+     * @param bytecodeHash Keccak256 hash of the CampaignInfo bytecode.
+     */
     constructor(
         address globalParams,
         address infoFactory,
@@ -30,66 +95,114 @@ contract TreasuryFactory is AdminAccessChecker {
         CAMPAIGNINFO_BYTECODEHASH = bytecodeHash;
     }
 
+    /**
+     * @inheritdoc ITreasuryFactory
+     */
     function computeTreasuryAddress(
         bytes32 identifierHash,
         bytes32 platformBytes,
         uint256 bytecodeIndex
-    ) external view returns (address treasuryAddress, bool isDeployed) {
+    )
+        external
+        view
+        override
+        returns (address treasuryAddress, bool isDeployed)
+    {
         (treasuryAddress, isDeployed) = AddressCalculator.computeAddress(
             keccak256(abi.encodePacked(identifierHash, platformBytes)),
-            keccak256(s_platformByteCode[platformBytes][bytecodeIndex]),
+            keccak256(s_platformBytecode[platformBytes][bytecodeIndex]),
             address(this)
         );
     }
 
-    function addByteCode(
+    /**
+     * @inheritdoc ITreasuryFactory
+     */
+    function addBytecode(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes calldata bytecode
-    ) external onlyPlatformAdmin(platformBytes) {
-        s_platformByteCode[platformBytes][bytecodeIndex] = bytecode;
+        bytes memory bytecode
+    ) external override onlyPlatformAdmin(platformBytes) {
+        if (s_platformBytecode[platformBytes][bytecodeIndex].length > 0) {
+            revert TreasuryFactoryBytecodeAlreadyAdded();
+        }
+        s_platformBytecode[platformBytes][bytecodeIndex] = bytecode;
+        emit TreasuryFactoryBytecodeAdded(
+            platformBytes,
+            bytecodeIndex,
+            bytecode
+        );
     }
 
-    function enlistByteCode(
+    /**
+     * @inheritdoc ITreasuryFactory
+     */
+    function removeBytecode(
+        bytes32 platformBytes,
+        uint256 bytecodeIndex
+    ) external override onlyPlatformAdmin(platformBytes) {
+        if (s_platformBytecode[platformBytes][bytecodeIndex].length == 0) {
+            revert TreasuryFactoryBytecodeIsNotAdded();
+        }
+        delete s_platformBytecode[platformBytes][bytecodeIndex];
+        emit TreasuryFactoryBytecodeRemoved(platformBytes, bytecodeIndex);
+    }
+
+    /**
+     * @dev Function to enlist a bytecode template for deployment.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the enlisted bytecode template.
+     */
+    function enlistBytecode(
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes memory bytecode = s_platformByteCode[platformBytes][
+        bytes memory bytecode = s_platformBytecode[platformBytes][
             bytecodeIndex
         ];
         if (bytecode.length == 0) {
             revert TreasuryFactoryInvalidKey();
         }
-        if (s_approvedByteCode[bytecode]) {
-            revert TreasuryFactoryByteCodeAlreadyApproved();
+        if (s_approvedBytecode[bytecode]) {
+            revert TreasuryFactoryBytecodeAlreadyApproved();
         }
-        s_approvedByteCode[bytecode] = true;
+        s_approvedBytecode[bytecode] = true;
+        emit TreasuryFactoryBytecodeEnlisted(platformBytes, bytecodeIndex);
     }
 
-    function delistByteCode(
+    /**
+     * @dev Function to delist a bytecode template, making it unavailable for deployment.
+     * @param platformBytes The platform identifier.
+     * @param bytecodeIndex The index of the delisted bytecode template.
+     */
+    function delistBytecode(
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes storage bytecode = s_platformByteCode[platformBytes][
+        bytes storage bytecode = s_platformBytecode[platformBytes][
             bytecodeIndex
         ];
         if (bytecode.length == 0) {
             revert TreasuryFactoryInvalidKey();
         }
-        s_approvedByteCode[bytecode] = false;
-        delete s_platformByteCode[platformBytes][bytecodeIndex];
+        s_approvedBytecode[bytecode] = false;
+        delete s_platformBytecode[platformBytes][bytecodeIndex];
+        emit TreasuryFactoryBytecodeDelisted(platformBytes, bytecodeIndex);
     }
 
+    /**
+     * @inheritdoc ITreasuryFactory
+     */
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
         bytes32 identifierHash
-    ) external onlyPlatformAdmin(platformBytes) {
-        bytes memory bytecode = s_platformByteCode[platformBytes][
+    ) external override onlyPlatformAdmin(platformBytes) {
+        bytes memory bytecode = s_platformBytecode[platformBytes][
             bytecodeIndex
         ];
-        if (!s_approvedByteCode[bytecode]) {
-            revert TreasuryFactoryByteCodeNotApproved();
+        if (!s_approvedBytecode[bytecode]) {
+            revert TreasuryFactoryBytecodeNotApproved();
         }
         (address infoAddress, bool isValid) = AddressCalculator.computeAddress(
             identifierHash,
@@ -99,7 +212,7 @@ contract TreasuryFactory is AdminAccessChecker {
         if (!isValid && infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
-        bytes memory argsByteCode = abi.encodePacked(
+        bytes memory argsBytecode = abi.encodePacked(
             bytecode,
             abi.encode(platformBytes, infoAddress)
         );
@@ -110,15 +223,20 @@ contract TreasuryFactory is AdminAccessChecker {
         assembly {
             treasury := create2(
                 0,
-                add(argsByteCode, 0x20),
-                mload(argsByteCode),
+                add(argsBytecode, 0x20),
+                mload(argsBytecode),
                 salt
             )
         }
         if (treasury == address(0)) {
             revert TreasuryFactoryTreasuryCreationFailed();
-        } else {
-            CampaignInfo(infoAddress).setPlatformInfo(platformBytes, treasury);
         }
+        CampaignInfo(infoAddress).setPlatformInfo(platformBytes, treasury);
+        emit TreasuryFactoryTreasuryDeployed(
+            platformBytes,
+            bytecodeIndex,
+            identifierHash,
+            treasury
+        );
     }
 }

@@ -6,6 +6,12 @@ import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "../utils/CampaignAccessChecker.sol";
 
+/**
+ * @title BaseTreasury
+ * @notice A base contract for creating and managing treasuries in crowdfunding campaigns.
+ * @dev This contract defines common functionality and storage for campaign treasuries.
+ * @dev Contracts implementing this base contract should provide specific success conditions.
+ */
 abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -19,19 +25,45 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
     uint256 internal s_pledgedAmountInCrypto;
     bool internal s_cryptoFeeDisbursed;
 
-    // Event emitted when fees are successfully disbursed
+    /**
+     * @notice Emitted when fees are successfully disbursed.
+     * @param protocolShare The amount of fees sent to the protocol.
+     * @param platformShare The amount of fees sent to the platform.
+     */
     event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
 
-    // Event emitted when a withdrawal is successful
-    event WithdrawalSuccessful(address to, uint256 amount);
+    /**
+     * @notice Emitted when a withdrawal is successful.
+     * @param to The recipient of the withdrawal.
+     * @param amount The amount withdrawn.
+     */
+    event WithdrawalSuccessful(address indexed to, uint256 amount);
 
-    // Event emitted when the success condition is not fulfilled during fee disbursement
+    /**
+     * @notice Emitted when the success condition is not fulfilled during fee disbursement.
+     */
     event SuccessConditionNotFulfilled();
 
+    /**
+     * @dev Throws an error indicating a failed treasury transfer.
+     */
     error TreasuryTransferFailed();
+
+    /**
+     * @dev Throws an error indicating that the success condition was not fulfilled.
+     */
     error TreasurySuccessConditionNotFulfilled();
+
+    /**
+     * @dev Throws an error indicating that fees have not been disbursed.
+     */
     error TreasuryFeeNotDisbursed();
 
+    /**
+     * @dev Constructs a new BaseTreasury instance.
+     * @param platformBytes The identifier for the platform associated with this treasury.
+     * @param infoAddress The address of the CampaignInfo contract.
+     */
     constructor(
         bytes32 platformBytes,
         address infoAddress
@@ -42,6 +74,9 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformBytes);
     }
 
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
     function disburseFees() public virtual override {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
@@ -69,6 +104,9 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
         emit FeesDisbursed(protocolShare, platformShare);
     }
 
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
     function withdraw() public virtual override {
         if (!s_cryptoFeeDisbursed) {
             revert TreasuryFeeNotDisbursed();
@@ -82,13 +120,23 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
         emit WithdrawalSuccessful(recipient, balance);
     }
 
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
     function getplatformBytes() external view override returns (bytes32) {
         return PLATFORM_BYTES;
     }
 
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
     function getplatformFeePercent() external view override returns (uint256) {
         return PLATFORM_FEE_PERCENT;
     }
 
+    /**
+     * @dev Internal function to check the success condition for fee disbursement.
+     * @return Whether the success condition is met.
+     */
     function _checkSuccessCondition() internal view virtual returns (bool);
 }
