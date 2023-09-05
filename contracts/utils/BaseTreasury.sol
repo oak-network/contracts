@@ -5,7 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
-import "../utils/CampaignAccessChecker.sol";
+import "./CampaignAccessChecker.sol";
+import "./PausableWithMsg.sol";
 
 /**
  * @title BaseTreasury
@@ -16,7 +17,7 @@ import "../utils/CampaignAccessChecker.sol";
 abstract contract BaseTreasury is
     ICampaignTreasury,
     CampaignAccessChecker,
-    Pausable
+    PausableWithMsg
 {
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -145,12 +146,12 @@ abstract contract BaseTreasury is
         emit WithdrawalSuccessful(recipient, balance);
     }
 
-    function _pauseTreasury() external onlyPlatformAdmin(PLATFORM_BYTES) {
-        _pause();
+    function _pauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+        _pause(message);
     }
 
-    function _unpauseTreasury() external onlyPlatformAdmin(PLATFORM_BYTES) {
-        _unpause();
+    function _unpauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+        _unpause(message);
     }
 
     function _checkIfCampaignPaused() internal view {

@@ -2,13 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
 import "./interfaces/ICampaignData.sol";
 import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 import "./utils/AdminAccessChecker.sol";
+import "./utils/PausableWithMsg.sol";
 
 /**
  * @title CampaignInfo
@@ -18,7 +18,7 @@ contract CampaignInfo is
     ICampaignData,
     ICampaignInfo,
     Ownable,
-    Pausable,
+    PausableWithMsg,
     TimestampChecker,
     AdminAccessChecker
 {
@@ -264,7 +264,7 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
-    function paused() public view override(ICampaignInfo, Pausable) returns (bool) {
+    function paused() public view override(ICampaignInfo, PausableWithMsg) returns (bool) {
         return super.paused();
     }
 
@@ -392,11 +392,11 @@ contract CampaignInfo is
         );
     }
 
-    function _pauseCampaign() external onlyProtocolAdmin {
-        _pause();
+    function _pauseCampaign(bytes32 message) external onlyProtocolAdmin {
+        _pause(message);
     }
 
-    function _unpauseCampaign() external onlyProtocolAdmin {
-        _unpause();
+    function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
+        _unpause(message);
     }
 }
