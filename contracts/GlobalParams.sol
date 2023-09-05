@@ -140,7 +140,7 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      * @dev Throws when the platform data slot is already taken.
      */
     error GlobalParamsPlatformDataSlotTaken();
-    
+
     /**
      * @dev Throws when the caller is not authorized.
      */
@@ -162,7 +162,7 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     modifier onlyPlatformAdmin(bytes32 platformBytes) {
         _checkIfPlatformAdmin(platformBytes);
         _;
-    }    
+    }
 
     /**
      * @param protocolAdminAddress The address of the protocol admin.
@@ -421,10 +421,8 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      * @param platformBytes The unique identifier of the platform.
      */
     function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
-        if (
-            msg.sender != s_platformAdminAddress[platformBytes]
-        ) {
+        if (msg.sender != s_platformAdminAddress[platformBytes]) {
             revert GlobalParamsUnauthorized();
         }
-    }    
+    }
 }
