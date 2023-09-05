@@ -2,8 +2,6 @@
 pragma solidity ^0.8.9;
 
 import "./CampaignInfo.sol";
-import "./interfaces/IGlobalParams.sol";
-import "./interfaces/ICampaignInfo.sol";
 import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
