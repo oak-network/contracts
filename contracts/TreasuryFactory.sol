@@ -85,7 +85,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
      * @param bytecodeHash Keccak256 hash of the CampaignInfo bytecode.
      */
     constructor(
-        address globalParams,
+        IGlobalParams globalParams,
         address infoFactory,
         bytes32 bytecodeHash
     ) AdminAccessChecker(globalParams) {
@@ -229,7 +229,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (treasury == address(0)) {
             revert TreasuryFactoryTreasuryCreationFailed();
         }
-        CampaignInfo(infoAddress).setPlatformInfo(platformBytes, treasury);
+        CampaignInfo(infoAddress)._setPlatformInfo(platformBytes, treasury);
         emit TreasuryFactoryTreasuryDeployed(
             platformBytes,
             bytecodeIndex,
