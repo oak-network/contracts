@@ -42,7 +42,15 @@ contract AllOrNothing is
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
 
-    // Event emitted when a backer makes a pledge
+    /**
+     * @dev Emitted when a backer makes a pledge.
+     * @param backer The address of the backer making the pledge.
+     * @param reward The name of the reward.
+     * @param pledgeAmount The amount pledged.
+     * @param tokenId The ID of the token representing the pledge.
+     * @param isPreLaunchPledge Indicates whether it's a pre-launch pledge.
+     * @param rewards An array of reward names.
+     */
     event Receipt(
         address indexed backer,
         bytes32 indexed reward,
@@ -52,13 +60,25 @@ contract AllOrNothing is
         bytes32[] rewards
     );
 
-    // Event emitted when a reward is added to the campaign
+    /**
+     * @dev Emitted when a reward is added to the campaign.
+     * @param rewardName The name of the reward.
+     * @param reward The details of the reward.
+     */
     event RewardAdded(bytes32 indexed rewardName, Reward reward);
 
-    // Event emitted when a reward is removed from the campaign
+    /**
+     * @dev Emitted when a reward is removed from the campaign.
+     * @param rewardName The name of the reward.
+     */
     event RewardRemoved(bytes32 indexed rewardName);
 
-    // Event emitted when a refund is claimed
+    /**
+     * @dev Emitted when a refund is claimed.
+     * @param tokenId The ID of the token representing the pledge.
+     * @param refundAmount The refund amount claimed.
+     * @param claimer The address of the claimer.
+     */
     event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
     // Error for unauthorized access
