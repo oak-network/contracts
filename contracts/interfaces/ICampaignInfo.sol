@@ -17,7 +17,9 @@ interface ICampaignInfo {
      * @param platformBytes The bytes32 identifier of the platform to check.
      * @return True if the platform is selected, false otherwise.
      */
-    function checkIfPlatformSelected(bytes32 platformBytes) external view returns (bool);
+    function checkIfPlatformSelected(
+        bytes32 platformBytes
+    ) external view returns (bool);
 
     /**
      * @notice Retrieves the total amount raised in the campaign.
@@ -36,7 +38,9 @@ interface ICampaignInfo {
      * @param platformBytes The bytes32 identifier of the platform.
      * @return The address of the platform administrator.
      */
-    function getPlatformAdminAddress(bytes32 platformBytes) external view returns (address);
+    function getPlatformAdminAddress(
+        bytes32 platformBytes
+    ) external view returns (address);
 
     /**
      * @notice Retrieves the campaign's launch time.
@@ -73,14 +77,18 @@ interface ICampaignInfo {
      * @param platformBytes The bytes32 identifier of the platform.
      * @return The platform fee percentage applied to the campaign on the platform.
      */
-    function getPlatformFeePercent(bytes32 platformBytes) external view returns (uint256);
+    function getPlatformFeePercent(
+        bytes32 platformBytes
+    ) external view returns (uint256);
 
     /**
      * @notice Retrieves platform-specific data for the campaign.
      * @param platformDataKey The bytes32 identifier of the platform-specific data.
      * @return The platform-specific data associated with the given key.
      */
-    function getPlatformData(bytes32 platformDataKey) external view returns (bytes32);
+    function getPlatformData(
+        bytes32 platformDataKey
+    ) external view returns (bytes32);
 
     /**
      * @notice Retrieves the unique identifier hash of the campaign.
@@ -117,5 +125,10 @@ interface ICampaignInfo {
      * @param platformBytes The bytes32 identifier of the platform.
      * @param selection The new selection status (true or false).
      */
-    function updateSelectedPlatform(bytes32 platformBytes, bool selection) external;
+    function updateSelectedPlatform(
+        bytes32 platformBytes,
+        bool selection
+    ) external;
+
+    function paused() external view returns (bool);
 }

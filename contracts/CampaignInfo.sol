@@ -2,11 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/ICampaignInfo.sol";
 import "./interfaces/ICampaignData.sol";
 import "./interfaces/ICampaignTreasury.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
+import "./utils/AdminAccessChecker.sol";
 
 /**
  * @title CampaignInfo
@@ -16,9 +18,10 @@ contract CampaignInfo is
     ICampaignData,
     ICampaignInfo,
     Ownable,
-    TimestampChecker
+    Pausable,
+    TimestampChecker,
+    AdminAccessChecker
 {
-    IGlobalParams private immutable GLOBAL_PARAMS;
     address private immutable TREASURY_FACTORY;
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
@@ -140,8 +143,7 @@ contract CampaignInfo is
         bytes32[] memory platformDataKey,
         bytes32[] memory platformDataValue,
         CampaignData memory campaignData
-    ) {
-        GLOBAL_PARAMS = globalParams;
+    ) AdminAccessChecker(globalParams) {
         TREASURY_FACTORY = treasuryFactory;
         TOKEN = token;
         IDENTIFIER_HASH = identifierHash;
@@ -262,6 +264,10 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
+    function paused() public view override(ICampaignInfo, Pausable) returns (bool) {
+        return super.paused();
+    }
+
     /**
      * @inheritdoc ICampaignInfo
      */
@@ -296,7 +302,7 @@ contract CampaignInfo is
      */
     function transferOwnership(
         address newOwner
-    ) public override(ICampaignInfo, Ownable) onlyOwner {
+    ) public override(ICampaignInfo, Ownable) onlyOwner whenNotPaused {
         super.transferOwnership(newOwner);
     }
 
@@ -305,7 +311,7 @@ contract CampaignInfo is
      */
     function updateLaunchTime(
         uint256 launchTime
-    ) external override onlyOwner currentTimeIsLess(launchTime) {
+    ) external override onlyOwner currentTimeIsLess(launchTime) whenNotPaused {
         s_campaignData.launchTime = launchTime;
         emit CampaignInfoLaunchTimeUpdated(launchTime);
     }
@@ -315,7 +321,13 @@ contract CampaignInfo is
      */
     function updateDeadline(
         uint256 deadline
-    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    )
+        external
+        override
+        onlyOwner
+        currentTimeIsLess(s_campaignData.launchTime)
+        whenNotPaused
+    {
         s_campaignData.deadline = deadline;
         emit CampaignInfoDeadlineUpdated(deadline);
     }
@@ -325,7 +337,13 @@ contract CampaignInfo is
      */
     function updateGoalAmount(
         uint256 goalAmount
-    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    )
+        external
+        override
+        onlyOwner
+        currentTimeIsLess(s_campaignData.launchTime)
+        whenNotPaused
+    {
         s_campaignData.goalAmount = goalAmount;
         emit CampaignInfoGoalAmountUpdated(goalAmount);
     }
@@ -336,7 +354,13 @@ contract CampaignInfo is
     function updateSelectedPlatform(
         bytes32 platformBytes,
         bool selection
-    ) external override onlyOwner currentTimeIsLess(s_campaignData.launchTime) {
+    )
+        external
+        override
+        onlyOwner
+        currentTimeIsLess(s_campaignData.launchTime)
+        whenNotPaused
+    {
         if (s_selectedPlatformBytes[platformBytes] != selection) {
             revert CampaignInfoInvalidPlatformUpdate(platformBytes, selection);
         }
@@ -349,10 +373,10 @@ contract CampaignInfo is
      * @param platformBytes The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
-    function setPlatformInfo(
+    function _setPlatformInfo(
         bytes32 platformBytes,
         address platformTreasuryAddress
-    ) external {
+    ) external whenNotPaused {
         if (msg.sender != TREASURY_FACTORY) {
             revert CampaignInfoUnauthorized();
         }
@@ -366,5 +390,13 @@ contract CampaignInfo is
             platformBytes,
             platformTreasuryAddress
         );
+    }
+
+    function _pauseCampaign() external onlyProtocolAdmin {
+        _pause();
+    }
+
+    function _unpauseCampaign() external onlyProtocolAdmin {
+        _unpause();
     }
 }
