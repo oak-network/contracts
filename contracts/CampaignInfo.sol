@@ -345,7 +345,7 @@ contract CampaignInfo is
     }
 
     /**
-     * @notice Sets platform information for the campaign.
+     * @dev Sets platform information for the campaign.
      * @param platformBytes The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
