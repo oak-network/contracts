@@ -37,6 +37,8 @@ contract OutOfStock is MinimumOrder {
         public
         override
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
     {
         // Check if the out-of-stock limit will be reached with the new pre-order
         if (MinimumOrder.getNumberOfOrders() + 1 > SUCCESS_METRIC) {

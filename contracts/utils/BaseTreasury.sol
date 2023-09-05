@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "../utils/CampaignAccessChecker.sol";
@@ -12,7 +13,11 @@ import "../utils/CampaignAccessChecker.sol";
  * @dev This contract defines common functionality and storage for campaign treasuries.
  * @dev Contracts implementing this base contract should provide specific success conditions.
  */
-abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
+abstract contract BaseTreasury is
+    ICampaignTreasury,
+    CampaignAccessChecker,
+    Pausable
+{
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
@@ -58,6 +63,7 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
      * @dev Throws an error indicating that fees have not been disbursed.
      */
     error TreasuryFeeNotDisbursed();
+    error TreasuryCampaignInfoIsPaused();
 
     /**
      * @dev Constructs a new BaseTreasury instance.
@@ -74,10 +80,29 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformBytes);
     }
 
+    modifier whenCampaignNotPaused() {
+        _checkIfCampaignPaused();
+        _;
+    }
+
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public virtual override {
+    function getplatformBytes() external view override returns (bytes32) {
+        return PLATFORM_BYTES;
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function getplatformFeePercent() external view override returns (uint256) {
+        return PLATFORM_FEE_PERCENT;
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function disburseFees() public virtual override whenCampaignNotPaused {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
@@ -107,7 +132,7 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function withdraw() public virtual override {
+    function withdraw() public virtual override whenCampaignNotPaused {
         if (!s_cryptoFeeDisbursed) {
             revert TreasuryFeeNotDisbursed();
         }
@@ -120,18 +145,18 @@ abstract contract BaseTreasury is ICampaignTreasury, CampaignAccessChecker {
         emit WithdrawalSuccessful(recipient, balance);
     }
 
-    /**
-     * @inheritdoc ICampaignTreasury
-     */
-    function getplatformBytes() external view override returns (bytes32) {
-        return PLATFORM_BYTES;
+    function _pauseTreasury() external onlyPlatformAdmin(PLATFORM_BYTES) {
+        _pause();
     }
 
-    /**
-     * @inheritdoc ICampaignTreasury
-     */
-    function getplatformFeePercent() external view override returns (uint256) {
-        return PLATFORM_FEE_PERCENT;
+    function _unpauseTreasury() external onlyPlatformAdmin(PLATFORM_BYTES) {
+        _unpause();
+    }
+
+    function _checkIfCampaignPaused() internal view {
+        if (INFO.paused()) {
+            revert TreasuryCampaignInfoIsPaused();
+        }
     }
 
     /**

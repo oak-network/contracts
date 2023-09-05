@@ -21,8 +21,8 @@ abstract contract AdminAccessChecker {
      * @dev Constructor to initialize the contract with the address of the global parameters contract.
      * @param globalParams The address of the IGlobalParams contract.
      */
-    constructor(address globalParams) {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
+    constructor(IGlobalParams globalParams) {
+        GLOBAL_PARAMS = globalParams;
     }
 
     /**

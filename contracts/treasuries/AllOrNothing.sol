@@ -139,6 +139,14 @@ contract AllOrNothing is
     }
 
     /**
+     * @notice Retrieves the total amount raised in both fiat and cryptocurrency.
+     * @return The total amount raised.
+     */
+    function getRaisedAmount() external view override returns (uint256) {
+        return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
+    }
+
+    /**
      * @notice Adds a reward to the campaign.
      * @param rewardName The name of the reward.
      * @param reward The details of the reward as a `Reward` struct.
@@ -146,7 +154,7 @@ contract AllOrNothing is
     function addReward(
         bytes32 rewardName,
         Reward calldata reward
-    ) external onlyCampaignOwner {
+    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
         Reward storage tempReward = s_reward[rewardName];
         if (
             tempReward.rewardValue != 0 &&
@@ -166,21 +174,15 @@ contract AllOrNothing is
      * @notice Removes a reward from the campaign.
      * @param rewardName The name of the reward.
      */
-    function removeReward(bytes32 rewardName) external onlyCampaignOwner {
+    function removeReward(
+        bytes32 rewardName
+    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
         emit RewardRemoved(rewardName);
-    }
-
-    /**
-     * @notice Retrieves the total amount raised in both fiat and cryptocurrency.
-     * @return The total amount raised.
-     */
-    function getRaisedAmount() external view override returns (uint256) {
-        return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
     }
 
     /**
@@ -191,7 +193,12 @@ contract AllOrNothing is
     function updateFiatPledge(
         bytes32 fiatPledgeId,
         uint256 fiatPledgeAmount
-    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    )
+        external
+        onlyPlatformAdmin(PLATFORM_BYTES)
+        whenCampaignNotPaused
+        whenNotPaused
+    {
         _updateFiatTransaction(fiatPledgeId, fiatPledgeAmount);
     }
 
@@ -205,7 +212,12 @@ contract AllOrNothing is
         bool isDisbursed,
         uint256 protocolFeeAmount,
         uint256 platformFeeAmount
-    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    )
+        external
+        onlyPlatformAdmin(PLATFORM_BYTES)
+        whenCampaignNotPaused
+        whenNotPaused
+    {
         _updateFiatFeeDisbursementState(
             isDisbursed,
             protocolFeeAmount,
@@ -219,7 +231,12 @@ contract AllOrNothing is
      */
     function pledgeOnPreLaunch(
         address backer
-    ) external currentTimeIsLess(INFO.getLaunchTime()) {
+    )
+        external
+        currentTimeIsLess(INFO.getLaunchTime())
+        whenCampaignNotPaused
+        whenNotPaused
+    {
         uint256 prelaunchPledgeAmount = PRELAUNCH_PLEDGE;
         bool success = TOKEN.transferFrom(
             backer,
@@ -259,6 +276,8 @@ contract AllOrNothing is
     )
         external
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
     {
         uint256 tokenId = s_tokenIdCounter.current();
         bool success;
@@ -313,6 +332,8 @@ contract AllOrNothing is
     )
         external
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
     {
         bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
         if (success) {
@@ -340,6 +361,8 @@ contract AllOrNothing is
     )
         external
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
     {
         uint256 amount = s_tokenToPledgedAmount[tokenId];
         if (amount == 0) {

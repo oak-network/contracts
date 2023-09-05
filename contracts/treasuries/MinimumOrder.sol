@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-// Import OpenZeppelin libraries for ERC721 token, ERC20 token, and utilities
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-
-// Import interfaces and utility contracts
 import "../interfaces/ICampaignInfo.sol";
 import "../utils/BaseTreasury.sol";
 import "../utils/TimestampChecker.sol";
@@ -145,7 +142,7 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
     function addReward(
         bytes32 rewardName,
         Reward calldata reward
-    ) external onlyCampaignOwner {
+    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
         Reward storage tempReward = s_reward[rewardName];
         if (
             tempReward.rewardValue != 0 &&
@@ -165,7 +162,9 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
      * Only the campaign owner can remove rewards.
      * @param rewardName The name of the reward to be removed.
      */
-    function removeReward(bytes32 rewardName) external onlyCampaignOwner {
+    function removeReward(
+        bytes32 rewardName
+    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
         uint256 tempRewardValue = s_reward[rewardName].rewardValue;
         if (tempRewardValue == 0) {
             revert PreOrderInvalidInput();
@@ -187,6 +186,8 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
         public
         virtual
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
     {
         uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardValue = s_reward[rewardName].rewardValue;
@@ -206,7 +207,9 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
      * @notice Function for backers to claim a refund if the campaign has not met the success metric.
      * @param tokenId The unique token ID associated with the refund.
      */
-    function claimRefund(uint256 tokenId) external {
+    function claimRefund(
+        uint256 tokenId
+    ) external whenCampaignNotPaused whenNotPaused {
         uint256 amount = s_tokenToPledgedAmount[tokenId];
         s_tokenToPledgedAmount[tokenId] = 0;
         burn(tokenId);
