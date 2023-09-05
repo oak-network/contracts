@@ -89,13 +89,6 @@ interface ICampaignInfo {
     function getIdentifierHash() external view returns (bytes32);
 
     /**
-     * @notice Sets platform information for the campaign, including the platform's treasury address.
-     * @param platformBytes The bytes32 identifier of the platform.
-     * @param platformTreasuryAddress The address of the platform's treasury contract.
-     */
-    function setPlatformInfo(bytes32 platformBytes, address platformTreasuryAddress) external;
-
-    /**
      * @notice Transfers ownership of the contract to a new owner.
      * @param newOwner The address of the new contract owner.
      */

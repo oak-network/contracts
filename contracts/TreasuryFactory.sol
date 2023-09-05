@@ -198,7 +198,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         uint256 bytecodeIndex,
         bytes32 identifierHash
     ) external override onlyPlatformAdmin(platformBytes) {
-        bytes memory bytecode = s_platformBytecode[platformBytes][
+        bytes storage bytecode = s_platformBytecode[platformBytes][
             bytecodeIndex
         ];
         if (!s_approvedBytecode[bytecode]) {
