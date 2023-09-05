@@ -81,22 +81,35 @@ contract AllOrNothing is
      */
     event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
-    // Error for unauthorized access
+    /**
+     * @dev Emitted when an unauthorized action is attempted.
+     */
     error AllOrNothingUnAuthorized();
 
-    // Error for invalid input
+    /**
+     * @dev Emitted when an invalid input is detected.
+     */
     error AllOrNothingInvalidInput();
 
-    // Error for failed token transfer
+    /**
+     * @dev Emitted when a token transfer fails.
+     */
     error AllOrNothingTransferFailed();
 
-    // Error for campaign not being successful
+    /**
+     * @dev Emitted when the campaign is not successful.
+     */
     error AllOrNothingNotSuccessful();
 
-    // Error for fees not being disbursed
+    /**
+     * @dev Emitted when fees are not disbursed.
+     */
     error AllOrNothingFeeNotDisbursed();
 
-    // Error for claiming an unclaimable refund
+    /**
+     * @dev Emitted when claiming an unclaimable refund.
+     * @param tokenId The ID of the token representing the pledge.
+     */
     error AllOrNothingNotClaimable(uint256 tokenId);
 
     /**
