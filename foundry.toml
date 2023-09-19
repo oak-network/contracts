@@ -8,3 +8,6 @@ libs = [
 remappings = ["@openzeppelin/=node_modules/@openzeppelin/"]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[rpc_endpoints]
+alfajores = "${ALFAJORES_RPC_URL}"
