@@ -35,8 +35,8 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     /**
      * @param globalParams The address of the global parameters contract.
      */
-    constructor(address globalParams) {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
+    constructor(IGlobalParams globalParams) {
+        GLOBAL_PARAMS = globalParams;
     }
 
     /**
