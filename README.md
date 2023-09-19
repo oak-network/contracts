@@ -1,22 +1,66 @@
-# ccp-contracts
+## Foundry
 
+**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-##  🔧 Setting up Local Development
-Required: 
-- [Node v14](https://nodejs.org/download/release/latest-v14.x/)  
-- [Git](https://git-scm.com/downloads)
+Foundry consists of:
 
+-   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+-   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+-   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+-   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-Local Setup Steps:
-1. git clone
-1. Install dependencies: `npm install` 
-    - Installs [Hardhat](https://hardhat.org/getting-started/) & [OpenZeppelin](https://docs.openzeppelin.com/contracts/4.x/) dependencies
-1. Compile Solidity: `npx hardhat compile`
+## Documentation
 
-## 💻 Deployment steps
+https://book.getfoundry.sh/
 
-Deploy and initialize base contracts:
-`npx hardhat run scripts/deploy&Initialize.ts`
+## Usage
 
-## 🤨 How it all works
-![High Level Contract Architecture](./docs/box-diagram.svg)
+### Build
+
+```shell
+$ forge build
+```
+
+### Test
+
+```shell
+$ forge test
+```
+
+### Format
+
+```shell
+$ forge fmt
+```
+
+### Gas Snapshots
+
+```shell
+$ forge snapshot
+```
+
+### Anvil
+
+```shell
+$ anvil
+```
+
+### Deploy
+
+```shell
+$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
+
+### Cast
+
+```shell
+$ cast <subcommand>
+```
+
+### Help
+
+```shell
+$ forge --help
+$ anvil --help
+$ cast --help
+```
