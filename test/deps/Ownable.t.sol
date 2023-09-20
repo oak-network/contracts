@@ -22,7 +22,7 @@ contract OwnableTest is Test {
         ownable = new OwnableContract();
     }
 
-    function test_checkOwner() external virtual {
+    function test_Owner() external virtual {
         assertEq(ownable.owner(), address(this));
     }
 }
