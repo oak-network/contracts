@@ -7,7 +7,8 @@ import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
-    mapping(bytes32 => mapping(uint256 => bytes)) private s_platformBytecode;
+    mapping(bytes32 => mapping(uint256 => bytes[])) private s_platformBytecode;
+    mapping(bytes32 => mapping(uint256 => bool)) private s_platformBytecodeStatus;
     mapping(bytes => bool) private s_approvedBytecode;
 
     address private immutable CAMPAIGN_INFO_FACTORY;
@@ -19,9 +20,10 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
      * @param bytecodeIndex The index of the bytecode template.
      * @param bytecode The bytecode template added.
      */
-    event TreasuryFactoryBytecodeAdded(
+    event TreasuryFactoryBytecodeChunkAdded(
         bytes32 indexed platformBytes,
         uint256 indexed bytecodeIndex,
+        uint256 indexed bytecodeChunk,
         bytes bytecode
     );
 
@@ -70,9 +72,11 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
 
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
-    error TreasuryFactoryBytecodeAlreadyAdded();
+    error TreasuryFactoryIncorrectChunkIndex();
+    error TreasuryFactoryBytecodeExists();
     error TreasuryFactoryBytecodeIsNotAdded();
     error TreasuryFactoryBytecodeAlreadyApproved();
+    error TreasuryFactoryBytecodeIncomplete();
     error TreasuryFactoryBytecodeNotApproved();
     error TreasuryFactoryTreasuryCreationFailed();
     error TreasuryFactoryInvalidAddress();
@@ -116,19 +120,28 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function addBytecode(
+    function addBytecodeChunk(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes memory bytecode
+        uint256 chunkIndex,
+        bool isLastChunk,
+        bytes memory bytecodeChunk,
     ) external override onlyPlatformAdmin(platformBytes) {
-        if (s_platformBytecode[platformBytes][bytecodeIndex].length > 0) {
-            revert TreasuryFactoryBytecodeAlreadyAdded();
+        if (s_platformBytecode[platformBytes].length != chunkIndex) {
+            revert TreasuryFactoryIncorrectChunkIndex();
         }
-        s_platformBytecode[platformBytes][bytecodeIndex] = bytecode;
-        emit TreasuryFactoryBytecodeAdded(
+        if (s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
+            revert TreasuryFactoryBytecodeExists();
+        }
+        if (isLastChunk) {
+            s_platformBytecodeStatus[platformBytes][bytecodeIndex] = true;
+        }
+        s_platformBytecode[platformBytes][bytecodeIndex].push(bytecodeChunk);
+        emit TreasuryFactoryBytecodeChunkAdded(
             platformBytes,
             bytecodeIndex,
-            bytecode
+            chunkIndex,
+            bytecodeChunk
         );
     }
 
@@ -161,9 +174,13 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (bytecode.length == 0) {
             revert TreasuryFactoryInvalidKey();
         }
+        if (!s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
+            revert TreasuryFactoryBytecodeIncomplete();
+        }
         if (s_approvedBytecode[bytecode]) {
             revert TreasuryFactoryBytecodeAlreadyApproved();
         }
+        
         s_approvedBytecode[bytecode] = true;
         emit TreasuryFactoryBytecodeEnlisted(platformBytes, bytecodeIndex);
     }
