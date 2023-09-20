@@ -11,4 +11,11 @@ contract CountersTest is Test {
     function test_Current() external {
         assertEq(_counter.current(), 0);
     }
+
+    function test_Increment() external {
+        _counter.increment();
+        assertEq(_counter.current(), 1);
+        _counter.increment();
+        assertEq(_counter.current(), 2);
+    }
 }
