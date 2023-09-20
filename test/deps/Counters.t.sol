@@ -20,6 +20,10 @@ contract CountersTest is Test {
     }
 
     function test_Decrement() external {
+        assertEq(_counter.current(), 0);
+        vm.expectRevert("Counter: decrement overflow");
+        _counter.decrement();
+
         _counter.increment();
         assertEq(_counter.current(), 1);
         _counter.decrement();
