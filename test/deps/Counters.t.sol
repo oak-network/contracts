@@ -18,4 +18,11 @@ contract CountersTest is Test {
         _counter.increment();
         assertEq(_counter.current(), 2);
     }
+
+    function test_Decrement() external {
+        _counter.increment();
+        assertEq(_counter.current(), 1);
+        _counter.decrement();
+        assertEq(_counter.current(), 0);
+    }
 }
