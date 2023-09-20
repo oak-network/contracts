@@ -32,4 +32,23 @@ contract OwnableTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         ownable.checkOwner();
     }
+
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    function test_EventOwnershipTransferred() external {
+        assertEq(address(this), ownable.owner());
+
+        vm.expectEmit(true, true, false, false, address(ownable));
+        emit OwnershipTransferred(address(this), address(0x2));
+        ownable.transferOwnership(address(0x2));
+
+        assertEq(address(0x2), ownable.owner());
+
+        vm.expectEmit(true, true, false, false, address(ownable));
+        emit OwnershipTransferred(address(0x2), address(0x3));
+        ownable.transferOwnershipExternal(address(0x3));
+    }
 }
