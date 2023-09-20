@@ -1,10 +1,10 @@
 import { ethers, artifacts } from "hardhat";
 import {
   CampaignInfoFactory,
-  CampaignRegistry,
   TestUSD,
   ItemRegistry,
-  ModelFactory
+  GlobalParams,
+  TreasuryFactory,
 } from "../typechain-types";
 import { getHexString } from "../lib/utils";
 import { getPushLength } from "hardhat/internal/hardhat-network/stack-traces/opcodes";
@@ -16,44 +16,6 @@ async function main() {
 
   const goalAmount = Number(500 * 1e18).toString();
   const testPreMint = Number(500 * 1e18).toString();
-
-  const modelFactoryFactory = await ethers.getContractFactory(
-    "ModelFactory"
-  );
-  const modelFactory: ModelFactory =
-    await modelFactoryFactory.deploy();
-
-  await modelFactory.deployed();
-  
-  const campaignRegistryFactory = await ethers.getContractFactory(
-    "CampaignRegistry"
-  );
-  const campaignRegistry: CampaignRegistry =
-    await campaignRegistryFactory.deploy();
-
-  await campaignRegistry.deployed();
-
-  console.log(`CampaignRegistry deployed to ${campaignRegistry.address}`);
-
-  const itemRegistryFactory = await ethers.getContractFactory(
-    "ItemRegistry"
-  );
-  const itemRegistry: ItemRegistry =
-    await itemRegistryFactory.deploy();
-
-  await itemRegistry.deployed();
-
-  console.log(`ItemRegistry deployed to ${itemRegistry.address}`);
-
-  const campaignInfoFactoryFactory = await ethers.getContractFactory(
-    "CampaignInfoFactory"
-  );
-  const campaignInfoFactory: CampaignInfoFactory =
-    await campaignInfoFactoryFactory.deploy(campaignRegistry.address);
-
-  await campaignInfoFactory.deployed();
-
-  console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
 
   const testUSDFactory = await ethers.getContractFactory("TestUSD");
   const testUSD: TestUSD = await testUSDFactory.deploy();
@@ -67,42 +29,87 @@ async function main() {
 
   await mint.wait();
 
-  const initialize = await campaignRegistry.initialize(
-    campaignInfoFactory.address
-  );
-  await initialize.wait();
-
-  const identifier = "sampleCampaign";
-  const kickstarter = getHexString("Kickstarter");
-  const weirdstarter = getHexString("Weirdstarter");
-  const launchTime = 1686867453;
-  const deadline = 1694816253;
-  const platforms = [kickstarter, weirdstarter];
-
-  const tx = await campaignInfoFactory.createCampaign(
+  const globalParamsFactory = await ethers.getContractFactory("GlobalParams");
+  const globalParams: GlobalParams = await globalParamsFactory.deploy(
     owner.address,
     testUSD.address,
-    launchTime,
-    deadline,
-    goalAmount,
-    identifier,
-    platforms
+    200
   );
 
-  let result = await tx.wait();
-  console.log(result.events);
+  await globalParams.deployed();
+
+  console.log(`GlobalParams deployed to ${globalParams.address}`);
+
+  const itemRegistryFactory = await ethers.getContractFactory("ItemRegistry");
+  const itemRegistry: ItemRegistry = await itemRegistryFactory.deploy();
+
+  await itemRegistry.deployed();
+
+  console.log(`ItemRegistry deployed to ${itemRegistry.address}`);
+
+  const campaignInfoFactoryFactory = await ethers.getContractFactory(
+    "CampaignInfoFactory"
+  );
+  const campaignInfoFactory: CampaignInfoFactory =
+    await campaignInfoFactoryFactory.deploy(globalParams.address);
+
+  await campaignInfoFactory.deployed();
+
+  console.log(`CampaignInfoFactory deployed to ${campaignInfoFactory.address}`);
+
+  const treasuryFactoryFactory = await ethers.getContractFactory(
+    "TreasuryFactory"
+  );
+  const treasuryFactory: TreasuryFactory = await treasuryFactoryFactory.deploy(
+    globalParams.address,
+    campaignInfoFactory.address,
+    "0xcab5945253cc855eaf3d70b80fd57d6d03bf6ce326ab3763380f9b96b7384a2e"
+  );
+
+  await treasuryFactory.deployed();
+
+  const initialize = await campaignInfoFactory._initialize(
+    treasuryFactory.address,
+    globalParams.address
+  );
+
+  await initialize.wait();
+  const kickstarter = getHexString("Kickstarter");
+  const weirdstarter = getHexString("Weirdstarter");
+  const platforms = [kickstarter, weirdstarter];
+
+  interface ICampaignData {
+    launchTime: number;
+    deadline: number;
+    goalAmount: string;
+  }
+
+  const campaignData: ICampaignData = {
+    launchTime: 1686867453,
+    deadline: 1694816253,
+    goalAmount: Number(500 * 1e18).toString(),
+  };
+
+  const emptyBytes32Array: string[] = [];
+
+  const createCampaign = await campaignInfoFactory.createCampaign(
+    owner.address,
+    "0xcc7b0ace0b803eb8476b3fb1e74a99df7d3209dfcf42790d24b519e108574dad",
+    platforms,
+    emptyBytes32Array,
+    emptyBytes32Array,
+    campaignData
+  );
 
   console.log(
-    "NEXT_PUBLIC_CAMPAIGN_REGISTRY=" +
-      campaignRegistry.address +
+    "NEXT_PUBLIC_GLOBAL_PARAMS=" +
+      globalParams.address +
       "\nNEXT_PUBLIC_CAMPAIGN_INFO_FACTORY=" +
       campaignInfoFactory.address +
-      "\nNEXT_PUBLIC_TEST_USD=" +
-      testUSD.address,
-      "\nNEXT_PUBLIC_ITEM_REGISTRY=" +
-      itemRegistry.address,
-      "\nNEXT_PUBLIC_MODEL_FACTORY=" +
-      modelFactory.address
+      "\nNEXT_PUBLIC_TREASURY_FACTORY=" +
+      treasuryFactory.address,
+    "\nNEXT_PUBLIC_TEST_USD=" + testUSD.address,
+    "\nNEXT_PUBLIC_ITEM_REGISTRY=" + itemRegistry.address
   );
 }
 
