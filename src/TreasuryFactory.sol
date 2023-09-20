@@ -8,8 +8,9 @@ import "./utils/AddressCalculator.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     mapping(bytes32 => mapping(uint256 => bytes[])) private s_platformBytecode;
-    mapping(bytes32 => mapping(uint256 => bool)) private s_platformBytecodeStatus;
-    mapping(bytes => bool) private s_approvedBytecode;
+    mapping(bytes32 => mapping(uint256 => bool))
+        private s_platformBytecodeStatus;
+    mapping(bytes32 => mapping(uint256 => bool)) private s_approvedBytecode;
 
     address private immutable CAMPAIGN_INFO_FACTORY;
     bytes32 private immutable CAMPAIGNINFO_BYTECODEHASH;
@@ -112,7 +113,9 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     {
         (treasuryAddress, isDeployed) = AddressCalculator.computeAddress(
             keccak256(abi.encodePacked(identifierHash, platformBytes)),
-            keccak256(s_platformBytecode[platformBytes][bytecodeIndex]),
+            keccak256(
+                abi.encode(s_platformBytecode[platformBytes][bytecodeIndex])
+            ),
             address(this)
         );
     }
@@ -125,9 +128,12 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         uint256 bytecodeIndex,
         uint256 chunkIndex,
         bool isLastChunk,
-        bytes memory bytecodeChunk,
+        bytes memory bytecodeChunk
     ) external override onlyPlatformAdmin(platformBytes) {
-        if (s_platformBytecode[platformBytes].length != chunkIndex) {
+        if (
+            s_platformBytecode[platformBytes][bytecodeIndex].length !=
+            chunkIndex
+        ) {
             revert TreasuryFactoryIncorrectChunkIndex();
         }
         if (s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
@@ -168,20 +174,13 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes memory bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (bytecode.length == 0) {
-            revert TreasuryFactoryInvalidKey();
-        }
         if (!s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeIncomplete();
         }
-        if (s_approvedBytecode[bytecode]) {
+        if (s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeAlreadyApproved();
         }
-        
-        s_approvedBytecode[bytecode] = true;
+        s_approvedBytecode[platformBytes][bytecodeIndex] = true;
         emit TreasuryFactoryBytecodeEnlisted(platformBytes, bytecodeIndex);
     }
 
@@ -194,13 +193,10 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes storage bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (bytecode.length == 0) {
+        if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryInvalidKey();
         }
-        s_approvedBytecode[bytecode] = false;
+        s_approvedBytecode[platformBytes][bytecodeIndex] = false;
         delete s_platformBytecode[platformBytes][bytecodeIndex];
         emit TreasuryFactoryBytecodeDelisted(platformBytes, bytecodeIndex);
     }
@@ -213,10 +209,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         uint256 bytecodeIndex,
         bytes32 identifierHash
     ) external override onlyPlatformAdmin(platformBytes) {
-        bytes storage bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (!s_approvedBytecode[bytecode]) {
+        if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeNotApproved();
         }
         (address infoAddress, bool isValid) = AddressCalculator.computeAddress(
@@ -228,7 +221,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
             revert TreasuryFactoryInvalidAddress();
         }
         bytes memory argsBytecode = abi.encodePacked(
-            bytecode,
+            abi.encode(s_platformBytecode[platformBytes][bytecodeIndex]),
             abi.encode(platformBytes, infoAddress)
         );
         bytes32 salt = keccak256(
