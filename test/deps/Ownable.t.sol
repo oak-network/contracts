@@ -9,6 +9,10 @@ contract OwnableContract is Ownable {
     function checkOwner() external view {
         _checkOwner();
     }
+
+    function transferOwnershipExternal(address newOwner) external {
+        _transferOwnership(newOwner);
+    }
 }
 
 contract OwnableTest is Test {
