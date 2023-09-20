@@ -35,8 +35,8 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     /**
      * @param globalParams The address of the global parameters contract.
      */
-    constructor(address globalParams) {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
+    constructor(IGlobalParams globalParams) {
+        GLOBAL_PARAMS = globalParams;
     }
 
     /**
@@ -70,9 +70,8 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
         }
-        bytes memory argsByteCode = abi.encodePacked(
-            bytecode,
-            abi.encode(
+        address info = address(
+            new CampaignInfo{salt: identifierHash}(
                 GLOBAL_PARAMS,
                 s_treasuryFactoryAddress,
                 GLOBAL_PARAMS.getTokenAddress(),
@@ -85,15 +84,6 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
                 campaignData
             )
         );
-        address info;
-        assembly {
-            info := create2(
-                0,
-                add(argsByteCode, 0x20),
-                mload(argsByteCode),
-                identifierHash
-            )
-        }
         if (info == address(0)) {
             revert CampaignInfoFactoryCampaignCreationFailed();
         }
