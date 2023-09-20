@@ -54,6 +54,10 @@ contract OwnableTest is Test {
 
     function test_TransferOwnership() external {
         assertEq(address(this), ownable.owner());
+
+        vm.expectRevert("Ownable: new owner is the zero address");
+        ownable.transferOwnership(address(0));
+
         ownable.transferOwnership(address(0x2));
         assertEq(address(0x2), ownable.owner());
     }
