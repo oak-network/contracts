@@ -22,7 +22,14 @@ contract OwnableTest is Test {
         ownable = new OwnableContract();
     }
 
-    function test_Owner() external virtual {
+    function test_Owner() external {
         assertEq(ownable.owner(), address(this));
+    }
+
+    function test_CheckOwner() external {
+        ownable.checkOwner();
+        vm.prank(address(0x1));
+        vm.expectRevert("Ownable: caller is not the owner");
+        ownable.checkOwner();
     }
 }
