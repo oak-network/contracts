@@ -29,4 +29,14 @@ contract CountersTest is Test {
         _counter.decrement();
         assertEq(_counter.current(), 0);
     }
+
+    function test_Reset() external {
+        _counter.increment();
+        _counter.increment();
+        _counter.increment();
+        assertEq(_counter.current(), 3);
+
+        _counter.reset();
+        assertEq(_counter.current(), 0);
+    }
 }
