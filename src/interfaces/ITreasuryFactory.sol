@@ -24,13 +24,15 @@ interface ITreasuryFactory {
      * @dev Function to add a fragment of the full bytecode of treasury contract for a given platform.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the bytecode template.
-     * @param chunkIndex The index of the bytecode chunk
+     * @param chunkIndex The index of the bytecode chunk.
+     * @param isLastChunk The boolean to determine if this is the last chunk.
      * @param bytecodeChunk The bytecode fragment to add.
      */
     function addBytecodeChunk(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
         uint256 chunkIndex,
+        bool isLastChunk,
         bytes memory bytecodeChunk
     ) external;
 
