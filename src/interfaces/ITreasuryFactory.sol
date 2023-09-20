@@ -21,15 +21,17 @@ interface ITreasuryFactory {
     ) external view returns (address treasuryAddress, bool isDeployed);
 
     /**
-     * @dev Function to add a bytecode template for a specific platform and index.
+     * @dev Function to add a fragment of the full bytecode of treasury contract for a given platform.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the bytecode template.
-     * @param bytecode The bytecode template to add.
+     * @param chunkIndex The index of the bytecode chunk
+     * @param bytecodeChunk The bytecode fragment to add.
      */
-    function addBytecode(
+    function addBytecodeChunk(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes calldata bytecode
+        uint256 chunkIndex,
+        bytes memory bytecodeChunk
     ) external;
 
     /**
