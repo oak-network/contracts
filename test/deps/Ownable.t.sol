@@ -67,4 +67,10 @@ contract OwnableTest is Test {
         ownable.transferOwnershipExternal(address(0x2));
         assertEq(address(0x2), ownable.owner());
     }
+
+    function test_RenounceOwnership() external {
+        assertEq(address(this), ownable.owner());
+        ownable.renounceOwnership();
+        assertEq(ownable.owner(), address(0));
+    }
 }
