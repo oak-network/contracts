@@ -167,11 +167,10 @@ contract AllOrNothing is
         ) {
             revert AllOrNothingInvalidInput();
         }
-        Reward storage tempReward = s_reward[rewardName];
-        if (tempReward.rewardValue != 0) {
+        if (s_reward[rewardName].rewardValue != 0) {
             revert AllOrNothingRewardExists();
         }
-        tempReward = reward;
+        s_reward[rewardName] = reward;
         s_rewardCounter.increment();
         emit RewardAdded(rewardName, reward);
     }
