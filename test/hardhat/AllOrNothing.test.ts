@@ -3,8 +3,8 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from 'hardhat';
 import { ContractTransaction, ContractReceipt, utils } from 'ethers';
-import { CampaignInfo, CampaignInfoFactory, CampaignInfoFactory__factory, CampaignInfo__factory, GlobalParams, GlobalParams__factory, TestUSD, TestUSD__factory, TreasuryFactory, TreasuryFactory__factory } from "../typechain-types";
-import { convertBytesToString, convertStringToBytes } from '../utils/helpers'
+import { CampaignInfo, CampaignInfoFactory, CampaignInfoFactory__factory, CampaignInfo__factory, GlobalParams, GlobalParams__factory, TestUSD, TestUSD__factory, TreasuryFactory, TreasuryFactory__factory } from "../../typechain-types";
+import { convertBytesToString, convertStringToBytes } from '../../utils/helpers'
 
 describe("Treasury `AllOrNothing` All Functionality", function () {
 
