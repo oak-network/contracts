@@ -50,11 +50,11 @@ interface ITreasuryFactory {
      * @dev Function to deploy a new treasury contract with a specified bytecode template.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the bytecode template to use for deployment.
-     * @param identifierHash The unique hash identifier of the associated campaign.
+     * @param infoAddress The address of the associated campaign.
      */
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes32 identifierHash
+        address infoAddress
     ) external;
 }
