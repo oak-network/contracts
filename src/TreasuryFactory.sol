@@ -5,6 +5,7 @@ import "./CampaignInfo.sol";
 import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
+import "hardhat/console.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     mapping(bytes32 => mapping(uint256 => bytes[])) private s_platformBytecode;
@@ -62,12 +63,13 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
      * @dev Event emitted when a new treasury is deployed.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the deployed bytecode.
+     * @param infoAddress The address of the associated campaign.
      * @param treasuryAddress The address of the deployed treasury.
      */
     event TreasuryFactoryTreasuryDeployed(
         bytes32 indexed platformBytes,
         uint256 indexed bytecodeIndex,
-        bytes32 indexed identifierHash,
+        address indexed infoAddress,
         address treasuryAddress
     );
 
@@ -207,26 +209,22 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes32 identifierHash
+        address infoAddress
     ) external override onlyPlatformAdmin(platformBytes) {
         if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeNotApproved();
         }
-        (address infoAddress, bool isValid) = AddressCalculator.computeAddress(
-            identifierHash,
-            CAMPAIGNINFO_BYTECODEHASH,
-            CAMPAIGN_INFO_FACTORY
-        );
-        if (!isValid && infoAddress == address(0)) {
+
+        if (infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
         bytes memory argsBytecode = abi.encodePacked(
-            abi.encode(s_platformBytecode[platformBytes][bytecodeIndex]),
+            concatenateBytecode(
+                s_platformBytecode[platformBytes][bytecodeIndex]
+            ),
             abi.encode(platformBytes, infoAddress)
         );
-        bytes32 salt = keccak256(
-            abi.encodePacked(identifierHash, platformBytes)
-        );
+        bytes32 salt = keccak256(abi.encodePacked(infoAddress, platformBytes));
         address treasury;
         assembly {
             treasury := create2(
@@ -243,8 +241,43 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         emit TreasuryFactoryTreasuryDeployed(
             platformBytes,
             bytecodeIndex,
-            identifierHash,
+            infoAddress,
             treasury
         );
+    }
+
+    function concatenateBytecode(
+        bytes[] memory chunks
+    ) private pure returns (bytes memory) {
+        uint totalLength = 0;
+        for (uint i = 0; i < chunks.length; i++) {
+            totalLength += chunks[i].length;
+        }
+        bytes memory result = new bytes(totalLength);
+        uint destPtr;
+        assembly {
+            destPtr := add(result, 0x20)
+        }
+        for (uint i = 0; i < chunks.length; i++) {
+            bytes memory chunk = chunks[i];
+            uint chunkLength = chunk.length;
+            if (chunkLength == 0) continue;
+
+            uint chunkPtr;
+            assembly {
+                chunkPtr := add(chunk, 0x20)
+            }
+            assembly {
+                for {
+                    let endPtr := add(chunkPtr, chunkLength)
+                } lt(chunkPtr, endPtr) {
+                    chunkPtr := add(chunkPtr, 0x20)
+                    destPtr := add(destPtr, 0x20)
+                } {
+                    mstore(destPtr, mload(chunkPtr))
+                }
+            }
+        }
+        return result;
     }
 }
