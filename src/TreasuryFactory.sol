@@ -214,14 +214,15 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeNotApproved();
         }
-
         if (infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
+        bytes memory bytecode = concatenateBytes(
+            s_platformBytecode[platformBytes][bytecodeIndex]
+        );
+        console.logBytes(bytecode);
         bytes memory argsBytecode = abi.encodePacked(
-            concatenateBytecode(
-                s_platformBytecode[platformBytes][bytecodeIndex]
-            ),
+            bytecode,
             abi.encode(platformBytes, infoAddress)
         );
         bytes32 salt = keccak256(abi.encodePacked(infoAddress, platformBytes));
@@ -246,35 +247,30 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         );
     }
 
-    function concatenateBytecode(
+    function concatenateBytes(
         bytes[] memory chunks
     ) private pure returns (bytes memory) {
         uint totalLength = 0;
         for (uint i = 0; i < chunks.length; i++) {
             totalLength += chunks[i].length;
         }
+
         bytes memory result = new bytes(totalLength);
-        uint destPtr;
-        assembly {
-            destPtr := add(result, 0x20)
-        }
+
+        uint destOffset = 0;
         for (uint i = 0; i < chunks.length; i++) {
             bytes memory chunk = chunks[i];
             uint chunkLength = chunk.length;
-            if (chunkLength == 0) continue;
 
-            uint chunkPtr;
-            assembly {
-                chunkPtr := add(chunk, 0x20)
-            }
             assembly {
                 for {
-                    let endPtr := add(chunkPtr, chunkLength)
-                } lt(chunkPtr, endPtr) {
-                    chunkPtr := add(chunkPtr, 0x20)
-                    destPtr := add(destPtr, 0x20)
+                    let j := 0
+                } lt(j, chunkLength) {
+                    j := add(j, 1)
                 } {
-                    mstore(destPtr, mload(chunkPtr))
+                    let byteData := byte(0, mload(add(add(chunk, 0x20), j)))
+                    mstore8(add(add(result, 0x20), destOffset), byteData)
+                    destOffset := add(destOffset, 1)
                 }
             }
         }
