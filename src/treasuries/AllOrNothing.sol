@@ -402,7 +402,7 @@ contract AllOrNothing is
         override
         returns (bool)
     {
-        return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
+        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
     // The following functions are overrides required by Solidity.
