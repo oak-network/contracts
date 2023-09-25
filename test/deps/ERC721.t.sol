@@ -26,9 +26,9 @@ contract ERC721Test is Test {
     address deployer = makeAddr("deployer");
     address zeroAddress = address(0);
 
-    uint nonce = 0;
+    uint256 nonce = 0;
 
-    function PRNG() internal returns (uint) {
+    function PRNG() internal returns (uint256) {
         nonce += 1;
         return
             uint(
@@ -99,5 +99,36 @@ contract ERC721Test is Test {
         erc721.approve(spender, tokenId);
         assertEq(erc721.getApproved(tokenId), spender);
         vm.stopPrank();
+    }
+
+    function testTransferFrom() public {
+        address owner = makeAddr("owner");
+        address approved = makeAddr("approved");
+        address operator = makeAddr("operator");
+        uint256 tokenId1 = PRNG();
+        uint256 tokenId2 = PRNG();
+        vm.startPrank(deployer);
+        erc721.safe_mint(owner, tokenId1);
+        erc721.safe_mint(owner, tokenId2);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        erc721.approve(approved, tokenId1);
+        erc721.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        address receiver = makeAddr("receiver");
+        vm.startPrank(approved);
+        erc721.transferFrom(owner, receiver, tokenId1);
+        assertEq(erc721.ownerOf(tokenId1), receiver);
+        vm.stopPrank();
+
+        vm.startPrank(operator);
+        erc721.transferFrom(owner, receiver, tokenId2);
+        assertEq(erc721.ownerOf(tokenId2), receiver);
+        vm.stopPrank();
+
+        vm.expectRevert("ERC721: caller is not token owner or approved");
+        erc721.transferFrom(receiver, address(0x1), tokenId1);
     }
 }
