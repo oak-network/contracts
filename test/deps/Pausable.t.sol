@@ -46,4 +46,17 @@ contract PausableTest is Test {
         emit Paused(alice);
         pausable.pause();
     }
+
+    event Unpaused(address account);
+
+    function test_unpause() external {
+        address alice = address(1234);
+        vm.prank(alice);
+        //The contract must be paused first to test unpause
+        pausable.pause();
+        vm.expectEmit(true, false, false, false);
+        emit Unpaused(alice);
+        pausable.unpause();
+        assertEq(pausable.paused(), false);
+    }
 }
