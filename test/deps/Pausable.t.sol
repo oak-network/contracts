@@ -36,4 +36,14 @@ contract PausableTest is Test {
     function setUp() external {
         pausable = new MockPausable();
     }
+
+    event Paused(address account);
+
+    function test_pause() external {
+        address alice = address(1234);
+        vm.prank(alice);
+        vm.expectEmit(true, false, false, false);
+        emit Paused(alice);
+        pausable.pause();
+    }
 }
