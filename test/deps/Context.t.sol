@@ -9,19 +9,19 @@ contract MockContext is Context {
         return _msgSender();
     }
 
-    function msgData() external view virtual returns (bytes calldata) {
+    function msgData() external view returns (bytes calldata) {
         return _msgData();
     }
 }
 
 contract MockContextCaller {
-    function callSender(MockContext context) public view {
-        context.msgSender();
+    function callSender(MockContext context) public view returns (address) {
+        return context.msgSender();
     }
 
-    function callData(MockContext context) public view {
-        context.msgData();
-    }
+    // function callData(MockContext context) public view returns (bytes calldata){
+    //     return context.msgData();
+    // }
 }
 
 contract ContextTest is Test {
@@ -39,6 +39,7 @@ contract ContextTest is Test {
         vm.prank(addressOfEOA);
         assertEq(context.msgSender(), addressOfEOA);
 
-        // returns the transaction sender when from another contract
+        // returns the transaction sender when from test contract
+        assertEq(context.msgSender(), address(this));
     }
 }
