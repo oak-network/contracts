@@ -13,12 +13,33 @@ contract ERC721Mock is ERC721 {
     string private constant _SYMBOL = "TNFT";
 
     constructor() ERC721(_NAME, _SYMBOL) {}
+
+    function safe_mint(address to, uint256 tokenId) external {
+        _safeMint(to, tokenId);
+    }
 }
 
 contract ERC721Test is Test {
     string private constant _NAME = "TestNFT";
     string private constant _SYMBOL = "TNFT";
     ERC721Mock erc721;
+    address deployer = makeAddr("deployer");
+
+    uint nonce = 0;
+
+    function PRNG() internal returns (uint) {
+        nonce += 1;
+        return
+            uint(
+                keccak256(
+                    abi.encodePacked(
+                        nonce,
+                        msg.sender,
+                        blockhash(block.number - 1)
+                    )
+                )
+            );
+    }
 
     function setUp() external {
         erc721 = new ERC721Mock();
@@ -32,5 +53,16 @@ contract ERC721Test is Test {
     function testSupportsInterfaceSuccess() public {
         assertTrue(erc721.supportsInterface(type(IERC721).interfaceId));
         assertTrue(erc721.supportsInterface(type(IERC721Metadata).interfaceId));
+    }
+
+    function testBalanceOf() public {
+        address owner = makeAddr("owner");
+        uint256 tokenId1 = PRNG();
+        uint256 tokenId2 = PRNG();
+        vm.startPrank(deployer);
+        erc721.safe_mint(owner, tokenId1);
+        erc721.safe_mint(owner, tokenId2);
+        assertEq(erc721.balanceOf(owner), 2);
+        vm.stopPrank();
     }
 }
