@@ -42,4 +42,20 @@ contract ERC20Test is Test {
         assertEq(erc20Contract.totalSupply(), _INITIAL_SUPPLY);
         assertEq(erc20Contract.balanceOf(deployer), _INITIAL_SUPPLY);
     }
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    function testTransfer() external {
+        address owner = deployer;
+        address to = makeAddr("to");
+        uint256 amount = erc20Contract.balanceOf(owner);
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(owner, to, amount);
+        bool returnValue = erc20Contract.transfer(to, amount);
+        assertTrue(returnValue);
+        assertEq(erc20Contract.balanceOf(owner), 0);
+        assertEq(erc20Contract.balanceOf(to), amount);
+        vm.stopPrank();
+    }
 }
