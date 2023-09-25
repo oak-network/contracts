@@ -17,6 +17,14 @@ contract ERC721Mock is ERC721 {
     function safe_mint(address to, uint256 tokenId) external {
         _safeMint(to, tokenId);
     }
+
+    function safeMintWithData(
+        address to,
+        uint256 tokenId,
+        bytes memory data
+    ) external {
+        _safeMint(to, tokenId, data);
+    }
 }
 
 contract ERC721Test is Test {
@@ -77,6 +85,18 @@ contract ERC721Test is Test {
         address owner = makeAddr("owner");
         erc721.safe_mint(owner, tokenId2);
         assertEq(erc721.ownerOf(tokenId2), owner);
+    }
+
+    function testSafeMint() public {
+        address owner = makeAddr("Owner");
+        uint256 tokenId = PRNG();
+        vm.prank(deployer);
+        erc721.safeMintWithData(
+            owner,
+            tokenId,
+            abi.encodePacked(owner, "ERC721Test")
+        );
+        assertEq(erc721.ownerOf(tokenId), owner);
     }
 
     event Approval(
