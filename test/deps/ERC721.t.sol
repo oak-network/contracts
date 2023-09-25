@@ -11,3 +11,18 @@ contract ERC721Mock is ERC721 {
 
     constructor() ERC721(_NAME, _SYMBOL) {}
 }
+
+contract ERC721Test is Test {
+    string private constant _NAME = "TestNFT";
+    string private constant _SYMBOL = "TNFT";
+    ERC721Mock erc721;
+
+    function setUp() external {
+        erc721 = new ERC721Mock();
+    }
+
+    function testInitialSetUP() external {
+        assertEq(erc721.name(), _NAME);
+        assertEq(erc721.symbol(), _SYMBOL);
+    }
+}
