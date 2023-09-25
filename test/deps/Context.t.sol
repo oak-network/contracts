@@ -20,4 +20,11 @@ contract ContextTest is Test {
     function setUp() public {
         context = new MockContext();
     }
+
+    function test_megSender() external {
+        // returns the transaction sender when called from an EOA
+        address addressOfEOA = address(0x12);
+        vm.prank(addressOfEOA);
+        assertEq(context.msgSender(), addressOfEOA);
+    }
 }
