@@ -26,6 +26,7 @@ contract ERC20Test is Test {
     string private constant _SYMBOL = "TT";
     uint256 private constant _INITIAL_SUPPLY = type(uint8).max;
     address deployer = address(0x12);
+    address zeroAddress = address(0x0);
 
     ERC20Mock erc20Contract;
 
@@ -99,6 +100,20 @@ contract ERC20Test is Test {
         assertEq(erc20Contract.balanceOf(owner), 0);
         assertEq(erc20Contract.balanceOf(to), amount);
         assertEq(erc20Contract.allowance(owner, spender), 0);
+        vm.stopPrank();
+    }
+
+    function testBurn() public {
+        address owner = deployer;
+        uint256 balance = erc20Contract.balanceOf(owner);
+        uint256 totalSupply = erc20Contract.totalSupply();
+        uint256 amount = 0;
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(owner, zeroAddress, amount);
+        erc20Contract.burn(owner, amount);
+        assertEq(erc20Contract.balanceOf(owner), balance - amount);
+        assertEq(erc20Contract.totalSupply(), totalSupply - amount);
         vm.stopPrank();
     }
 }
