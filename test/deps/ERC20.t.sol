@@ -34,4 +34,12 @@ contract ERC20Test is Test {
         erc20Contract = new ERC20Mock();
         erc20Contract.mint(deployer, _INITIAL_SUPPLY);
     }
+
+    function testInitialSetUp() external {
+        assertEq(erc20Contract.name(), _NAME);
+        assertEq(erc20Contract.symbol(), _SYMBOL);
+        assertEq(erc20Contract.decimals(), 18);
+        assertEq(erc20Contract.totalSupply(), _INITIAL_SUPPLY);
+        assertEq(erc20Contract.balanceOf(deployer), _INITIAL_SUPPLY);
+    }
 }
