@@ -78,4 +78,26 @@ contract ERC721Test is Test {
         erc721.safe_mint(owner, tokenId2);
         assertEq(erc721.ownerOf(tokenId2), owner);
     }
+
+    event Approval(
+        address indexed owner,
+        address indexed approved,
+        uint256 indexed tokenId
+    );
+
+    function testApprove() public {
+        address owner = makeAddr("owner");
+        address spender = makeAddr("spender");
+        uint256 tokenId = PRNG();
+        vm.startPrank(deployer);
+        erc721.safe_mint(owner, tokenId);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, false);
+        emit Approval(owner, spender, tokenId);
+        erc721.approve(spender, tokenId);
+        assertEq(erc721.getApproved(tokenId), spender);
+        vm.stopPrank();
+    }
 }
