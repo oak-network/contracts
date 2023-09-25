@@ -24,6 +24,7 @@ contract ERC721Test is Test {
     string private constant _SYMBOL = "TNFT";
     ERC721Mock erc721;
     address deployer = makeAddr("deployer");
+    address zeroAddress = address(0);
 
     uint nonce = 0;
 
@@ -64,5 +65,17 @@ contract ERC721Test is Test {
         erc721.safe_mint(owner, tokenId2);
         assertEq(erc721.balanceOf(owner), 2);
         vm.stopPrank();
+    }
+
+    function testOwnerOf() public {
+        uint256 tokenId1 = PRNG();
+        vm.expectRevert("ERC721: invalid token ID");
+        erc721.ownerOf(tokenId1);
+
+        vm.prank(deployer);
+        uint256 tokenId2 = PRNG();
+        address owner = makeAddr("owner");
+        erc721.safe_mint(owner, tokenId2);
+        assertEq(erc721.ownerOf(tokenId2), owner);
     }
 }
