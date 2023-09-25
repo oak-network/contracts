@@ -13,3 +13,11 @@ contract MockContext is Context {
         return _msgData();
     }
 }
+
+contract ContextTest is Test {
+    MockContext context;
+
+    function setUp() public {
+        context = new MockContext();
+    }
+}
