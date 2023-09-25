@@ -14,11 +14,23 @@ contract MockContext is Context {
     }
 }
 
+contract MockContextCaller {
+    function callSender(MockContext context) public view {
+        context.msgSender();
+    }
+
+    function callData(MockContext context) public view {
+        context.msgData();
+    }
+}
+
 contract ContextTest is Test {
     MockContext context;
+    MockContextCaller contextCaller;
 
     function setUp() public {
         context = new MockContext();
+        contextCaller = new MockContextCaller();
     }
 
     function test_megSender() external {
@@ -26,5 +38,7 @@ contract ContextTest is Test {
         address addressOfEOA = address(0x12);
         vm.prank(addressOfEOA);
         assertEq(context.msgSender(), addressOfEOA);
+
+        // returns the transaction sender when from another contract
     }
 }
