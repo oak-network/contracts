@@ -58,4 +58,23 @@ contract ERC20Test is Test {
         assertEq(erc20Contract.balanceOf(to), amount);
         vm.stopPrank();
     }
+
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
+
+    function testApprove() public {
+        address owner = deployer;
+        address spender = makeAddr("spender");
+        uint256 amount = erc20Contract.balanceOf(owner);
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, false, true);
+        emit Approval(owner, spender, amount);
+        bool returnValue = erc20Contract.approve(spender, amount);
+        assertTrue(returnValue);
+        assertEq(erc20Contract.allowance(owner, spender), amount);
+        vm.stopPrank();
+    }
 }
