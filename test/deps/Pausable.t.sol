@@ -45,6 +45,7 @@ contract PausableTest is Test {
         vm.expectEmit(true, false, false, false);
         emit Paused(alice);
         pausable.pause();
+        assertEq(pausable.paused(), true);
     }
 
     event Unpaused(address account);
