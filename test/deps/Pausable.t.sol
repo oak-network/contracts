@@ -29,3 +29,11 @@ contract MockPausable is Pausable {
         _unpause();
     }
 }
+
+contract PausableTest is Test {
+    MockPausable pausable;
+
+    function setUp() external {
+        pausable = new MockPausable();
+    }
+}
