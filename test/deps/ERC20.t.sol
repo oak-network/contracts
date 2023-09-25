@@ -116,4 +116,17 @@ contract ERC20Test is Test {
         assertEq(erc20Contract.totalSupply(), totalSupply - amount);
         vm.stopPrank();
     }
+
+    function testMint() public {
+        address minter = deployer;
+        address owner = makeAddr("owner");
+        uint256 amount = type(uint8).max;
+        vm.startPrank(minter);
+        vm.expectEmit(true, true, false, true);
+        emit Transfer(zeroAddress, owner, amount);
+        erc20Contract.mint(owner, amount);
+        assertEq(erc20Contract.balanceOf(owner), amount);
+        assertEq(erc20Contract.totalSupply(), (amount + _INITIAL_SUPPLY));
+        vm.stopPrank();
+    }
 }
