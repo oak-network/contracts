@@ -9,8 +9,10 @@ contract MockContext is Context {
         return _msgSender();
     }
 
-    function msgData() external view returns (bytes calldata) {
-        return _msgData();
+    event Data(bytes data, uint256 integerValue, string stringValue);
+
+    function msgData(uint256 integerValue, string memory stringValue) public {
+        emit Data(_msgData(), integerValue, stringValue);
     }
 }
 
@@ -41,5 +43,18 @@ contract ContextTest is Test {
 
         // returns the transaction sender when from test contract
         assertEq(context.msgSender(), address(this));
+    }
+
+    event Data(bytes data, uint256 integerValue, string stringValue);
+
+    function test_msgData() external {
+        uint256 integerValue = 1234;
+        string memory stringValue = "Context Test";
+        bytes memory callData;
+        callData = abi.encode(integerValue, stringValue);
+        // vm.expectEmit(true, true, true, false, address(this));
+        vm.expectEmit(false, true, true, false);
+        emit Data(callData, integerValue, stringValue);
+        context.msgData(integerValue, stringValue);
     }
 }
