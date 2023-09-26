@@ -12,3 +12,23 @@ contract ERC721BurnableMock is ERC721Burnable {
 
     constructor() ERC721(_NAME, _SYMBOL) {}
 }
+
+contract ERC721Test is Test {
+    address zeroAddress = address(0);
+    uint256 nonce = 0;
+    address deployer = makeAddr("deployer");
+
+    function PRNG() internal returns (uint256) {
+        nonce += 1;
+        return
+            uint(
+                keccak256(
+                    abi.encodePacked(
+                        nonce,
+                        msg.sender,
+                        blockhash(block.number - 1)
+                    )
+                )
+            );
+    }
+}
