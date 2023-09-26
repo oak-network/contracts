@@ -11,12 +11,17 @@ contract ERC721BurnableMock is ERC721Burnable {
     string private constant _SYMBOL = "TNFT";
 
     constructor() ERC721(_NAME, _SYMBOL) {}
+
+    function safe_mint(address to, uint256 tokenId) external {
+        _safeMint(to, tokenId);
+    }
 }
 
-contract ERC721Test is Test {
+contract ERC721BurnableTest is Test {
     address zeroAddress = address(0);
     uint256 nonce = 0;
     address deployer = makeAddr("deployer");
+    ERC721BurnableMock erc721Burnable;
 
     function PRNG() internal returns (uint256) {
         nonce += 1;
@@ -30,5 +35,9 @@ contract ERC721Test is Test {
                     )
                 )
             );
+    }
+
+    function setUp() external {
+        erc721Burnable = new ERC721BurnableMock();
     }
 }
