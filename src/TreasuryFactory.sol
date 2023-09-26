@@ -217,12 +217,8 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
-        bytes memory bytecode = _concatenateBytes(
-            s_platformBytecode[platformBytes][bytecodeIndex]
-        );
-        //console.logBytes(bytecode);
         bytes memory argsBytecode = abi.encodePacked(
-            bytecode,
+            _concatenateBytes(s_platformBytecode[platformBytes][bytecodeIndex]),
             abi.encode(platformBytes, infoAddress)
         );
         bytes32 salt = keccak256(abi.encodePacked(infoAddress, platformBytes));
