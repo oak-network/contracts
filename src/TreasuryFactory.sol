@@ -217,7 +217,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
-        bytes memory bytecode = concatenateBytes(
+        bytes memory bytecode = _concatenateBytes(
             s_platformBytecode[platformBytes][bytecodeIndex]
         );
         console.logBytes(bytecode);
@@ -247,7 +247,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         );
     }
 
-    function concatenateBytes(
+    function _concatenateBytes(
         bytes[] memory chunks
     ) private pure returns (bytes memory) {
         uint totalLength = 0;
