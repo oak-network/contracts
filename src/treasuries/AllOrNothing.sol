@@ -105,6 +105,10 @@ contract AllOrNothing is
      * @dev Emitted when fees are not disbursed.
      */
     error AllOrNothingFeeNotDisbursed();
+    /**
+     * @dev Emitted when a `Reward` already exists for given input. 
+     */
+    error AllOrNothingRewardExists();
 
     /**
      * @dev Emitted when claiming an unclaimable refund.
@@ -155,19 +159,20 @@ contract AllOrNothing is
         bytes32 rewardName,
         Reward calldata reward
     ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
-        Reward storage tempReward = s_reward[rewardName];
         if (
-            tempReward.rewardValue != 0 &&
-            tempReward.itemId.length > 0 &&
-            tempReward.itemId.length == tempReward.itemValue.length &&
-            tempReward.itemId.length == tempReward.itemQuantity.length
+            reward.rewardValue == 0 &&
+            reward.itemId.length == 0 &&
+            reward.itemId.length == reward.itemValue.length &&
+            reward.itemId.length == reward.itemQuantity.length
         ) {
-            s_reward[rewardName] = reward;
-            s_rewardCounter.increment();
-            emit RewardAdded(rewardName, reward);
-        } else {
             revert AllOrNothingInvalidInput();
         }
+        if (s_reward[rewardName].rewardValue != 0) {
+            revert AllOrNothingRewardExists();
+        }
+        s_reward[rewardName] = reward;
+        s_rewardCounter.increment();
+        emit RewardAdded(rewardName, reward);
     }
 
     /**
@@ -397,7 +402,7 @@ contract AllOrNothing is
         override
         returns (bool)
     {
-        return INFO.getTotalRaisedAmount() > INFO.getGoalAmount();
+        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
     // The following functions are overrides required by Solidity.

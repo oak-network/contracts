@@ -13,7 +13,7 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 200,
       },
     },
   },
@@ -23,11 +23,24 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    celo_mainnet: {
+      url: `https://forno.celo.org`,
+      accounts:
+        process.env.MAINNET_PRIVATE_KEY !== undefined
+          ? [process.env.MAINNET_PRIVATE_KEY]
+          : [],
+    },
     polygon_mumbai: {
       url: `https://polygon-mumbai.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    hardhat: {
+      // blockGasLimit: 100000000429720
+    },
+  },
+  paths: {
+    sources: "./src",
   },
 };
 

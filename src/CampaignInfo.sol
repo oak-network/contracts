@@ -155,6 +155,7 @@ contract CampaignInfo is
             for (uint256 i = 0; i < len; ++i) {
                 s_platformFeePercent[selectedPlatformBytes[i]] = GLOBAL_PARAMS
                     .getPlatformFeePercent(selectedPlatformBytes[i]);
+                s_selectedPlatformBytes[selectedPlatformBytes[i]] = true;
             }
             len = platformDataKey.length;
             bool isValid;
@@ -264,7 +265,12 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
-    function paused() public view override(ICampaignInfo, PausableWithMsg) returns (bool) {
+    function paused()
+        public
+        view
+        override(ICampaignInfo, PausableWithMsg)
+        returns (bool)
+    {
         return super.paused();
     }
 
