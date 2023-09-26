@@ -5,10 +5,13 @@ import "./CampaignInfo.sol";
 import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
+import "hardhat/console.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
-    mapping(bytes32 => mapping(uint256 => bytes)) private s_platformBytecode;
-    mapping(bytes => bool) private s_approvedBytecode;
+    mapping(bytes32 => mapping(uint256 => bytes[])) private s_platformBytecode;
+    mapping(bytes32 => mapping(uint256 => bool))
+        private s_platformBytecodeStatus;
+    mapping(bytes32 => mapping(uint256 => bool)) private s_approvedBytecode;
 
     address private immutable CAMPAIGN_INFO_FACTORY;
     bytes32 private immutable CAMPAIGNINFO_BYTECODEHASH;
@@ -19,9 +22,10 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
      * @param bytecodeIndex The index of the bytecode template.
      * @param bytecode The bytecode template added.
      */
-    event TreasuryFactoryBytecodeAdded(
+    event TreasuryFactoryBytecodeChunkAdded(
         bytes32 indexed platformBytes,
         uint256 indexed bytecodeIndex,
+        uint256 indexed bytecodeChunk,
         bytes bytecode
     );
 
@@ -59,20 +63,23 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
      * @dev Event emitted when a new treasury is deployed.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the deployed bytecode.
+     * @param infoAddress The address of the associated campaign.
      * @param treasuryAddress The address of the deployed treasury.
      */
     event TreasuryFactoryTreasuryDeployed(
         bytes32 indexed platformBytes,
         uint256 indexed bytecodeIndex,
-        bytes32 indexed identifierHash,
+        address indexed infoAddress,
         address treasuryAddress
     );
 
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
-    error TreasuryFactoryBytecodeAlreadyAdded();
+    error TreasuryFactoryIncorrectChunkIndex();
+    error TreasuryFactoryBytecodeExists();
     error TreasuryFactoryBytecodeIsNotAdded();
     error TreasuryFactoryBytecodeAlreadyApproved();
+    error TreasuryFactoryBytecodeIncomplete();
     error TreasuryFactoryBytecodeNotApproved();
     error TreasuryFactoryTreasuryCreationFailed();
     error TreasuryFactoryInvalidAddress();
@@ -108,7 +115,9 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     {
         (treasuryAddress, isDeployed) = AddressCalculator.computeAddress(
             keccak256(abi.encodePacked(identifierHash, platformBytes)),
-            keccak256(s_platformBytecode[platformBytes][bytecodeIndex]),
+            keccak256(
+                abi.encode(s_platformBytecode[platformBytes][bytecodeIndex])
+            ),
             address(this)
         );
     }
@@ -116,19 +125,31 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function addBytecode(
+    function addBytecodeChunk(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes memory bytecode
+        uint256 chunkIndex,
+        bool isLastChunk,
+        bytes memory bytecodeChunk
     ) external override onlyPlatformAdmin(platformBytes) {
-        if (s_platformBytecode[platformBytes][bytecodeIndex].length > 0) {
-            revert TreasuryFactoryBytecodeAlreadyAdded();
+        if (
+            s_platformBytecode[platformBytes][bytecodeIndex].length !=
+            chunkIndex
+        ) {
+            revert TreasuryFactoryIncorrectChunkIndex();
         }
-        s_platformBytecode[platformBytes][bytecodeIndex] = bytecode;
-        emit TreasuryFactoryBytecodeAdded(
+        if (s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
+            revert TreasuryFactoryBytecodeExists();
+        }
+        if (isLastChunk) {
+            s_platformBytecodeStatus[platformBytes][bytecodeIndex] = true;
+        }
+        s_platformBytecode[platformBytes][bytecodeIndex].push(bytecodeChunk);
+        emit TreasuryFactoryBytecodeChunkAdded(
             platformBytes,
             bytecodeIndex,
-            bytecode
+            chunkIndex,
+            bytecodeChunk
         );
     }
 
@@ -155,16 +176,13 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes memory bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (bytecode.length == 0) {
-            revert TreasuryFactoryInvalidKey();
+        if (!s_platformBytecodeStatus[platformBytes][bytecodeIndex]) {
+            revert TreasuryFactoryBytecodeIncomplete();
         }
-        if (s_approvedBytecode[bytecode]) {
+        if (s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeAlreadyApproved();
         }
-        s_approvedBytecode[bytecode] = true;
+        s_approvedBytecode[platformBytes][bytecodeIndex] = true;
         emit TreasuryFactoryBytecodeEnlisted(platformBytes, bytecodeIndex);
     }
 
@@ -177,13 +195,10 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformBytes,
         uint256 bytecodeIndex
     ) external onlyProtocolAdmin {
-        bytes storage bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (bytecode.length == 0) {
+        if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryInvalidKey();
         }
-        s_approvedBytecode[bytecode] = false;
+        s_approvedBytecode[platformBytes][bytecodeIndex] = false;
         delete s_platformBytecode[platformBytes][bytecodeIndex];
         emit TreasuryFactoryBytecodeDelisted(platformBytes, bytecodeIndex);
     }
@@ -194,29 +209,23 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes32 identifierHash
+        address infoAddress
     ) external override onlyPlatformAdmin(platformBytes) {
-        bytes storage bytecode = s_platformBytecode[platformBytes][
-            bytecodeIndex
-        ];
-        if (!s_approvedBytecode[bytecode]) {
+        if (!s_approvedBytecode[platformBytes][bytecodeIndex]) {
             revert TreasuryFactoryBytecodeNotApproved();
         }
-        (address infoAddress, bool isValid) = AddressCalculator.computeAddress(
-            identifierHash,
-            CAMPAIGNINFO_BYTECODEHASH,
-            CAMPAIGN_INFO_FACTORY
-        );
-        if (!isValid && infoAddress == address(0)) {
+        if (infoAddress == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
+        bytes memory bytecode = _concatenateBytes(
+            s_platformBytecode[platformBytes][bytecodeIndex]
+        );
+        console.logBytes(bytecode);
         bytes memory argsBytecode = abi.encodePacked(
             bytecode,
             abi.encode(platformBytes, infoAddress)
         );
-        bytes32 salt = keccak256(
-            abi.encodePacked(identifierHash, platformBytes)
-        );
+        bytes32 salt = keccak256(abi.encodePacked(infoAddress, platformBytes));
         address treasury;
         assembly {
             treasury := create2(
@@ -233,8 +242,38 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         emit TreasuryFactoryTreasuryDeployed(
             platformBytes,
             bytecodeIndex,
-            identifierHash,
+            infoAddress,
             treasury
         );
+    }
+
+    function _concatenateBytes(
+        bytes[] memory chunks
+    ) private pure returns (bytes memory) {
+        uint totalLength = 0;
+        for (uint i = 0; i < chunks.length; i++) {
+            totalLength += chunks[i].length;
+        }
+
+        bytes memory result = new bytes(totalLength);
+
+        uint destOffset = 0;
+        for (uint i = 0; i < chunks.length; i++) {
+            bytes memory chunk = chunks[i];
+            uint chunkLength = chunk.length;
+
+            assembly {
+                for {
+                    let j := 0
+                } lt(j, chunkLength) {
+                    j := add(j, 1)
+                } {
+                    let byteData := byte(0, mload(add(add(chunk, 0x20), j)))
+                    mstore8(add(add(result, 0x20), destOffset), byteData)
+                    destOffset := add(destOffset, 1)
+                }
+            }
+        }
+        return result;
     }
 }

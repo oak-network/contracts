@@ -21,15 +21,19 @@ interface ITreasuryFactory {
     ) external view returns (address treasuryAddress, bool isDeployed);
 
     /**
-     * @dev Function to add a bytecode template for a specific platform and index.
+     * @dev Function to add a fragment of the full bytecode of treasury contract for a given platform.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the bytecode template.
-     * @param bytecode The bytecode template to add.
+     * @param chunkIndex The index of the bytecode chunk.
+     * @param isLastChunk The boolean to determine if this is the last chunk.
+     * @param bytecodeChunk The bytecode fragment to add.
      */
-    function addBytecode(
+    function addBytecodeChunk(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes calldata bytecode
+        uint256 chunkIndex,
+        bool isLastChunk,
+        bytes memory bytecodeChunk
     ) external;
 
     /**
@@ -46,11 +50,11 @@ interface ITreasuryFactory {
      * @dev Function to deploy a new treasury contract with a specified bytecode template.
      * @param platformBytes The platform identifier.
      * @param bytecodeIndex The index of the bytecode template to use for deployment.
-     * @param identifierHash The unique hash identifier of the associated campaign.
+     * @param infoAddress The address of the associated campaign.
      */
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex,
-        bytes32 identifierHash
+        address infoAddress
     ) external;
 }
