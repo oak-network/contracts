@@ -40,4 +40,32 @@ contract ERC721BurnableTest is Test {
     function setUp() external {
         erc721Burnable = new ERC721BurnableMock();
     }
+
+    event Transfer(
+        address indexed from,
+        address indexed to,
+        uint256 indexed tokenId
+    );
+
+    function testBurn() public {
+        address owner = makeAddr("owner");
+        uint256 tokenId1 = PRNG();
+        vm.startPrank(deployer);
+        erc721Burnable.safe_mint(owner, tokenId1);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(owner, zeroAddress, tokenId1);
+        erc721Burnable.burn(tokenId1);
+
+        vm.expectRevert(bytes("ERC721: invalid token ID"));
+        erc721Burnable.burn(tokenId1);
+        vm.stopPrank();
+
+        uint256 tokenId2 = PRNG();
+        vm.expectRevert(bytes("ERC721: invalid token ID"));
+        erc721Burnable.ownerOf(tokenId2);
+        assertEq(erc721Burnable.balanceOf(owner), 0);
+    }
 }
