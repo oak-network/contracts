@@ -220,7 +220,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes memory bytecode = _concatenateBytes(
             s_platformBytecode[platformBytes][bytecodeIndex]
         );
-        console.logBytes(bytecode);
+        //console.logBytes(bytecode);
         bytes memory argsBytecode = abi.encodePacked(
             bytecode,
             abi.encode(platformBytes, infoAddress)
