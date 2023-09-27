@@ -61,8 +61,8 @@ abstract contract TimestampChecker {
      */
     function _checkIfCurrentTimeIsGreater(uint256 inputTime) internal view virtual {
         uint256 currentTime = block.timestamp;
-        if (currentTime > inputTime) {
-            revert CurrentTimeIsGreater(inputTime, currentTime);
+        if (currentTime <= inputTime) {
+            revert CurrentTimeIsLess(inputTime, currentTime);
         }
     }
 
@@ -72,8 +72,8 @@ abstract contract TimestampChecker {
      */
     function _checkIfCurrentTimeIsLess(uint256 inputTime) internal view virtual {
         uint256 currentTime = block.timestamp;
-        if (currentTime < inputTime) {
-            revert CurrentTimeIsLess(inputTime, currentTime);
+        if (currentTime >= inputTime) {
+            revert CurrentTimeIsGreater(inputTime, currentTime);
         }
     }
 
