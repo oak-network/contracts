@@ -16,23 +16,11 @@ contract MockContext is Context {
     }
 }
 
-contract MockContextCaller {
-    function callSender(MockContext context) public view returns (address) {
-        return context.msgSender();
-    }
-
-    // function callData(MockContext context) public view returns (bytes calldata){
-    //     return context.msgData();
-    // }
-}
-
 contract ContextTest is Test {
     MockContext context;
-    MockContextCaller contextCaller;
 
     function setUp() public {
         context = new MockContext();
-        contextCaller = new MockContextCaller();
     }
 
     function test_megSender() external {
