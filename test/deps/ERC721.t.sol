@@ -148,7 +148,7 @@ contract ERC721Test is Test {
         assertEq(erc721.ownerOf(tokenId2), receiver);
         vm.stopPrank();
 
-        vm.expectRevert("ERC721: caller is not token owner or approved");
+        vm.expectRevert("ERC721: caller is not token owner nor approved");
         erc721.transferFrom(receiver, address(0x1), tokenId1);
     }
 }
