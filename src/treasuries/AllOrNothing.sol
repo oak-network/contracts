@@ -143,8 +143,7 @@ contract AllOrNothing is
     }
 
     /**
-     * @notice Retrieves the total amount raised in both fiat and cryptocurrency.
-     * @return The total amount raised.
+     * @inheritdoc ICampaignTreasury
      */
     function getRaisedAmount() external view override returns (uint256) {
         return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
@@ -381,6 +380,15 @@ contract AllOrNothing is
             revert AllOrNothingTransferFailed();
         }
         emit RefundClaimed(tokenId, amount, msg.sender);
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) {
+        if (!s_cryptoFeeDisbursed) {
+            super.disburseFees();
+        }
     }
 
     /**
