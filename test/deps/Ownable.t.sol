@@ -5,7 +5,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract OwnableContract is Ownable {
+contract MockOwnable is Ownable {
     function checkOwner() external view {
         _checkOwner();
     }
@@ -16,10 +16,10 @@ contract OwnableContract is Ownable {
 }
 
 contract OwnableTest is Test {
-    OwnableContract ownable;
+    MockOwnable ownable;
 
     function setUp() public {
-        ownable = new OwnableContract();
+        ownable = new MockOwnable();
     }
 
     function test_Owner() external {
