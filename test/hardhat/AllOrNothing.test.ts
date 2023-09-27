@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { ethers } from 'hardhat';
 import { ContractTransaction, ContractReceipt, utils } from 'ethers';
 import { AllOrNothing, AllOrNothing__factory, CampaignInfo, CampaignInfoFactory, CampaignInfoFactory__factory, CampaignInfo__factory, GlobalParams, GlobalParams__factory, TestUSD, TestUSD__factory, TreasuryFactory, TreasuryFactory__factory } from "../../typechain-types";
-import { convertBigNumber, convertBytesToString, convertStringToBytes, splitByteCodeIntoChunks } from '../../utils/helpers'
+import { convertBigNumber, convertBytesToString, convertStringToBytes, increaseBlockTime, splitByteCodeIntoChunks } from '../../utils/helpers'
 
 describe("Treasury `AllOrNothing` All Functionality", function () {
 
@@ -29,7 +29,7 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         testUsd = await TESTUSD.deploy();
         await testUsd.deployed();
 
-        globalParams = await GLOBALPARAMS.deploy(protocolAdminAddr.address, testUsd.address, 200);
+        globalParams = await GLOBALPARAMS.deploy(protocolAdminAddr.address, testUsd.address, 20);
         await globalParams.deployed();
 
         campaignInfoFactory = await CAMPAIGNINFOFACTORY.deploy(globalParams.address);
@@ -55,7 +55,7 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         const fixture = await loadFixture(deployOnceFixture);
 
         const platformBytes = convertStringToBytes("KickStarter");
-        const platformFeePercent = 100;
+        const platformFeePercent = 10;
 
         const enlistPlatformTransaction: ContractTransaction = await fixture.globalParams.connect(fixture.contractOwner).enlistPlatform(platformBytes, fixture.platform1AdminAddr.address, platformFeePercent);
 
@@ -140,10 +140,10 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
 
         const rewardName = convertStringToBytes("sampleReward");
         const reward = {
-            rewardValue: ethers.BigNumber.from(1000),
+            rewardValue: convertBigNumber(1000, 18),
             isRewardTier: true,
             itemId: [convertStringToBytes("sampleItem")],
-            itemValue: [ethers.BigNumber.from(1000)],
+            itemValue: [convertBigNumber(1000, 18)],
             itemQuantity: [ethers.BigNumber.from(10)]
         }
 
@@ -164,9 +164,63 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         const pledgeOnPreLaunchTransaction: ContractTransaction = await allOrNothing.connect(fixture.backer1Addr).pledgeOnPreLaunch(fixture.backer1Addr.address);
         const pledgeOnPreLaunchReceipt: ContractReceipt = await pledgeOnPreLaunchTransaction.wait();
 
-        return {fixture, pledgeOnPreLaunchTransaction, pledgeOnPreLaunchReceipt}
+        return {fixture, pledgeOnPreLaunchTransaction, pledgeOnPreLaunchReceipt, allOrNothing}
     }
 
+    const pledgeForAReward = async () => {
+        const { fixture, allOrNothing } = await loadFixture(pledgeOnPreLaunch);
+
+        //Increase Allowance to the AllOrNothing Contract
+        const increaseAllowanceTransaction = await fixture.testUsd.connect(fixture.backer1Addr).increaseAllowance(allOrNothing.address, convertBigNumber(1000, 18));
+        await increaseAllowanceTransaction.wait();
+
+        await increaseBlockTime(300);
+
+        const pledgeForARewardTransaction: ContractTransaction = await allOrNothing.connect(fixture.backer1Addr).pledgeForAReward(fixture.backer1Addr.address, [convertStringToBytes("sampleReward")]);
+        const pledgeForARewardReceipt: ContractReceipt = await pledgeForARewardTransaction.wait();
+
+        const event = pledgeForARewardReceipt.events?.find(event => event.event === 'Receipt');
+
+        const tokenId = event?.args!.tokenId;
+
+        return {fixture, pledgeForARewardTransaction, pledgeForARewardReceipt, allOrNothing, tokenId}
+    }
+
+    const pledgeWithoutAReward = async () => {
+        const {fixture, allOrNothing, tokenId} = await loadFixture(pledgeForAReward);
+
+        //Increase Allowance to the AllOrNothing Contract
+        const increaseAllowanceTransaction = await fixture.testUsd.connect(fixture.backer1Addr).increaseAllowance(allOrNothing.address, convertBigNumber(1000, 18));
+        await increaseAllowanceTransaction.wait();
+
+        const pledgeWithoutARewardTransaction: ContractTransaction = await allOrNothing.connect(fixture.backer1Addr).pledgeWithoutAReward(fixture.backer1Addr.address, convertBigNumber(1000, 18));
+        const pledgeWithoutARewardReceipt: ContractReceipt = await pledgeWithoutARewardTransaction.wait();
+
+        return {fixture, pledgeWithoutARewardTransaction, pledgeWithoutARewardReceipt, allOrNothing, tokenId}
+    }
+
+    const claimRefund = async () => {
+        const {fixture, allOrNothing, tokenId} = await loadFixture(pledgeForAReward);
+
+        //Approve NFT Burn to the AllOrNothing Contract
+        const approveTransaction = await allOrNothing.connect(fixture.backer1Addr).approve(allOrNothing.address, tokenId);
+        await approveTransaction.wait();
+
+        const claimRefundTransaction: ContractTransaction = await allOrNothing.connect(fixture.backer1Addr).claimRefund(tokenId);
+        const claimRefundReceipt = await claimRefundTransaction.wait();
+
+        return { fixture, claimRefundTransaction, claimRefundReceipt, allOrNothing, tokenId}
+    }
+
+    const disburseFees = async () => {
+        const {fixture, allOrNothing} = await loadFixture(claimRefund);
+
+        const disburseFeesTransaction: ContractTransaction = await allOrNothing.disburseFees();
+        const disburseFeesReceipt: ContractReceipt = await disburseFeesTransaction.wait();
+
+        return { fixture, disburseFeesTransaction, disburseFeesReceipt }
+    }
+ 
     it("Enlisting Platform in Global Params Contract", async () => {
         const { fixture, enlistPlatformTransaction, enlistPlatformReceipt } = await loadFixture(enlistPlatform);
 
@@ -241,7 +295,7 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
     });
 
     it("Add Reward in AllOrNothing Contract", async () => {
-        const {fixture, addRewardTransaction, addRewardReceipt, reward} = await loadFixture(addReward);
+        const {fixture, addRewardTransaction, addRewardReceipt, reward, allOrNothing} = await loadFixture(addReward);
 
         const event = addRewardReceipt.events?.find(event => event.event === 'RewardAdded');
 
@@ -265,6 +319,52 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         expect(event?.args!.pledgeAmount).to.equal(convertBigNumber(1, 18));
 
     })
+
+    it('Pledge for a Reward in AllOrNothing Contract', async () => {
+        const {fixture, pledgeForARewardTransaction, pledgeForARewardReceipt, allOrNothing} = await loadFixture(pledgeForAReward);
+
+        const event = pledgeForARewardReceipt.events?.find(event => event.event === 'Receipt');
+
+        expect(event?.args!.backer).to.equal(fixture.backer1Addr.address);
+        expect(event?.args!.pledgeAmount).to.equal(convertBigNumber(1000, 18));
+
+    })
+
+    it('Pledge Without a Reward in AllOrNothing Contract', async () => {
+        const {fixture, pledgeWithoutARewardTransaction, pledgeWithoutARewardReceipt, allOrNothing} = await loadFixture(pledgeWithoutAReward);
+
+        const event = pledgeWithoutARewardReceipt.events?.find(event => event.event === 'Receipt');
+
+        expect(event?.args!.backer).to.equal(fixture.backer1Addr.address);
+        expect(event?.args!.pledgeAmount).to.equal(convertBigNumber(1000, 18));
+
+    })
+
+    it('Claim Refund in AllOrNothing Contract', async () => {
+        const {fixture, claimRefundTransaction, claimRefundReceipt, allOrNothing, tokenId} = await loadFixture(claimRefund);
+
+        const event = claimRefundReceipt.events?.find(event => event.event === 'RefundClaimed');
+
+        expect(event?.args!.tokenId).to.equal(tokenId);
+        expect(event?.args!.refundAmount).to.equal(convertBigNumber(1000, 18));
+        expect(event?.args!.claimer).to.equal(fixture.backer1Addr.address);
+
+    })
+
+    /*it('Disburse Fees in AllOrNothing Contract', async () => {
+        const {fixture, disburseFeesTransaction, disburseFeesReceipt} = await loadFixture(disburseFees);
+
+        const event = disburseFeesReceipt.events?.find(event => event.event === 'FeesDisbursed');
+
+        console.log(event?.args!.protocolShare)
+        console.log(event?.args!.platformShare)
+
+        //expect(event?.args!.tokenId).to.equal(tokenId);
+        //expect(event?.args!.refundAmount).to.equal(convertBigNumber(1000, 18));
+        //expect(event?.args!.claimer).to.equal(fixture.backer1Addr.address);
+
+    })*/
+
 
 
 });

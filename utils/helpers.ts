@@ -45,3 +45,7 @@ export const splitByteCodeIntoChunks = (byteCode: string, numberOfChunks: number
 export const convertBigNumber = (value: number, decimal: number) => {
     return ethers.BigNumber.from(value).mul(ethers.BigNumber.from(10).pow(decimal));
 }
+
+export const increaseBlockTime = async (value: number) => {
+    return await ethers.provider.send("evm_increaseTime", [value]);
+}
