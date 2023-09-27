@@ -374,6 +374,7 @@ contract AllOrNothing is
             revert AllOrNothingNotClaimable(tokenId);
         }
         s_tokenToPledgedAmount[tokenId] = 0;
+        s_pledgedAmountInCrypto -= amount;
         burn(tokenId);
         bool success = TOKEN.transfer(msg.sender, amount);
         if (!success) {
