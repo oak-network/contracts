@@ -29,7 +29,7 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         testUsd = await TESTUSD.deploy();
         await testUsd.deployed();
 
-        globalParams = await GLOBALPARAMS.deploy(protocolAdminAddr.address, testUsd.address, 20);
+        globalParams = await GLOBALPARAMS.deploy(protocolAdminAddr.address, testUsd.address, 20 * 100);
         await globalParams.deployed();
 
         campaignInfoFactory = await CAMPAIGNINFOFACTORY.deploy(globalParams.address);
@@ -55,7 +55,7 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         const fixture = await loadFixture(deployOnceFixture);
 
         const platformBytes = convertStringToBytes("KickStarter");
-        const platformFeePercent = 10;
+        const platformFeePercent = 10 * 100;
 
         const enlistPlatformTransaction: ContractTransaction = await fixture.globalParams.connect(fixture.contractOwner).enlistPlatform(platformBytes, fixture.platform1AdminAddr.address, platformFeePercent);
 
@@ -200,14 +200,14 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
     }
 
     const claimRefund = async () => {
-        const {fixture, allOrNothing, tokenId} = await loadFixture(pledgeForAReward);
+        const {fixture, allOrNothing, tokenId} = await loadFixture(pledgeWithoutAReward);
 
         //Approve NFT Burn to the AllOrNothing Contract
         const approveTransaction = await allOrNothing.connect(fixture.backer1Addr).approve(allOrNothing.address, tokenId);
         await approveTransaction.wait();
 
         const claimRefundTransaction: ContractTransaction = await allOrNothing.connect(fixture.backer1Addr).claimRefund(tokenId);
-        const claimRefundReceipt = await claimRefundTransaction.wait();
+        const claimRefundReceipt: ContractReceipt = await claimRefundTransaction.wait();
 
         return { fixture, claimRefundTransaction, claimRefundReceipt, allOrNothing, tokenId}
     }
@@ -218,7 +218,16 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
         const disburseFeesTransaction: ContractTransaction = await allOrNothing.disburseFees();
         const disburseFeesReceipt: ContractReceipt = await disburseFeesTransaction.wait();
 
-        return { fixture, disburseFeesTransaction, disburseFeesReceipt }
+        return { fixture, disburseFeesTransaction, disburseFeesReceipt, allOrNothing }
+    }
+
+    const withdraw = async () => {
+        const {fixture, allOrNothing} = await loadFixture(disburseFees);
+
+        const withdrawTransaction: ContractTransaction = await allOrNothing.withdraw();
+        const withdrawReceipt: ContractReceipt = await withdrawTransaction.wait();
+
+        return { fixture, withdrawTransaction, withdrawReceipt }
     }
  
     it("Enlisting Platform in Global Params Contract", async () => {
@@ -351,19 +360,25 @@ describe("Treasury `AllOrNothing` All Functionality", function () {
 
     })
 
-    /*it('Disburse Fees in AllOrNothing Contract', async () => {
+    it('Disburse Fees in AllOrNothing Contract', async () => {
         const {fixture, disburseFeesTransaction, disburseFeesReceipt} = await loadFixture(disburseFees);
 
         const event = disburseFeesReceipt.events?.find(event => event.event === 'FeesDisbursed');
 
-        console.log(event?.args!.protocolShare)
-        console.log(event?.args!.platformShare)
+        expect(event?.args!.protocolShare).to.equal(convertBigNumber(2002,17));
+        expect(event?.args!.platformShare).to.equal(convertBigNumber(1001,17));
 
-        //expect(event?.args!.tokenId).to.equal(tokenId);
-        //expect(event?.args!.refundAmount).to.equal(convertBigNumber(1000, 18));
-        //expect(event?.args!.claimer).to.equal(fixture.backer1Addr.address);
+    })
 
-    })*/
+    it('Withdraw in AllOrNothing Contract', async () => {
+        const {fixture, withdrawTransaction, withdrawReceipt} = await loadFixture(withdraw);
+
+        const event = withdrawReceipt.events?.find(event => event.event === 'WithdrawalSuccessful');
+
+        expect(event?.args!.to).to.equal(fixture.creator1Addr.address);
+        expect(event?.args!.amount).to.equal(convertBigNumber(7007,17));
+
+    })
 
 
 
