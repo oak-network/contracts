@@ -237,7 +237,7 @@ contract AllOrNothing is
         address backer
     )
         external
-        currentTimeIsGreater(INFO.getLaunchTime())
+        currentTimeIsLess(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
     {
