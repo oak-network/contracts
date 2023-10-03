@@ -6,8 +6,10 @@ import "forge-std/Console.sol";
 import "forge-std/Vm.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 
+/// @notice Integration Test contract for AllOrNothing contract.
 contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integration_Shared_Test {
 
+    /// @dev Test addReward function.
     function test_addReward() external {
 
         addReward();
@@ -21,6 +23,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         assertEq(REWARD1.itemQuantity, resultReward.itemQuantity);
     }
 
+    /// @dev Test pledgeOnPreLaunch function.
     function test_pledgeOnPreLaunch() external {
 
         addReward();
@@ -37,6 +40,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         assertEq(1, backerNftBalance);
     }
 
+    /// @dev Test pledgeForAReward function.
     function test_pledgeForAReward() external {
 
         addReward();
@@ -56,6 +60,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
 
     }
 
+    /// @dev Test pledgeWithoutAReward function.
     function test_pledgeWithoutAReward() external {
 
         addReward();
@@ -77,6 +82,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         assertEq(false, isPreLaunchPledge);
     }
 
+    /// @dev Test claimRefund function.
     function test_claimRefund() external {
 
         addReward();
@@ -96,6 +102,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         assertEq(users.backer1Address, claimer);
     }
 
+    /// @dev Test disburseFees function.
     function test_disburseFees() external {
 
         addReward();
@@ -114,6 +121,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         assertEq(1_001e17, platformShare);
     }
 
+    /// @dev Test withdraw function.
     function test_withdraw() external {
 
         addReward();

@@ -7,6 +7,7 @@ import "forge-std/Vm.sol";
 import "forge-std/Console.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 
+/// @notice Common testing logic needed by all AllOrNothing integration tests.
 abstract contract AllOrNothing_Integration_Shared_Test is
     Base_Test,
     BytesSplitter
@@ -18,6 +19,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
     uint256 pledgeForARewardTokenId;
 
+    /// @dev Initial dependent functions setup included for AllOrNothing Integration Tests.
     function setUp() public virtual override {
         super.setUp();
 
@@ -39,6 +41,10 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         allOrNothing = AllOrNothing(treasuryAddress);
     }
 
+    /**
+     * @notice Implements enlistPlatform helper function.
+     * @param platformBytes The platform bytes.
+     */
     function enlistPlatform(bytes32 platformBytes) internal {
         vm.startPrank(users.contractOwner);
         globalParams.enlistPlatform(
@@ -49,6 +55,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Implements addBytecode helper function.
+     * @param platformBytes The platform bytes.
+     * @param bytecodeIndex The bytecode index.
+     */
     function addBytecode(bytes32 platformBytes, uint256 bytecodeIndex) internal {
         //Splitting Treasury Bytecode into 2 chunks
         bytes memory bytesCode = vm.getCode("AllOrNothing.sol:AllOrNothing");
@@ -74,6 +85,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Implements enlistBytecode helper function.
+     * @param platformBytes The platform bytes.
+     * @param bytecodeIndex The bytecode index.
+     */
     function enlistBytecode(
         bytes32 platformBytes,
         uint256 bytecodeIndex
@@ -83,6 +99,10 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Implements createCampaign helper function. It creates new campaign info contract
+     * @param platformBytes The platform bytes.
+     */
     function createCampaign(bytes32 platformBytes) internal {
 
         bytes32 identifierHash = keccak256(abi.encodePacked(platformBytes));
@@ -109,6 +129,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Implements deploy helper function. It deploys treasury contract.
+     * @param platformBytes The platform bytes.
+     * @param bytecodeIndex The bytecode index.
+     */
     function deploy(
         bytes32 platformBytes,
         uint256 bytecodeIndex
@@ -123,6 +148,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
      }
 
+    /**
+     * @notice Implements addReward helper function.
+     */
     function addReward() internal returns(Vm.Log[] memory) {
         
         vm.startPrank(users.creator1Address);
@@ -137,6 +165,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements pledgeOnPreLaunch helper function.
+     */
     function pledgeOnPreLaunch() internal returns(Vm.Log[] memory) {
         vm.startPrank(users.backer1Address);
         vm.recordLogs();
@@ -153,6 +184,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements pledgeForAReward helper function.
+     */
     function pledgeForAReward() internal returns (Vm.Log[] memory) {
         
         vm.startPrank(users.backer1Address);
@@ -183,6 +217,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements pledgeWithoutAReward helper function.
+     */
     function pledgeWithoutAReward() internal returns(Vm.Log[] memory) {
         
         vm.startPrank(users.backer1Address);
@@ -200,6 +237,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements claimRefund helper function.
+     */
     function claimRefund() internal returns(Vm.Log[] memory) {
         
         vm.startPrank(users.backer1Address);
@@ -217,6 +257,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements disburseFees helper function.
+     */
     function disburseFees() internal returns(Vm.Log[] memory) {
         
         vm.recordLogs();
@@ -228,6 +271,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         return entries;
     }
 
+    /**
+     * @notice Implements withdraw helper function.
+     */
     function withdraw() internal returns(Vm.Log[] memory) {
         
         vm.recordLogs();
