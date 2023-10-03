@@ -52,6 +52,7 @@ contract OwnableTest is Test {
         ownable.transferOwnershipExternal(address(0x3));
     }
 
+    // Test public transferOwnership() function
     function test_TransferOwnership() external {
         assertEq(address(this), ownable.owner());
 
@@ -62,6 +63,7 @@ contract OwnableTest is Test {
         assertEq(address(0x2), ownable.owner());
     }
 
+    // Test internal transferOwnership() function
     function test_TransferOwnershipExternal() external {
         assertEq(address(this), ownable.owner());
         ownable.transferOwnershipExternal(address(0x2));
