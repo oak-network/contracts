@@ -14,7 +14,7 @@ contract ERC721Mock is ERC721 {
 
     constructor() ERC721(_NAME, _SYMBOL) {}
 
-    function safe_mint(address to, uint256 tokenId) external {
+    function safeMint(address to, uint256 tokenId) external {
         _safeMint(to, tokenId);
     }
 
@@ -69,8 +69,8 @@ contract ERC721Test is Test {
         uint256 tokenId1 = PRNG();
         uint256 tokenId2 = PRNG();
         vm.startPrank(deployer);
-        erc721.safe_mint(owner, tokenId1);
-        erc721.safe_mint(owner, tokenId2);
+        erc721.safeMint(owner, tokenId1);
+        erc721.safeMint(owner, tokenId2);
         assertEq(erc721.balanceOf(owner), 2);
         vm.stopPrank();
     }
@@ -83,7 +83,7 @@ contract ERC721Test is Test {
         vm.prank(deployer);
         uint256 tokenId2 = PRNG();
         address owner = makeAddr("owner");
-        erc721.safe_mint(owner, tokenId2);
+        erc721.safeMint(owner, tokenId2);
         assertEq(erc721.ownerOf(tokenId2), owner);
     }
 
@@ -110,7 +110,7 @@ contract ERC721Test is Test {
         address spender = makeAddr("spender");
         uint256 tokenId = PRNG();
         vm.startPrank(deployer);
-        erc721.safe_mint(owner, tokenId);
+        erc721.safeMint(owner, tokenId);
         vm.stopPrank();
 
         vm.startPrank(owner);
@@ -128,8 +128,8 @@ contract ERC721Test is Test {
         uint256 tokenId1 = PRNG();
         uint256 tokenId2 = PRNG();
         vm.startPrank(deployer);
-        erc721.safe_mint(owner, tokenId1);
-        erc721.safe_mint(owner, tokenId2);
+        erc721.safeMint(owner, tokenId1);
+        erc721.safeMint(owner, tokenId2);
         vm.stopPrank();
 
         vm.startPrank(owner);
