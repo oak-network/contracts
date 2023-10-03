@@ -12,7 +12,7 @@ contract ERC721BurnableMock is ERC721Burnable {
 
     constructor() ERC721(_NAME, _SYMBOL) {}
 
-    function safe_mint(address to, uint256 tokenId) external {
+    function safeMint(address to, uint256 tokenId) external {
         _safeMint(to, tokenId);
     }
 }
@@ -51,7 +51,7 @@ contract ERC721BurnableTest is Test {
         address owner = makeAddr("owner");
         uint256 tokenId1 = PRNG();
         vm.startPrank(deployer);
-        erc721Burnable.safe_mint(owner, tokenId1);
+        erc721Burnable.safeMint(owner, tokenId1);
         vm.stopPrank();
 
         vm.startPrank(owner);
