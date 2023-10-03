@@ -18,7 +18,7 @@ contract MockOwnable is Ownable {
 contract OwnableTest is Test {
     MockOwnable ownable;
 
-    function setUp() public {
+    function setUp() external {
         ownable = new MockOwnable();
     }
 

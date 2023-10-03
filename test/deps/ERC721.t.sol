@@ -59,12 +59,12 @@ contract ERC721Test is Test {
         assertEq(erc721.symbol(), _SYMBOL);
     }
 
-    function test_SupportsInterfaceSuccess() public {
+    function test_SupportsInterfaceSuccess() external {
         assertTrue(erc721.supportsInterface(type(IERC721).interfaceId));
         assertTrue(erc721.supportsInterface(type(IERC721Metadata).interfaceId));
     }
 
-    function test_BalanceOf() public {
+    function test_BalanceOf() external {
         address owner = makeAddr("owner");
         uint256 tokenId1 = PRNG();
         uint256 tokenId2 = PRNG();
@@ -75,7 +75,7 @@ contract ERC721Test is Test {
         vm.stopPrank();
     }
 
-    function test_OwnerOf() public {
+    function test_OwnerOf() external {
         uint256 tokenId1 = PRNG();
         vm.expectRevert("ERC721: invalid token ID");
         erc721.ownerOf(tokenId1);
@@ -87,7 +87,7 @@ contract ERC721Test is Test {
         assertEq(erc721.ownerOf(tokenId2), owner);
     }
 
-    function test_SafeMint() public {
+    function test_SafeMint() external {
         address owner = makeAddr("Owner");
         uint256 tokenId = PRNG();
         vm.prank(deployer);
@@ -105,7 +105,7 @@ contract ERC721Test is Test {
         uint256 indexed tokenId
     );
 
-    function test_Approve() public {
+    function test_Approve() external {
         address owner = makeAddr("owner");
         address spender = makeAddr("spender");
         uint256 tokenId = PRNG();
@@ -121,7 +121,7 @@ contract ERC721Test is Test {
         vm.stopPrank();
     }
 
-    function test_TransferFrom() public {
+    function test_TransferFrom() external {
         address owner = makeAddr("owner");
         address approved = makeAddr("approved");
         address operator = makeAddr("operator");

@@ -11,7 +11,7 @@ contract MockContext is Context {
 
     event Data(bytes data, uint256 integerValue, string stringValue);
 
-    function msgData(uint256 integerValue, string memory stringValue) public {
+    function msgData(uint256 integerValue, string memory stringValue) external {
         emit Data(_msgData(), integerValue, stringValue);
     }
 }
@@ -19,7 +19,7 @@ contract MockContext is Context {
 contract ContextTest is Test {
     MockContext context;
 
-    function setUp() public {
+    function setUp() external {
         context = new MockContext();
     }
 

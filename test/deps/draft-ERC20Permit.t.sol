@@ -31,7 +31,7 @@ contract ERC20PermitTest is Test {
         erc20Permit = new MockERC20Permit();
     }
 
-    function test_PermitSuccess() public {
+    function test_PermitSuccess() external {
         (address owner, uint256 key) = makeAddrAndKey("owner");
         address spender = makeAddr("spender");
         uint256 amount = 100;

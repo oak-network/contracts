@@ -66,7 +66,7 @@ contract ERC20Test is Test {
         uint256 value
     );
 
-    function test_Approve() public {
+    function test_Approve() external {
         address owner = deployer;
         address spender = makeAddr("spender");
         uint256 amount = erc20Contract.balanceOf(owner);
@@ -79,7 +79,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function test_TransferFrom() public {
+    function test_TransferFrom() external {
         address owner = deployer;
         address spender = makeAddr("spender");
         address to = makeAddr("to");
@@ -103,7 +103,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function test_Burn() public {
+    function test_Burn() external {
         address owner = deployer;
         uint256 balance = erc20Contract.balanceOf(owner);
         uint256 totalSupply = erc20Contract.totalSupply();
@@ -117,7 +117,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function test_Mint() public {
+    function test_Mint() external {
         address minter = deployer;
         address owner = makeAddr("owner");
         uint256 amount = type(uint8).max;

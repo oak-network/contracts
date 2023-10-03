@@ -47,7 +47,7 @@ contract ERC721BurnableTest is Test {
         uint256 indexed tokenId
     );
 
-    function test_Burn() public {
+    function test_Burn() external {
         address owner = makeAddr("owner");
         uint256 tokenId1 = PRNG();
         vm.startPrank(deployer);
