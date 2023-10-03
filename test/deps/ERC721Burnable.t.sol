@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-contract ERC721BurnableMock is ERC721Burnable {
+contract MockERC721Burnable is ERC721Burnable {
     string private constant _NAME = "TestNFT";
     string private constant _SYMBOL = "TNFT";
 
@@ -21,7 +21,7 @@ contract ERC721BurnableTest is Test {
     address zeroAddress = address(0);
     uint256 nonce = 0;
     address deployer = makeAddr("deployer");
-    ERC721BurnableMock erc721Burnable;
+    MockERC721Burnable erc721Burnable;
 
     function PRNG() internal returns (uint256) {
         nonce += 1;
@@ -38,7 +38,7 @@ contract ERC721BurnableTest is Test {
     }
 
     function setUp() external {
-        erc721Burnable = new ERC721BurnableMock();
+        erc721Burnable = new MockERC721Burnable();
     }
 
     event Transfer(
@@ -47,7 +47,7 @@ contract ERC721BurnableTest is Test {
         uint256 indexed tokenId
     );
 
-    function testBurn() public {
+    function test_Burn() public {
         address owner = makeAddr("owner");
         uint256 tokenId1 = PRNG();
         vm.startPrank(deployer);

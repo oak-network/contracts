@@ -39,7 +39,7 @@ contract PausableTest is Test {
 
     event Paused(address account);
 
-    function test_pause() external {
+    function test_Pause() external {
         address alice = address(1234);
         vm.prank(alice);
         vm.expectEmit(true, false, false, false);
@@ -50,7 +50,7 @@ contract PausableTest is Test {
 
     event Unpaused(address account);
 
-    function test_unpause() external {
+    function test_Unpause() external {
         address alice = address(1234);
         vm.prank(alice);
         //The contract must be paused first to test unpause

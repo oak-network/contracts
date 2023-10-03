@@ -23,7 +23,7 @@ contract ContextTest is Test {
         context = new MockContext();
     }
 
-    function test_msgSender() external {
+    function test_MsgSender() external {
         // returns the transaction sender when called from an EOA
         address addressOfEOA = address(0x12);
         vm.prank(addressOfEOA);
@@ -35,7 +35,7 @@ contract ContextTest is Test {
 
     event Data(bytes data, uint256 integerValue, string stringValue);
 
-    function test_msgData() external {
+    function test_MsgData() external {
         uint256 integerValue = 1234;
         string memory stringValue = "Context Test";
         bytes memory callData;

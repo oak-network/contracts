@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract ERC20Mock is ERC20 {
+contract MockERC20 is ERC20 {
     string private constant _NAME = "TestToken";
     string private constant _SYMBOL = "TT";
     uint256 private constant _INITIAL_SUPPLY = type(uint8).max;
@@ -28,15 +28,15 @@ contract ERC20Test is Test {
     address deployer = address(0x12);
     address zeroAddress = address(0x0);
 
-    ERC20Mock erc20Contract;
+    MockERC20 erc20Contract;
 
     function setUp() external {
         vm.prank(deployer);
-        erc20Contract = new ERC20Mock();
+        erc20Contract = new MockERC20();
         erc20Contract.mint(deployer, _INITIAL_SUPPLY);
     }
 
-    function testInitialSetUp() external {
+    function test_InitialSetUp() external {
         assertEq(erc20Contract.name(), _NAME);
         assertEq(erc20Contract.symbol(), _SYMBOL);
         assertEq(erc20Contract.decimals(), 18);
@@ -46,7 +46,7 @@ contract ERC20Test is Test {
 
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-    function testTransfer() external {
+    function test_Transfer() external {
         address owner = deployer;
         address to = makeAddr("to");
         uint256 amount = erc20Contract.balanceOf(owner);
@@ -66,7 +66,7 @@ contract ERC20Test is Test {
         uint256 value
     );
 
-    function testApprove() public {
+    function test_Approve() public {
         address owner = deployer;
         address spender = makeAddr("spender");
         uint256 amount = erc20Contract.balanceOf(owner);
@@ -79,7 +79,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function testTransferFrom() public {
+    function test_TransferFrom() public {
         address owner = deployer;
         address spender = makeAddr("spender");
         address to = makeAddr("to");
@@ -103,7 +103,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function testBurn() public {
+    function test_Burn() public {
         address owner = deployer;
         uint256 balance = erc20Contract.balanceOf(owner);
         uint256 totalSupply = erc20Contract.totalSupply();
@@ -117,7 +117,7 @@ contract ERC20Test is Test {
         vm.stopPrank();
     }
 
-    function testMint() public {
+    function test_Mint() public {
         address minter = deployer;
         address owner = makeAddr("owner");
         uint256 amount = type(uint8).max;

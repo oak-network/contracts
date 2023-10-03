@@ -8,7 +8,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
-contract ERC721Mock is ERC721 {
+contract MockERC721 is ERC721 {
     string private constant _NAME = "TestNFT";
     string private constant _SYMBOL = "TNFT";
 
@@ -30,7 +30,7 @@ contract ERC721Mock is ERC721 {
 contract ERC721Test is Test {
     string private constant _NAME = "TestNFT";
     string private constant _SYMBOL = "TNFT";
-    ERC721Mock erc721;
+    MockERC721 erc721;
     address deployer = makeAddr("deployer");
     address zeroAddress = address(0);
 
@@ -51,20 +51,20 @@ contract ERC721Test is Test {
     }
 
     function setUp() external {
-        erc721 = new ERC721Mock();
+        erc721 = new MockERC721();
     }
 
-    function testInitialSetUP() external {
+    function test_InitialSetUP() external {
         assertEq(erc721.name(), _NAME);
         assertEq(erc721.symbol(), _SYMBOL);
     }
 
-    function testSupportsInterfaceSuccess() public {
+    function test_SupportsInterfaceSuccess() public {
         assertTrue(erc721.supportsInterface(type(IERC721).interfaceId));
         assertTrue(erc721.supportsInterface(type(IERC721Metadata).interfaceId));
     }
 
-    function testBalanceOf() public {
+    function test_BalanceOf() public {
         address owner = makeAddr("owner");
         uint256 tokenId1 = PRNG();
         uint256 tokenId2 = PRNG();
@@ -75,7 +75,7 @@ contract ERC721Test is Test {
         vm.stopPrank();
     }
 
-    function testOwnerOf() public {
+    function test_OwnerOf() public {
         uint256 tokenId1 = PRNG();
         vm.expectRevert("ERC721: invalid token ID");
         erc721.ownerOf(tokenId1);
@@ -87,7 +87,7 @@ contract ERC721Test is Test {
         assertEq(erc721.ownerOf(tokenId2), owner);
     }
 
-    function testSafeMint() public {
+    function test_SafeMint() public {
         address owner = makeAddr("Owner");
         uint256 tokenId = PRNG();
         vm.prank(deployer);
@@ -105,7 +105,7 @@ contract ERC721Test is Test {
         uint256 indexed tokenId
     );
 
-    function testApprove() public {
+    function test_Approve() public {
         address owner = makeAddr("owner");
         address spender = makeAddr("spender");
         uint256 tokenId = PRNG();
@@ -121,7 +121,7 @@ contract ERC721Test is Test {
         vm.stopPrank();
     }
 
-    function testTransferFrom() public {
+    function test_TransferFrom() public {
         address owner = makeAddr("owner");
         address approved = makeAddr("approved");
         address operator = makeAddr("operator");
