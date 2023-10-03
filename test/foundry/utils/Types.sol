@@ -14,4 +14,8 @@ struct Users {
     address payable creator1Address;
     // Creator-2 Address.
     address payable creator2Address;
+    // Backer-1 Address.
+    address payable backer1Address;
+    // Backer-2 Address.
+    address payable backer2Address;
 }
