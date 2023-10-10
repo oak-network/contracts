@@ -130,5 +130,8 @@ interface ICampaignInfo {
         bool selection
     ) external;
 
+    /**
+     * @dev Returns true if the contract is paused, and false otherwise.
+     */
     function paused() external view returns (bool);
 }

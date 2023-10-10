@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 abstract contract PausableWithMsg {
-       /**
+    /**
      * @dev Emitted when the pause is triggered by `account`.
      */
     event Paused(address account, bytes32 message);

@@ -12,7 +12,9 @@ abstract contract CampaignAccessChecker {
     // Immutable reference to the ICampaignInfo contract, which provides campaign-related information and admin addresses.
     ICampaignInfo internal immutable INFO;
     
-    // Custom error to indicate unauthorized access attempts.
+    /**
+     * @dev Throws when the caller is not authorized.
+     */
     error AccessCheckerUnauthorized();
 
     /**

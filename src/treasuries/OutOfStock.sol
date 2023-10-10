@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-// Import the MinimumOrder contract
 import "./MinimumOrder.sol";
 
 /**
@@ -11,7 +10,10 @@ import "./MinimumOrder.sol";
  * When the predefined success metric is reached or the out-of-stock limit is reached, the campaign ends.
  */
 contract OutOfStock is MinimumOrder {
-    // Custom error to handle the out-of-stock limit being reached
+
+    /**
+     * @dev Throws an error indicating the out-of-stock limit has been reached.
+     */
     error OutOfStockLimitReached();
 
     /**

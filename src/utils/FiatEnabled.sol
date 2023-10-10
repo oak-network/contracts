@@ -33,9 +33,17 @@ abstract contract FiatEnabled {
         uint256 platformFeeAmount
     );
 
-    // Custom error messages
+    /**
+     * @dev Throws an error indicating that the fiat enabled functionality is already set.
+     */
     error FiatEnabledAlreadySet();
+    /**
+     * @dev Throws an error indicating that the fiat enabled functionality is in an invalid state.
+     */
     error FiatEnabledDisallowedState();
+    /**
+     * @dev Throws an error indicating that the fiat transaction is invalid.
+     */
     error FiatEnabledInvalidTransaction();
 
     /**

@@ -1,0 +1,43 @@
+# KeepWhatsRaised
+[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/treasuries/KeepWhatsRaised.sol)
+
+**Inherits:**
+[AllOrNothing](/src/treasuries/AllOrNothing.sol/contract.AllOrNothing.md)
+
+A contract that keeps all the funds raised, regardless of the success condition.
+
+*This contract inherits from the `AllOrNothing` contract and overrides the `_checkSuccessCondition` function to always return true.*
+
+
+## Functions
+### constructor
+
+*Initializes the KeepWhatsRaised contract.*
+
+
+```solidity
+constructor(bytes32 platformBytes, address infoAddress) AllOrNothing(platformBytes, infoAddress);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`infoAddress`|`address`|The address of the associated campaign information contract.|
+
+
+### _checkSuccessCondition
+
+*Internal function to check the success condition for fee disbursement.*
+
+
+```solidity
+function _checkSuccessCondition() internal pure override returns (bool);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|Whether the success condition is met.|
+
+

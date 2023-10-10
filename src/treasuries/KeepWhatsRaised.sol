@@ -20,8 +20,7 @@ contract KeepWhatsRaised is AllOrNothing {
     ) AllOrNothing(platformBytes, infoAddress) {}
 
     /**
-     * @dev Overrides the success condition check to always return true.
-     * @return Always returns true to keep all funds raised.
+     * @inheritdoc BaseTreasury
      */
     function _checkSuccessCondition() internal pure override returns (bool) {
         return true;

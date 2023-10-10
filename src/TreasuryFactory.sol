@@ -243,6 +243,10 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         );
     }
 
+    /**
+     * @dev Concatenates multiple byte arrays into one.
+     * @param chunks The byte arrays to concatenate.
+     */
     function _concatenateBytes(
         bytes[] memory chunks
     ) private pure returns (bytes memory) {

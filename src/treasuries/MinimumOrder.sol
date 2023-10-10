@@ -76,10 +76,14 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
      */
     event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
-    // Custom error to handle transfer failures during pre-order
+    /**
+     * @dev Throws an error indicating that the pre-order transfer failed.
+     */
     error PreOrderTransferFailed();
 
-    // Custom error to handle invalid input during pre-order
+    /**
+     * @dev Throws an error indicating that the pre-order input is invalid.
+     */
     error PreOrderInvalidInput();
 
     /**
@@ -221,8 +225,7 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
     }
 
     /**
-     * @notice Internal function to check the success condition of the campaign.
-     * @return True if the success condition is met, false otherwise.
+     * @inheritdoc BaseTreasury
      */
     function _checkSuccessCondition()
         internal

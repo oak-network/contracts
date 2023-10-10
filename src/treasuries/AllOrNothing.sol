@@ -401,8 +401,7 @@ contract AllOrNothing is
     }
 
     /**
-     * @dev Checks if the success condition for the campaign is met.
-     * @return True if the campaign is successful; otherwise, false.
+     * @inheritdoc BaseTreasury
      */
     function _checkSuccessCondition()
         internal

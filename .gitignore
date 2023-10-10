@@ -13,3 +13,6 @@ typechain-types
 artifacts
 cache
 cache_hardhat
+
+#Broadcast files
+broadcast

@@ -265,6 +265,9 @@ contract CampaignInfo is
         return PROTOCOL_FEE_PERCENT;
     }
 
+    /**
+     * @inheritdoc ICampaignInfo
+     */
     function paused()
         public
         view

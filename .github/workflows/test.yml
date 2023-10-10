@@ -1,6 +1,16 @@
-name: test
+name: Foundry Test
 
-on: workflow_dispatch
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - dev
+  pull_request:
+    branches:
+      - main
+      - staging
+      - dev
 
 env:
   FOUNDRY_PROFILE: ci
@@ -24,6 +34,7 @@ jobs:
 
       - name: Run Forge build
         run: |
+          npm ci
           forge --version
           forge build --sizes
         id: build

@@ -1,19 +1,23 @@
-## Foundry
+# CCP Contracts
+This repository contains the smart contracts source code and campaign configuration for Creative Crowdfunding Protocol - CCP. The repository uses Foundry as development environment for compilation, testing and deployment tasks.
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## What is CCP?
+CCP is a protocol for crowdfunding campaigns that allows creators to multilist campaigns across different crowdfunding platforms. It provides infrastructure tooling and support for platforms to create and manage campaigns in web3.
 
 ## Documentation
+The detailed technical documentation for the protocol can be found in the [docs](./docs/src/SUMMARY.md) folder.
 
-https://book.getfoundry.sh/
+## Getting Started
+### Prerequisites
+The following tools are required to be installed in your system:
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Node.js](https://nodejs.org/en/download/)
 
-## Usage
+### Installation
+
+```shell
+$ npm install
+```
 
 ### Build
 
@@ -39,28 +43,25 @@ $ forge fmt
 $ forge snapshot
 ```
 
-### Anvil
+## Deploy
+### Environment Variables
+
+Create an environment file named `.env`, fill the environment variables following the `.env.example` file and source the file using the following command:
 
 ```shell
-$ anvil
+$ source .env
 ```
 
-### Deploy
+### Local Deployment
+To deploy the contracts locally, run the following command:
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+$ forge script script/Setup.s.sol:SetupScript
 ```
 
-### Cast
+### Remote Deployment
+To deploy the contracts to a remote network, run the following command:
 
 ```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+$ forge script script/Setup.s.sol:SetupScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY
 ```
