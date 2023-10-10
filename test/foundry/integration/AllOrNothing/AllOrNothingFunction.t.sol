@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {AllOrNothing_Integration_Shared_Test} from "./AllOrNothing.t.sol";
-// import "forge-std/Console.sol";
+import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 

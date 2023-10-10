@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {Base_Test} from "../../Base.t.sol";
 import {BytesSplitter} from "../../utils/BytesSplitter.sol";
 import "forge-std/Vm.sol";
-// import "forge-std/Console.sol";
+import "forge-std/console.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 
 /// @notice Common testing logic needed by all AllOrNothing integration tests.
