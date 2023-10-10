@@ -64,6 +64,10 @@ abstract contract BaseTreasury is
      * @dev Throws an error indicating that fees have not been disbursed.
      */
     error TreasuryFeeNotDisbursed();
+
+    /**
+     * @dev Throws an error indicating that the campaign is paused.
+     */
     error TreasuryCampaignInfoIsPaused();
 
     /**
@@ -81,6 +85,9 @@ abstract contract BaseTreasury is
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformBytes);
     }
 
+    /**
+     * @dev Modifier that checks if the campaign is not paused.
+     */
     modifier whenCampaignNotPaused() {
         _checkIfCampaignPaused();
         _;
@@ -146,14 +153,24 @@ abstract contract BaseTreasury is
         emit WithdrawalSuccessful(recipient, balance);
     }
 
+    /**
+     * @dev External function to pause the campaign.
+     */
     function _pauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _pause(message);
     }
 
+    /**
+     * @dev External function to unpause the campaign.
+     */
     function _unpauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _unpause(message);
     }
 
+    /**
+     * @dev Internal function to check if the campaign is paused.
+     * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
+     */
     function _checkIfCampaignPaused() internal view {
         if (INFO.paused()) {
             revert TreasuryCampaignInfoIsPaused();
