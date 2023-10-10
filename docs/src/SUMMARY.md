@@ -1,6 +1,4 @@
-# Summary
-- [Home](../../README.md)
-# Contract Documentation (`src`)
+## Contract Documentation (`src`)
   - [❱ interfaces](src/interfaces/README.md)
     - [ICampaignData](src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
     - [ICampaignInfo](src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md)
