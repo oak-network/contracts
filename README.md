@@ -1,22 +1,67 @@
-# ccp-contracts
+# CCP Contracts
+This repository contains the smart contracts source code and campaign configuration for Creative Crowdfunding Protocol - CCP. The repository uses Foundry as development environment for compilation, testing and deployment tasks.
 
+## What is CCP?
+CCP is a protocol for crowdfunding campaigns that allows creators to multilist campaigns across different crowdfunding platforms. It provides infrastructure tooling and support for platforms to create and manage campaigns in web3.
 
-##  🔧 Setting up Local Development
-Required: 
-- [Node v14](https://nodejs.org/download/release/latest-v14.x/)  
-- [Git](https://git-scm.com/downloads)
+## Documentation
+The detailed technical documentation for the protocol can be found in the [docs](./docs/src/SUMMARY.md) folder.
 
+## Getting Started
+### Prerequisites
+The following tools are required to be installed in your system:
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Node.js](https://nodejs.org/en/download/)
 
-Local Setup Steps:
-1. git clone
-1. Install dependencies: `npm install` 
-    - Installs [Hardhat](https://hardhat.org/getting-started/) & [OpenZeppelin](https://docs.openzeppelin.com/contracts/4.x/) dependencies
-1. Compile Solidity: `npx hardhat compile`
+### Installation
 
-## 💻 Deployment steps
+```shell
+$ npm install
+```
 
-Deploy and initialize base contracts:
-`npx hardhat run scripts/deploy&Initialize.ts`
+### Build
 
-## 🤨 How it all works
-![High Level Contract Architecture](./docs/box-diagram.svg)
+```shell
+$ forge build
+```
+
+### Test
+
+```shell
+$ forge test
+```
+
+### Format
+
+```shell
+$ forge fmt
+```
+
+### Gas Snapshots
+
+```shell
+$ forge snapshot
+```
+
+## Deploy
+### Environment Variables
+
+Create an environment file named `.env`, fill the environment variables following the `.env.example` file and source the file using the following command:
+
+```shell
+$ source .env
+```
+
+### Local Deployment
+To deploy the contracts locally, run the following command:
+
+```shell
+$ forge script script/Setup.s.sol:SetupScript
+```
+
+### Remote Deployment
+To deploy the contracts to a remote network, run the following command:
+
+```shell
+$ forge script script/Setup.s.sol:SetupScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```

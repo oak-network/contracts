@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+
+/**
+ * @title IGlobalParams
+ * @notice An interface for accessing and managing global parameters of the protocol.
+ */
+interface IGlobalParams {
+    /**
+     * @notice Checks if a platform is listed in the protocol.
+     * @param _platformBytes The unique identifier of the platform.
+     * @return True if the platform is listed; otherwise, false.
+     */
+    function checkIfplatformIsListed(
+        bytes32 _platformBytes
+    ) external view returns (bool);
+
+    /**
+     * @notice Retrieves the admin address of a platform.
+     * @param _platformBytes The unique identifier of the platform.
+     * @return The admin address of the platform.
+     */
+    function getPlatformAdminAddress(
+        bytes32 _platformBytes
+    ) external view returns (address);
+
+    /**
+     * @notice Retrieves the number of listed platforms in the protocol.
+     * @return The number of listed platforms.
+     */
+    function getNumberOfListedPlatforms() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the admin address of the protocol.
+     * @return The admin address of the protocol.
+     */
+    function getProtocolAdminAddress() external view returns (address);
+
+    /**
+     * @notice Retrieves the address of the protocol's native token.
+     * @return The address of the native token.
+     */
+    function getTokenAddress() external view returns (address);
+
+    /**
+     * @notice Retrieves the protocol fee percentage.
+     * @return The protocol fee percentage as a uint256 value.
+     */
+    function getProtocolFeePercent() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the owner of platform-specific data.
+     * @param platformDataKey The key of the platform-specific data.
+     * @return platformBytes The platform identifier associated with the data.
+     */
+    function getPlatformDataOwner(
+        bytes32 platformDataKey
+    ) external view returns (bytes32 platformBytes);
+
+    /**
+     * @notice Retrieves the platform fee percentage for a specific platform.
+     * @param platformBytes The unique identifier of the platform.
+     * @return The platform fee percentage as a uint256 value.
+     */
+    function getPlatformFeePercent(
+        bytes32 platformBytes
+    ) external view returns (uint256);
+
+    /**
+     * @notice Checks if a platform-specific data key is valid.
+     * @param platformDataKey The key of the platform-specific data.
+     * @return isValid True if the data key is valid; otherwise, false.
+     */
+    function checkIfPlatformDataKeyValid(
+        bytes32 platformDataKey
+    ) external view returns (bool isValid);
+
+    /**
+     * @notice Updates the admin address of the protocol.
+     * @param _protocolAdminAddress The new admin address of the protocol.
+     */
+    function updateProtocolAdminAddress(address _protocolAdminAddress) external;
+
+    /**
+     * @notice Updates the address of the protocol's native token.
+     * @param _tokenAddress The new address of the native token.
+     */
+    function updateTokenAddress(address _tokenAddress) external;
+
+    /**
+     * @notice Updates the protocol fee percentage.
+     * @param _protocolFeePercent The new protocol fee percentage as a uint256 value.
+     */
+    function updateProtocolFeePercent(uint256 _protocolFeePercent) external;
+
+    /**
+     * @notice Updates the admin address of a platform.
+     * @param _platformBytes The unique identifier of the platform.
+     * @param _platformAdminAddress The new admin address of the platform.
+     */
+    function updatePlatformAdminAddress(
+        bytes32 _platformBytes,
+        address _platformAdminAddress
+    ) external;
+}
