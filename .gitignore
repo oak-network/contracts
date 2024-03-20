@@ -12,7 +12,7 @@ typechain-types
 #Hardhat files
 artifacts
 cache
+cache_hardhat
 
 #Broadcast files
 broadcast
-```

@@ -5,6 +5,7 @@ import "./CampaignInfo.sol";
 import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/AddressCalculator.sol";
+import "hardhat/console.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     mapping(bytes32 => mapping(uint256 => bytes[])) private s_platformBytecode;
