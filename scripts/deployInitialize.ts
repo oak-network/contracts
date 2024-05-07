@@ -98,9 +98,9 @@ async function main() {
     "TreasuryFactory"
   );
 
-  const treasuryArtifact = await artifacts.readArtifact("AllOrNothing");
+  const allOrNothingArtifact = await artifacts.readArtifact("AllOrNothing");
 
-  const bytecodeHash = hashString(treasuryArtifact.bytecode);
+  const bytecodeHash = hashString(allOrNothingArtifact.bytecode);
 
   console.log("BytecodeHash: " + bytecodeHash);
   const treasuryFactory: TreasuryFactory = await treasuryFactoryFactory.deploy(
@@ -147,11 +147,11 @@ async function main() {
   await enlistPlatform.wait();
   console.log("Platform enlisted");
 
-  const AllOrNothingArtifact = await artifacts.readArtifact("AllOrNothing");
+  // const AllOrNothingArtifact = await artifacts.readArtifact("AllOrNothing");
 
-  const bytecode = AllOrNothingArtifact.bytecode;
+  // const bytecode = AllOrNothingArtifact.bytecode;
 
-  await insertBytecodeInChunks(treasuryFactory, kickstarter, 0, bytecode);
+  await insertBytecodeInChunks(treasuryFactory, kickstarter, 0, allOrNothingArtifact.bytecode);
   console.log("All bytecode chunks added!");
 
   const enlistBytecode = await treasuryFactory.enlistBytecode(kickstarter, 0);
@@ -166,9 +166,10 @@ async function main() {
     emptyBytes32Array,
     campaignData
   );
+  console.log("Platform hex " + kickstarter);
   let result = await createCampaign.wait();
   const infoAddress = result.events?.[0].address.toLowerCase() as string;
-  console.log(infoAddress);
+  console.log("Info Address: " + infoAddress);
 
   // const len = await treasuryFactory.getBytecodeLength(kickstarter, 0);
   // console.log("length " + len);
@@ -199,7 +200,7 @@ async function main() {
 
   const allOrNothing = new ethers.Contract(
     treasuryAddress,
-    AllOrNothingArtifact.abi,
+    allOrNothingArtifact.abi,
     owner
   );
 
@@ -208,39 +209,39 @@ async function main() {
   await addReward.wait();
   console.log(`Reward ${rewardName} added`);
 
-  let approveContract = await testUSD.approve(
-    allOrNothing.address,
-    ethers.constants.MaxUint256
-  );
-  await approveContract.wait();
+  // let approveContract = await testUSD.approve(
+  //   allOrNothing.address,
+  //   ethers.constants.MaxUint256
+  // );
+  // await approveContract.wait();
 
   // const pledgeOnPreLaunch = await allOrNothing.pledgeOnPreLaunch(owner.address);
   // await pledgeOnPreLaunch.wait();
   // console.log(`Pledged on prelaunch`);
 
-  await time.increaseTo(Date.now() + 10000);
+  // await time.increaseTo(Date.now() + 10000);
 
-  const pledgeForAReward = await allOrNothing.pledgeForAReward(owner.address, [
-    rewardName,
-  ]);
-  await pledgeForAReward.wait();
-  console.log(`Pledged for reward ${rewardName}`);
+  // const pledgeForAReward = await allOrNothing.pledgeForAReward(owner.address, [
+  //   rewardName,
+  // ]);
+  // await pledgeForAReward.wait();
+  // console.log(`Pledged for reward ${rewardName}`);
 
-  const getRaisedAmount = await allOrNothing.getRaisedAmount();
-  console.log(`Raised amount ${getRaisedAmount}`);
+  // const getRaisedAmount = await allOrNothing.getRaisedAmount();
+  // console.log(`Raised amount ${getRaisedAmount}`);
 
-  const pledgeWithoutAReward = await allOrNothing.pledgeWithoutAReward(
-    owner.address,
-    goalAmount
-  );
-  await pledgeWithoutAReward.wait();
-  console.log(`Pledged without reward`);
+  // const pledgeWithoutAReward = await allOrNothing.pledgeWithoutAReward(
+  //   owner.address,
+  //   goalAmount
+  // );
+  // await pledgeWithoutAReward.wait();
+  // console.log(`Pledged without reward`);
 
-  await time.increaseTo(Date.now() + 1000000);
+  // await time.increaseTo(Date.now() + 1000000);
 
-  const disburseFees = await allOrNothing.disburseFees();
-  await disburseFees.wait();
-  console.log(`Fees disbursed`);
+  // const disburseFees = await allOrNothing.disburseFees();
+  // await disburseFees.wait();
+  // console.log(`Fees disbursed`);
 
   console.log(
     "NEXT_PUBLIC_GLOBAL_PARAMS=" +
