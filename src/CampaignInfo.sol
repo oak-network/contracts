@@ -26,6 +26,7 @@ contract CampaignInfo is
     address private immutable TOKEN;
     uint256 private immutable PROTOCOL_FEE_PERCENT;
     bytes32 private immutable IDENTIFIER_HASH;
+    address private immutable CREATOR;
 
     CampaignData private s_campaignData;
 
@@ -171,6 +172,7 @@ contract CampaignInfo is
         }
 
         transferOwnership(creator);
+        CREATOR = creator;
     }
 
     /**
@@ -193,6 +195,10 @@ contract CampaignInfo is
     {
         account = super.owner();
     }
+
+    function creator() external view override returns (address) {
+        return CREATOR;
+    } 
 
     /**
      * @inheritdoc ICampaignInfo
