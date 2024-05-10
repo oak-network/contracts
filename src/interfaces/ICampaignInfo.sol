@@ -12,6 +12,8 @@ interface ICampaignInfo {
      */
     function owner() external view returns (address);
 
+    function creator() external view returns (address);
+
     /**
      * @notice Checks if a platform has been selected for the campaign.
      * @param platformBytes The bytes32 identifier of the platform to check.
