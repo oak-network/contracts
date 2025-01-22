@@ -106,7 +106,7 @@ contract AllOrNothing is
      */
     error AllOrNothingFeeNotDisbursed();
     /**
-     * @dev Emitted when a `Reward` already exists for given input. 
+     * @dev Emitted when a `Reward` already exists for given input.
      */
     error AllOrNothingRewardExists();
 
@@ -241,28 +241,13 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 prelaunchPledgeAmount = PRELAUNCH_PLEDGE;
-        bool success = TOKEN.transferFrom(
-            backer,
-            address(this),
-            prelaunchPledgeAmount
-        );
-        if (!success) {
-            revert AllOrNothingTransferFailed();
-        }
         uint256 tokenId = s_tokenIdCounter.current();
-        s_tokenIdCounter.increment();
-        _safeMint(
-            backer,
-            tokenId,
-            abi.encodePacked(backer, " PreLaunchPledge")
-        );
-        s_pledgedAmountInCrypto += prelaunchPledgeAmount;
         bytes32[] memory emptyByteArray = new bytes32[](0);
-        emit Receipt(
+
+        _pledge(
             backer,
             ZERO_BYTES,
-            prelaunchPledgeAmount,
+            PRELAUNCH_PLEDGE,
             tokenId,
             true,
             emptyByteArray
@@ -284,7 +269,6 @@ contract AllOrNothing is
         whenNotPaused
     {
         uint256 tokenId = s_tokenIdCounter.current();
-        bool success;
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
@@ -302,27 +286,7 @@ contract AllOrNothing is
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
-        if (success) {
-            s_tokenIdCounter.increment();
-            _safeMint(
-                backer,
-                tokenId,
-                abi.encodePacked(backer, " ", reward[0])
-            );
-            s_tokenToPledgedAmount[tokenId] = pledgeAmount;
-            s_pledgedAmountInCrypto += pledgeAmount;
-            emit Receipt(
-                backer,
-                reward[0],
-                pledgeAmount,
-                tokenId,
-                false,
-                reward
-            );
-        } else {
-            revert AllOrNothingTransferFailed();
-        }
+        _pledge(backer, reward[0], pledgeAmount, tokenId, false, reward);
     }
 
     /**
@@ -339,21 +303,17 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
-        if (success) {
-            s_pledgedAmountInCrypto += pledgeAmount;
-            bytes32[] memory emptyByteArray = new bytes32[](0);
-            emit Receipt(
-                backer,
-                ZERO_BYTES,
-                pledgeAmount,
-                0,
-                false,
-                emptyByteArray
-            );
-        } else {
-            revert AllOrNothingTransferFailed();
-        }
+        uint256 tokenId = s_tokenIdCounter.current();
+        bytes32[] memory emptyByteArray = new bytes32[](0);
+
+        _pledge(
+            backer,
+            ZERO_BYTES,
+            pledgeAmount,
+            tokenId,
+            false,
+            emptyByteArray
+        );
     }
 
     /**
@@ -364,10 +324,15 @@ contract AllOrNothing is
         uint256 tokenId
     )
         external
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        currentTimeIsGreater(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
     {
+        if (block.timestamp >= INFO.getDeadline()) {
+            if (_checkSuccessCondition()) {
+                revert AllOrNothingNotClaimable(tokenId);
+            }
+        }
         uint256 amount = s_tokenToPledgedAmount[tokenId];
         if (amount == 0) {
             revert AllOrNothingNotClaimable(tokenId);
@@ -385,9 +350,46 @@ contract AllOrNothing is
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) {
+    function disburseFees()
+        public
+        override
+        currentTimeIsGreater(INFO.getDeadline())
+    {
         if (!s_cryptoFeeDisbursed) {
             super.disburseFees();
+        }
+    }
+
+    function _pledge(
+        address backer,
+        bytes32 reward,
+        uint256 pledgeAmount,
+        uint256 tokenId,
+        bool isPreLaunchPledge,
+        bytes32[] memory rewards
+    ) internal {
+        bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
+        if (success) {
+            s_tokenIdCounter.increment();
+            _safeMint(
+                backer,
+                tokenId,
+                abi.encodePacked(backer, isPreLaunchPledge, reward)
+            );
+            if (!isPreLaunchPledge) {
+                s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+            }
+            s_pledgedAmountInCrypto += pledgeAmount;
+            emit Receipt(
+                backer,
+                reward,
+                pledgeAmount,
+                tokenId,
+                isPreLaunchPledge,
+                rewards
+            );
+        } else {
+            revert AllOrNothingTransferFailed();
         }
     }
 
