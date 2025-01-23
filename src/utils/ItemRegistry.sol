@@ -36,4 +36,27 @@ contract ItemRegistry is IItem, Context {
         Items[_msgSender()][itemId] = item;
         emit ItemAdded(_msgSender(), itemId, item);
     }
+
+    /**
+     * @notice Adds multiple items in a batch.
+     * @param itemIds An array of unique item identifiers.
+     * @param items An array of `Item` structs containing item attributes.
+     */
+    function addItemsBatch(
+        bytes32[] calldata itemIds,
+        Item[] calldata items
+    ) external {
+        require(
+            itemIds.length == items.length,
+            "ItemRegistry: Mismatched arrays length"
+        );
+
+        for (uint256 i = 0; i < itemIds.length; i++) {
+            bytes32 itemId = itemIds[i];
+            Item calldata item = items[i];
+
+            Items[_msgSender()][itemId] = item;
+            emit ItemAdded(_msgSender(), itemId, item);
+        }
+    }
 }
