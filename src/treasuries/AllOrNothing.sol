@@ -175,6 +175,41 @@ contract AllOrNothing is
     }
 
     /**
+     * @notice Adds multiple rewards in a batch.
+     * @param rewardNames An array of reward names.
+     * @param rewards An array of `Reward` structs containing reward details.
+     */
+    function addRewardsBatch(
+        bytes32[] calldata rewardNames,
+        Reward[] calldata rewards
+    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
+        if (rewardNames.length != rewards.length) {
+            revert AllOrNothingInvalidInput();
+        }
+
+        for (uint256 i = 0; i < rewardNames.length; i++) {
+            bytes32 rewardName = rewardNames[i];
+            Reward calldata reward = rewards[i];
+
+            if (
+                reward.rewardValue == 0 &&
+                reward.itemId.length == 0 &&
+                reward.itemId.length == reward.itemValue.length &&
+                reward.itemId.length == reward.itemQuantity.length
+            ) {
+                revert AllOrNothingInvalidInput();
+            }
+            if (s_reward[rewardName].rewardValue != 0) {
+                revert AllOrNothingRewardExists();
+            }
+
+            s_reward[rewardName] = reward;
+            s_rewardCounter.increment();
+            emit RewardAdded(rewardName, reward);
+        }
+    }
+
+    /**
      * @notice Removes a reward from the campaign.
      * @param rewardName The name of the reward.
      */
