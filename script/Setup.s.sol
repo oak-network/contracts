@@ -15,28 +15,15 @@ contract SetupScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         TestUSD testUSD = new TestUSD();
-        GlobalParams globalParams = new GlobalParams(
-            account,
-            address(testUSD),
-            200
-        );
-        CampaignInfoFactory campaignInfoFactory = new CampaignInfoFactory(
-            globalParams
-        );
+        GlobalParams globalParams = new GlobalParams(account, address(testUSD), 200);
+        CampaignInfoFactory campaignInfoFactory = new CampaignInfoFactory(globalParams);
         bytes32 bytecodeHash = keccak256(type(CampaignInfo).creationCode);
-        TreasuryFactory treasuryFactory = new TreasuryFactory(
-            globalParams,
-            address(campaignInfoFactory),
-            bytecodeHash
-        );
+        TreasuryFactory treasuryFactory = new TreasuryFactory(globalParams, address(campaignInfoFactory), bytecodeHash);
 
         // Log the addresses of deployed contracts
         console2.log("TestUSD deployed at:", address(testUSD));
         console2.log("GlobalParams deployed at:", address(globalParams));
-        console2.log(
-            "CampaignInfoFactory deployed at:",
-            address(campaignInfoFactory)
-        );
+        console2.log("CampaignInfoFactory deployed at:", address(campaignInfoFactory));
         console2.log("TreasuryFactory deployed at:", address(treasuryFactory));
 
         vm.stopBroadcast();
