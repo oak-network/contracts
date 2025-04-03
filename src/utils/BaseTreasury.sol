@@ -30,8 +30,7 @@ abstract contract BaseTreasury is
     IERC20 internal immutable TOKEN;
     ICampaignInfo internal immutable CAMPAIGN_INFO;
 
-    uint256 internal s_pledgedAmountInCrypto;
-    bool internal s_cryptoFeeDisbursed;
+    uint256 internal s_cryptoFeeDisbursed;
 
     /**
      * @notice Emitted when fees are successfully disbursed.
@@ -121,20 +120,9 @@ abstract contract BaseTreasury is
             PERCENT_DIVIDER;
         uint256 platformShare = (balance *
             INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
-        bool success = TOKEN.transfer(
-            INFO.getProtocolAdminAddress(),
-            protocolShare
-        );
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
-        success = TOKEN.transfer(
-            INFO.getPlatformAdminAddress(PLATFORM_BYTES),
-            platformShare
-        );
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
+
+        totalPledged -= (protocolShare + platformShare); // Adjust totalPledged
+
         s_cryptoFeeDisbursed = true;
         emit FeesDisbursed(protocolShare, platformShare);
     }
@@ -147,12 +135,8 @@ abstract contract BaseTreasury is
             revert TreasuryFeeNotDisbursed();
         }
         uint256 balance = totalPledged; // Use totalPledged from PledgeManager
-        address recipient = INFO.owner();
-        bool success = TOKEN.transfer(recipient, balance);
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
-        emit WithdrawalSuccessful(recipient, balance);
+        totalPledged = 0; // Reset totalPledged after withdrawal
+        emit WithdrawalSuccessful(INFO.owner(), balance);
     }
 
     /**
