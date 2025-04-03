@@ -346,19 +346,7 @@ contract AllOrNothing is
         override
         currentTimeIsGreater(INFO.getDeadline())
     {
-        uint256 protocolShare = (totalPledged * INFO.getProtocolFeePercent()) /
-            PERCENT_DIVIDER;
-        uint256 platformShare = (totalPledged *
-            INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
-
-        if (protocolShare + platformShare > totalPledged) {
-            revert AllOrNothingFeeNotDisbursed(); // Ensure no over-disbursement
-        }
-
-        // Adjust totalPledged to reflect disbursed fees
-        totalPledged -= (protocolShare + platformShare);
-
-        emit FeesDisbursed(protocolShare, platformShare);
+        _disburseFeesInternal();
     }
 
     function _pledge(
