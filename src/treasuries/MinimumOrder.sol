@@ -3,11 +3,11 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../interfaces/ICampaignInfo.sol";
 import "../utils/BaseTreasury.sol";
 import "../utils/TimestampChecker.sol";
+import "../utils/PledgeManager.sol";
 
 /**
  * @title MinimumOrder
@@ -15,7 +15,7 @@ import "../utils/TimestampChecker.sol";
  * Users can pre-order items or rewards, and when a predefined success metric is reached,
  * the campaign succeeds, and backers receive their rewards.
  */
-contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
+contract MinimumOrder is PledgeManager, BaseTreasury, TimestampChecker {
     using Counters for Counters.Counter;
 
     // Struct to define a reward
@@ -32,13 +32,9 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
     uint256 private s_preOrderValueAmount;
     uint256 private s_platformFeePercent;
 
-    // Mapping to store pledged amounts for tokens
-    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
-
     // Mapping to store rewards
     mapping(bytes32 => Reward) private s_reward;
 
-    Counters.Counter private s_tokenIdCounter;
     Counters.Counter internal s_numberOfPreOrders;
 
     /**
@@ -46,13 +42,11 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
      * @param backer The address of the backer.
      * @param reward The name of the reward.
      * @param pledgeAmount The amount pledged by the backer.
-     * @param tokenId The unique token ID associated with the pledge.
      */
     event Receipt(
         address indexed backer,
         bytes32 indexed reward,
-        uint256 pledgeAmount,
-        uint256 tokenId
+        uint256 pledgeAmount
     );
 
     /**
@@ -70,11 +64,10 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
 
     /**
      * @dev Event emitted when a refund is claimed by a backer.
-     * @param tokenId The unique token ID associated with the refund.
      * @param refundAmount The amount refunded to the backer.
      * @param claimer The address of the backer who claimed the refund.
      */
-    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
+    event RefundClaimed(uint256 refundAmount, address claimer);
 
     /**
      * @dev Throws an error indicating that the pre-order transfer failed.
@@ -94,10 +87,7 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
     constructor(
         bytes32 platformBytes,
         address infoAddress
-    )
-        ERC721("", "") // Initialize the ERC721 token with empty name and symbol
-        BaseTreasury(platformBytes, infoAddress)
-    {
+    ) BaseTreasury(platformBytes, infoAddress) {
         // Initialize the SUCCESS_METRIC from global platform data
         SUCCESS_METRIC = uint256(
             INFO.getPlatformData(
@@ -179,7 +169,6 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
 
     /**
      * @notice Function for backers to pre-order a reward.
-     * The pre-order can only be made within the specified campaign timeframe.
      * @param backer The address of the backer making the pre-order.
      * @param rewardName The name of the reward to pre-order.
      */
@@ -193,35 +182,27 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardValue = s_reward[rewardName].rewardValue;
-        bool success = TOKEN.transferFrom(backer, address(this), rewardValue);
-        if (!success) {
-            revert PreOrderTransferFailed();
-        }
-        s_tokenIdCounter.increment();
-        _safeMint(backer, tokenId, abi.encodePacked(backer, " ", rewardName));
-        s_preOrderValueAmount += rewardValue;
-        s_tokenToPledgedAmount[tokenId] = rewardValue;
-        s_numberOfPreOrders.increment();
-        emit Receipt(backer, rewardName, rewardValue, tokenId);
+        _makePledge(backer, rewardValue, INFO.getDeadline());
+        emit Receipt(backer, rewardName, rewardValue);
     }
 
     /**
      * @notice Function for backers to claim a refund if the campaign has not met the success metric.
-     * @param tokenId The unique token ID associated with the refund.
+     * @param backer The address of the backer.
      */
     function claimRefund(
-        uint256 tokenId
+        address backer
     ) external whenCampaignNotPaused whenNotPaused {
-        uint256 amount = s_tokenToPledgedAmount[tokenId];
-        s_tokenToPledgedAmount[tokenId] = 0;
-        burn(tokenId);
-        bool success = TOKEN.transfer(msg.sender, amount);
-        emit RefundClaimed(tokenId, amount, msg.sender);
+        PendingPledge memory pledge = _getPendingPledge(backer);
+        if (pledge.confirmed) revert PreOrderTransferFailed(); // Replace with appropriate error
+        _invalidateExpiredPledge(backer);
+
+        bool success = TOKEN.transfer(backer, pledge.amount);
         if (!success) {
             revert PreOrderTransferFailed();
         }
+        emit RefundClaimed(pledge.amount, backer);
     }
 
     /**
@@ -235,16 +216,5 @@ contract MinimumOrder is BaseTreasury, ERC721Burnable, TimestampChecker {
         returns (bool)
     {
         return (s_numberOfPreOrders.current() >= SUCCESS_METRIC);
-    }
-
-    /**
-     * @notice Function to check if an address is supported by the ERC721 contract.
-     * @param interfaceId The ERC721 interface ID to check.
-     * @return True if the interface is supported, false otherwise.
-     */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
     }
 }
