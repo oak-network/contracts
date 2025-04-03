@@ -18,9 +18,9 @@ interface ICampaignTreasury {
 
     /**
      * @notice Claims a refund for a specific token ID.
-     * @param tokenId The unique identifier of the refundable token.
+     * @param backer The address of the backer requesting the refund.
      */
-    function claimRefund(uint256 tokenId) external;
+    function claimRefund(address backer) external;
 
     /**
      * @notice Retrieves the platform identifier associated with the treasury.
