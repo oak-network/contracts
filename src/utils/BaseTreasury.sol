@@ -30,8 +30,6 @@ abstract contract BaseTreasury is
     IERC20 internal immutable TOKEN;
     ICampaignInfo internal immutable CAMPAIGN_INFO;
 
-    uint256 internal s_cryptoFeeDisbursed;
-
     /**
      * @notice Emitted when fees are successfully disbursed.
      * @param protocolShare The amount of fees sent to the protocol.
@@ -115,15 +113,19 @@ abstract contract BaseTreasury is
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
-        uint256 balance = totalPledged; // Use totalPledged from PledgeManager
-        uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
+
+        uint256 protocolShare = (totalPledged * INFO.getProtocolFeePercent()) /
             PERCENT_DIVIDER;
-        uint256 platformShare = (balance *
+        uint256 platformShare = (totalPledged *
             INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
 
-        totalPledged -= (protocolShare + platformShare); // Adjust totalPledged
+        if (protocolShare + platformShare > totalPledged) {
+            revert TreasuryTransferFailed(); // Ensure no over-disbursement
+        }
 
-        s_cryptoFeeDisbursed = true;
+        // Adjust totalPledged to reflect disbursed fees
+        totalPledged -= (protocolShare + platformShare);
+
         emit FeesDisbursed(protocolShare, platformShare);
     }
 
@@ -131,9 +133,10 @@ abstract contract BaseTreasury is
      * @inheritdoc ICampaignTreasury
      */
     function withdraw() public virtual override whenCampaignNotPaused {
-        if (!s_cryptoFeeDisbursed) {
-            revert TreasuryFeeNotDisbursed();
+        if (totalPledged == 0) {
+            revert TreasuryFeeNotDisbursed(); // Ensure fees are disbursed before withdrawal
         }
+
         uint256 balance = totalPledged; // Use totalPledged from PledgeManager
         totalPledged = 0; // Reset totalPledged after withdrawal
         emit WithdrawalSuccessful(INFO.owner(), balance);
