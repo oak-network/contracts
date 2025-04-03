@@ -35,12 +35,34 @@ abstract contract PledgeManager is Ownable {
     // Event emitted when a pledge is confirmed
     event PledgeConfirmed(address indexed backer, uint256 amount);
 
-    // Custom errors
+    /**
+     * @dev Throws an error indicating a zero pledge amount.
+     */
     error ZeroPledge();
+
+    /**
+     * @dev Throws an error indicating the pledge expiration is in the past.
+     */
     error ExpirationInPast();
+
+    /**
+     * @dev Throws an error indicating an existing pending pledge.
+     */
     error ExistingPledgePending();
+
+    /**
+     * @dev Throws an error indicating the pledge is already confirmed.
+     */
     error PledgeAlreadyConfirmed();
+
+    /**
+     * @dev Throws an error indicating the pledge has already expired.
+     */
     error PledgeAlreadyExpired();
+
+    /**
+     * @dev Throws an error indicating the pledge is not expired.
+     */
     error PledgeNotExpired();
 
     /**
