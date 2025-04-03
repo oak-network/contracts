@@ -7,6 +7,7 @@ import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "./CampaignAccessChecker.sol";
 import "./PausableWithMsg.sol";
+import "./PledgeManager.sol";
 
 /**
  * @title BaseTreasury
@@ -17,7 +18,8 @@ import "./PausableWithMsg.sol";
 abstract contract BaseTreasury is
     ICampaignTreasury,
     CampaignAccessChecker,
-    PausableWithMsg
+    PausableWithMsg,
+    PledgeManager
 {
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -114,7 +116,7 @@ abstract contract BaseTreasury is
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
-        uint256 balance = s_pledgedAmountInCrypto;
+        uint256 balance = totalPledged; // Use totalPledged from PledgeManager
         uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
             PERCENT_DIVIDER;
         uint256 platformShare = (balance *
@@ -144,7 +146,7 @@ abstract contract BaseTreasury is
         if (!s_cryptoFeeDisbursed) {
             revert TreasuryFeeNotDisbursed();
         }
-        uint256 balance = TOKEN.balanceOf(address(this));
+        uint256 balance = totalPledged; // Use totalPledged from PledgeManager
         address recipient = INFO.owner();
         bool success = TOKEN.transfer(recipient, balance);
         if (!success) {
@@ -156,14 +158,18 @@ abstract contract BaseTreasury is
     /**
      * @dev External function to pause the campaign.
      */
-    function _pauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    function _pauseTreasury(
+        bytes32 message
+    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _pause(message);
     }
 
     /**
      * @dev External function to unpause the campaign.
      */
-    function _unpauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    function _unpauseTreasury(
+        bytes32 message
+    ) external onlyPlatformAdmin(PLATFORM_BYTES) {
         _unpause(message);
     }
 
