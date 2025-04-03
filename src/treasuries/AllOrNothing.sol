@@ -2,21 +2,21 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "../utils/TimestampChecker.sol";
 import "../utils/BaseTreasury.sol";
 import "../utils/FiatEnabled.sol";
+import "../utils/PledgeManager.sol";
 
 /**
  * @title AllOrNothing
  * @notice A contract for handling crowdfunding campaigns with rewards.
  */
 contract AllOrNothing is
+    PledgeManager,
     BaseTreasury,
-    TimestampChecker,
     FiatEnabled,
-    ERC721Burnable
+    TimestampChecker
 {
     using Counters for Counters.Counter;
 
@@ -39,7 +39,6 @@ contract AllOrNothing is
     mapping(bytes32 => Reward) private s_reward;
 
     // Counters for token IDs and rewards
-    Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
 
     /**
@@ -47,7 +46,6 @@ contract AllOrNothing is
      * @param backer The address of the backer making the pledge.
      * @param reward The name of the reward.
      * @param pledgeAmount The amount pledged.
-     * @param tokenId The ID of the token representing the pledge.
      * @param isPreLaunchPledge Indicates whether it's a pre-launch pledge.
      * @param rewards An array of reward names.
      */
@@ -55,7 +53,6 @@ contract AllOrNothing is
         address indexed backer,
         bytes32 indexed reward,
         uint256 pledgeAmount,
-        uint256 tokenId,
         bool isPreLaunchPledge,
         bytes32[] rewards
     );
@@ -75,11 +72,10 @@ contract AllOrNothing is
 
     /**
      * @dev Emitted when a refund is claimed.
-     * @param tokenId The ID of the token representing the pledge.
      * @param refundAmount The refund amount claimed.
      * @param claimer The address of the claimer.
      */
-    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
+    event RefundClaimed(uint256 refundAmount, address claimer);
 
     /**
      * @dev Emitted when an unauthorized action is attempted.
@@ -124,9 +120,7 @@ contract AllOrNothing is
     constructor(
         bytes32 platformBytes,
         address infoAddress
-    ) ERC721("", "") BaseTreasury(platformBytes, infoAddress) {
-        s_tokenIdCounter.increment();
-    }
+    ) BaseTreasury(platformBytes, infoAddress) {}
 
     /**
      * @notice Retrieves the details of a reward.
@@ -276,17 +270,9 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(
-            backer,
-            ZERO_BYTES,
-            PRELAUNCH_PLEDGE,
-            tokenId,
-            true,
-            emptyByteArray
-        );
+        _pledge(backer, ZERO_BYTES, PRELAUNCH_PLEDGE, true, emptyByteArray);
     }
 
     /**
@@ -303,7 +289,6 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
@@ -321,7 +306,7 @@ contract AllOrNothing is
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        _pledge(backer, reward[0], pledgeAmount, tokenId, false, reward);
+        _pledge(backer, reward[0], pledgeAmount, false, reward);
     }
 
     /**
@@ -338,48 +323,25 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 tokenId = s_tokenIdCounter.current();
-        bytes32[] memory emptyByteArray = new bytes32[](0);
-
-        _pledge(
-            backer,
-            ZERO_BYTES,
-            pledgeAmount,
-            tokenId,
-            false,
-            emptyByteArray
-        );
+        _makePledge(backer, pledgeAmount, INFO.getDeadline());
     }
 
     /**
      * @notice Allows a backer to claim a refund.
-     * @param tokenId The ID of the token representing the pledge.
+     * @param backer The address of the backer.
      */
     function claimRefund(
-        uint256 tokenId
-    )
-        external
-        currentTimeIsGreater(INFO.getLaunchTime())
-        whenCampaignNotPaused
-        whenNotPaused
-    {
-        if (block.timestamp >= INFO.getDeadline()) {
-            if (_checkSuccessCondition()) {
-                revert AllOrNothingNotClaimable(tokenId);
-            }
-        }
-        uint256 amount = s_tokenToPledgedAmount[tokenId];
-        if (amount == 0) {
-            revert AllOrNothingNotClaimable(tokenId);
-        }
-        s_tokenToPledgedAmount[tokenId] = 0;
-        s_pledgedAmountInCrypto -= amount;
-        burn(tokenId);
-        bool success = TOKEN.transfer(msg.sender, amount);
+        address backer
+    ) external whenCampaignNotPaused whenNotPaused {
+        PendingPledge memory pledge = _getPendingPledge(backer);
+        if (pledge.confirmed) revert AllOrNothingNotClaimable(0);
+        _invalidateExpiredPledge(backer);
+
+        bool success = TOKEN.transfer(backer, pledge.amount);
         if (!success) {
             revert AllOrNothingTransferFailed();
         }
-        emit RefundClaimed(tokenId, amount, msg.sender);
+        emit RefundClaimed(pledge.amount, backer); // Replace tokenId with appropriate value
     }
 
     /**
@@ -399,33 +361,14 @@ contract AllOrNothing is
         address backer,
         bytes32 reward,
         uint256 pledgeAmount,
-        uint256 tokenId,
         bool isPreLaunchPledge,
         bytes32[] memory rewards
     ) internal {
-        bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
-        if (success) {
-            s_tokenIdCounter.increment();
-            _safeMint(
-                backer,
-                tokenId,
-                abi.encodePacked(backer, isPreLaunchPledge, reward)
-            );
-            if (!isPreLaunchPledge) {
-                s_tokenToPledgedAmount[tokenId] = pledgeAmount;
-            }
+        _makePledge(backer, pledgeAmount, INFO.getDeadline());
+        if (!isPreLaunchPledge) {
             s_pledgedAmountInCrypto += pledgeAmount;
-            emit Receipt(
-                backer,
-                reward,
-                pledgeAmount,
-                tokenId,
-                isPreLaunchPledge,
-                rewards
-            );
-        } else {
-            revert AllOrNothingTransferFailed();
         }
+        emit Receipt(backer, reward, pledgeAmount, isPreLaunchPledge, rewards);
     }
 
     /**
@@ -448,12 +391,5 @@ contract AllOrNothing is
         returns (bool)
     {
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
-    }
-
-    // The following functions are overrides required by Solidity.
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
     }
 }
