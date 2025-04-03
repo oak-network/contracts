@@ -29,7 +29,6 @@ contract MinimumOrder is PledgeManager, BaseTreasury, TimestampChecker {
     // Immutable variable to store the success metric
     uint256 internal immutable SUCCESS_METRIC;
 
-    uint256 private s_preOrderValueAmount;
     uint256 private s_platformFeePercent;
 
     // Mapping to store rewards
@@ -124,7 +123,7 @@ contract MinimumOrder is PledgeManager, BaseTreasury, TimestampChecker {
      * @return The total raised amount.
      */
     function getRaisedAmount() external view returns (uint256) {
-        return s_preOrderValueAmount;
+        return totalPledged;
     }
 
     /**
@@ -198,10 +197,6 @@ contract MinimumOrder is PledgeManager, BaseTreasury, TimestampChecker {
         if (pledge.confirmed) revert PreOrderTransferFailed(); // Replace with appropriate error
         _invalidateExpiredPledge(backer);
 
-        bool success = TOKEN.transfer(backer, pledge.amount);
-        if (!success) {
-            revert PreOrderTransferFailed();
-        }
         emit RefundClaimed(pledge.amount, backer);
     }
 
@@ -216,5 +211,28 @@ contract MinimumOrder is PledgeManager, BaseTreasury, TimestampChecker {
         returns (bool)
     {
         return (s_numberOfPreOrders.current() >= SUCCESS_METRIC);
+    }
+
+    /**
+     * @inheritdoc BaseTreasury
+     */
+    function disburseFees()
+        public
+        override
+        currentTimeIsGreater(INFO.getDeadline())
+    {
+        uint256 protocolShare = (totalPledged * INFO.getProtocolFeePercent()) /
+            PERCENT_DIVIDER;
+        uint256 platformShare = (totalPledged *
+            INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
+
+        if (protocolShare + platformShare > totalPledged) {
+            revert PreOrderTransferFailed(); // Ensure no over-disbursement
+        }
+
+        // Adjust totalPledged to reflect disbursed fees
+        totalPledged -= (protocolShare + platformShare);
+
+        emit FeesDisbursed(protocolShare, platformShare);
     }
 }
