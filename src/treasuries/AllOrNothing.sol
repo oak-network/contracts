@@ -32,13 +32,10 @@ contract AllOrNothing is
     // Constant for the pre-launch pledge amount
     uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
 
-    // Mapping to store the pledged amount per token ID
-    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
-
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
-    // Counters for token IDs and rewards
+    // Counters for rewards
     Counters.Counter private s_rewardCounter;
 
     /**
@@ -88,11 +85,6 @@ contract AllOrNothing is
     error AllOrNothingInvalidInput();
 
     /**
-     * @dev Emitted when a token transfer fails.
-     */
-    error AllOrNothingTransferFailed();
-
-    /**
      * @dev Emitted when the campaign is not successful.
      */
     error AllOrNothingNotSuccessful();
@@ -108,9 +100,14 @@ contract AllOrNothing is
 
     /**
      * @dev Emitted when claiming an unclaimable refund.
-     * @param tokenId The ID of the token representing the pledge.
+     * @param pledgeAmount The amount of the pledge that cannot be claimed.
      */
-    error AllOrNothingNotClaimable(uint256 tokenId);
+    error AllOrNothingNotClaimable(uint256 pledgeAmount);
+
+    /**
+     * @dev Emitted when a refund transfer fails.
+     */
+    error AllOrNothingRefundFailed();
 
     /**
      * @dev Constructor for the AllOrNothing contract.
@@ -140,7 +137,7 @@ contract AllOrNothing is
      * @inheritdoc ICampaignTreasury
      */
     function getRaisedAmount() external view override returns (uint256) {
-        return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
+        return s_fiatRaisedAmount + totalPledged;
     }
 
     /**
@@ -306,7 +303,8 @@ contract AllOrNothing is
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        _pledge(backer, reward[0], pledgeAmount, false, reward);
+        _makePledge(backer, pledgeAmount, INFO.getDeadline());
+        emit Receipt(backer, reward[0], pledgeAmount, false, reward);
     }
 
     /**
@@ -337,11 +335,7 @@ contract AllOrNothing is
         if (pledge.confirmed) revert AllOrNothingNotClaimable(0);
         _invalidateExpiredPledge(backer);
 
-        bool success = TOKEN.transfer(backer, pledge.amount);
-        if (!success) {
-            revert AllOrNothingTransferFailed();
-        }
-        emit RefundClaimed(pledge.amount, backer); // Replace tokenId with appropriate value
+        emit RefundClaimed(pledge.amount, backer);
     }
 
     /**
@@ -352,9 +346,19 @@ contract AllOrNothing is
         override
         currentTimeIsGreater(INFO.getDeadline())
     {
-        if (!s_cryptoFeeDisbursed) {
-            super.disburseFees();
+        uint256 protocolShare = (totalPledged * INFO.getProtocolFeePercent()) /
+            PERCENT_DIVIDER;
+        uint256 platformShare = (totalPledged *
+            INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
+
+        if (protocolShare + platformShare > totalPledged) {
+            revert AllOrNothingFeeNotDisbursed(); // Ensure no over-disbursement
         }
+
+        // Adjust totalPledged to reflect disbursed fees
+        totalPledged -= (protocolShare + platformShare);
+
+        emit FeesDisbursed(protocolShare, platformShare);
     }
 
     function _pledge(
@@ -365,9 +369,6 @@ contract AllOrNothing is
         bytes32[] memory rewards
     ) internal {
         _makePledge(backer, pledgeAmount, INFO.getDeadline());
-        if (!isPreLaunchPledge) {
-            s_pledgedAmountInCrypto += pledgeAmount;
-        }
         emit Receipt(backer, reward, pledgeAmount, isPreLaunchPledge, rewards);
     }
 
