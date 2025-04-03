@@ -110,6 +110,14 @@ abstract contract BaseTreasury is
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees() public virtual override whenCampaignNotPaused {
+        _disburseFeesInternal();
+    }
+
+    /**
+     * @dev Internal function to handle the common logic for disbursing fees.
+     * Derived contracts can call this function or override `disburseFees` if needed.
+     */
+    function _disburseFeesInternal() internal {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
