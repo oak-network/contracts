@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-abstract contract PledgeManager {
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+abstract contract PledgeManager is Ownable {
     struct PendingPledge {
         uint256 amount;
         uint256 expiration;
@@ -9,6 +12,9 @@ abstract contract PledgeManager {
 
     // Mapping to track pending pledges by backer address
     mapping(address => PendingPledge) private s_pendingPledges;
+
+    // Mapping to track backers and their index in the backers array
+    mapping(address => uint256) private s_backerIndex;
 
     // Total pledged amount
     uint256 public totalPledged;
@@ -29,6 +35,14 @@ abstract contract PledgeManager {
     // Event emitted when a pledge is confirmed
     event PledgeConfirmed(address indexed backer, uint256 amount);
 
+    // Custom errors
+    error ZeroPledge();
+    error ExpirationInPast();
+    error ExistingPledgePending();
+    error PledgeAlreadyConfirmed();
+    error PledgeAlreadyExpired();
+    error PledgeNotExpired();
+
     /**
      * @notice Allows a backer to make a pledge.
      * @param backer The address of the backer making the pledge.
@@ -40,11 +54,11 @@ abstract contract PledgeManager {
         uint256 pledgeAmount,
         uint256 expiration
     ) internal {
-        require(pledgeAmount > 0, "Pledge amount must be greater than zero");
-        require(
-            s_pendingPledges[backer].amount == 0,
-            "Existing pledge pending"
-        );
+        if (pledgeAmount == 0) revert ZeroPledge();
+        if (expiration <= block.timestamp) revert ExpirationInPast();
+        if (s_pendingPledges[backer].amount != 0)
+            revert ExistingPledgePending();
+        if (s_pendingPledges[backer].confirmed) revert PledgeAlreadyConfirmed();
 
         // Add the pledge to the pending mapping
         s_pendingPledges[backer] = PendingPledge({
@@ -54,6 +68,7 @@ abstract contract PledgeManager {
         });
 
         // Add the backer to the list if it's their first pledge
+        s_backerIndex[backer] = backers.length;
         backers.push(backer);
 
         emit PledgeMade(backer, pledgeAmount, expiration);
@@ -65,8 +80,9 @@ abstract contract PledgeManager {
      */
     function _confirmPledge(address backer) internal {
         PendingPledge storage pledge = s_pendingPledges[backer];
-        require(!pledge.confirmed, "Pledge already confirmed");
-        require(block.timestamp <= pledge.expiration, "Pledge has expired");
+        if (pledge.amount == 0) revert ZeroPledge();
+        if (pledge.confirmed) revert PledgeAlreadyConfirmed();
+        if (block.timestamp > pledge.expiration) revert PledgeAlreadyExpired();
 
         // Mark the pledge as confirmed
         pledge.confirmed = true;
@@ -81,8 +97,9 @@ abstract contract PledgeManager {
      */
     function _invalidateExpiredPledge(address backer) internal {
         PendingPledge storage pledge = s_pendingPledges[backer];
-        require(!pledge.confirmed, "Pledge already confirmed");
-        require(block.timestamp > pledge.expiration, "Pledge has not expired");
+        if (pledge.amount == 0) revert ZeroPledge();
+        if (pledge.confirmed) revert PledgeAlreadyConfirmed();
+        if (block.timestamp <= pledge.expiration) revert PledgeNotExpired();
 
         uint256 amount = pledge.amount;
 
@@ -94,11 +111,10 @@ abstract contract PledgeManager {
 
     /**
      * @notice Clears expired pledges for all backers.
+     * @dev Restricted to the contract owner or admin to prevent misuse.
      */
-    /// @dev It iterates through all backers and checks if their pledge has expired.
-    /// @dev This function is intended to be called periodically to clean up expired pledges.
-    function clearExpiredPledges() external {
-        for (uint256 i = 0; i < backers.length; i++) {
+    function clearExpiredPledges() public onlyOwner {
+        for (uint256 i = 0; i < backers.length; ) {
             address backer = backers[i];
             PendingPledge storage pledge = s_pendingPledges[backer];
 
@@ -109,7 +125,15 @@ abstract contract PledgeManager {
                 // Remove the pledge
                 delete s_pendingPledges[backer];
 
+                // Remove the backer from the list
+                backers[i] = backers[backers.length - 1];
+                backers.pop();
+
                 emit PledgeExpired(backer, amount);
+            } else {
+                unchecked {
+                    i++;
+                }
             }
         }
     }
@@ -121,5 +145,24 @@ abstract contract PledgeManager {
      */
     function _getPledgedAmount(address backer) internal view returns (uint256) {
         return s_pendingPledges[backer].amount;
+    }
+
+    /**
+     * @notice Retrieves the pending pledge for a given backer.
+     * @param backer The address of the backer.
+     * @return The pending pledge.
+     */
+    function _getPendingPledge(
+        address backer
+    ) internal view returns (PendingPledge memory) {
+        return s_pendingPledges[backer];
+    }
+
+    /**
+     * @notice Retrieves the list of backers.
+     * @return The array of backer addresses.
+     */
+    function _getBackers() internal view returns (address[] memory) {
+        return backers;
     }
 }
