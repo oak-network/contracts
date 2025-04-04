@@ -9,6 +9,7 @@ import "./interfaces/IGlobalParams.sol";
 import "./utils/TimestampChecker.sol";
 import "./utils/AdminAccessChecker.sol";
 import "./utils/PausableWithMsg.sol";
+import "./utils/CancelableWithMsg.sol";
 
 /**
  * @title CampaignInfo
@@ -19,6 +20,7 @@ contract CampaignInfo is
     ICampaignInfo,
     Ownable,
     PausableWithMsg,
+    CancelableWithMsg,
     TimestampChecker,
     AdminAccessChecker
 {
@@ -336,6 +338,7 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(s_campaignData.launchTime)
         whenNotPaused
+        whenNotCanceled
     {
         s_campaignData.deadline = deadline;
         emit CampaignInfoDeadlineUpdated(deadline);
@@ -352,6 +355,7 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(s_campaignData.launchTime)
         whenNotPaused
+        whenNotCanceled
     {
         s_campaignData.goalAmount = goalAmount;
         emit CampaignInfoGoalAmountUpdated(goalAmount);
@@ -369,6 +373,7 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(s_campaignData.launchTime)
         whenNotPaused
+        whenNotCanceled
     {
         if (s_selectedPlatformBytes[platformBytes] != selection) {
             revert CampaignInfoInvalidPlatformUpdate(platformBytes, selection);
@@ -385,7 +390,7 @@ contract CampaignInfo is
     function _setPlatformInfo(
         bytes32 platformBytes,
         address platformTreasuryAddress
-    ) external whenNotPaused {
+    ) external whenNotPaused whenNotCanceled {
         if (msg.sender != TREASURY_FACTORY) {
             revert CampaignInfoUnauthorized();
         }
@@ -407,5 +412,12 @@ contract CampaignInfo is
 
     function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
         _unpause(message);
+    }
+
+    function _cancelCampaign(bytes32 message) external onlyOwner whenNotPaused {
+        _cancel(message);
+
+        //iterate through all platforms and cancel them
+        // refund all the users
     }
 }
