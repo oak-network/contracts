@@ -417,7 +417,7 @@ contract CampaignInfo is
     function _cancelCampaign(bytes32 message) external onlyOwner whenNotPaused {
         _cancel(message);
 
-        //iterate through all platforms and cancel them
-        // refund all the users
+        //TODO: iterate through all platforms and cancel them
+        //TODO: refund all the users
     }
 }
