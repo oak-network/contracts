@@ -2,19 +2,22 @@
 pragma solidity ^0.8.13;
 
 import {Base_Test} from "../../Base.t.sol";
-import {BytesSplitter} from "../../utils/BytesSplitter.sol";
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
+import "src/CampaignInfo.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
+import {CampaignInfo} from "src/CampaignInfo.sol";
+import {IReward} from "src/interfaces/IReward.sol";
+import {LogDecoder} from "../../utils/LogDecoder.sol";
 
 /// @notice Common testing logic needed by all AllOrNothing integration tests.
 abstract contract AllOrNothing_Integration_Shared_Test is
-    Base_Test,
-    BytesSplitter
+    IReward,
+    LogDecoder,
+    Base_Test
 {
     address campaignAddress;
     address treasuryAddress;
-
     AllOrNothing internal allOrNothing;
 
     uint256 pledgeForARewardTokenId;
@@ -22,94 +25,67 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     /// @dev Initial dependent functions setup included for AllOrNothing Integration Tests.
     function setUp() public virtual override {
         super.setUp();
+        console.log("setUp: enlistPlatform");
 
         //Enlist Platform
-        enlistPlatform(PLATFORM_1_BYTES);
+        enlistPlatform(PLATFORM_1_HASH);
+        console.log("enlisted platform");
 
-        //Add Byte code chunks
-        addBytecode(PLATFORM_1_BYTES, TREASURY_BYTE_CODE_INDEX);
+        registerTreasuryImplementation(PLATFORM_1_HASH);
+        console.log("registered treasury");
 
-        //Enlist Bytecode
-        enlistBytecode(PLATFORM_1_BYTES, TREASURY_BYTE_CODE_INDEX);
+        approveTreasuryImplementation(PLATFORM_1_HASH);
+        console.log("approved treasury");
 
         //Create Campaign
-        createCampaign(PLATFORM_1_BYTES);
+        createCampaign(PLATFORM_1_HASH);
+        console.log("created campaign");
 
         //Deploy Treasury Contract
-        deploy(PLATFORM_1_BYTES, TREASURY_BYTE_CODE_INDEX);
-
-        allOrNothing = AllOrNothing(treasuryAddress);
+        deploy(PLATFORM_1_HASH);
+        console.log("deployed treasury");
     }
 
     /**
      * @notice Implements enlistPlatform helper function.
-     * @param platformBytes The platform bytes.
+     * @param platformHash The platform bytes.
      */
-    function enlistPlatform(bytes32 platformBytes) internal {
-        vm.startPrank(users.contractOwner);
+    function enlistPlatform(bytes32 platformHash) internal {
+        vm.startPrank(users.protocolAdminAddress);
         globalParams.enlistPlatform(
-            platformBytes,
+            platformHash,
             users.platform1AdminAddress,
             PLATFORM_FEE_PERCENT
         );
         vm.stopPrank();
     }
 
-    /**
-     * @notice Implements addBytecode helper function.
-     * @param platformBytes The platform bytes.
-     * @param bytecodeIndex The bytecode index.
-     */
-    function addBytecode(bytes32 platformBytes, uint256 bytecodeIndex) internal {
-        //Splitting Treasury Bytecode into 2 chunks
-        bytes memory bytesCode = vm.getCode("AllOrNothing.sol:AllOrNothing");
-        (bytes memory chunk1, bytes memory chunk2) = splitBytesIntoTwo(
-            bytesCode
-        );
-
+    function registerTreasuryImplementation(bytes32 platformHash) internal {
         vm.startPrank(users.platform1AdminAddress);
-        treasuryFactory.addBytecodeChunk(
-            platformBytes,
-            bytecodeIndex,
+        treasuryFactory.registerTreasuryImplementation(
+            platformHash,
             0,
-            false,
-            chunk1
-        );
-        treasuryFactory.addBytecodeChunk(
-            platformBytes,
-            bytecodeIndex,
-            1,
-            true,
-            chunk2
+            address(allOrNothingImplementation)
         );
         vm.stopPrank();
     }
 
-    /**
-     * @notice Implements enlistBytecode helper function.
-     * @param platformBytes The platform bytes.
-     * @param bytecodeIndex The bytecode index.
-     */
-    function enlistBytecode(
-        bytes32 platformBytes,
-        uint256 bytecodeIndex
-    ) internal {
+    function approveTreasuryImplementation(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
-        treasuryFactory.enlistBytecode(platformBytes, bytecodeIndex);
+        treasuryFactory.approveTreasuryImplementation(platformHash, 0);
         vm.stopPrank();
     }
 
     /**
      * @notice Implements createCampaign helper function. It creates new campaign info contract
-     * @param platformBytes The platform bytes.
+     * @param platformHash The platform bytes.
      */
-    function createCampaign(bytes32 platformBytes) internal {
-
-        bytes32 identifierHash = keccak256(abi.encodePacked(platformBytes));
-        bytes32[] memory selectedPlatformBytes = new bytes32[](1);
+    function createCampaign(bytes32 platformHash) internal {
+        bytes32 identifierHash = keccak256(abi.encodePacked(platformHash));
+        bytes32[] memory selectedPlatformHash = new bytes32[](1);
         bytes32[] memory platformDataKey;
         bytes32[] memory platformDataValue;
-        selectedPlatformBytes[0] = platformBytes;
+        selectedPlatformHash[0] = platformHash;
 
         vm.startPrank(users.creator1Address);
         vm.recordLogs();
@@ -117,172 +93,258 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         campaignInfoFactory.createCampaign(
             users.creator1Address,
             identifierHash,
-            selectedPlatformBytes,
+            selectedPlatformHash,
             platformDataKey,
             platformDataValue,
             CAMPAIGN_DATA
         );
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
-
-        campaignAddress = address(uint160(uint(entries[2].topics[2])));
         vm.stopPrank();
+
+        (bytes32[] memory topics, ) = decodeTopicsAndData(
+            entries,
+            "CampaignInfoFactoryCampaignCreated(bytes32,address)",
+            address(campaignInfoFactory)
+        );
+
+        require(topics.length == 3, "Unexpected topic length for event");
+
+        campaignAddress = address(uint160(uint256(topics[2])));
     }
 
     /**
      * @notice Implements deploy helper function. It deploys treasury contract.
-     * @param platformBytes The platform bytes.
-     * @param bytecodeIndex The bytecode index.
      */
-    function deploy(
-        bytes32 platformBytes,
-        uint256 bytecodeIndex
-    ) internal {
+    function deploy(bytes32 platformHash) internal {
         vm.startPrank(users.platform1AdminAddress);
         vm.recordLogs();
-        treasuryFactory.deploy(platformBytes, bytecodeIndex, campaignAddress);
+
+        // Deploy the treasury contract
+        treasuryFactory.deploy(platformHash, campaignAddress, 0, NAME, SYMBOL);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
-
-        treasuryAddress = address(uint160(uint(abi.decode(entries[1].data, (bytes32)))));
-        vm.stopPrank();
-     }
-
-    /**
-     * @notice Implements addReward helper function.
-     */
-    function addReward() internal returns(Vm.Log[] memory) {
-        
-        vm.startPrank(users.creator1Address);
-        vm.recordLogs();
-
-        allOrNothing.addReward(REWARD_NAME_1_BYTES, REWARD1);
-
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-
         vm.stopPrank();
 
-        return entries;
+        // Decode the TreasuryDeployed event
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
+            entries,
+            "TreasuryFactoryTreasuryDeployed(bytes32,uint256,address,address)",
+            address(treasuryFactory)
+        );
+
+        require(topics.length >= 3, "Expected indexed params missing");
+
+        // treasuryAddress is in data, campaignAddress is in topics[2] (but we already know it)
+        treasuryAddress = abi.decode(data, (address));
+
+        allOrNothing = AllOrNothing(treasuryAddress);
     }
 
-    /**
-     * @notice Implements pledgeOnPreLaunch helper function.
-     */
-    function pledgeOnPreLaunch() internal returns(Vm.Log[] memory) {
-        vm.startPrank(users.backer1Address);
-        vm.recordLogs();
-
-        //Increase Allowance to the AllOrNothing Contract
-        testUSD.increaseAllowance(treasuryAddress, PRE_LAUNCH_PLEDGE_AMOUNT);
-
-        allOrNothing.pledgeOnPreLaunch(users.backer1Address);
-
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-
+    function addReward(
+        address caller,
+        address treasury,
+        bytes32 rewardName,
+        Reward memory reward
+    ) internal {
+        vm.startPrank(caller);
+        allOrNothing.addReward(rewardName, reward);
         vm.stopPrank();
+    }
 
-        return entries;
+    function addRewardsBatch(
+        address caller,
+        address treasury,
+        bytes32[] memory rewardNames,
+        Reward[] memory rewards
+    ) internal {
+        vm.startPrank(caller);
+        AllOrNothing(treasury).addRewardsBatch(rewardNames, rewards);
+        vm.stopPrank();
     }
 
     /**
      * @notice Implements pledgeForAReward helper function.
      */
-    function pledgeForAReward() internal returns (Vm.Log[] memory) {
-        
-        vm.startPrank(users.backer1Address);
+    function pledgeForAReward(
+        address caller,
+        address token,
+        address allOrNothingAddress,
+        uint256 pledgeAmount,
+        uint256 shippingFee,
+        uint256 launchTime,
+        bytes32 rewardName
+    )
+        internal
+        returns (
+            Vm.Log[] memory logs,
+            uint256 tokenId,
+            bytes32[] memory rewards
+        )
+    {
+        vm.startPrank(caller);
         vm.recordLogs();
 
-        //Increase Allowance to the AllOrNothing Contract
-        testUSD.increaseAllowance(treasuryAddress, PLEDGE_AMOUNT);
-
-        vm.warp(LAUNCH_TIME);
+        testUSD.approve(allOrNothingAddress, pledgeAmount + shippingFee);
+        vm.warp(launchTime);
 
         bytes32[] memory reward = new bytes32[](1);
-        reward[0] = REWARD_NAME_1_BYTES;
-        allOrNothing.pledgeForAReward(users.backer1Address, reward);
+        reward[0] = rewardName;
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        AllOrNothing(allOrNothingAddress).pledgeForAReward(
+            caller,
+            shippingFee,
+            reward
+        );
 
-        uint256 pledgeAmount;
-        uint256 tokenId;
-        bool isPreLaunchPledge;
-        bytes32[] memory rewards;
+        logs = vm.getRecordedLogs();
 
-        (pledgeAmount, tokenId, isPreLaunchPledge, rewards) = abi.decode(entries[4].data, (uint256,uint256,bool,bytes32[]));
+        bytes memory data = decodeEventFromLogs(
+            logs,
+            "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])",
+            allOrNothingAddress
+        );
 
-        pledgeForARewardTokenId = tokenId;
+        // (, tokenId, rewards) = abi.decode(data, (uint256, uint256, bytes32[]));
+        (, , tokenId, rewards) = abi.decode(
+            data,
+            (uint256, uint256, uint256, bytes32[])
+        );
 
         vm.stopPrank();
-
-        return entries;
     }
 
     /**
      * @notice Implements pledgeWithoutAReward helper function.
      */
-    function pledgeWithoutAReward() internal returns(Vm.Log[] memory) {
-        
-        vm.startPrank(users.backer1Address);
+    function pledgeWithoutAReward(
+        address caller,
+        address token,
+        address allOrNothingAddress,
+        uint256 pledgeAmount,
+        uint256 launchTime
+    ) internal returns (Vm.Log[] memory logs, uint256 tokenId) {
+        vm.startPrank(caller);
         vm.recordLogs();
 
-        //Increase Allowance to the AllOrNothing Contract
-        testUSD.increaseAllowance(treasuryAddress, PLEDGE_AMOUNT);
+        testUSD.approve(allOrNothingAddress, pledgeAmount);
+        vm.warp(launchTime);
 
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, PLEDGE_AMOUNT);
+        AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(
+            caller,
+            pledgeAmount
+        );
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        logs = vm.getRecordedLogs();
 
+        // Decode receipt event if available
+        bytes memory data = decodeEventFromLogs(
+            logs,
+            "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])",
+            allOrNothingAddress
+        );
+
+        (, , tokenId, ) = abi.decode(
+            data,
+            (uint256, uint256, uint256, bytes32[])
+        );
         vm.stopPrank();
-
-        return entries;
     }
 
     /**
      * @notice Implements claimRefund helper function.
      */
-    function claimRefund() internal returns(Vm.Log[] memory) {
-        
-        vm.startPrank(users.backer1Address);
+    function claimRefund(
+        address caller,
+        address allOrNothingAddress,
+        uint256 tokenId
+    )
+        internal
+        returns (
+            Vm.Log[] memory logs,
+            uint256 refundedTokenId,
+            uint256 refundAmount,
+            address claimer
+        )
+    {
+        vm.startPrank(caller);
         vm.recordLogs();
 
-        //Approve NFT Burn to the AllOrNothing Contract
-        allOrNothing.approve(address(allOrNothing), pledgeForARewardTokenId);
+        AllOrNothing(allOrNothingAddress).claimRefund(tokenId);
 
-        allOrNothing.claimRefund(pledgeForARewardTokenId);
+        logs = vm.getRecordedLogs();
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes memory data = decodeEventFromLogs(
+            logs,
+            "RefundClaimed(uint256,uint256,address)",
+            allOrNothingAddress
+        );
+
+        (refundedTokenId, refundAmount, claimer) = abi.decode(
+            data,
+            (uint256, uint256, address)
+        );
 
         vm.stopPrank();
-
-        return entries;
     }
 
     /**
      * @notice Implements disburseFees helper function.
      */
-    function disburseFees() internal returns(Vm.Log[] memory) {
-        
+    function disburseFees(
+        address allOrNothingAddress,
+        uint256 warpTime
+    )
+        internal
+        returns (
+            Vm.Log[] memory logs,
+            uint256 protocolShare,
+            uint256 platformShare
+        )
+    {
+        vm.warp(warpTime);
         vm.recordLogs();
 
-        allOrNothing.disburseFees();
+        AllOrNothing(allOrNothingAddress).disburseFees();
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        logs = vm.getRecordedLogs();
 
-        return entries;
+        bytes memory data = decodeEventFromLogs(
+            logs,
+            "FeesDisbursed(uint256,uint256)",
+            allOrNothingAddress
+        );
+
+        (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
     }
 
     /**
      * @notice Implements withdraw helper function.
      */
-    function withdraw() internal returns(Vm.Log[] memory) {
-        
+    function withdraw(
+        address allOrNothingAddress,
+        uint256 warpTime
+    ) internal returns (Vm.Log[] memory logs, address to, uint256 amount) {
+        vm.warp(warpTime);
+        // Start recording logs and simulate the withdrawal process
         vm.recordLogs();
 
-        allOrNothing.withdraw();
+        // Execute withdraw function in the contract
+        AllOrNothing(allOrNothingAddress).withdraw();
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // Capture the logs from the transaction
+        logs = vm.getRecordedLogs();
 
-        return entries;
+        // Decode the data from the logs
+        bytes memory data = decodeEventFromLogs(
+            logs,
+            "WithdrawalSuccessful(address,uint256)",
+            allOrNothingAddress
+        );
+
+        // Decode the amount and the address of the receiver
+        (to, amount) = abi.decode(data, (address, uint256));
+
+        return (logs, to, amount);
     }
-
 }
