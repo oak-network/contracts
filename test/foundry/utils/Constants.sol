@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 abstract contract Constants {
     uint40 internal constant OCTOBER_1_2023 = 1_696_118_400;
