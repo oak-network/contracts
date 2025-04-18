@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
 
 import "./interfaces/IGlobalParams.sol";
 import "./utils/Counters.sol";
@@ -11,7 +10,7 @@ import "./utils/Counters.sol";
  * @title GlobalParams
  * @notice Manages global parameters and platform information.
  */
-contract GlobalParams is IGlobalParams, Ownable, Pausable {
+contract GlobalParams is IGlobalParams, Ownable {
     using Counters for Counters.Counter;
 
     bytes32 private constant ZERO_BYTES =
