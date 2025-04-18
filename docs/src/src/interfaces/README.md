@@ -7,4 +7,5 @@
 - [ICampaignTreasury](ICampaignTreasury.sol/interface.ICampaignTreasury.md)
 - [IGlobalParams](IGlobalParams.sol/interface.IGlobalParams.md)
 - [IItem](IItem.sol/interface.IItem.md)
+- [IReward](IReward.sol/interface.IReward.md)
 - [ITreasuryFactory](ITreasuryFactory.sol/interface.ITreasuryFactory.md)

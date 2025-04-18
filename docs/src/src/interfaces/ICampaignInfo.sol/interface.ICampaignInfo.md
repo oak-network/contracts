@@ -1,5 +1,5 @@
 # ICampaignInfo
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ICampaignInfo.sol)
 
 An interface for managing campaign information in a crowdfunding system.
 
@@ -26,13 +26,13 @@ Checks if a platform has been selected for the campaign.
 
 
 ```solidity
-function checkIfPlatformSelected(bytes32 platformBytes) external view returns (bool);
+function checkIfPlatformSelected(bytes32 platformHash) external view returns (bool);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The bytes32 identifier of the platform to check.|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform to check.|
 
 **Returns**
 
@@ -77,13 +77,13 @@ Retrieves the address of the platform administrator for a specific platform.
 
 
 ```solidity
-function getPlatformAdminAddress(bytes32 platformBytes) external view returns (address);
+function getPlatformAdminAddress(bytes32 platformHash) external view returns (address);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The bytes32 identifier of the platform.|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 
 **Returns**
 
@@ -173,13 +173,13 @@ Retrieves the platform fee percentage for a specific platform.
 
 
 ```solidity
-function getPlatformFeePercent(bytes32 platformBytes) external view returns (uint256);
+function getPlatformFeePercent(bytes32 platformHash) external view returns (uint256);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The bytes32 identifier of the platform.|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 
 **Returns**
 
@@ -290,22 +290,31 @@ Updates the selection status of a platform for the campaign.
 
 
 ```solidity
-function updateSelectedPlatform(bytes32 platformBytes, bool selection) external;
+function updateSelectedPlatform(bytes32 platformHash, bool selection) external;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The bytes32 identifier of the platform.|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 |`selection`|`bool`|The new selection status (true or false).|
 
 
 ### paused
 
-*Returns true if the contract is paused, and false otherwise.*
+*Returns true if the campaign is paused, and false otherwise.*
 
 
 ```solidity
 function paused() external view returns (bool);
+```
+
+### cancelled
+
+*Returns true if the campaign is cancelled, and false otherwise.*
+
+
+```solidity
+function cancelled() external view returns (bool);
 ```
 

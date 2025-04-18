@@ -1,4 +1,5 @@
 # KeepWhatsRaised
+
 [Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
@@ -6,38 +7,35 @@
 
 A contract that keeps all the funds raised, regardless of the success condition.
 
-*This contract inherits from the `AllOrNothing` contract and overrides the `_checkSuccessCondition` function to always return true.*
-
+_This contract inherits from the `AllOrNothing` contract and overrides the `_checkSuccessCondition` function to always return true._
 
 ## Functions
+
 ### constructor
 
-*Initializes the KeepWhatsRaised contract.*
-
+_Initializes the KeepWhatsRaised contract._
 
 ```solidity
-constructor(bytes32 platformBytes, address infoAddress) AllOrNothing(platformBytes, infoAddress);
+constructor(bytes32 platformHash, address infoAddress) AllOrNothing(platformHash, infoAddress);
 ```
+
 **Parameters**
 
-|Name|Type|Description|
-|----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
-|`infoAddress`|`address`|The address of the associated campaign information contract.|
+| Name           | Type      | Description                                                  |
+| -------------- | --------- | ------------------------------------------------------------ |
+| `platformHash` | `bytes32` | The unique identifier of the platform.                       |
+| `infoAddress`  | `address` | The address of the associated campaign information contract. |
 
+### \_checkSuccessCondition
 
-### _checkSuccessCondition
-
-*Internal function to check the success condition for fee disbursement.*
-
+_Internal function to check the success condition for fee disbursement._
 
 ```solidity
 function _checkSuccessCondition() internal pure override returns (bool);
 ```
+
 **Returns**
 
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|Whether the success condition is met.|
-
-
+| Name     | Type   | Description                           |
+| -------- | ------ | ------------------------------------- |
+| `<none>` | `bool` | Whether the success condition is met. |

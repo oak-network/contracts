@@ -1,23 +1,23 @@
 # IGlobalParams
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
 
 ## Functions
-### checkIfplatformIsListed
+### checkIfPlatformIsListed
 
 Checks if a platform is listed in the protocol.
 
 
 ```solidity
-function checkIfplatformIsListed(bytes32 _platformBytes) external view returns (bool);
+function checkIfPlatformIsListed(bytes32 _platformHash) external view returns (bool);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`_platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`_platformHash`|`bytes32`|The unique identifier of the platform.|
 
 **Returns**
 
@@ -32,13 +32,13 @@ Retrieves the admin address of a platform.
 
 
 ```solidity
-function getPlatformAdminAddress(bytes32 _platformBytes) external view returns (address);
+function getPlatformAdminAddress(bytes32 _platformHash) external view returns (address);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`_platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`_platformHash`|`bytes32`|The unique identifier of the platform.|
 
 **Returns**
 
@@ -113,7 +113,7 @@ Retrieves the owner of platform-specific data.
 
 
 ```solidity
-function getPlatformDataOwner(bytes32 platformDataKey) external view returns (bytes32 platformBytes);
+function getPlatformDataOwner(bytes32 platformDataKey) external view returns (bytes32 platformHash);
 ```
 **Parameters**
 
@@ -125,7 +125,7 @@ function getPlatformDataOwner(bytes32 platformDataKey) external view returns (by
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform identifier associated with the data.|
+|`platformHash`|`bytes32`|The platform identifier associated with the data.|
 
 
 ### getPlatformFeePercent
@@ -134,13 +134,13 @@ Retrieves the platform fee percentage for a specific platform.
 
 
 ```solidity
-function getPlatformFeePercent(bytes32 platformBytes) external view returns (uint256);
+function getPlatformFeePercent(bytes32 platformHash) external view returns (uint256);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 **Returns**
 
@@ -221,13 +221,13 @@ Updates the admin address of a platform.
 
 
 ```solidity
-function updatePlatformAdminAddress(bytes32 _platformBytes, address _platformAdminAddress) external;
+function updatePlatformAdminAddress(bytes32 _platformHash, address _platformAdminAddress) external;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`_platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`_platformHash`|`bytes32`|The unique identifier of the platform.|
 |`_platformAdminAddress`|`address`|The new admin address of the platform.|
 
 

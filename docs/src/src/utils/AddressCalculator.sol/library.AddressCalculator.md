@@ -1,5 +1,5 @@
 # AddressCalculator
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/AddressCalculator.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/AddressCalculator.sol)
 
 A Solidity library for computing contract addresses and checking if a contract is deployed at a given address.
 

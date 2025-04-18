@@ -1,5 +1,5 @@
 # AdminAccessChecker
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/AdminAccessChecker.sol)
 
 *This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators and platform administrators.*
@@ -9,25 +9,17 @@ to authorized protocol administrators and platform administrators.*
 ### GLOBAL_PARAMS
 
 ```solidity
-IGlobalParams internal immutable GLOBAL_PARAMS;
+IGlobalParams internal GLOBAL_PARAMS;
 ```
 
 
 ## Functions
-### constructor
-
-*Constructor to initialize the contract with the address of the global parameters contract.*
+### __AccessChecker_init
 
 
 ```solidity
-constructor(IGlobalParams globalParams);
+function __AccessChecker_init(IGlobalParams globalParams) internal;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`globalParams`|`IGlobalParams`|The address of the IGlobalParams contract.|
-
 
 ### onlyProtocolAdmin
 
@@ -46,39 +38,39 @@ Users attempting to execute functions with this modifier must be the platform ad
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformBytes);
+modifier onlyPlatformAdmin(bytes32 platformHash);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 
-### _checkIfProtocolAdmin
+### _onlyProtocolAdmin
 
 *Internal function to check if the sender is the protocol administrator.
 If the sender is not the protocol admin, it reverts with AdminAccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfProtocolAdmin() private view;
+function _onlyProtocolAdmin() private view;
 ```
 
-### _checkIfPlatformAdmin
+### _onlyPlatformAdmin
 
 *Internal function to check if the sender is the platform administrator for a specific platform.
 If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfPlatformAdmin(bytes32 platformBytes) private view;
+function _onlyPlatformAdmin(bytes32 platformHash) private view;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 
 ## Errors

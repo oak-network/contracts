@@ -1,5 +1,5 @@
 # GlobalParams
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/GlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/GlobalParams.sol)
 
 **Inherits:**
 [IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable, Pausable
@@ -95,20 +95,28 @@ Users attempting to execute functions with this modifier must be the platform ad
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformBytes);
+modifier onlyPlatformAdmin(bytes32 platformHash);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
+
+### platformIsListed
+
+
+```solidity
+modifier platformIsListed(bytes32 platformHash);
+```
 
 ### constructor
 
 
 ```solidity
-constructor(address protocolAdminAddress, address tokenAddress, uint256 protocolFeePercent);
+constructor(address protocolAdminAddress, address tokenAddress, uint256 protocolFeePercent)
+    Ownable(protocolAdminAddress);
 ```
 **Parameters**
 
@@ -119,19 +127,19 @@ constructor(address protocolAdminAddress, address tokenAddress, uint256 protocol
 |`protocolFeePercent`|`uint256`|The protocol fee percentage.|
 
 
-### checkIfplatformIsListed
+### checkIfPlatformIsListed
 
 Checks if a platform is listed in the protocol.
 
 
 ```solidity
-function checkIfplatformIsListed(bytes32 platformBytes) external view override returns (bool);
+function checkIfPlatformIsListed(bytes32 platformHash) public view override returns (bool);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`||
+|`platformHash`|`bytes32`||
 
 **Returns**
 
@@ -146,13 +154,18 @@ Retrieves the admin address of a platform.
 
 
 ```solidity
-function getPlatformAdminAddress(bytes32 platformBytes) external view override returns (address account);
+function getPlatformAdminAddress(bytes32 platformHash)
+    external
+    view
+    override
+    platformIsListed(platformHash)
+    returns (address account);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`||
+|`platformHash`|`bytes32`||
 
 **Returns**
 
@@ -227,13 +240,18 @@ Retrieves the platform fee percentage for a specific platform.
 
 
 ```solidity
-function getPlatformFeePercent(bytes32 platformBytes) external view override returns (uint256 platformFeePercent);
+function getPlatformFeePercent(bytes32 platformHash)
+    external
+    view
+    override
+    platformIsListed(platformHash)
+    returns (uint256 platformFeePercent);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 **Returns**
 
@@ -248,7 +266,12 @@ Retrieves the owner of platform-specific data.
 
 
 ```solidity
-function getPlatformDataOwner(bytes32 platformDataKey) external view override returns (bytes32 platformBytes);
+function getPlatformDataOwner(bytes32 platformDataKey)
+    external
+    view
+    override
+    platformIsListed(platformHash)
+    returns (bytes32 platformHash);
 ```
 **Parameters**
 
@@ -260,7 +283,7 @@ function getPlatformDataOwner(bytes32 platformDataKey) external view override re
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform identifier associated with the data.|
+|`platformHash`|`bytes32`|The platform identifier associated with the data.|
 
 
 ### checkIfPlatformDataKeyValid
@@ -290,7 +313,7 @@ Enlists a platform with its admin address and fee percentage.
 
 
 ```solidity
-function enlistPlatform(bytes32 platformBytes, address platformAdminAddress, uint256 platformFeePercent)
+function enlistPlatform(bytes32 platformHash, address platformAdminAddress, uint256 platformFeePercent)
     external
     onlyOwner;
 ```
@@ -298,7 +321,7 @@ function enlistPlatform(bytes32 platformBytes, address platformAdminAddress, uin
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform's identifier.|
+|`platformHash`|`bytes32`|The platform's identifier.|
 |`platformAdminAddress`|`address`|The platform's admin address.|
 |`platformFeePercent`|`uint256`|The platform's fee percentage.|
 
@@ -309,13 +332,13 @@ Delists a platform.
 
 
 ```solidity
-function delistPlatform(bytes32 platformBytes) external onlyOwner;
+function delistPlatform(bytes32 platformHash) external onlyOwner;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform's identifier.|
+|`platformHash`|`bytes32`|The platform's identifier.|
 
 
 ### addPlatformData
@@ -324,13 +347,16 @@ Adds platform-specific data key.
 
 
 ```solidity
-function addPlatformData(bytes32 platformBytes, bytes32 platformDataKey) external onlyPlatformAdmin(platformBytes);
+function addPlatformData(bytes32 platformHash, bytes32 platformDataKey)
+    external
+    platformIsListed(platformHash)
+    onlyPlatformAdmin(platformHash);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform's identifier.|
+|`platformHash`|`bytes32`|The platform's identifier.|
 |`platformDataKey`|`bytes32`|The platform data key.|
 
 
@@ -340,13 +366,16 @@ Removes platform-specific data key.
 
 
 ```solidity
-function removePlatformData(bytes32 platformBytes, bytes32 platformDataKey) external onlyPlatformAdmin(platformBytes);
+function removePlatformData(bytes32 platformHash, bytes32 platformDataKey)
+    external
+    platformIsListed(platformHash)
+    onlyPlatformAdmin(platformHash);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform's identifier.|
+|`platformHash`|`bytes32`|The platform's identifier.|
 |`platformDataKey`|`bytes32`|The platform data key.|
 
 
@@ -405,17 +434,18 @@ Updates the admin address of a platform.
 
 
 ```solidity
-function updatePlatformAdminAddress(bytes32 platformBytes, address platformAdminAddress)
+function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminAddress)
     external
     override
     onlyOwner
+    platformIsListed(platformHash)
     notAddressZero(platformAdminAddress);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`||
+|`platformHash`|`bytes32`||
 |`platformAdminAddress`|`address`||
 
 
@@ -428,20 +458,20 @@ function updatePlatformAdminAddress(bytes32 platformBytes, address platformAdmin
 function _checkIfAddressZero(address account) internal pure;
 ```
 
-### _checkIfPlatformAdmin
+### _onlyPlatformAdmin
 
 *Internal function to check if the sender is the platform administrator for a specific platform.
 If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfPlatformAdmin(bytes32 platformBytes) private view;
+function _onlyPlatformAdmin(bytes32 platformHash) private view;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 
 ## Events
@@ -450,16 +480,30 @@ function _checkIfPlatformAdmin(bytes32 platformBytes) private view;
 
 
 ```solidity
-event PlatformEnlisted(bytes32 indexed platformBytes, address indexed platformAdminAddress, uint256 platformFeePercent);
+event PlatformEnlisted(bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the enlisted platform.|
+|`platformAdminAddress`|`address`|The admin address of the enlisted platform.|
+|`platformFeePercent`|`uint256`|The fee percentage of the enlisted platform.|
 
 ### PlatformDelisted
 *Emitted when a platform is delisted.*
 
 
 ```solidity
-event PlatformDelisted(bytes32 indexed platformBytes);
+event PlatformDelisted(bytes32 indexed platformHash);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the delisted platform.|
 
 ### ProtocolAdminAddressUpdated
 *Emitted when the protocol admin address is updated.*
@@ -469,6 +513,12 @@ event PlatformDelisted(bytes32 indexed platformBytes);
 event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 ```
 
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newAdminAddress`|`address`|The new protocol admin address.|
+
 ### TokenAddressUpdated
 *Emitted when the token address is updated.*
 
@@ -476,6 +526,12 @@ event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 ```solidity
 event TokenAddressUpdated(address indexed newTokenAddress);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newTokenAddress`|`address`|The new token address.|
 
 ### ProtocolFeePercentUpdated
 *Emitted when the protocol fee percent is updated.*
@@ -485,29 +541,56 @@ event TokenAddressUpdated(address indexed newTokenAddress);
 event ProtocolFeePercentUpdated(uint256 newFeePercent);
 ```
 
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newFeePercent`|`uint256`|The new protocol fee percentage.|
+
 ### PlatformAdminAddressUpdated
 *Emitted when the platform admin address is updated.*
 
 
 ```solidity
-event PlatformAdminAddressUpdated(bytes32 indexed platformBytes, address indexed newAdminAddress);
+event PlatformAdminAddressUpdated(bytes32 indexed platformHash, address indexed newAdminAddress);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`newAdminAddress`|`address`|The new admin address of the platform.|
 
 ### PlatformDataAdded
 *Emitted when platform data is added.*
 
 
 ```solidity
-event PlatformDataAdded(bytes32 indexed platformBytes, bytes32 indexed platformDataKey);
+event PlatformDataAdded(bytes32 indexed platformHash, bytes32 indexed platformDataKey);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`platformDataKey`|`bytes32`|The data key added to the platform.|
 
 ### PlatformDataRemoved
 *Emitted when platform data is removed.*
 
 
 ```solidity
-event PlatformDataRemoved(bytes32 indexed platformBytes, bytes32 platformDataKey);
+event PlatformDataRemoved(bytes32 indexed platformHash, bytes32 platformDataKey);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`platformDataKey`|`bytes32`|The data key removed from the platform.|
 
 ## Errors
 ### GlobalParamsInvalidInput
@@ -523,32 +606,56 @@ error GlobalParamsInvalidInput();
 
 
 ```solidity
-error GlobalParamsPlatformNotListed(bytes32 platformBytes, address platformAdminAddress);
+error GlobalParamsPlatformNotListed(bytes32 platformHash);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAlreadyListed
 *Throws when the platform is already listed.*
 
 
 ```solidity
-error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
+error GlobalParamsPlatformAlreadyListed(bytes32 platformHash);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAdminNotSet
 *Throws when the platform admin is not set.*
 
 
 ```solidity
-error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
+error GlobalParamsPlatformAdminNotSet(bytes32 platformHash);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformFeePercentIsZero
 *Throws when the platform fee percent is zero.*
 
 
 ```solidity
-error GlobalParamsPlatformFeePercentIsZero(bytes32 platformBytes);
+error GlobalParamsPlatformFeePercentIsZero(bytes32 platformHash);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformDataAlreadySet
 *Throws when the platform data is already set.*

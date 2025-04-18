@@ -1,5 +1,5 @@
 # ICampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/interfaces/ICampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ICampaignInfoFactory.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -17,7 +17,7 @@ Creates a new campaign information contract.
 function createCampaign(
     address creator,
     bytes32 identifierHash,
-    bytes32[] calldata selectedPlatformBytes,
+    bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
     bytes32[] calldata platformDataValue,
     CampaignData calldata campaignData
@@ -29,7 +29,7 @@ function createCampaign(
 |----|----|-----------|
 |`creator`|`address`|The address of the creator of the campaign.|
 |`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
-|`selectedPlatformBytes`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
+|`selectedPlatformHash`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
 |`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
 |`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
 |`campaignData`|`CampaignData`|The struct containing campaign launch details.|
@@ -43,4 +43,11 @@ Emitted when a campaign is successfully created.
 ```solidity
 event CampaignInfoFactoryCampaignCreated(bytes32 indexed identifierHash, address indexed campaignInfoAddress);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
+|`campaignInfoAddress`|`address`|The address of the created campaign information contract.|
 

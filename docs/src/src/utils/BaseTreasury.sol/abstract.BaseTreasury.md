@@ -1,8 +1,8 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/BaseTreasury.sol)
 
 **Inherits:**
-[ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableWithMsg](/src/utils/PausableWithMsg.sol/abstract.PausableWithMsg.md)
+Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
 
 A base contract for creating and managing treasuries in crowdfunding campaigns.
 
@@ -26,64 +26,55 @@ uint256 internal constant PERCENT_DIVIDER = 10000;
 ```
 
 
-### PLATFORM_BYTES
+### PLATFORM_HASH
 
 ```solidity
-bytes32 internal immutable PLATFORM_BYTES;
+bytes32 internal PLATFORM_HASH;
 ```
 
 
 ### PLATFORM_FEE_PERCENT
 
 ```solidity
-uint256 internal immutable PLATFORM_FEE_PERCENT;
+uint256 internal PLATFORM_FEE_PERCENT;
 ```
 
 
 ### TOKEN
 
 ```solidity
-IERC20 internal immutable TOKEN;
+IERC20 internal TOKEN;
 ```
 
 
 ### CAMPAIGN_INFO
 
 ```solidity
-ICampaignInfo internal immutable CAMPAIGN_INFO;
+ICampaignInfo internal CAMPAIGN_INFO;
 ```
 
 
-### s_pledgedAmountInCrypto
+### s_pledgedAmount
 
 ```solidity
-uint256 internal s_pledgedAmountInCrypto;
+uint256 internal s_pledgedAmount;
 ```
 
 
-### s_cryptoFeeDisbursed
+### s_feesDisbursed
 
 ```solidity
-bool internal s_cryptoFeeDisbursed;
+bool internal s_feesDisbursed;
 ```
 
 
 ## Functions
-### constructor
-
-*Constructs a new BaseTreasury instance.*
+### __BaseContract_init
 
 
 ```solidity
-constructor(bytes32 platformBytes, address infoAddress) CampaignAccessChecker(infoAddress);
+function __BaseContract_init(bytes32 platformHash, address infoAddress) internal;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`platformBytes`|`bytes32`|The identifier for the platform associated with this treasury.|
-|`infoAddress`|`address`|The address of the CampaignInfo contract.|
-
 
 ### whenCampaignNotPaused
 
@@ -94,13 +85,20 @@ constructor(bytes32 platformBytes, address infoAddress) CampaignAccessChecker(in
 modifier whenCampaignNotPaused();
 ```
 
-### getplatformBytes
+### whenCampaignNotCancelled
+
+
+```solidity
+modifier whenCampaignNotCancelled();
+```
+
+### getplatformHash
 
 Retrieves the platform identifier associated with the treasury.
 
 
 ```solidity
-function getplatformBytes() external view override returns (bytes32);
+function getplatformHash() external view override returns (bytes32);
 ```
 **Returns**
 
@@ -130,7 +128,7 @@ Disburses fees collected by the treasury.
 
 
 ```solidity
-function disburseFees() public virtual override whenCampaignNotPaused;
+function disburseFees() public virtual override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
 ### withdraw
@@ -139,35 +137,51 @@ Withdraws funds from the treasury.
 
 
 ```solidity
-function withdraw() public virtual override whenCampaignNotPaused;
+function withdraw() public virtual override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
-### _pauseTreasury
+### pauseTreasury
 
 *External function to pause the campaign.*
 
 
 ```solidity
-function _pauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES);
+function pauseTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
 ```
 
-### _unpauseTreasury
+### unpauseTreasury
 
 *External function to unpause the campaign.*
 
 
 ```solidity
-function _unpauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES);
+function unpauseTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
 ```
 
-### _checkIfCampaignPaused
+### cancelTreasury
+
+*External function to cancel the campaign.*
+
+
+```solidity
+function cancelTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
+```
+
+### _revertIfCampaignPaused
 
 *Internal function to check if the campaign is paused.
 If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.*
 
 
 ```solidity
-function _checkIfCampaignPaused() internal view;
+function _revertIfCampaignPaused() internal view;
+```
+
+### _revertIfCampaignCancelled
+
+
+```solidity
+function _revertIfCampaignCancelled() internal view;
 ```
 
 ### _checkSuccessCondition
@@ -194,13 +208,27 @@ Emitted when fees are successfully disbursed.
 event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
 ```
 
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`protocolShare`|`uint256`|The amount of fees sent to the protocol.|
+|`platformShare`|`uint256`|The amount of fees sent to the platform.|
+
 ### WithdrawalSuccessful
 Emitted when a withdrawal is successful.
 
 
 ```solidity
-event WithdrawalSuccessful(address indexed to, uint256 amount);
+event WithdrawalSuccessful(address to, uint256 amount);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`to`|`address`|The recipient of the withdrawal.|
+|`amount`|`uint256`|The amount withdrawn.|
 
 ### SuccessConditionNotFulfilled
 Emitted when the success condition is not fulfilled during fee disbursement.
