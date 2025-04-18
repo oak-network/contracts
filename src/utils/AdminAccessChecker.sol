@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "../interfaces/IGlobalParams.sol";
 
@@ -10,18 +10,14 @@ import "../interfaces/IGlobalParams.sol";
  */
 abstract contract AdminAccessChecker {
     // Immutable reference to the IGlobalParams contract, which manages global parameters and admin addresses.
-    IGlobalParams internal immutable GLOBAL_PARAMS;
+    IGlobalParams internal GLOBAL_PARAMS;
 
     /**
      * @dev Throws when the caller is not authorized.
-     */    
+     */
     error AdminAccessCheckerUnauthorized();
 
-    /**
-     * @dev Constructor to initialize the contract with the address of the global parameters contract.
-     * @param globalParams The address of the IGlobalParams contract.
-     */
-    constructor(IGlobalParams globalParams) {
+    function __AccessChecker_init(IGlobalParams globalParams) internal {
         GLOBAL_PARAMS = globalParams;
     }
 
@@ -30,17 +26,17 @@ abstract contract AdminAccessChecker {
      * Users attempting to execute functions with this modifier must be the protocol admin.
      */
     modifier onlyProtocolAdmin() {
-        _checkIfProtocolAdmin();
+        _onlyProtocolAdmin();
         _;
     }
 
     /**
      * @dev Modifier that restricts function access to platform administrators of a specific platform.
      * Users attempting to execute functions with this modifier must be the platform admin for the given platform.
-     * @param platformBytes The unique identifier of the platform.
+     * @param platformHash The unique identifier of the platform.
      */
-    modifier onlyPlatformAdmin(bytes32 platformBytes) {
-        _checkIfPlatformAdmin(platformBytes);
+    modifier onlyPlatformAdmin(bytes32 platformHash) {
+        _onlyPlatformAdmin(platformHash);
         _;
     }
 
@@ -48,7 +44,7 @@ abstract contract AdminAccessChecker {
      * @dev Internal function to check if the sender is the protocol administrator.
      * If the sender is not the protocol admin, it reverts with AdminAccessCheckerUnauthorized error.
      */
-    function _checkIfProtocolAdmin() private view {
+    function _onlyProtocolAdmin() private view {
         if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
             revert AdminAccessCheckerUnauthorized();
         }
@@ -57,12 +53,10 @@ abstract contract AdminAccessChecker {
     /**
      * @dev Internal function to check if the sender is the platform administrator for a specific platform.
      * If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.
-     * @param platformBytes The unique identifier of the platform.
+     * @param platformHash The unique identifier of the platform.
      */
-    function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
-        if (
-            msg.sender != GLOBAL_PARAMS.getPlatformAdminAddress(platformBytes)
-        ) {
+    function _onlyPlatformAdmin(bytes32 platformHash) private view {
+        if (msg.sender != GLOBAL_PARAMS.getPlatformAdminAddress(platformHash)) {
             revert AdminAccessCheckerUnauthorized();
         }
     }
