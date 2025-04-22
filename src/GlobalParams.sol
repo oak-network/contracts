@@ -184,15 +184,6 @@ contract GlobalParams is IGlobalParams, Ownable {
     /**
      * @inheritdoc IGlobalParams
      */
-    function checkIfPlatformIsListed(
-        bytes32 platformHash
-    ) public view override returns (bool) {
-        return s_platformIsListed[platformHash];
-    }
-
-    /**
-     * @inheritdoc IGlobalParams
-     */
     function getPlatformAdminAddress(
         bytes32 platformHash
     )
@@ -282,6 +273,15 @@ contract GlobalParams is IGlobalParams, Ownable {
     /**
      * @inheritdoc IGlobalParams
      */
+    function checkIfPlatformIsListed(
+        bytes32 platformHash
+    ) public view override returns (bool) {
+        return s_platformIsListed[platformHash];
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
     function checkIfPlatformDataKeyValid(
         bytes32 platformDataKey
     ) external view override returns (bool isValid) {
@@ -290,6 +290,7 @@ contract GlobalParams is IGlobalParams, Ownable {
 
     /**
      * @notice Enlists a platform with its admin address and fee percentage.
+     * @dev The platformFeePercent can be any value including zero.
      * @param platformHash The platform's identifier.
      * @param platformAdminAddress The platform's admin address.
      * @param platformFeePercent The platform's fee percentage.
@@ -298,7 +299,10 @@ contract GlobalParams is IGlobalParams, Ownable {
         bytes32 platformHash,
         address platformAdminAddress,
         uint256 platformFeePercent
-    ) external onlyOwner {
+    ) external onlyOwner notAddressZero(platformAdminAddress) {
+        if (platformHash == ZERO_BYTES || platformAdminAddress == address(0)) {
+            revert GlobalParamsInvalidInput();
+        }
         if (s_platformIsListed[platformHash]) {
             revert GlobalParamsPlatformAlreadyListed(platformHash);
         } else {
@@ -318,10 +322,9 @@ contract GlobalParams is IGlobalParams, Ownable {
      * @notice Delists a platform.
      * @param platformHash The platform's identifier.
      */
-    function delistPlatform(bytes32 platformHash) external onlyOwner {
-        if (!s_platformIsListed[platformHash]) {
-            revert GlobalParamsPlatformNotListed(platformHash);
-        }
+    function delistPlatform(
+        bytes32 platformHash
+    ) external onlyOwner platformIsListed(platformHash) {
         s_platformIsListed[platformHash] = false;
         s_platformAdminAddress[platformHash] = address(0);
         s_platformFeePercent[platformHash] = 0;
