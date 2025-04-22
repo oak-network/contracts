@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 /**
  * @title IGlobalParams
@@ -8,20 +8,20 @@ pragma solidity ^0.8.9;
 interface IGlobalParams {
     /**
      * @notice Checks if a platform is listed in the protocol.
-     * @param _platformBytes The unique identifier of the platform.
+     * @param _platformHash The unique identifier of the platform.
      * @return True if the platform is listed; otherwise, false.
      */
-    function checkIfplatformIsListed(
-        bytes32 _platformBytes
+    function checkIfPlatformIsListed(
+        bytes32 _platformHash
     ) external view returns (bool);
 
     /**
      * @notice Retrieves the admin address of a platform.
-     * @param _platformBytes The unique identifier of the platform.
+     * @param _platformHash The unique identifier of the platform.
      * @return The admin address of the platform.
      */
     function getPlatformAdminAddress(
-        bytes32 _platformBytes
+        bytes32 _platformHash
     ) external view returns (address);
 
     /**
@@ -51,19 +51,19 @@ interface IGlobalParams {
     /**
      * @notice Retrieves the owner of platform-specific data.
      * @param platformDataKey The key of the platform-specific data.
-     * @return platformBytes The platform identifier associated with the data.
+     * @return platformHash The platform identifier associated with the data.
      */
     function getPlatformDataOwner(
         bytes32 platformDataKey
-    ) external view returns (bytes32 platformBytes);
+    ) external view returns (bytes32 platformHash);
 
     /**
      * @notice Retrieves the platform fee percentage for a specific platform.
-     * @param platformBytes The unique identifier of the platform.
+     * @param platformHash The unique identifier of the platform.
      * @return The platform fee percentage as a uint256 value.
      */
     function getPlatformFeePercent(
-        bytes32 platformBytes
+        bytes32 platformHash
     ) external view returns (uint256);
 
     /**
@@ -95,11 +95,11 @@ interface IGlobalParams {
 
     /**
      * @notice Updates the admin address of a platform.
-     * @param _platformBytes The unique identifier of the platform.
+     * @param _platformHash The unique identifier of the platform.
      * @param _platformAdminAddress The new admin address of the platform.
      */
     function updatePlatformAdminAddress(
-        bytes32 _platformBytes,
+        bytes32 _platformHash,
         address _platformAdminAddress
     ) external;
 }

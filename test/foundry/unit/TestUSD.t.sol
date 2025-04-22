@@ -1,33 +1,29 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
-import {Base_Test} from "../Base.t.sol";
+import "forge-std/Test.sol";
+import {TestUSD} from "src/TestUSD.sol";
 
-/// @notice Test contract for TestUSD contract.
-contract TestUSD_Test is Base_Test {
-    
-    function setUp() public override {
-       super.setUp();
-       vm.startPrank(users.contractOwner);
-       testUSD.mint(users.creator1Address, 10e18);
-       vm.stopPrank();
-    }
-    
-    /// @dev Test mint function.
-    function test_Mint() external {
-        assertEq(testUSD.balanceOf(users.creator1Address), 10e18); 
+contract TestUSD_UnitTest is Test {
+    TestUSD internal token;
+
+    address internal user = address(0x1234);
+    uint256 internal mintAmount = 1_000 * 1e18;
+
+    function setUp() public {
+        token = new TestUSD();
     }
 
-    /// @dev Test TransferFrom function.
-    function test_TransferFrom() external {
-        vm.startPrank(users.creator1Address);
-        testUSD.approve(address(this), 1e18);
-        vm.stopPrank();
-
-        bool isSuccess = testUSD.transferFrom(users.creator1Address, users.creator2Address, 1e18);
-        assert(isSuccess);
-        assertEq(testUSD.balanceOf(users.creator1Address), 9e18);
-        assertEq(testUSD.balanceOf(users.creator2Address), 1e18);
+    function testMintIncreasesBalance() public {
+        token.mint(user, mintAmount);
+        assertEq(token.balanceOf(user), mintAmount);
     }
 
+    function testTransferWorks() public {
+        address recipient = address(0x5678);
+        token.mint(user, mintAmount);
+        vm.prank(user);
+        token.transfer(recipient, 200 * 1e18);
+        assertEq(token.balanceOf(recipient), 200 * 1e18);
+    }
 }

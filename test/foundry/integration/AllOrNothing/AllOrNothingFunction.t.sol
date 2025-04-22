@@ -1,143 +1,221 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
-import {AllOrNothing_Integration_Shared_Test} from "./AllOrNothing.t.sol";
+import "./AllOrNothing.t.sol";
 import "forge-std/console.sol";
 import "forge-std/Vm.sol";
-import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
+import "forge-std/Test.sol";
+import {Defaults} from "../../utils/Defaults.sol";
+import {Constants} from "../../utils/Constants.sol";
+import {Users} from "../../utils/Types.sol";
+import {IReward} from "src/interfaces/IReward.sol";
 
-/// @notice Integration Test contract for AllOrNothing contract.
-contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integration_Shared_Test {
+contract AllOrNothingFunction_Integration_Shared_Test is
+    AllOrNothing_Integration_Shared_Test
+{
+    function test_addRewards() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
 
-    /// @dev Test addReward function.
-    function test_addReward() external {
+        // Verify all rewards were added correctly
+        // First reward
+        Reward memory resultReward1 = allOrNothing.getReward(REWARD_NAMES[0]);
+        assertEq(REWARDS[0].rewardValue, resultReward1.rewardValue);
+        assertEq(REWARDS[0].isRewardTier, resultReward1.isRewardTier);
+        assertEq(REWARDS[0].itemId[0], resultReward1.itemId[0]);
+        assertEq(REWARDS[0].itemValue[0], resultReward1.itemValue[0]);
+        assertEq(REWARDS[0].itemQuantity[0], resultReward1.itemQuantity[0]);
 
-        addReward();
-        
-        AllOrNothing.Reward memory resultReward = allOrNothing.getReward(REWARD_NAME_1_BYTES);
+        // Second reward
+        Reward memory resultReward2 = allOrNothing.getReward(REWARD_NAMES[1]);
+        assertEq(REWARDS[1].rewardValue, resultReward2.rewardValue);
+        assertEq(REWARDS[1].isRewardTier, resultReward2.isRewardTier);
+        assertEq(REWARDS[1].itemId.length, resultReward2.itemId.length);
+        assertEq(REWARDS[1].itemId[0], resultReward2.itemId[0]);
+        assertEq(REWARDS[1].itemId[1], resultReward2.itemId[1]);
+        assertEq(REWARDS[1].itemValue[0], resultReward2.itemValue[0]);
+        assertEq(REWARDS[1].itemValue[1], resultReward2.itemValue[1]);
+        assertEq(REWARDS[1].itemQuantity[0], resultReward2.itemQuantity[0]);
+        assertEq(REWARDS[1].itemQuantity[1], resultReward2.itemQuantity[1]);
 
-        assertEq(REWARD1.rewardValue, resultReward.rewardValue);
-        assertEq(REWARD1.isRewardTier, resultReward.isRewardTier);
-        assertEq(REWARD1.itemId[0], resultReward.itemId[0]);
-        assertEq(REWARD1.itemValue, resultReward.itemValue);
-        assertEq(REWARD1.itemQuantity, resultReward.itemQuantity);
+        // Third reward
+        Reward memory resultReward3 = allOrNothing.getReward(REWARD_NAMES[2]);
+        assertEq(REWARDS[2].rewardValue, resultReward3.rewardValue);
+        assertEq(REWARDS[2].isRewardTier, resultReward3.isRewardTier);
+        assertEq(REWARDS[2].itemId.length, resultReward3.itemId.length);
     }
 
-    /// @dev Test pledgeOnPreLaunch function.
-    function test_pledgeOnPreLaunch() external {
+    function test_pledgeForAReward() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
 
-        addReward();
-        pledgeOnPreLaunch();
+        (
+            Vm.Log[] memory logs,
+            uint256 tokenId,
+            bytes32[] memory rewards
+        ) = pledgeForAReward(
+                users.backer1Address,
+                address(testUSD),
+                address(allOrNothing),
+                PLEDGE_AMOUNT,
+                SHIPPING_FEE,
+                LAUNCH_TIME,
+                REWARD_NAME_1_HASH
+            );
 
         uint256 backerBalance = testUSD.balanceOf(users.backer1Address);
         uint256 treasuryBalance = testUSD.balanceOf(address(allOrNothing));
         uint256 backerNftBalance = allOrNothing.balanceOf(users.backer1Address);
-        address nftOwnerAddress = allOrNothing.ownerOf(1);
+        address nftOwnerAddress = allOrNothing.ownerOf(pledgeForARewardTokenId);
 
         assertEq(users.backer1Address, nftOwnerAddress);
-        assertEq(PRE_LAUNCH_PLEDGE_AMOUNT, TOKEN_MINT_AMOUNT-backerBalance);
-        assertEq(PRE_LAUNCH_PLEDGE_AMOUNT, treasuryBalance);
+        assertEq(PLEDGE_AMOUNT + SHIPPING_FEE, treasuryBalance);
         assertEq(1, backerNftBalance);
     }
 
-    /// @dev Test pledgeForAReward function.
-    function test_pledgeForAReward() external {
-
-        addReward();
-        pledgeOnPreLaunch();
-        pledgeForAReward();
-
-        uint256 backerBalance = testUSD.balanceOf(users.backer1Address);
-        uint256 treasuryBalance = testUSD.balanceOf(address(allOrNothing));
-        uint256 backerNftBalance = allOrNothing.balanceOf(users.backer1Address);
-
-        address nftOwnerAddress = allOrNothing.ownerOf(2);
-
-        assertEq(users.backer1Address, nftOwnerAddress);
-        assertEq(PLEDGE_AMOUNT, TOKEN_MINT_AMOUNT - backerBalance - PRE_LAUNCH_PLEDGE_AMOUNT);
-        assertEq(PLEDGE_AMOUNT, treasuryBalance - PRE_LAUNCH_PLEDGE_AMOUNT);
-        assertEq(2, backerNftBalance);
-
-    }
-
-    /// @dev Test pledgeWithoutAReward function.
-    function test_pledgeWithoutAReward() external {
-
-        addReward();
-        pledgeOnPreLaunch();
-        pledgeForAReward();
-        Vm.Log[] memory entries = pledgeWithoutAReward();
-
-        address resultBacker = address(uint160(uint(entries[3].topics[1])));
-
-        uint256 pledgeAmount;
-        uint256 tokenId;
-        bool isPreLaunchPledge;
-        bytes32[] memory rewards;
-
-        (pledgeAmount, tokenId, isPreLaunchPledge, rewards) = abi.decode(entries[3].data, (uint256,uint256,bool,bytes32[]));
-
-        assertEq(users.backer1Address, resultBacker);
-        assertEq(PLEDGE_AMOUNT, pledgeAmount);
-        assertEq(false, isPreLaunchPledge);
-    }
-
-    /// @dev Test claimRefund function.
     function test_claimRefund() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
 
-        addReward();
-        pledgeOnPreLaunch();
-        pledgeForAReward();
-        pledgeWithoutAReward();
-        Vm.Log[] memory entries = claimRefund();
+        (, uint256 rewardTokenId, ) = pledgeForAReward(
+            users.backer1Address,
+            address(testUSD),
+            address(allOrNothing),
+            PLEDGE_AMOUNT,
+            SHIPPING_FEE,
+            LAUNCH_TIME,
+            REWARD_NAME_1_HASH
+        );
 
-        uint256 refundAmount;
-        uint256 tokenId;
-        address claimer;
+        (, uint256 tokenId) = pledgeWithoutAReward(
+            users.backer1Address,
+            address(testUSD),
+            address(allOrNothing),
+            PLEDGE_AMOUNT,
+            LAUNCH_TIME
+        );
 
-        (tokenId, refundAmount, claimer) = abi.decode(entries[4].data, (uint256,uint256,address));
+        (
+            Vm.Log[] memory refundLogs,
+            uint256 refundedTokenId,
+            uint256 refundAmount,
+            address claimer
+        ) = claimRefund(users.backer1Address, address(allOrNothing), tokenId);
 
-        assertEq(pledgeForARewardTokenId, tokenId);
-        assertEq(PLEDGE_AMOUNT, refundAmount);
-        assertEq(users.backer1Address, claimer);
+        assertEq(refundedTokenId, tokenId);
+        assertEq(refundAmount, PLEDGE_AMOUNT);
+        assertEq(claimer, users.backer1Address);
     }
 
-    /// @dev Test disburseFees function.
     function test_disburseFees() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
 
-        addReward();
-        pledgeOnPreLaunch();
-        pledgeForAReward();
-        pledgeWithoutAReward();
-        claimRefund();
-        Vm.Log[] memory entries = disburseFees();
+        pledgeForAReward(
+            users.backer1Address,
+            address(testUSD),
+            address(allOrNothing),
+            PLEDGE_AMOUNT,
+            SHIPPING_FEE,
+            LAUNCH_TIME,
+            REWARD_NAME_1_HASH
+        );
+        pledgeWithoutAReward(
+            users.backer2Address,
+            address(testUSD),
+            address(allOrNothing),
+            GOAL_AMOUNT,
+            LAUNCH_TIME
+        );
 
-        uint256 protocolShare;
-        uint256 platformShare;
+        uint256 totalPledged = GOAL_AMOUNT + PLEDGE_AMOUNT;
 
-        (protocolShare, platformShare) = abi.decode(entries[2].data, (uint256,uint256));
+        (
+            Vm.Log[] memory logs,
+            uint256 protocolShare,
+            uint256 platformShare
+        ) = disburseFees(address(allOrNothing), DEADLINE);
 
-        assertEq(2_002e17, protocolShare);
-        assertEq(1_001e17, platformShare);
+        uint256 expectedProtocolShare = (totalPledged * PROTOCOL_FEE_PERCENT) /
+            PERCENT_DIVIDER;
+        uint256 expectedPlatformShare = (totalPledged * PLATFORM_FEE_PERCENT) /
+            PERCENT_DIVIDER;
+
+        assertEq(
+            protocolShare,
+            expectedProtocolShare,
+            "Incorrect protocol fee"
+        );
+        assertEq(
+            platformShare,
+            expectedPlatformShare,
+            "Incorrect platform fee"
+        );
     }
 
-    /// @dev Test withdraw function.
     function test_withdraw() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
 
-        addReward();
-        pledgeOnPreLaunch();
-        pledgeForAReward();
-        pledgeWithoutAReward();
-        claimRefund();
-        disburseFees();
-        Vm.Log[] memory entries = withdraw();
+        pledgeForAReward(
+            users.backer1Address,
+            address(testUSD),
+            address(allOrNothing),
+            PLEDGE_AMOUNT,
+            SHIPPING_FEE,
+            LAUNCH_TIME,
+            REWARD_NAME_1_HASH
+        );
+        pledgeWithoutAReward(
+            users.backer2Address,
+            address(testUSD),
+            address(allOrNothing),
+            GOAL_AMOUNT,
+            LAUNCH_TIME
+        );
 
-        address to = address(uint160(uint(entries[1].topics[1])));
-        uint256 amount;
+        uint256 totalPledged = GOAL_AMOUNT + PLEDGE_AMOUNT;
+        disburseFees(address(allOrNothing), DEADLINE);
 
-        (amount) = abi.decode(entries[1].data, (uint256));
+        (Vm.Log[] memory logs, address to, uint256 amount) = withdraw(
+            address(allOrNothing),
+            DEADLINE
+        );
 
-        assertEq(users.creator1Address, to);
-        assertEq(7_007e17, amount);
+        uint256 protocolShare = (totalPledged * PROTOCOL_FEE_PERCENT) /
+            PERCENT_DIVIDER;
+        uint256 platformShare = (totalPledged * PLATFORM_FEE_PERCENT) /
+            PERCENT_DIVIDER;
+        uint256 expectedAmount = totalPledged +
+            SHIPPING_FEE -
+            protocolShare -
+            platformShare;
+
+        assertEq(
+            to,
+            users.creator1Address,
+            "Incorrect address receiving the funds"
+        );
+        assertEq(amount, expectedAmount, "Incorrect withdrawal amount");
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 /**
  * @title FiatEnabled
@@ -59,11 +59,9 @@ abstract contract FiatEnabled {
      * @param fiatTransactionId The unique identifier of the fiat transaction.
      * @return amount The amount of the specified fiat transaction.
      */
-    function getFiatTransactionAmount(bytes32 fiatTransactionId)
-        external
-        view
-        returns (uint256 amount)
-    {
+    function getFiatTransactionAmount(
+        bytes32 fiatTransactionId
+    ) external view returns (uint256 amount) {
         amount = s_fiatAmountById[fiatTransactionId];
         if (amount == 0) {
             revert FiatEnabledInvalidTransaction();

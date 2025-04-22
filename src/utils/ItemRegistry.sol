@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 import "../interfaces/IItem.sol";
@@ -18,6 +18,11 @@ contract ItemRegistry is IItem, Context {
      * @param item The item details including actual weight, dimensions, category, and declared currency.
      */
     event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
+    
+    /**
+     * @dev Thrown when the input arrays have mismatched lengths.
+     */
+    error ItemRegistryMismatchedArraysLength();
 
     /**
      * @inheritdoc IItem
@@ -35,5 +40,27 @@ contract ItemRegistry is IItem, Context {
     function addItem(bytes32 itemId, Item calldata item) external override {
         Items[_msgSender()][itemId] = item;
         emit ItemAdded(_msgSender(), itemId, item);
+    }
+
+    /**
+     * @notice Adds multiple items in a batch.
+     * @param itemIds An array of unique item identifiers.
+     * @param items An array of `Item` structs containing item attributes.
+     */
+    function addItemsBatch(
+        bytes32[] calldata itemIds,
+        Item[] calldata items
+    ) external {
+        if (itemIds.length != items.length) {
+            revert ItemRegistryMismatchedArraysLength();
+        }
+
+        for (uint256 i = 0; i < itemIds.length; i++) {
+            bytes32 itemId = itemIds[i];
+            Item calldata item = items[i];
+
+            Items[_msgSender()][itemId] = item;
+            emit ItemAdded(_msgSender(), itemId, item);
+        }
     }
 }

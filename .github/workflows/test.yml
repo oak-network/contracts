@@ -17,9 +17,6 @@ env:
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
-
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +31,6 @@ jobs:
 
       - name: Run Forge build
         run: |
-          npm ci
           forge --version
           forge build --sizes
         id: build
@@ -43,3 +39,16 @@ jobs:
         run: |
           forge test -vvv
         id: test
+
+      - name: Run gas report
+        run: |
+          forge test --gas-report > gas-report.txt
+        if: always()
+        id: gas
+
+      - name: Archive gas report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: gas-report
+          path: gas-report.txt

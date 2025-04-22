@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 import "./interfaces/IGlobalParams.sol";
+import "./utils/Counters.sol";
 
 /**
  * @title GlobalParams
  * @notice Manages global parameters and platform information.
  */
-contract GlobalParams is IGlobalParams, Ownable, Pausable {
+contract GlobalParams is IGlobalParams, Ownable {
     using Counters for Counters.Counter;
 
     bytes32 private constant ZERO_BYTES =
@@ -29,21 +28,21 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     /**
      * @dev Emitted when a platform is enlisted.
-     * @param platformBytes The identifier of the enlisted platform.
+     * @param platformHash The identifier of the enlisted platform.
      * @param platformAdminAddress The admin address of the enlisted platform.
      * @param platformFeePercent The fee percentage of the enlisted platform.
      */
     event PlatformEnlisted(
-        bytes32 indexed platformBytes,
+        bytes32 indexed platformHash,
         address indexed platformAdminAddress,
         uint256 platformFeePercent
     );
 
     /**
      * @dev Emitted when a platform is delisted.
-     * @param platformBytes The identifier of the delisted platform.
+     * @param platformHash The identifier of the delisted platform.
      */
-    event PlatformDelisted(bytes32 indexed platformBytes);
+    event PlatformDelisted(bytes32 indexed platformHash);
 
     /**
      * @dev Emitted when the protocol admin address is updated.
@@ -65,31 +64,31 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     /**
      * @dev Emitted when the platform admin address is updated.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      * @param newAdminAddress The new admin address of the platform.
      */
     event PlatformAdminAddressUpdated(
-        bytes32 indexed platformBytes,
+        bytes32 indexed platformHash,
         address indexed newAdminAddress
     );
 
     /**
      * @dev Emitted when platform data is added.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      * @param platformDataKey The data key added to the platform.
      */
     event PlatformDataAdded(
-        bytes32 indexed platformBytes,
+        bytes32 indexed platformHash,
         bytes32 indexed platformDataKey
     );
 
     /**
      * @dev Emitted when platform data is removed.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      * @param platformDataKey The data key removed from the platform.
      */
     event PlatformDataRemoved(
-        bytes32 indexed platformBytes,
+        bytes32 indexed platformHash,
         bytes32 platformDataKey
     );
 
@@ -100,31 +99,27 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     /**
      * @dev Throws when the platform is not listed.
-     * @param platformBytes The identifier of the platform.
-     * @param platformAdminAddress The admin address of the platform.
+     * @param platformHash The identifier of the platform.
      */
-    error GlobalParamsPlatformNotListed(
-        bytes32 platformBytes,
-        address platformAdminAddress
-    );
+    error GlobalParamsPlatformNotListed(bytes32 platformHash);
 
     /**
      * @dev Throws when the platform is already listed.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      */
-    error GlobalParamsPlatformAlreadyListed(bytes32 platformBytes);
+    error GlobalParamsPlatformAlreadyListed(bytes32 platformHash);
 
     /**
      * @dev Throws when the platform admin is not set.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      */
-    error GlobalParamsPlatformAdminNotSet(bytes32 platformBytes);
+    error GlobalParamsPlatformAdminNotSet(bytes32 platformHash);
 
     /**
      * @dev Throws when the platform fee percent is zero.
-     * @param platformBytes The identifier of the platform.
+     * @param platformHash The identifier of the platform.
      */
-    error GlobalParamsPlatformFeePercentIsZero(bytes32 platformBytes);
+    error GlobalParamsPlatformFeePercentIsZero(bytes32 platformHash);
 
     /**
      * @dev Throws when the platform data is already set.
@@ -150,17 +145,24 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      * @dev Reverts if the input address is zero.
      */
     modifier notAddressZero(address account) {
-        _checkIfAddressZero(account);
+        _revertIfAddressZero(account);
         _;
     }
 
     /**
      * @dev Modifier that restricts function access to platform administrators of a specific platform.
      * Users attempting to execute functions with this modifier must be the platform admin for the given platform.
-     * @param platformBytes The unique identifier of the platform.
+     * @param platformHash The unique identifier of the platform.
      */
-    modifier onlyPlatformAdmin(bytes32 platformBytes) {
-        _checkIfPlatformAdmin(platformBytes);
+    modifier onlyPlatformAdmin(bytes32 platformHash) {
+        _onlyPlatformAdmin(platformHash);
+        _;
+    }
+
+    modifier platformIsListed(bytes32 platformHash) {
+        if (!checkIfPlatformIsListed(platformHash)) {
+            revert GlobalParamsPlatformNotListed(platformHash);
+        }
         _;
     }
 
@@ -173,7 +175,7 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         address protocolAdminAddress,
         address tokenAddress,
         uint256 protocolFeePercent
-    ) {
+    ) Ownable(protocolAdminAddress) {
         s_protocolAdminAddress = protocolAdminAddress;
         s_tokenAddress = tokenAddress;
         s_protocolFeePercent = protocolFeePercent;
@@ -182,21 +184,18 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     /**
      * @inheritdoc IGlobalParams
      */
-    function checkIfplatformIsListed(
-        bytes32 platformBytes
-    ) external view override returns (bool) {
-        return s_platformIsListed[platformBytes];
-    }
-
-    /**
-     * @inheritdoc IGlobalParams
-     */
     function getPlatformAdminAddress(
-        bytes32 platformBytes
-    ) external view override returns (address account) {
-        account = s_platformAdminAddress[platformBytes];
+        bytes32 platformHash
+    )
+        external
+        view
+        override
+        platformIsListed(platformHash)
+        returns (address account)
+    {
+        account = s_platformAdminAddress[platformHash];
         if (account == address(0)) {
-            revert GlobalParamsPlatformAdminNotSet(platformBytes);
+            revert GlobalParamsPlatformAdminNotSet(platformHash);
         }
     }
 
@@ -242,12 +241,15 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      * @inheritdoc IGlobalParams
      */
     function getPlatformFeePercent(
-        bytes32 platformBytes
-    ) external view override returns (uint256 platformFeePercent) {
-        platformFeePercent = s_platformFeePercent[platformBytes];
-        if (platformFeePercent == 0) {
-            revert GlobalParamsPlatformFeePercentIsZero(platformBytes);
-        }
+        bytes32 platformHash
+    )
+        external
+        view
+        override
+        platformIsListed(platformHash)
+        returns (uint256 platformFeePercent)
+    {
+        platformFeePercent = s_platformFeePercent[platformHash];
     }
 
     /**
@@ -255,11 +257,26 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      */
     function getPlatformDataOwner(
         bytes32 platformDataKey
-    ) external view override returns (bytes32 platformBytes) {
-        platformBytes = s_platformDataOwner[platformDataKey];
-        if (platformBytes == ZERO_BYTES) {
+    )
+        external
+        view
+        override
+        platformIsListed(platformHash)
+        returns (bytes32 platformHash)
+    {
+        platformHash = s_platformDataOwner[platformDataKey];
+        if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function checkIfPlatformIsListed(
+        bytes32 platformHash
+    ) public view override returns (bool) {
+        return s_platformIsListed[platformHash];
     }
 
     /**
@@ -273,24 +290,28 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     /**
      * @notice Enlists a platform with its admin address and fee percentage.
-     * @param platformBytes The platform's identifier.
+     * @dev The platformFeePercent can be any value including zero.
+     * @param platformHash The platform's identifier.
      * @param platformAdminAddress The platform's admin address.
      * @param platformFeePercent The platform's fee percentage.
      */
     function enlistPlatform(
-        bytes32 platformBytes,
+        bytes32 platformHash,
         address platformAdminAddress,
         uint256 platformFeePercent
-    ) external onlyOwner {
-        if (s_platformIsListed[platformBytes]) {
-            revert GlobalParamsPlatformAlreadyListed(platformBytes);
+    ) external onlyOwner notAddressZero(platformAdminAddress) {
+        if (platformHash == ZERO_BYTES || platformAdminAddress == address(0)) {
+            revert GlobalParamsInvalidInput();
+        }
+        if (s_platformIsListed[platformHash]) {
+            revert GlobalParamsPlatformAlreadyListed(platformHash);
         } else {
-            s_platformIsListed[platformBytes] = true;
-            s_platformAdminAddress[platformBytes] = platformAdminAddress;
-            s_platformFeePercent[platformBytes] = platformFeePercent;
+            s_platformIsListed[platformHash] = true;
+            s_platformAdminAddress[platformHash] = platformAdminAddress;
+            s_platformFeePercent[platformHash] = platformFeePercent;
             s_numberOfListedPlatforms.increment();
             emit PlatformEnlisted(
-                platformBytes,
+                platformHash,
                 platformAdminAddress,
                 platformFeePercent
             );
@@ -299,51 +320,50 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
 
     /**
      * @notice Delists a platform.
-     * @param platformBytes The platform's identifier.
+     * @param platformHash The platform's identifier.
      */
-    function delistPlatform(bytes32 platformBytes) external onlyOwner {
-        if (!s_platformIsListed[platformBytes]) {
-            revert GlobalParamsPlatformNotListed(platformBytes, address(0));
-        }
-        s_platformIsListed[platformBytes] = false;
-        s_platformAdminAddress[platformBytes] = address(0);
-        s_platformFeePercent[platformBytes] = 0;
+    function delistPlatform(
+        bytes32 platformHash
+    ) external onlyOwner platformIsListed(platformHash) {
+        s_platformIsListed[platformHash] = false;
+        s_platformAdminAddress[platformHash] = address(0);
+        s_platformFeePercent[platformHash] = 0;
         s_numberOfListedPlatforms.decrement();
-        emit PlatformDelisted(platformBytes);
+        emit PlatformDelisted(platformHash);
     }
 
     /**
      * @notice Adds platform-specific data key.
-     * @param platformBytes The platform's identifier.
+     * @param platformHash The platform's identifier.
      * @param platformDataKey The platform data key.
      */
     function addPlatformData(
-        bytes32 platformBytes,
+        bytes32 platformHash,
         bytes32 platformDataKey
-    ) external onlyPlatformAdmin(platformBytes) {
+    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
         if (s_platformData[platformDataKey] != false) {
             revert GlobalParamsPlatformDataAlreadySet();
         }
-        if (s_platformDataOwner[platformDataKey] == platformBytes) {
+        if (s_platformDataOwner[platformDataKey] == platformHash) {
             revert GlobalParamsPlatformDataSlotTaken();
         }
         s_platformData[platformDataKey] = true;
-        s_platformDataOwner[platformDataKey] = platformBytes;
-        emit PlatformDataAdded(platformBytes, platformDataKey);
+        s_platformDataOwner[platformDataKey] = platformHash;
+        emit PlatformDataAdded(platformHash, platformDataKey);
     }
 
     /**
      * @notice Removes platform-specific data key.
-     * @param platformBytes The platform's identifier.
+     * @param platformHash The platform's identifier.
      * @param platformDataKey The platform data key.
      */
     function removePlatformData(
-        bytes32 platformBytes,
+        bytes32 platformHash,
         bytes32 platformDataKey
-    ) external onlyPlatformAdmin(platformBytes) {
+    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -352,7 +372,7 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
         }
         s_platformData[platformDataKey] = false;
         s_platformDataOwner[platformDataKey] = ZERO_BYTES;
-        emit PlatformDataRemoved(platformBytes, platformDataKey);
+        emit PlatformDataRemoved(platformHash, platformDataKey);
     }
 
     /**
@@ -389,27 +409,23 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
      * @inheritdoc IGlobalParams
      */
     function updatePlatformAdminAddress(
-        bytes32 platformBytes,
+        bytes32 platformHash,
         address platformAdminAddress
-    ) external override onlyOwner notAddressZero(platformAdminAddress) {
-        if (s_platformIsListed[platformBytes]) {
-            s_platformAdminAddress[platformBytes] = platformAdminAddress;
-            emit PlatformAdminAddressUpdated(
-                platformBytes,
-                platformAdminAddress
-            );
-        } else {
-            revert GlobalParamsPlatformNotListed(
-                platformBytes,
-                platformAdminAddress
-            );
-        }
+    )
+        external
+        override
+        onlyOwner
+        platformIsListed(platformHash)
+        notAddressZero(platformAdminAddress)
+    {
+        s_platformAdminAddress[platformHash] = platformAdminAddress;
+        emit PlatformAdminAddressUpdated(platformHash, platformAdminAddress);
     }
 
     /**
      * @dev Reverts if the input address is zero.
      */
-    function _checkIfAddressZero(address account) internal pure {
+    function _revertIfAddressZero(address account) internal pure {
         if (account == address(0)) {
             revert GlobalParamsInvalidInput();
         }
@@ -418,10 +434,10 @@ contract GlobalParams is IGlobalParams, Ownable, Pausable {
     /**
      * @dev Internal function to check if the sender is the platform administrator for a specific platform.
      * If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.
-     * @param platformBytes The unique identifier of the platform.
+     * @param platformHash The unique identifier of the platform.
      */
-    function _checkIfPlatformAdmin(bytes32 platformBytes) private view {
-        if (msg.sender != s_platformAdminAddress[platformBytes]) {
+    function _onlyPlatformAdmin(bytes32 platformHash) private view {
+        if (msg.sender != s_platformAdminAddress[platformHash]) {
             revert GlobalParamsUnauthorized();
         }
     }

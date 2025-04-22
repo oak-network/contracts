@@ -1,67 +1,140 @@
-# CCP Contracts
-This repository contains the smart contracts source code and campaign configuration for Creative Crowdfunding Protocol - CCP. The repository uses Foundry as development environment for compilation, testing and deployment tasks.
+# Creative Crowdfunding Protocol (CC Protocol) Smart Contracts
 
-## What is CCP?
-CCP is a protocol for crowdfunding campaigns that allows creators to multilist campaigns across different crowdfunding platforms. It provides infrastructure tooling and support for platforms to create and manage campaigns in web3.
+## Overview
+
+CC Protocol is a decentralized crowdfunding protocol designed to help creators launch and manage campaigns across multiple platforms. By providing a standardized infrastructure, the protocol simplifies the process of creating, funding, and managing crowdfunding initiatives in web3 across different platforms.
+
+## Features
+
+- Cross-listable campaign creation
+- Multiple treasury models
+- Secure fund management
+- Customizable protocol parameters
+
+## Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/)
+- Solidity ^0.8.20
+- Node.js (recommended)
+
+## Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/ccprotocol/ccprotocol-contracts.git
+cd ccprotocol-contracts
+```
+
+2. Install dependencies:
+
+```bash
+forge install
+```
+
+3. Copy environment template:
+
+```bash
+cp .env.example .env
+```
+
+4. Configure your `.env` file with:
+
+- Private key
+- RPC URL
+- (Optional) Contract addresses for reuse
 
 ## Documentation
-The detailed technical documentation for the protocol can be found in the [docs](./docs/src/SUMMARY.md) folder.
 
-## Getting Started
-### Prerequisites
-The following tools are required to be installed in your system:
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Node.js](https://nodejs.org/en/download/)
+Comprehensive documentation is available in the `docs/` folder:
 
-### Installation
+- Technical specifications
+- Contract interfaces
+- Deployment guides
+- Development setup instructions
 
-```shell
-$ npm install
+To view the documentation:
+
+```bash
+# Navigate to docs folder
+cd docs
 ```
 
-### Build
+## Development
 
-```shell
-$ forge build
+### Compile Contracts
+
+```bash
+forge build
 ```
 
-### Test
+### Run Tests
 
-```shell
-$ forge test
+```bash
+# Run all tests
+forge test
+
+# Run specific test
+forge test --match-test testFunctionName
+
+# Run tests with more verbose output
+forge test -vvv
 ```
 
-### Format
+### Deploy Contracts
 
-```shell
-$ forge fmt
+#### Local Deployment
+
+```bash
+# Start local blockchain
+anvil
+
+# Deploy to local network
+forge script script/DeployAll.s.sol:DeployAll --rpc-url http://localhost:8545 --private-key $PRIVATE_KEY --broadcast
 ```
 
-### Gas Snapshots
+#### Testnet Deployment
 
-```shell
-$ forge snapshot
+```bash
+# Deploy to testnet
+forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvvv
 ```
 
-## Deploy
-### Environment Variables
+## Contract Architecture
 
-Create an environment file named `.env`, fill the environment variables following the `.env.example` file and source the file using the following command:
+### Core Contracts
 
-```shell
-$ source .env
-```
+- `TestUSD`: Mock ERC20 token for testing
+- `GlobalParams`: Protocol-wide parameter management
+- `CampaignInfoFactory`: Campaign creation and management
+- `TreasuryFactory`: Treasury contract deployment
 
-### Local Deployment
-To deploy the contracts locally, run the following command:
+### Treasury Models
 
-```shell
-$ forge script script/Setup.s.sol:SetupScript
-```
+- `AllOrNothing`: Funds refunded if campaign goal not met
 
-### Remote Deployment
-To deploy the contracts to a remote network, run the following command:
+## Deployment Workflow
 
-```shell
-$ forge script script/Setup.s.sol:SetupScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-```
+1. Deploy `TestUSD`
+2. Deploy `GlobalParams`
+3. Deploy `TreasuryFactory`
+4. Deploy `CampaignInfoFactory`
+
+## Environment Variables
+
+Key environment variables in `.env`:
+
+- `PRIVATE_KEY`: Deployment wallet private key
+- `RPC_URL`: Network RPC endpoint
+- `SIMULATE`: Toggle simulation mode
+- Contract address variables for reuse
+
+## Troubleshooting
+
+- Ensure sufficient network gas tokens
+- Verify RPC URL connectivity
+- Check contract dependencies
+
+## License
+
+[SPDX-License-Identifier: UNLICENSED]

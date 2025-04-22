@@ -1,5 +1,5 @@
 # ItemRegistry
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/ItemRegistry.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/ItemRegistry.sol)
 
 **Inherits:**
 [IItem](/src/interfaces/IItem.sol/interface.IItem.md), Context
@@ -54,6 +54,22 @@ function addItem(bytes32 itemId, Item calldata item) external override;
 |`item`|`Item`|The attributes of the item as an `Item` struct.|
 
 
+### addItemsBatch
+
+Adds multiple items in a batch.
+
+
+```solidity
+function addItemsBatch(bytes32[] calldata itemIds, Item[] calldata items) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`itemIds`|`bytes32[]`|An array of unique item identifiers.|
+|`items`|`Item[]`|An array of `Item` structs containing item attributes.|
+
+
 ## Events
 ### ItemAdded
 *Emitted when a new item is added to the registry.*
@@ -62,4 +78,12 @@ function addItem(bytes32 itemId, Item calldata item) external override;
 ```solidity
 event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`owner`|`address`|The address of the item owner.|
+|`itemId`|`bytes32`|The unique identifier of the item.|
+|`item`|`Item`|The item details including actual weight, dimensions, category, and declared currency.|
 

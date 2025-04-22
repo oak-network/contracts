@@ -1,40 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+
+import "../utils/Counters.sol";
 import "../utils/TimestampChecker.sol";
 import "../utils/BaseTreasury.sol";
-import "../utils/FiatEnabled.sol";
+import "../interfaces/IReward.sol";
 
 /**
  * @title AllOrNothing
  * @notice A contract for handling crowdfunding campaigns with rewards.
  */
 contract AllOrNothing is
+    IReward,
     BaseTreasury,
     TimestampChecker,
-    FiatEnabled,
     ERC721Burnable
 {
     using Counters for Counters.Counter;
+    using SafeERC20 for IERC20;
 
-    // Struct to represent a reward
-    struct Reward {
-        uint256 rewardValue;
-        bool isRewardTier;
-        bytes32[] itemId;
-        uint256[] itemValue;
-        uint256[] itemQuantity;
-    }
-
-    // Constant for the pre-launch pledge amount
-    uint256 private constant PRELAUNCH_PLEDGE = 1 ether;
-
+    // Mapping to store the total collected amount (pledged amount and shipping fee) per token ID
+    mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
     // Mapping to store the pledged amount per token ID
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
-
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
@@ -42,30 +33,32 @@ contract AllOrNothing is
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
 
+    string private s_name;
+    string private s_symbol;
+
     /**
      * @dev Emitted when a backer makes a pledge.
      * @param backer The address of the backer making the pledge.
      * @param reward The name of the reward.
      * @param pledgeAmount The amount pledged.
      * @param tokenId The ID of the token representing the pledge.
-     * @param isPreLaunchPledge Indicates whether it's a pre-launch pledge.
      * @param rewards An array of reward names.
      */
     event Receipt(
         address indexed backer,
         bytes32 indexed reward,
         uint256 pledgeAmount,
+        uint256 shippingFee,
         uint256 tokenId,
-        bool isPreLaunchPledge,
         bytes32[] rewards
     );
 
     /**
-     * @dev Emitted when a reward is added to the campaign.
-     * @param rewardName The name of the reward.
-     * @param reward The details of the reward.
+     * @dev Emitted when rewards are added to the campaign.
+     * @param rewardNames The names of the rewards.
+     * @param rewards The details of the rewards.
      */
-    event RewardAdded(bytes32 indexed rewardName, Reward reward);
+    event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 
     /**
      * @dev Emitted when a reward is removed from the campaign.
@@ -105,8 +98,13 @@ contract AllOrNothing is
      * @dev Emitted when fees are not disbursed.
      */
     error AllOrNothingFeeNotDisbursed();
+
     /**
-     * @dev Emitted when a `Reward` already exists for given input. 
+     * @dev Emitted when `disburseFees` after fee is disbursed already.
+     */
+    error AllOrNothingFeeAlreadyDisbursed();
+    /**
+     * @dev Emitted when a `Reward` already exists for given input.
      */
     error AllOrNothingRewardExists();
 
@@ -118,14 +116,26 @@ contract AllOrNothing is
 
     /**
      * @dev Constructor for the AllOrNothing contract.
-     * @param platformBytes The unique identifier of the platform.
-     * @param infoAddress The address of the campaign information contract.
      */
-    constructor(
-        bytes32 platformBytes,
-        address infoAddress
-    ) ERC721("", "") BaseTreasury(platformBytes, infoAddress) {
-        s_tokenIdCounter.increment();
+    constructor() ERC721("", "") {}
+
+    function initialize(
+        bytes32 _platformHash,
+        address _infoAddress,
+        string calldata _name,
+        string calldata _symbol
+    ) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress);
+        s_name = _name;
+        s_symbol = _symbol;
+    }
+
+    function name() public view override returns (string memory) {
+        return s_name;
+    }
+
+    function symbol() public view override returns (string memory) {
+        return s_symbol;
     }
 
     /**
@@ -146,32 +156,59 @@ contract AllOrNothing is
      * @inheritdoc ICampaignTreasury
      */
     function getRaisedAmount() external view override returns (uint256) {
-        return s_fiatRaisedAmount + s_pledgedAmountInCrypto;
+        return s_pledgedAmount;
     }
 
     /**
-     * @notice Adds a reward to the campaign.
-     * @param rewardName The name of the reward.
-     * @param reward The details of the reward as a `Reward` struct.
+     * @notice Adds multiple rewards in a batch.
+     * @dev This function allows for both reward tiers and non-reward tiers.
+     *      For both types, rewards must have non-zero value.
+     *      If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
+     *      Empty arrays are allowed for both reward tiers and non-reward tiers.
+     * @param rewardNames An array of reward names.
+     * @param rewards An array of `Reward` structs containing reward details.
      */
-    function addReward(
-        bytes32 rewardName,
-        Reward calldata reward
-    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
-        if (
-            reward.rewardValue == 0 &&
-            reward.itemId.length == 0 &&
-            reward.itemId.length == reward.itemValue.length &&
-            reward.itemId.length == reward.itemQuantity.length
-        ) {
+    function addRewards(
+        bytes32[] calldata rewardNames,
+        Reward[] calldata rewards
+    )
+        external
+        onlyCampaignOwner
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        if (rewardNames.length != rewards.length) {
             revert AllOrNothingInvalidInput();
         }
-        if (s_reward[rewardName].rewardValue != 0) {
-            revert AllOrNothingRewardExists();
+
+        for (uint256 i = 0; i < rewardNames.length; i++) {
+            bytes32 rewardName = rewardNames[i];
+            Reward calldata reward = rewards[i];
+
+            // Reward name must not be zero bytes and reward value must be non-zero
+            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
+                revert AllOrNothingInvalidInput();
+            }
+
+            // If there are any items, their arrays must match in length
+            if (
+                (reward.itemId.length != reward.itemValue.length) ||
+                (reward.itemId.length != reward.itemQuantity.length)
+            ) {
+                revert AllOrNothingInvalidInput();
+            }
+
+            // Check for duplicate reward
+            if (s_reward[rewardName].rewardValue != 0) {
+                revert AllOrNothingRewardExists();
+            }
+
+            s_reward[rewardName] = reward;
+            s_rewardCounter.increment();
         }
-        s_reward[rewardName] = reward;
-        s_rewardCounter.increment();
-        emit RewardAdded(rewardName, reward);
+        emit RewardsAdded(rewardNames, rewards);
     }
 
     /**
@@ -180,7 +217,14 @@ contract AllOrNothing is
      */
     function removeReward(
         bytes32 rewardName
-    ) external onlyCampaignOwner whenCampaignNotPaused whenNotPaused {
+    )
+        external
+        onlyCampaignOwner
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
         }
@@ -190,101 +234,25 @@ contract AllOrNothing is
     }
 
     /**
-     * @notice Updates the fiat pledge transaction.
-     * @param fiatPledgeId The unique identifier of the fiat pledge.
-     * @param fiatPledgeAmount The amount of the fiat pledge.
-     */
-    function updateFiatPledge(
-        bytes32 fiatPledgeId,
-        uint256 fiatPledgeAmount
-    )
-        external
-        onlyPlatformAdmin(PLATFORM_BYTES)
-        whenCampaignNotPaused
-        whenNotPaused
-    {
-        _updateFiatTransaction(fiatPledgeId, fiatPledgeAmount);
-    }
-
-    /**
-     * @notice Updates the state of fiat fee disbursement.
-     * @param isDisbursed Whether fiat fees are disbursed.
-     * @param protocolFeeAmount The protocol fee amount.
-     * @param platformFeeAmount The platform fee amount.
-     */
-    function updateFiatFeeDisbursementState(
-        bool isDisbursed,
-        uint256 protocolFeeAmount,
-        uint256 platformFeeAmount
-    )
-        external
-        onlyPlatformAdmin(PLATFORM_BYTES)
-        whenCampaignNotPaused
-        whenNotPaused
-    {
-        _updateFiatFeeDisbursementState(
-            isDisbursed,
-            protocolFeeAmount,
-            platformFeeAmount
-        );
-    }
-
-    /**
-     * @notice Allows a backer to make a pre-launch pledge.
-     * @param backer The address of the backer making the pledge.
-     */
-    function pledgeOnPreLaunch(
-        address backer
-    )
-        external
-        currentTimeIsGreater(INFO.getLaunchTime())
-        whenCampaignNotPaused
-        whenNotPaused
-    {
-        uint256 prelaunchPledgeAmount = PRELAUNCH_PLEDGE;
-        bool success = TOKEN.transferFrom(
-            backer,
-            address(this),
-            prelaunchPledgeAmount
-        );
-        if (!success) {
-            revert AllOrNothingTransferFailed();
-        }
-        uint256 tokenId = s_tokenIdCounter.current();
-        s_tokenIdCounter.increment();
-        _safeMint(
-            backer,
-            tokenId,
-            abi.encodePacked(backer, " PreLaunchPledge")
-        );
-        s_pledgedAmountInCrypto += prelaunchPledgeAmount;
-        bytes32[] memory emptyByteArray = new bytes32[](0);
-        emit Receipt(
-            backer,
-            ZERO_BYTES,
-            prelaunchPledgeAmount,
-            tokenId,
-            true,
-            emptyByteArray
-        );
-    }
-
-    /**
      * @notice Allows a backer to pledge for a reward.
+     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+     *      The non-reward tiers cannot be pledged for without a reward.
      * @param backer The address of the backer making the pledge.
      * @param reward An array of reward names.
      */
     function pledgeForAReward(
         address backer,
+        uint256 shippingFee,
         bytes32[] calldata reward
     )
         external
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
         whenCampaignNotPaused
         whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
     {
         uint256 tokenId = s_tokenIdCounter.current();
-        bool success;
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
@@ -302,27 +270,7 @@ contract AllOrNothing is
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
-        if (success) {
-            s_tokenIdCounter.increment();
-            _safeMint(
-                backer,
-                tokenId,
-                abi.encodePacked(backer, " ", reward[0])
-            );
-            s_tokenToPledgedAmount[tokenId] = pledgeAmount;
-            s_pledgedAmountInCrypto += pledgeAmount;
-            emit Receipt(
-                backer,
-                reward[0],
-                pledgeAmount,
-                tokenId,
-                false,
-                reward
-            );
-        } else {
-            revert AllOrNothingTransferFailed();
-        }
+        _pledge(backer, reward[0], pledgeAmount, shippingFee, tokenId, reward);
     }
 
     /**
@@ -338,22 +286,13 @@ contract AllOrNothing is
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
         whenCampaignNotPaused
         whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
     {
-        bool success = TOKEN.transferFrom(backer, address(this), pledgeAmount);
-        if (success) {
-            s_pledgedAmountInCrypto += pledgeAmount;
-            bytes32[] memory emptyByteArray = new bytes32[](0);
-            emit Receipt(
-                backer,
-                ZERO_BYTES,
-                pledgeAmount,
-                0,
-                false,
-                emptyByteArray
-            );
-        } else {
-            revert AllOrNothingTransferFailed();
-        }
+        uint256 tokenId = s_tokenIdCounter.current();
+        bytes32[] memory emptyByteArray = new bytes32[](0);
+
+        _pledge(backer, ZERO_BYTES, pledgeAmount, 0, tokenId, emptyByteArray);
     }
 
     /**
@@ -364,40 +303,61 @@ contract AllOrNothing is
         uint256 tokenId
     )
         external
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        currentTimeIsGreater(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 amount = s_tokenToPledgedAmount[tokenId];
-        if (amount == 0) {
+        if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
             revert AllOrNothingNotClaimable(tokenId);
         }
-        s_tokenToPledgedAmount[tokenId] = 0;
-        s_pledgedAmountInCrypto -= amount;
-        burn(tokenId);
-        bool success = TOKEN.transfer(msg.sender, amount);
-        if (!success) {
-            revert AllOrNothingTransferFailed();
+        uint256 amountToRefund = s_tokenToTotalCollectedAmount[tokenId];
+        uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
+        if (amountToRefund == 0) {
+            revert AllOrNothingNotClaimable(tokenId);
         }
-        emit RefundClaimed(tokenId, amount, msg.sender);
+        s_tokenToTotalCollectedAmount[tokenId] = 0;
+        s_tokenToPledgedAmount[tokenId] = 0;
+        s_pledgedAmount -= pledgedAmount;
+        burn(tokenId);
+        TOKEN.safeTransfer(msg.sender, amountToRefund);
+        emit RefundClaimed(tokenId, amountToRefund, msg.sender);
     }
 
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) {
-        if (!s_cryptoFeeDisbursed) {
-            super.disburseFees();
+    function disburseFees()
+        public
+        override
+        currentTimeIsGreater(INFO.getDeadline())
+        whenNotPaused
+        whenNotCancelled
+    {
+        if (s_feesDisbursed) {
+            revert AllOrNothingFeeAlreadyDisbursed();
         }
+        super.disburseFees();
     }
 
     /**
-     * @dev Checks if the caller is the platform admin.
+     * @inheritdoc ICampaignTreasury
      */
-    function _checkIfPlatformAdmin() internal view {
-        if (msg.sender != INFO.getPlatformAdminAddress(PLATFORM_BYTES)) {
+    function withdraw() public override whenNotPaused whenNotCancelled {
+        super.withdraw();
+    }
+
+    /**
+     * @inheritdoc BaseTreasury
+     * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
+     */
+    function cancelTreasury(bytes32 message) public override {
+        if (
+            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
+            msg.sender != INFO.owner()
+        ) {
             revert AllOrNothingUnAuthorized();
         }
+        _cancel(message);
     }
 
     /**
@@ -411,6 +371,31 @@ contract AllOrNothing is
         returns (bool)
     {
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
+    }
+
+    function _pledge(
+        address backer,
+        bytes32 reward,
+        uint256 pledgeAmount,
+        uint256 shippingFee,
+        uint256 tokenId,
+        bytes32[] memory rewards
+    ) private {
+        uint256 totalAmount = pledgeAmount + shippingFee;
+        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        s_tokenIdCounter.increment();
+        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
+        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_pledgedAmount += pledgeAmount;
+        emit Receipt(
+            backer,
+            reward,
+            pledgeAmount,
+            shippingFee,
+            tokenId,
+            rewards
+        );
     }
 
     // The following functions are overrides required by Solidity.

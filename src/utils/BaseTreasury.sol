@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+
 import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "./CampaignAccessChecker.sol";
-import "./PausableWithMsg.sol";
+import "./PausableCancellable.sol";
 
 /**
  * @title BaseTreasury
@@ -15,21 +17,23 @@ import "./PausableWithMsg.sol";
  * @dev Contracts implementing this base contract should provide specific success conditions.
  */
 abstract contract BaseTreasury is
+    Initializable,
     ICampaignTreasury,
     CampaignAccessChecker,
-    PausableWithMsg
+    PausableCancellable
 {
+    using SafeERC20 for IERC20;
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
 
-    bytes32 internal immutable PLATFORM_BYTES;
-    uint256 internal immutable PLATFORM_FEE_PERCENT;
-    IERC20 internal immutable TOKEN;
-    ICampaignInfo internal immutable CAMPAIGN_INFO;
+    bytes32 internal PLATFORM_HASH;
+    uint256 internal PLATFORM_FEE_PERCENT;
+    IERC20 internal TOKEN;
+    ICampaignInfo internal CAMPAIGN_INFO;
 
-    uint256 internal s_pledgedAmountInCrypto;
-    bool internal s_cryptoFeeDisbursed;
+    uint256 internal s_pledgedAmount;
+    bool internal s_feesDisbursed;
 
     /**
      * @notice Emitted when fees are successfully disbursed.
@@ -43,7 +47,7 @@ abstract contract BaseTreasury is
      * @param to The recipient of the withdrawal.
      * @param amount The amount withdrawn.
      */
-    event WithdrawalSuccessful(address indexed to, uint256 amount);
+    event WithdrawalSuccessful(address to, uint256 amount);
 
     /**
      * @notice Emitted when the success condition is not fulfilled during fee disbursement.
@@ -70,34 +74,35 @@ abstract contract BaseTreasury is
      */
     error TreasuryCampaignInfoIsPaused();
 
-    /**
-     * @dev Constructs a new BaseTreasury instance.
-     * @param platformBytes The identifier for the platform associated with this treasury.
-     * @param infoAddress The address of the CampaignInfo contract.
-     */
-    constructor(
-        bytes32 platformBytes,
+    function __BaseContract_init(
+        bytes32 platformHash,
         address infoAddress
-    ) CampaignAccessChecker(infoAddress) {
-        PLATFORM_BYTES = platformBytes;
+    ) internal {
+        __CampaignAccessChecker_init(infoAddress);
+        PLATFORM_HASH = platformHash;
         CAMPAIGN_INFO = ICampaignInfo(infoAddress);
         TOKEN = IERC20(INFO.getTokenAddress());
-        PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformBytes);
+        PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
     }
 
     /**
      * @dev Modifier that checks if the campaign is not paused.
      */
     modifier whenCampaignNotPaused() {
-        _checkIfCampaignPaused();
+        _revertIfCampaignPaused();
+        _;
+    }
+
+    modifier whenCampaignNotCancelled() {
+        _revertIfCampaignCancelled();
         _;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function getplatformBytes() external view override returns (bytes32) {
-        return PLATFORM_BYTES;
+    function getplatformHash() external view override returns (bytes32) {
+        return PLATFORM_HASH;
     }
 
     /**
@@ -110,69 +115,91 @@ abstract contract BaseTreasury is
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public virtual override whenCampaignNotPaused {
+    function disburseFees()
+        public
+        virtual
+        override
+        whenCampaignNotPaused
+        whenCampaignNotCancelled
+    {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
-        uint256 balance = s_pledgedAmountInCrypto;
+        uint256 balance = s_pledgedAmount;
         uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
             PERCENT_DIVIDER;
         uint256 platformShare = (balance *
-            INFO.getPlatformFeePercent(PLATFORM_BYTES)) / PERCENT_DIVIDER;
-        bool success = TOKEN.transfer(
-            INFO.getProtocolAdminAddress(),
-            protocolShare
-        );
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
-        success = TOKEN.transfer(
-            INFO.getPlatformAdminAddress(PLATFORM_BYTES),
+            INFO.getPlatformFeePercent(PLATFORM_HASH)) / PERCENT_DIVIDER;
+        TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
+
+        TOKEN.safeTransfer(
+            INFO.getPlatformAdminAddress(PLATFORM_HASH),
             platformShare
         );
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
-        s_cryptoFeeDisbursed = true;
+
+        s_feesDisbursed = true;
         emit FeesDisbursed(protocolShare, platformShare);
     }
 
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function withdraw() public virtual override whenCampaignNotPaused {
-        if (!s_cryptoFeeDisbursed) {
+    function withdraw()
+        public
+        virtual
+        override
+        whenCampaignNotPaused
+        whenCampaignNotCancelled
+    {
+        if (!s_feesDisbursed) {
             revert TreasuryFeeNotDisbursed();
         }
         uint256 balance = TOKEN.balanceOf(address(this));
         address recipient = INFO.owner();
-        bool success = TOKEN.transfer(recipient, balance);
-        if (!success) {
-            revert TreasuryTransferFailed();
-        }
+        TOKEN.safeTransfer(recipient, balance);
+
         emit WithdrawalSuccessful(recipient, balance);
     }
 
     /**
      * @dev External function to pause the campaign.
      */
-    function _pauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    function pauseTreasury(
+        bytes32 message
+    ) public virtual onlyPlatformAdmin(PLATFORM_HASH) {
         _pause(message);
     }
 
     /**
      * @dev External function to unpause the campaign.
      */
-    function _unpauseTreasury(bytes32 message) external onlyPlatformAdmin(PLATFORM_BYTES) {
+    function unpauseTreasury(
+        bytes32 message
+    ) public virtual onlyPlatformAdmin(PLATFORM_HASH) {
         _unpause(message);
+    }
+
+    /**
+     * @dev External function to cancel the campaign.
+     */
+    function cancelTreasury(
+        bytes32 message
+    ) public virtual onlyPlatformAdmin(PLATFORM_HASH) {
+        _cancel(message);
     }
 
     /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
      */
-    function _checkIfCampaignPaused() internal view {
+    function _revertIfCampaignPaused() internal view {
         if (INFO.paused()) {
+            revert TreasuryCampaignInfoIsPaused();
+        }
+    }
+
+    function _revertIfCampaignCancelled() internal view {
+        if (INFO.cancelled()) {
             revert TreasuryCampaignInfoIsPaused();
         }
     }

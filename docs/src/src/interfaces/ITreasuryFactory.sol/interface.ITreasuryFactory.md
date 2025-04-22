@@ -1,92 +1,129 @@
 # ITreasuryFactory
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ITreasuryFactory.sol)
 
-*Interface for the TreasuryFactory contract, which deploys campaign treasuries with specific bytecode.*
+*Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.*
 
 
 ## Functions
-### computeTreasuryAddress
+### registerTreasuryImplementation
 
-*Function to compute the address of a treasury based on the identifier hash, platform, and bytecode index.*
+Registers a treasury implementation for a given platform.
+
+*Callable only by the platform admin.*
 
 
 ```solidity
-function computeTreasuryAddress(bytes32 identifierHash, bytes32 platformBytes, uint256 bytecodeIndex)
-    external
-    view
-    returns (address treasuryAddress, bool isDeployed);
+function registerTreasuryImplementation(bytes32 platformHash, uint256 implementationId, address implementation)
+    external;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`identifierHash`|`bytes32`|The unique hash identifier of the campaign.|
-|`platformBytes`|`bytes32`|The platform identifier.|
-|`bytecodeIndex`|`uint256`|The index of the bytecode template.|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The ID to assign to the implementation.|
+|`implementation`|`address`|The contract address of the implementation.|
+
+
+### approveTreasuryImplementation
+
+Approves a previously registered implementation.
+
+*Callable only by the protocol admin.*
+
+
+```solidity
+function approveTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The ID of the implementation to approve.|
+
+
+### disapproveTreasuryImplementation
+
+Disapproves a previously approved treasury implementation.
+
+
+```solidity
+function disapproveTreasuryImplementation(address implementation) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`implementation`|`address`|The address of the implementation to disapprove.|
+
+
+### removeTreasuryImplementation
+
+Removes a registered treasury implementation from a platform.
+
+
+```solidity
+function removeTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The implementation ID to remove.|
+
+
+### deploy
+
+Deploys a treasury clone using an approved implementation.
+
+*Callable only by the platform admin.*
+
+
+```solidity
+function deploy(
+    bytes32 platformHash,
+    address infoAddress,
+    uint256 implementationId,
+    string calldata name,
+    string calldata symbol
+) external returns (address clone);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`infoAddress`|`address`|The address of the campaign info contract.|
+|`implementationId`|`uint256`|The ID of the implementation to use.|
+|`name`|`string`|The name of the treasury token.|
+|`symbol`|`string`|The symbol of the treasury token.|
 
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`treasuryAddress`|`address`|The computed treasury address.|
-|`isDeployed`|`bool`|A boolean indicating whether the treasury is already deployed.|
+|`clone`|`address`|The address of the deployed treasury contract.|
 
 
-### addBytecodeChunk
-
-*Function to add a fragment of the full bytecode of treasury contract for a given platform.*
+## Events
+### TreasuryFactoryTreasuryDeployed
+*Emitted when a new treasury is deployed.*
 
 
 ```solidity
-function addBytecodeChunk(
-    bytes32 platformBytes,
-    uint256 bytecodeIndex,
-    uint256 chunkIndex,
-    bool isLastChunk,
-    bytes memory bytecodeChunk
-) external;
+event TreasuryFactoryTreasuryDeployed(
+    bytes32 indexed platformHash, uint256 indexed implementationId, address indexed infoAddress, address treasuryAddress
+);
 ```
+
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The platform identifier.|
-|`bytecodeIndex`|`uint256`|The index of the bytecode template.|
-|`chunkIndex`|`uint256`|The index of the bytecode chunk.|
-|`isLastChunk`|`bool`|The boolean to determine if this is the last chunk.|
-|`bytecodeChunk`|`bytes`|The bytecode fragment to add.|
-
-
-### removeBytecode
-
-*Function to remove a bytecode template for a specific platform and index.*
-
-
-```solidity
-function removeBytecode(bytes32 platformBytes, uint256 bytecodeIndex) external;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`platformBytes`|`bytes32`|The platform identifier.|
-|`bytecodeIndex`|`uint256`|The index of the bytecode template.|
-
-
-### deploy
-
-*Function to deploy a new treasury contract with a specified bytecode template.*
-
-
-```solidity
-function deploy(bytes32 platformBytes, uint256 bytecodeIndex, address infoAddress) external;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`platformBytes`|`bytes32`|The platform identifier.|
-|`bytecodeIndex`|`uint256`|The index of the bytecode template to use for deployment.|
-|`infoAddress`|`address`|The address of the associated campaign.|
-
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The ID of the approved implementation.|
+|`infoAddress`|`address`|The campaign info address linked to the treasury.|
+|`treasuryAddress`|`address`|The deployed treasury address.|
 

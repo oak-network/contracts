@@ -1,5 +1,5 @@
 # FiatEnabled
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/FiatEnabled.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/FiatEnabled.sol)
 
 A contract that provides functionality for tracking and managing fiat transactions.
 This contract allows tracking the amount of fiat raised, individual fiat transactions, and the state of fiat fee disbursement.
@@ -122,6 +122,13 @@ Emitted when a fiat transaction is updated.
 event FiatTransactionUpdated(bytes32 indexed fiatTransactionId, uint256 fiatTransactionAmount);
 ```
 
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`fiatTransactionId`|`bytes32`|The unique identifier of the fiat transaction.|
+|`fiatTransactionAmount`|`uint256`|The updated amount of the fiat transaction.|
+
 ### FiatFeeDisbusementStateUpdated
 Emitted when the state of fiat fee disbursement is updated.
 
@@ -129,6 +136,14 @@ Emitted when the state of fiat fee disbursement is updated.
 ```solidity
 event FiatFeeDisbusementStateUpdated(bool isDisbursed, uint256 protocolFeeAmount, uint256 platformFeeAmount);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`isDisbursed`|`bool`|True if the fiat fee is disbursed; otherwise, false.|
+|`protocolFeeAmount`|`uint256`|The protocol fee amount.|
+|`platformFeeAmount`|`uint256`|The platform fee amount.|
 
 ## Errors
 ### FiatEnabledAlreadySet

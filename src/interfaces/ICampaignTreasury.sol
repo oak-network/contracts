@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 /**
  * @title ICampaignTreasury
@@ -26,7 +26,7 @@ interface ICampaignTreasury {
      * @notice Retrieves the platform identifier associated with the treasury.
      * @return The platform identifier as a bytes32 value.
      */
-    function getplatformBytes() external view returns (bytes32);
+    function getplatformHash() external view returns (bytes32);
 
     /**
      * @notice Retrieves the platform fee percentage for the treasury.

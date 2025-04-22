@@ -1,5 +1,5 @@
 # CampaignAccessChecker
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/utils/CampaignAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/CampaignAccessChecker.sol)
 
 *This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators, platform administrators, and campaign owners.*
@@ -9,18 +9,18 @@ to authorized protocol administrators, platform administrators, and campaign own
 ### INFO
 
 ```solidity
-ICampaignInfo internal immutable INFO;
+ICampaignInfo internal INFO;
 ```
 
 
 ## Functions
-### constructor
+### __CampaignAccessChecker_init
 
 *Constructor to initialize the contract with the address of the campaign information contract.*
 
 
 ```solidity
-constructor(address campaignInfo);
+function __CampaignAccessChecker_init(address campaignInfo) internal;
 ```
 **Parameters**
 
@@ -46,13 +46,13 @@ Users attempting to execute functions with this modifier must be the platform ad
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformBytes);
+modifier onlyPlatformAdmin(bytes32 platformHash);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 
 ### onlyCampaignOwner
@@ -65,40 +65,40 @@ Users attempting to execute functions with this modifier must be the owner of th
 modifier onlyCampaignOwner();
 ```
 
-### _checkIfProtocolAdmin
+### _onlyProtocolAdmin
 
 *Internal function to check if the sender is the protocol administrator.
 If the sender is not the protocol admin, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfProtocolAdmin() private view;
+function _onlyProtocolAdmin() private view;
 ```
 
-### _checkIfPlatformAdmin
+### _onlyPlatformAdmin
 
 *Internal function to check if the sender is the platform administrator for a specific platform.
 If the sender is not the platform admin, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfPlatformAdmin(bytes32 platformBytes) private view;
+function _onlyPlatformAdmin(bytes32 platformHash) private view;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`platformBytes`|`bytes32`|The unique identifier of the platform.|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
 
 
-### _checkIfCampaignOwner
+### _onlyCampaignOwner
 
 *Internal function to check if the sender is the owner of the campaign.
 If the sender is not the owner, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
-function _checkIfCampaignOwner() private view;
+function _onlyCampaignOwner() private view;
 ```
 
 ## Errors

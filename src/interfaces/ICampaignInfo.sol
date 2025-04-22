@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 /**
  * @title ICampaignInfo
@@ -14,11 +14,11 @@ interface ICampaignInfo {
 
     /**
      * @notice Checks if a platform has been selected for the campaign.
-     * @param platformBytes The bytes32 identifier of the platform to check.
+     * @param platformHash The bytes32 identifier of the platform to check.
      * @return True if the platform is selected, false otherwise.
      */
     function checkIfPlatformSelected(
-        bytes32 platformBytes
+        bytes32 platformHash
     ) external view returns (bool);
 
     /**
@@ -35,11 +35,11 @@ interface ICampaignInfo {
 
     /**
      * @notice Retrieves the address of the platform administrator for a specific platform.
-     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformHash The bytes32 identifier of the platform.
      * @return The address of the platform administrator.
      */
     function getPlatformAdminAddress(
-        bytes32 platformBytes
+        bytes32 platformHash
     ) external view returns (address);
 
     /**
@@ -74,11 +74,11 @@ interface ICampaignInfo {
 
     /**
      * @notice Retrieves the platform fee percentage for a specific platform.
-     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformHash The bytes32 identifier of the platform.
      * @return The platform fee percentage applied to the campaign on the platform.
      */
     function getPlatformFeePercent(
-        bytes32 platformBytes
+        bytes32 platformHash
     ) external view returns (uint256);
 
     /**
@@ -122,16 +122,21 @@ interface ICampaignInfo {
 
     /**
      * @notice Updates the selection status of a platform for the campaign.
-     * @param platformBytes The bytes32 identifier of the platform.
+     * @param platformHash The bytes32 identifier of the platform.
      * @param selection The new selection status (true or false).
      */
     function updateSelectedPlatform(
-        bytes32 platformBytes,
+        bytes32 platformHash,
         bool selection
     ) external;
 
     /**
-     * @dev Returns true if the contract is paused, and false otherwise.
+     * @dev Returns true if the campaign is paused, and false otherwise.
      */
     function paused() external view returns (bool);
+
+    /**
+     * @dev Returns true if the campaign is cancelled, and false otherwise.
+     */
+    function cancelled() external view returns (bool);
 }
