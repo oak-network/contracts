@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./CampaignInfo.sol";
 import "./interfaces/ITreasuryFactory.sol";
 import "./utils/AdminAccessChecker.sol";
-import "./utils/AddressCalculator.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     mapping(bytes32 => mapping(uint256 => address)) implementationMap;
@@ -19,6 +18,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     error TreasuryFactoryImplementationNotSet();
     error TreasuryFactoryImplementationNotSetOrApproved();
     error TreasuryFactoryTreasuryInitializationFailed();
+    error TreasuryFactorySettingPlatformInfoFailed();
 
     /**
      * @notice Initializes the TreasuryFactory contract.
@@ -110,7 +110,9 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
                 symbol
             )
         );
-        require(success, "Treasury initialization failed");
+        if (!success) {
+            revert TreasuryFactoryTreasuryInitializationFailed();
+        }
         (success, ) = infoAddress.call(
             abi.encodeWithSignature(
                 "_setPlatformInfo(bytes32,address)",
@@ -119,7 +121,7 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
             )
         );
         if (!success) {
-            revert TreasuryFactoryTreasuryInitializationFailed();
+            revert TreasuryFactorySettingPlatformInfoFailed();
         }
         emit TreasuryFactoryTreasuryDeployed(
             platformHash,
