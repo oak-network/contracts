@@ -18,6 +18,11 @@ contract ItemRegistry is IItem, Context {
      * @param item The item details including actual weight, dimensions, category, and declared currency.
      */
     event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
+    
+    /**
+     * @dev Thrown when the input arrays have mismatched lengths.
+     */
+    error ItemRegistryMismatchedArraysLength();
 
     /**
      * @inheritdoc IItem
@@ -46,10 +51,9 @@ contract ItemRegistry is IItem, Context {
         bytes32[] calldata itemIds,
         Item[] calldata items
     ) external {
-        require(
-            itemIds.length == items.length,
-            "ItemRegistry: Mismatched arrays length"
-        );
+        if (itemIds.length != items.length) {
+            revert ItemRegistryMismatchedArraysLength();
+        }
 
         for (uint256 i = 0; i < itemIds.length; i++) {
             bytes32 itemId = itemIds[i];
