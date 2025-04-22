@@ -13,8 +13,8 @@ import {IReward} from "src/interfaces/IReward.sol";
 contract AllOrNothingFunction_Integration_Shared_Test is
     AllOrNothing_Integration_Shared_Test
 {
-    function test_addRewardsBatch() external {
-        addRewardsBatch(
+    function test_addRewards() external {
+        addRewards(
             users.creator1Address,
             address(allOrNothing),
             REWARD_NAMES,
@@ -50,7 +50,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
     }
 
     function test_pledgeForAReward() external {
-        addRewardsBatch(
+        addRewards(
             users.creator1Address,
             address(allOrNothing),
             REWARD_NAMES,
@@ -82,7 +82,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
     }
 
     function test_claimRefund() external {
-        addRewardsBatch(
+        addRewards(
             users.creator1Address,
             address(allOrNothing),
             REWARD_NAMES,
@@ -120,7 +120,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
     }
 
     function test_disburseFees() external {
-        addRewardsBatch(
+        addRewards(
             users.creator1Address,
             address(allOrNothing),
             REWARD_NAMES,
@@ -170,7 +170,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
     }
 
     function test_withdraw() external {
-        addRewardsBatch(
+        addRewards(
             users.creator1Address,
             address(allOrNothing),
             REWARD_NAMES,

@@ -141,25 +141,14 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         allOrNothing = AllOrNothing(treasuryAddress);
     }
 
-    function addReward(
-        address caller,
-        address treasury,
-        bytes32 rewardName,
-        Reward memory reward
-    ) internal {
-        vm.startPrank(caller);
-        allOrNothing.addReward(rewardName, reward);
-        vm.stopPrank();
-    }
-
-    function addRewardsBatch(
+    function addRewards(
         address caller,
         address treasury,
         bytes32[] memory rewardNames,
         Reward[] memory rewards
     ) internal {
         vm.startPrank(caller);
-        AllOrNothing(treasury).addRewardsBatch(rewardNames, rewards);
+        AllOrNothing(treasury).addRewards(rewardNames, rewards);
         vm.stopPrank();
     }
 
