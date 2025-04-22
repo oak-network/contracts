@@ -18,6 +18,12 @@ interface ICampaignInfoFactory is ICampaignData {
         address indexed campaignInfoAddress
     );
 
+    /** 
+     * @notice Emitted when the campaign after creation is initialized.
+    */
+    event CampaignInfoFactoryCampaignInitialized(
+    );
+
     /**
      * @notice Creates a new campaign information contract.
      * @param creator The address of the creator of the campaign.
@@ -34,5 +40,13 @@ interface ICampaignInfoFactory is ICampaignData {
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData
+    ) external;
+
+    /**
+     * @notice Updates the campaign implementation address.
+     * @param newImplementation The address of the camapaignInfo implementation contract.
+     */
+    function updateImplementation(
+        address newImplementation
     ) external;
 }
