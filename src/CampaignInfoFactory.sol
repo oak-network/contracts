@@ -59,8 +59,10 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
     function _initialize(
         address treasuryFactoryAddress,
         address globalParams
-    ) external onlyOwner initializer{
-        if (treasuryFactoryAddress == address(0) || globalParams == address(0)) {
+    ) external onlyOwner initializer {
+        if (
+            treasuryFactoryAddress == address(0) || globalParams == address(0)
+        ) {
             revert CampaignInfoFactoryInvalidInput();
         }
         GLOBAL_PARAMS = IGlobalParams(globalParams);
@@ -69,8 +71,8 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
     }
 
     /**
-    * @inheritdoc ICampaignInfoFactory
-    */
+     * @inheritdoc ICampaignInfoFactory
+     */
     function createCampaign(
         address creator,
         bytes32 identifierHash,
@@ -138,6 +140,9 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
     function updateImplementation(
         address newImplementation
     ) external override onlyOwner {
+        if (newImplementation == address(0)) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
         s_implementation = newImplementation;
     }
 }
