@@ -9,7 +9,6 @@ import "../interfaces/ICampaignInfo.sol";
 import "../interfaces/ICampaignTreasury.sol";
 import "./CampaignAccessChecker.sol";
 import "./PausableCancellable.sol";
-import "forge-std/console.sol";
 
 /**
  * @title BaseTreasury
