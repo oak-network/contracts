@@ -23,8 +23,9 @@ contract AllOrNothing is
     using SafeERC20 for IERC20;
 
     // Mapping to store the pledged amount per token ID
-    mapping(uint256 => uint256) private s_tokenToCollectedAmount;
-
+    mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
+    // Mapping to store the pledged amount per token ID
+    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
@@ -309,15 +310,17 @@ contract AllOrNothing is
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
             revert AllOrNothingNotClaimable(tokenId);
         }
-        uint256 amount = s_tokenToCollectedAmount[tokenId];
-        if (amount == 0) {
+        uint256 amountToRefund = s_tokenToTotalCollectedAmount[tokenId];
+        uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
+        if (amountToRefund == 0) {
             revert AllOrNothingNotClaimable(tokenId);
         }
-        s_tokenToCollectedAmount[tokenId] = 0;
-        s_pledgedAmount -= amount;
+        s_tokenToTotalCollectedAmount[tokenId] = 0;
+        s_tokenToPledgedAmount[tokenId] = 0;
+        s_pledgedAmount -= pledgedAmount;
         burn(tokenId);
-        TOKEN.safeTransfer(msg.sender, amount);
-        emit RefundClaimed(tokenId, amount, msg.sender);
+        TOKEN.safeTransfer(msg.sender, amountToRefund);
+        emit RefundClaimed(tokenId, amountToRefund, msg.sender);
     }
 
     /**
@@ -382,7 +385,8 @@ contract AllOrNothing is
         TOKEN.safeTransferFrom(backer, address(this), totalAmount);
         s_tokenIdCounter.increment();
         _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
-        s_tokenToCollectedAmount[tokenId] = totalAmount;
+        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_pledgedAmount += pledgeAmount;
         emit Receipt(
             backer,
