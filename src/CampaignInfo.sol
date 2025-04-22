@@ -134,10 +134,12 @@ contract CampaignInfo is
         IGlobalParams globalParams,
         bytes32[] calldata selectedPlatformHash,
         bytes32[] calldata platformDataKey,
-        bytes32[] calldata platformDataValue
+        bytes32[] calldata platformDataValue,
+        CampaignData calldata campaignData
     ) external initializer {
         __AccessChecker_init(globalParams);
         _transferOwnership(creator);
+        s_campaignData = campaignData;
         uint256 len = selectedPlatformHash.length;
         for (uint256 i = 0; i < len; ++i) {
             s_platformFeePercent[selectedPlatformHash[i]] = GLOBAL_PARAMS
@@ -162,9 +164,6 @@ contract CampaignInfo is
         address token;
         uint256 protocolFeePercent;
         bytes32 identifierHash;
-        uint256 launchTime;
-        uint256 deadline;
-        uint256 goalAmount;
     }
 
     function getCampaignConfig() public view returns (Config memory config) {
@@ -173,14 +172,8 @@ contract CampaignInfo is
             config.treasuryFactory,
             config.token,
             config.protocolFeePercent,
-            config.identifierHash,
-            config.launchTime,
-            config.deadline,
-            config.goalAmount
-        ) = abi.decode(
-            args,
-            (address, address, uint256, bytes32, uint256, uint256, uint256)
-        );
+            config.identifierHash
+        ) = abi.decode(args, (address, address, uint256, bytes32));
     }
 
     /**
@@ -239,24 +232,21 @@ contract CampaignInfo is
      * @inheritdoc ICampaignInfo
      */
     function getLaunchTime() public view override returns (uint256) {
-        Config memory config = getCampaignConfig();
-        return config.launchTime;
+        return s_campaignData.launchTime;
     }
 
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getDeadline() external view override returns (uint256) {
-        Config memory config = getCampaignConfig();
-        return config.deadline;
+    function getDeadline() public view override returns (uint256) {
+        return s_campaignData.deadline;
     }
 
     /**
      * @inheritdoc ICampaignInfo
      */
     function getGoalAmount() external view override returns (uint256) {
-        Config memory config = getCampaignConfig();
-        return config.goalAmount;
+        return s_campaignData.goalAmount;
     }
 
     /**
@@ -334,7 +324,7 @@ contract CampaignInfo is
      */
     function transferOwnership(
         address newOwner
-    ) public override(ICampaignInfo, Ownable) onlyOwner whenNotPaused {
+    ) public override(ICampaignInfo, Ownable) onlyOwner whenNotPaused whenNotCancelled {
         super.transferOwnership(newOwner);
     }
 
@@ -343,7 +333,17 @@ contract CampaignInfo is
      */
     function updateLaunchTime(
         uint256 launchTime
-    ) external override onlyOwner currentTimeIsLess(launchTime) whenNotPaused {
+    )
+        external
+        override
+        onlyOwner
+        currentTimeIsLess(getLaunchTime())
+        whenNotPaused
+        whenNotCancelled
+    {
+        if (launchTime < block.timestamp && getDeadline() <= launchTime) {
+            revert CampaignInfoInvalidInput();
+        }
         s_campaignData.launchTime = launchTime;
         emit CampaignInfoLaunchTimeUpdated(launchTime);
     }
@@ -359,7 +359,12 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(getLaunchTime())
         whenNotPaused
+        whenNotCancelled
     {
+        if (deadline <= getLaunchTime()) {
+            revert CampaignInfoInvalidInput();
+        }
+
         s_campaignData.deadline = deadline;
         emit CampaignInfoDeadlineUpdated(deadline);
     }
@@ -373,10 +378,13 @@ contract CampaignInfo is
         external
         override
         onlyOwner
-        currentTimeIsLess(s_campaignData.launchTime)
+        currentTimeIsLess(getLaunchTime())
         whenNotPaused
+        whenNotCancelled
     {
-        s_campaignData.goalAmount = goalAmount;
+        if (goalAmount == 0) {
+            revert CampaignInfoInvalidInput();
+        }
         emit CampaignInfoGoalAmountUpdated(goalAmount);
     }
 
@@ -390,10 +398,14 @@ contract CampaignInfo is
         external
         override
         onlyOwner
-        currentTimeIsLess(s_campaignData.launchTime)
+        currentTimeIsLess(getLaunchTime())
         whenNotPaused
+        whenNotCancelled
     {
-        if (s_selectedPlatformHash[platformHash] != selection) {
+        if (checkIfPlatformSelected(platformHash) == selection) {
+            revert CampaignInfoInvalidInput();
+        }
+        if (!GLOBAL_PARAMS.checkIfPlatformIsListed(platformHash)) {
             revert CampaignInfoInvalidPlatformUpdate(platformHash, selection);
         }
         s_selectedPlatformHash[platformHash] = selection;
