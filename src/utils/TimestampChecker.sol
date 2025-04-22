@@ -32,7 +32,7 @@ abstract contract TimestampChecker {
      * @param inputTime The timestamp being checked against.
      */
     modifier currentTimeIsGreater(uint256 inputTime) {
-        _checkIfCurrentTimeIsGreater(inputTime);
+        _revertIfCurrentTimeIsNotGreater(inputTime);
         _;
     }
 
@@ -41,7 +41,7 @@ abstract contract TimestampChecker {
      * @param inputTime The timestamp being checked against.
      */
     modifier currentTimeIsLess(uint256 inputTime) {
-        _checkIfCurrentTimeIsLess(inputTime);
+        _revertIfCurrentTimeIsNotLess(inputTime);
         _;
     }
 
@@ -51,15 +51,15 @@ abstract contract TimestampChecker {
      * @param finalTime The final timestamp of the range.
      */
     modifier currentTimeIsWithinRange(uint256 initialTime, uint256 finalTime) {
-        _checkIfCurrentTimeIsWithinRange(initialTime, finalTime);
+        _revertIfCurrentTimeIsNotWithinRange(initialTime, finalTime);
         _;
     }
 
     /**
-     * @dev Internal function to check if the current timestamp is less than or equal a specified time.
+     * @dev Internal function to revert if the current timestamp is less than or equal a specified time.
      * @param inputTime The timestamp being checked against.
      */
-    function _checkIfCurrentTimeIsLess(
+    function _revertIfCurrentTimeIsNotLess(
         uint256 inputTime
     ) internal view virtual {
         uint256 currentTime = block.timestamp;
@@ -69,10 +69,10 @@ abstract contract TimestampChecker {
     }
 
     /**
-     * @dev Internal function to check if the current timestamp is greater than or equal a specified time.
+     * @dev Internal function to revert if the current timestamp is not greater than or equal a specified time.
      * @param inputTime The timestamp being checked against.
      */
-    function _checkIfCurrentTimeIsGreater(
+    function _revertIfCurrentTimeIsNotGreater(
         uint256 inputTime
     ) internal view virtual {
         uint256 currentTime = block.timestamp;
@@ -82,11 +82,11 @@ abstract contract TimestampChecker {
     }
 
     /**
-     * @dev Internal function to check if the current timestamp is within a specified time range.
+     * @dev Internal function to revert if the current timestamp is not within a specified time range.
      * @param initialTime The initial timestamp of the range.
      * @param finalTime The final timestamp of the range.
      */
-    function _checkIfCurrentTimeIsWithinRange(
+    function _revertIfCurrentTimeIsNotWithinRange(
         uint256 initialTime,
         uint256 finalTime
     ) internal view virtual {
