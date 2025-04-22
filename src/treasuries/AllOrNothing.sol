@@ -53,11 +53,11 @@ contract AllOrNothing is
     );
 
     /**
-     * @dev Emitted when a reward is added to the campaign.
-     * @param rewardName The name of the reward.
-     * @param reward The details of the reward.
+     * @dev Emitted when rewards are added to the campaign.
+     * @param rewardNames The names of the rewards.
+     * @param rewards The details of the rewards.
      */
-    event RewardAdded(bytes32 indexed rewardName, Reward reward);
+    event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 
     /**
      * @dev Emitted when a reward is removed from the campaign.
@@ -159,43 +159,15 @@ contract AllOrNothing is
     }
 
     /**
-     * @notice Adds a reward to the campaign.
-     * @param rewardName The name of the reward.
-     * @param reward The details of the reward as a `Reward` struct.
-     */
-    function addReward(
-        bytes32 rewardName,
-        Reward calldata reward
-    )
-        external
-        onlyCampaignOwner
-        whenCampaignNotPaused
-        whenNotPaused
-        whenCampaignNotCancelled
-        whenNotCancelled
-    {
-        if (
-            reward.rewardValue == 0 &&
-            reward.itemId.length == 0 &&
-            reward.itemId.length == reward.itemValue.length &&
-            reward.itemId.length == reward.itemQuantity.length
-        ) {
-            revert AllOrNothingInvalidInput();
-        }
-        if (s_reward[rewardName].rewardValue != 0) {
-            revert AllOrNothingRewardExists();
-        }
-        s_reward[rewardName] = reward;
-        s_rewardCounter.increment();
-        emit RewardAdded(rewardName, reward);
-    }
-
-    /**
      * @notice Adds multiple rewards in a batch.
+     * @dev This function allows for both reward tiers and non-reward tiers.
+     *      For both types, rewards must have non-zero value.
+     *      If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
+     *      Empty arrays are allowed for both reward tiers and non-reward tiers.
      * @param rewardNames An array of reward names.
      * @param rewards An array of `Reward` structs containing reward details.
      */
-    function addRewardsBatch(
+    function addRewards(
         bytes32[] calldata rewardNames,
         Reward[] calldata rewards
     )
@@ -214,22 +186,28 @@ contract AllOrNothing is
             bytes32 rewardName = rewardNames[i];
             Reward calldata reward = rewards[i];
 
+            // Reward name must not be zero bytes and reward value must be non-zero
+            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
+                revert AllOrNothingInvalidInput();
+            }
+
+            // If there are any items, their arrays must match in length
             if (
-                reward.rewardValue == 0 &&
-                reward.itemId.length == 0 &&
-                reward.itemId.length == reward.itemValue.length &&
-                reward.itemId.length == reward.itemQuantity.length
+                (reward.itemId.length != reward.itemValue.length) ||
+                (reward.itemId.length != reward.itemQuantity.length)
             ) {
                 revert AllOrNothingInvalidInput();
             }
+
+            // Check for duplicate reward
             if (s_reward[rewardName].rewardValue != 0) {
                 revert AllOrNothingRewardExists();
             }
 
             s_reward[rewardName] = reward;
             s_rewardCounter.increment();
-            emit RewardAdded(rewardName, reward);
         }
+        emit RewardsAdded(rewardNames, rewards);
     }
 
     /**
@@ -256,6 +234,8 @@ contract AllOrNothing is
 
     /**
      * @notice Allows a backer to pledge for a reward.
+     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+     *      The non-reward tiers cannot be pledged for without a reward.
      * @param backer The address of the backer making the pledge.
      * @param reward An array of reward names.
      */
@@ -326,10 +306,8 @@ contract AllOrNothing is
         whenCampaignNotPaused
         whenNotPaused
     {
-        if (block.timestamp >= INFO.getDeadline()) {
-            if (_checkSuccessCondition()) {
-                revert AllOrNothingNotClaimable(tokenId);
-            }
+        if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
+            revert AllOrNothingNotClaimable(tokenId);
         }
         uint256 amount = s_tokenToCollectedAmount[tokenId];
         if (amount == 0) {
@@ -379,6 +357,19 @@ contract AllOrNothing is
         _cancel(message);
     }
 
+    /**
+     * @inheritdoc BaseTreasury
+     */
+    function _checkSuccessCondition()
+        internal
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
+    }
+
     function _pledge(
         address backer,
         bytes32 reward,
@@ -386,7 +377,7 @@ contract AllOrNothing is
         uint256 shippingFee,
         uint256 tokenId,
         bytes32[] memory rewards
-    ) internal {
+    ) private {
         uint256 totalAmount = pledgeAmount + shippingFee;
         TOKEN.safeTransferFrom(backer, address(this), totalAmount);
         s_tokenIdCounter.increment();
@@ -401,19 +392,6 @@ contract AllOrNothing is
             tokenId,
             rewards
         );
-    }
-
-    /**
-     * @inheritdoc BaseTreasury
-     */
-    function _checkSuccessCondition()
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
     // The following functions are overrides required by Solidity.
