@@ -22,7 +22,7 @@ contract AllOrNothing is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
-    // Mapping to store the pledged amount per token ID
+    // Mapping to store the total collected amount (pledged amount and shipping fee) per token ID
     mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
     // Mapping to store the pledged amount per token ID
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
