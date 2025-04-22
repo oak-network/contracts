@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "./CampaignInfo.sol";
 import "./interfaces/IGlobalParams.sol";
 import "./interfaces/ICampaignInfoFactory.sol";
 
@@ -12,7 +12,7 @@ import "./interfaces/ICampaignInfoFactory.sol";
  * @title CampaignInfoFactory
  * @notice Factory contract for creating campaign information contracts.
  */
-contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
+contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
     IGlobalParams private GLOBAL_PARAMS;
     address private s_treasuryFactoryAddress;
     bool private s_initialized;
@@ -33,7 +33,7 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     /**
      * @dev Emitted when campaign creation fails.
      */
-    error CampaignInfoFactoryCampaignCreationFailed();
+    error CampaignInfoFactoryCampaignInitializationFailed();
     error CampaignInfoFactoryPlatformNotListed(bytes32 platformHash);
     error CampaignInfoFactoryCampaignWithSameIdentifierExists(
         bytes32 identifierHash,
@@ -43,7 +43,10 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     /**
      * @param globalParams The address of the global parameters contract.
      */
-    constructor(IGlobalParams globalParams, address campaignImplementation) Ownable(msg.sender) {
+    constructor(
+        IGlobalParams globalParams,
+        address campaignImplementation
+    ) Ownable(msg.sender) {
         GLOBAL_PARAMS = globalParams;
         s_implementation = campaignImplementation;
     }
@@ -56,15 +59,18 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
     function _initialize(
         address treasuryFactoryAddress,
         address globalParams
-    ) external onlyOwner {
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
-        if (s_initialized) {
-            revert CampaignInfoFactoryAlreadyInitialized();
+    ) external onlyOwner initializer{
+        if (treasuryFactoryAddress == address(0) || globalParams == address(0)) {
+            revert CampaignInfoFactoryInvalidInput();
         }
+        GLOBAL_PARAMS = IGlobalParams(globalParams);
         s_treasuryFactoryAddress = treasuryFactoryAddress;
         s_initialized = true;
     }
 
+    /**
+    * @inheritdoc ICampaignInfoFactory
+    */
     function createCampaign(
         address creator,
         bytes32 identifierHash,
@@ -73,6 +79,12 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData
     ) external override {
+        if (
+            campaignData.launchTime < block.timestamp &&
+            campaignData.deadline <= campaignData.launchTime
+        ) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
         }
@@ -97,21 +109,35 @@ contract CampaignInfoFactory is ICampaignInfoFactory, Ownable {
             s_treasuryFactoryAddress,
             GLOBAL_PARAMS.getTokenAddress(),
             GLOBAL_PARAMS.getProtocolFeePercent(),
-            identifierHash,
-            campaignData.launchTime,
-            campaignData.deadline,
-            campaignData.goalAmount
+            identifierHash
         );
         address clone = Clones.cloneWithImmutableArgs(s_implementation, args);
-        emit CampaignInfoFactoryCampaignCreated(identifierHash, clone);
-        CampaignInfo(clone).initialize(
-            creator,
-            GLOBAL_PARAMS,
-            selectedPlatformHash,
-            platformDataKey,
-            platformDataValue
+        (bool success, ) = clone.call(
+            abi.encodeWithSignature(
+                "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256))",
+                creator,
+                address(GLOBAL_PARAMS),
+                selectedPlatformHash,
+                platformDataKey,
+                platformDataValue,
+                campaignData
+            )
         );
+        if (!success) {
+            revert CampaignInfoFactoryCampaignInitializationFailed();
+        }
         identifierToCampaignInfo[identifierHash] = clone;
         isValidCampaignInfo[clone] = true;
+        emit CampaignInfoFactoryCampaignCreated(identifierHash, clone);
+        emit CampaignInfoFactoryCampaignInitialized();
+    }
+
+    /**
+     * @inheritdoc ICampaignInfoFactory
+     */
+    function updateImplementation(
+        address newImplementation
+    ) external override onlyOwner {
+        s_implementation = newImplementation;
     }
 }
