@@ -1,47 +1,57 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {CampaignInfo} from "../src/CampaignInfo.sol";
-import {CampaignInfoFactory} from "../src/CampaignInfoFactory.sol";
-import {GlobalParams} from "../src/GlobalParams.sol";
-import {TreasuryFactory} from "../src/TreasuryFactory.sol";
+import "forge-std/Script.sol";
+import "forge-std/console2.sol";
+import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
+import {CampaignInfo} from "src/CampaignInfo.sol";
+import {GlobalParams} from "src/GlobalParams.sol";
 import {DeployBase} from "./lib/DeployBase.s.sol";
 
 contract DeployCampaignInfoFactory is DeployBase {
     function deploy(
-        address _globalParams,
-        address _treasuryFactory
+        address globalParams,
+        address treasuryFactory
     ) public returns (address) {
-        require(_globalParams != address(0), "GlobalParams not set");
-        require(_treasuryFactory != address(0), "TreasuryFactory not set");
-
-        // Deploy CampaignInfo implementation
-        CampaignInfo campaignInfo = new CampaignInfo(msg.sender);
-
-        // Deploy CampaignInfoFactory
-        CampaignInfoFactory factory = new CampaignInfoFactory(
-            GlobalParams(_globalParams),
-            address(campaignInfo)
+        console2.log("Deploying CampaignInfoFactory...");
+        
+        // Properly deploy CampaignInfo with direct instantiation
+        CampaignInfo campaignInfoImpl = new CampaignInfo(address(this));
+        address campaignInfo = address(campaignInfoImpl);
+        console2.log("CampaignInfo implementation deployed at:", campaignInfo);
+        
+        // Create and initialize the factory
+        CampaignInfoFactory campaignInfoFactory = new CampaignInfoFactory(
+            GlobalParams(globalParams),
+            campaignInfo
         );
-
-        // Initialize the factory
-        factory._initialize(_treasuryFactory, _globalParams);
-
-        return address(factory);
+        
+        campaignInfoFactory._initialize(
+            treasuryFactory,
+            globalParams
+        );
+        
+        console2.log("CampaignInfoFactory deployed and initialized at:", address(campaignInfoFactory));
+        return address(campaignInfoFactory);
     }
 
     function run() external {
-        address globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
-        address treasuryFactory = vm.envOr(
-            "TREASURY_FACTORY_ADDRESS",
-            address(0)
-        );
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        bool simulate = vm.envOr("SIMULATE", false);
+        
+        address globalParams = vm.envAddress("GLOBAL_PARAMS_ADDRESS");
+        address treasuryFactory = vm.envAddress("TREASURY_FACTORY_ADDRESS");
 
-        require(globalParams != address(0), "GlobalParams must be set");
-        require(treasuryFactory != address(0), "TreasuryFactory must be set");
+        if (!simulate) {
+            vm.startBroadcast(deployerKey);
+        }
 
-        vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
-        deploy(globalParams, treasuryFactory);
-        vm.stopBroadcast();
+        address factoryAddress = deploy(globalParams, treasuryFactory);
+
+        if (!simulate) {
+            vm.stopBroadcast();
+        }
+
+        console2.log("CAMPAIGN_INFO_FACTORY_ADDRESS", factoryAddress);
     }
 }
