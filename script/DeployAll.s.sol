@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
+import "forge-std/console2.sol";
 import "./DeployGlobalParams.s.sol";
 import "./DeployTestUSD.s.sol";
 import "./DeployCampaignInfoFactory.s.sol";
