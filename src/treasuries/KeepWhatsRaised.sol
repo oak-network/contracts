@@ -22,6 +22,12 @@ abstract contract KeepWhatsRaised is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
+    // Mapping to store the total collected amount (pledged amount and tip amount) per token ID
+    mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
+    // Mapping to store the pledged amount per token ID
+    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+    // Mapping to store the tipped amount per token ID
+    mapping(uint256 => uint256) private s_tokenToTippedAmount;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
@@ -31,6 +37,25 @@ abstract contract KeepWhatsRaised is
 
     string private s_name;
     string private s_symbol;
+    uint256 private s_tip;
+
+    /**
+     * @dev Emitted when a backer makes a pledge.
+     * @param backer The address of the backer making the pledge.
+     * @param reward The name of the reward.
+     * @param pledgeAmount The amount pledged.
+     * @param tip An optional tip can be added during the process.
+     * @param tokenId The ID of the token representing the pledge.
+     * @param rewards An array of reward names.
+     */
+    event Receipt(
+        address indexed backer,
+        bytes32 indexed reward,
+        uint256 pledgeAmount,
+        uint256 tip,
+        uint256 tokenId,
+        bytes32[] rewards
+    );
 
     /**
      * @dev Emitted when rewards are added to the campaign.
@@ -180,6 +205,71 @@ abstract contract KeepWhatsRaised is
     }
 
     /**
+     * @notice Allows a backer to pledge for a reward.
+     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+     *      The non-reward tiers cannot be pledged for without a reward.
+     * @param backer The address of the backer making the pledge.
+     * @param tip An optional tip can be added during the process.
+     * @param reward An array of reward names.
+     */
+    function pledgeForAReward(
+        address backer,
+        uint256 tip,
+        bytes32[] calldata reward
+    )
+        external
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        uint256 tokenId = s_tokenIdCounter.current();
+        uint256 rewardLen = reward.length;
+        Reward storage tempReward = s_reward[reward[0]];
+        if (
+            backer == address(0) ||
+            rewardLen > s_rewardCounter.current() ||
+            reward[0] == ZERO_BYTES ||
+            !tempReward.isRewardTier
+        ) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+        uint256 pledgeAmount = tempReward.rewardValue;
+        for (uint256 i = 1; i < rewardLen; i++) {
+            if (reward[i] == ZERO_BYTES) {
+                revert KeepWhatsRaisedInvalidInput();
+            }
+            pledgeAmount += s_reward[reward[i]].rewardValue;
+        }
+        _pledge(backer, reward[0], pledgeAmount, tip, tokenId, reward);
+    }
+
+    /**
+     * @notice Allows a backer to pledge without selecting a reward.
+     * @param backer The address of the backer making the pledge.
+     * @param pledgeAmount The amount of the pledge.
+     * @param tip An optional tip can be added during the process.
+     */
+    function pledgeWithoutAReward(
+        address backer,
+        uint256 pledgeAmount,
+        uint256 tip
+    )
+        external
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        uint256 tokenId = s_tokenIdCounter.current();
+        bytes32[] memory emptyByteArray = new bytes32[](0);
+
+        _pledge(backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray);
+    }
+
+    /**
      * @inheritdoc BaseTreasury
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
@@ -204,6 +294,33 @@ abstract contract KeepWhatsRaised is
         returns (bool)
     {
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
+    }
+
+    function _pledge(
+        address backer,
+        bytes32 reward,
+        uint256 pledgeAmount,
+        uint256 tip,
+        uint256 tokenId,
+        bytes32[] memory rewards
+    ) private {
+        uint256 totalAmount = pledgeAmount + tip;
+        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        s_tokenIdCounter.increment();
+        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
+        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_tokenToTippedAmount[tokenId] = tip;
+        s_pledgedAmount += pledgeAmount;
+        s_tip += tip;
+        emit Receipt(
+            backer,
+            reward,
+            pledgeAmount,
+            tip,
+            tokenId,
+            rewards
+        );
     }
 
     // The following functions are overrides required by Solidity.
