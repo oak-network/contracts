@@ -38,6 +38,11 @@ abstract contract KeepWhatsRaised is
     string private s_name;
     string private s_symbol;
     uint256 private s_tip;
+    uint256 private s_minimumWithdrawalForFeeExemption;
+    bool private s_isWithdrawalApproved;
+    bytes32 private s_flatFeeKey;
+    bytes32[] private s_grossPercentageFeeKeys;
+    bytes32[] private s_netPercentageFeeKeys;
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -70,6 +75,15 @@ abstract contract KeepWhatsRaised is
      */
     event RewardRemoved(bytes32 indexed rewardName);
 
+    event WithdrawalApproved();
+
+    event FeeKeysAndValuesSet(
+        uint256 indexed minimumWithdrawalForFeeExemption,
+        bytes32 indexed flatFeeKey,
+        bytes32[] grossPercentageFeeKeys,
+        bytes32[] netPercentageFeeKeys
+    );
+
     /**
      * @dev Emitted when an unauthorized action is attempted.
      */
@@ -84,6 +98,20 @@ abstract contract KeepWhatsRaised is
      * @dev Emitted when a `Reward` already exists for given input.
      */
     error KeepWhatsRaisedRewardExists();
+
+    /**
+     * @dev Emitted when anyone called a disabled function.
+     */
+    error KeepWhatsRaisedDisabled();
+
+    error KeepWhatsRaisedAlreadyEnabled();
+
+    modifier withdrawalEnabled() {
+        if(!s_isWithdrawalApproved){
+            revert KeepWhatsRaisedDisabled();
+        }
+        _;
+    }
 
     /**
      * @dev Constructor for the KeepWhatsRaised contract.
@@ -109,6 +137,10 @@ abstract contract KeepWhatsRaised is
         return s_symbol;
     }
 
+    function getWithdrawalApprovalStatus() public view returns (bool) {
+        return s_isWithdrawalApproved;
+    }
+
     /**
      * @notice Retrieves the details of a reward.
      * @param rewardName The name of the reward.
@@ -128,6 +160,49 @@ abstract contract KeepWhatsRaised is
      */
     function getRaisedAmount() external view override returns (uint256) {
         return s_pledgedAmount;
+    }
+
+    function approveWithdrawal() 
+        external 
+        onlyPlatformAdmin(PLATFORM_HASH)
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        if(s_isWithdrawalApproved){
+            revert KeepWhatsRaisedAlreadyEnabled();
+        }
+        
+        s_isWithdrawalApproved = true;
+
+        emit WithdrawalApproved();
+    }
+
+    function setFeeKeysAndValues(
+        bytes32 flatFeeKey,
+        bytes32[] calldata grossPercentageFeeKeys,
+        bytes32[] calldata netPercentageFeeKeys,
+        uint256 minimumWithdrawalForFeeExemption
+    ) 
+        external 
+        onlyPlatformAdmin(PLATFORM_HASH)
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        s_flatFeeKey = flatFeeKey;
+        s_grossPercentageFeeKeys = grossPercentageFeeKeys;
+        s_netPercentageFeeKeys = netPercentageFeeKeys;
+        s_minimumWithdrawalForFeeExemption = minimumWithdrawalForFeeExemption;
+
+        emit FeeKeysAndValuesSet(
+            minimumWithdrawalForFeeExemption,
+            flatFeeKey,
+            grossPercentageFeeKeys,
+            netPercentageFeeKeys
+        );
     }
 
     /**
@@ -267,6 +342,24 @@ abstract contract KeepWhatsRaised is
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
         _pledge(backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray);
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function withdraw() public view override whenNotPaused whenNotCancelled {
+        revert KeepWhatsRaisedDisabled();
+    }
+
+    function withdraw(
+        uint256 amount
+    ) 
+        public
+        whenNotPaused
+        whenNotCancelled
+        withdrawalEnabled
+    {
+        //TODO: withdraw functionality
     }
 
     /**
