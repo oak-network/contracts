@@ -446,6 +446,26 @@ abstract contract KeepWhatsRaised is
         emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
+    function disburseFees()
+        public
+        override
+        whenNotPaused
+        whenNotCancelled
+    {
+        uint256 protocolShare = s_protocolFee;
+        uint256 platformShare = s_platformFee;
+        (s_protocolFee, s_platformFee) = (0, 0);
+        
+        TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
+        
+        TOKEN.safeTransfer(
+            INFO.getPlatformAdminAddress(PLATFORM_HASH),
+            platformShare
+        );
+        
+        emit FeesDisbursed(protocolShare, platformShare);
+    }
+
     /**
      * @inheritdoc BaseTreasury
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
