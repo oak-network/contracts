@@ -34,15 +34,23 @@ abstract contract KeepWhatsRaised is
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
+    struct FeeKeys {
+        bytes32 flatFeeKey;
+        bytes32[] grossPercentageFeeKeys;
+        bytes32[] netPercentageFeeKeys;
+    }
+    struct Config {
+        uint256 minimumWithdrawalForFeeExemption;
+        uint256 withdrawalDelay;
+        uint256 minimumWithdrawal;
+    }
 
     string private s_name;
     string private s_symbol;
     uint256 private s_tip;
-    uint256 private s_minimumWithdrawalForFeeExemption;
     bool private s_isWithdrawalApproved;
-    bytes32 private s_flatFeeKey;
-    bytes32[] private s_grossPercentageFeeKeys;
-    bytes32[] private s_netPercentageFeeKeys;
+    FeeKeys private s_feeKeys;
+    Config private s_config;
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -77,11 +85,9 @@ abstract contract KeepWhatsRaised is
 
     event WithdrawalApproved();
 
-    event FeeKeysAndValuesSet(
-        uint256 indexed minimumWithdrawalForFeeExemption,
-        bytes32 indexed flatFeeKey,
-        bytes32[] grossPercentageFeeKeys,
-        bytes32[] netPercentageFeeKeys
+    event ConfigAndFeeKeysSet(
+        Config s_config,
+        FeeKeys s_feeKeys
     );
 
     /**
@@ -179,11 +185,9 @@ abstract contract KeepWhatsRaised is
         emit WithdrawalApproved();
     }
 
-    function setFeeKeysAndValues(
-        bytes32 flatFeeKey,
-        bytes32[] calldata grossPercentageFeeKeys,
-        bytes32[] calldata netPercentageFeeKeys,
-        uint256 minimumWithdrawalForFeeExemption
+    function setConfigsAndFeeKeys(
+        Config memory config,
+        FeeKeys memory feeKeys
     ) 
         external 
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -192,16 +196,12 @@ abstract contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        s_flatFeeKey = flatFeeKey;
-        s_grossPercentageFeeKeys = grossPercentageFeeKeys;
-        s_netPercentageFeeKeys = netPercentageFeeKeys;
-        s_minimumWithdrawalForFeeExemption = minimumWithdrawalForFeeExemption;
+        s_config = config;
+        s_feeKeys = feeKeys;
 
-        emit FeeKeysAndValuesSet(
-            minimumWithdrawalForFeeExemption,
-            flatFeeKey,
-            grossPercentageFeeKeys,
-            netPercentageFeeKeys
+        emit ConfigAndFeeKeysSet(
+            config,
+            feeKeys
         );
     }
 
