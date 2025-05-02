@@ -52,6 +52,7 @@ abstract contract KeepWhatsRaised is
     uint256 private s_protocolFee;
     uint256 private s_availablePledgedAmount;
     bool private s_isWithdrawalApproved;
+    bool private s_tipDisbursed;
     FeeKeys private s_feeKeys;
     Config private s_config;
 
@@ -95,6 +96,8 @@ abstract contract KeepWhatsRaised is
 
     event WithdrawalWithFeeSuccessful(address to, uint256 amount, uint256 fee);
 
+    event TipClaimed(uint256 amount, address claimer);
+
     /**
      * @dev Emitted when an unauthorized action is attempted.
      */
@@ -122,6 +125,8 @@ abstract contract KeepWhatsRaised is
     error KeepWhatsRaisedWithdrawalOverload(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
 
     error KeepWhatsRaisedAlreadyWithdrawn();
+
+    error KeepWhatsRaisedAlreadyDisbursed();
 
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
@@ -420,7 +425,7 @@ abstract contract KeepWhatsRaised is
             s_platformFee += fee;
             totalFee += fee;
         }
-        
+
         //Net Percentage Fee Calculation
         if(totalFee > withdrawalAmount){
             revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
@@ -464,6 +469,30 @@ abstract contract KeepWhatsRaised is
         );
         
         emit FeesDisbursed(protocolShare, platformShare);
+    }
+
+    function claimTip()
+        external
+        onlyPlatformAdmin(PLATFORM_HASH)
+        currentTimeIsGreater(INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+    {
+        if(s_tipDisbursed){
+            revert KeepWhatsRaisedAlreadyDisbursed();
+        }
+
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        uint256 tip = s_tip;
+        s_tip = 0;
+        s_tipDisbursed = true;
+
+        TOKEN.safeTransfer(
+            platformAdmin,
+            tip
+        );
+
+        emit TipClaimed(tip, platformAdmin);
     }
 
     /**
