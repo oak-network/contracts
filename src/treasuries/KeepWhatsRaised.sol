@@ -36,18 +36,21 @@ abstract contract KeepWhatsRaised is
     Counters.Counter private s_rewardCounter;
     struct FeeKeys {
         bytes32 flatFeeKey;
+        bytes32 cumulativeFlatFeeKey;
         bytes32[] grossPercentageFeeKeys;
         bytes32[] netPercentageFeeKeys;
     }
     struct Config {
         uint256 minimumWithdrawalForFeeExemption;
         uint256 withdrawalDelay;
-        uint256 minimumWithdrawal;
     }
 
     string private s_name;
     string private s_symbol;
     uint256 private s_tip;
+    uint256 private s_platformFee;
+    uint256 private s_protocolFee;
+    uint256 private s_availablePledgedAmount;
     bool private s_isWithdrawalApproved;
     FeeKeys private s_feeKeys;
     Config private s_config;
@@ -90,6 +93,8 @@ abstract contract KeepWhatsRaised is
         FeeKeys s_feeKeys
     );
 
+    event WithdrawalWithFeeSuccessful(address to, uint256 amount, uint256 fee);
+
     /**
      * @dev Emitted when an unauthorized action is attempted.
      */
@@ -111,6 +116,12 @@ abstract contract KeepWhatsRaised is
     error KeepWhatsRaisedDisabled();
 
     error KeepWhatsRaisedAlreadyEnabled();
+
+    error KeepWhatsRaisedInvalidKey();
+
+    error KeepWhatsRaisedWithdrawalOverload(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
+
+    error KeepWhatsRaisedAlreadyWithdrawn();
 
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
@@ -355,11 +366,84 @@ abstract contract KeepWhatsRaised is
         uint256 amount
     ) 
         public
+        currentTimeIsLess(INFO.getDeadline() + s_config.withdrawalDelay)
         whenNotPaused
         whenNotCancelled
         withdrawalEnabled
     {
-        //TODO: withdraw functionality
+        uint256 flatFee = uint256(INFO.getPlatformData(s_feeKeys.flatFeeKey));
+        uint256 cumulativeFee = uint256(INFO.getPlatformData(s_feeKeys.cumulativeFlatFeeKey));
+        uint256 currentTime = block.timestamp;
+        uint256 withdrawalAmount = s_availablePledgedAmount;
+        uint256 totalFee = 0;
+        address recipient = INFO.owner();
+
+        //Main Fees
+        if(currentTime > INFO.getDeadline()){
+            if(withdrawalAmount == 0){
+                revert KeepWhatsRaisedAlreadyWithdrawn();
+            }
+            if(withdrawalAmount < s_config.minimumWithdrawalForFeeExemption){
+                 s_platformFee += flatFee;
+                 totalFee += flatFee;
+            }
+
+        }else {
+            withdrawalAmount = amount;
+            if(withdrawalAmount == 0){
+                revert KeepWhatsRaisedInvalidInput();
+            }
+            if(withdrawalAmount > s_availablePledgedAmount){
+                revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee); 
+            }
+
+            if(withdrawalAmount < s_config.minimumWithdrawalForFeeExemption){
+                 s_platformFee += cumulativeFee;
+                 totalFee += cumulativeFee;
+            }else {
+                s_platformFee += flatFee;
+                totalFee += flatFee;
+            }
+        }
+
+        //Other Fees
+        uint256 fee = (s_availablePledgedAmount * INFO.getProtocolFeePercent()) /
+            PERCENT_DIVIDER;
+        s_protocolFee += fee;
+        totalFee += fee;
+
+        //Gross Percentage Fee Calculation
+        uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
+        for(uint256 i = 0; i < len; i++){
+            fee = (s_availablePledgedAmount * uint256(s_feeKeys.grossPercentageFeeKeys[i])) /
+                PERCENT_DIVIDER;
+            s_platformFee += fee;
+            totalFee += fee;
+        }
+        
+        //Net Percentage Fee Calculation
+        if(totalFee > withdrawalAmount){
+            revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
+        }
+        uint256 availableBeforeNet = withdrawalAmount - totalFee;
+        len = s_feeKeys.netPercentageFeeKeys.length;
+        for(uint256 i = 0; i < len; i++){
+            fee = (availableBeforeNet * uint256(s_feeKeys.netPercentageFeeKeys[i])) /
+                PERCENT_DIVIDER;
+            s_platformFee += fee;
+            totalFee += fee;
+        }
+
+        if(totalFee > withdrawalAmount){
+            revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
+        }
+
+        s_availablePledgedAmount -= withdrawalAmount;
+        withdrawalAmount -= totalFee;
+
+        TOKEN.safeTransfer(recipient, withdrawalAmount);
+
+        emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
     /**
@@ -405,6 +489,7 @@ abstract contract KeepWhatsRaised is
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_pledgedAmount += pledgeAmount;
+        s_availablePledgedAmount += pledgeAmount;
         s_tip += tip;
         emit Receipt(
             backer,
