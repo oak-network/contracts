@@ -8,6 +8,7 @@ import "../utils/Counters.sol";
 import "../utils/TimestampChecker.sol";
 import "../utils/BaseTreasury.sol";
 import "../interfaces/IReward.sol";
+import "../interfaces/ICampaignData.sol";
 
 /**
  * @title KeepWhatsRaised
@@ -17,7 +18,8 @@ contract KeepWhatsRaised is
     IReward,
     BaseTreasury,
     TimestampChecker,
-    ERC721Burnable
+    ERC721Burnable,
+    ICampaignData
 {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
@@ -44,6 +46,7 @@ contract KeepWhatsRaised is
         uint256 minimumWithdrawalForFeeExemption;
         uint256 withdrawalDelay;
         uint256 refundDelay;
+        uint256 configLockPeriod;
     }
 
     string private s_name;
@@ -58,6 +61,7 @@ contract KeepWhatsRaised is
     bool private s_fundClaimed;
     FeeKeys private s_feeKeys;
     Config private s_config;
+    CampaignData private s_campaignData;
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -92,9 +96,10 @@ contract KeepWhatsRaised is
 
     event WithdrawalApproved();
 
-    event ConfigAndFeeKeysSet(
-        Config s_config,
-        FeeKeys s_feeKeys
+    event TreasuryConfigured(
+        Config config,
+        CampaignData campaignData,
+        FeeKeys feeKeys
     );
 
     event WithdrawalWithFeeSuccessful(address to, uint256 amount, uint256 fee);
@@ -200,6 +205,18 @@ contract KeepWhatsRaised is
         return s_pledgedAmount;
     }
 
+    function getLaunchTime() public view returns (uint256) {
+        return s_campaignData.launchTime;
+    }
+
+    function getDeadline() public view returns (uint256) {
+        return s_campaignData.deadline;
+    }
+
+    function getGoalAmount() external view returns (uint256) {
+        return s_campaignData.goalAmount;
+    }
+
     function approveWithdrawal() 
         external 
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -217,8 +234,9 @@ contract KeepWhatsRaised is
         emit WithdrawalApproved();
     }
 
-    function setConfigsAndFeeKeys(
+    function configureTreasury(
         Config memory config,
+        CampaignData memory campaignData,
         FeeKeys memory feeKeys
     ) 
         external 
@@ -230,9 +248,11 @@ contract KeepWhatsRaised is
     {
         s_config = config;
         s_feeKeys = feeKeys;
+        s_campaignData = campaignData;
 
-        emit ConfigAndFeeKeysSet(
+        emit TreasuryConfigured(
             config,
+            campaignData,
             feeKeys
         );
     }
@@ -325,7 +345,7 @@ contract KeepWhatsRaised is
         bytes32[] calldata reward
     )
         external
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
@@ -364,7 +384,7 @@ contract KeepWhatsRaised is
         uint256 tip
     )
         external
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
@@ -387,7 +407,7 @@ contract KeepWhatsRaised is
         uint256 amount
     ) 
         public
-        currentTimeIsLess(INFO.getDeadline() + s_config.withdrawalDelay)
+        currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
         whenNotPaused
         whenNotCancelled
         withdrawalEnabled
@@ -400,7 +420,7 @@ contract KeepWhatsRaised is
         address recipient = INFO.owner();
 
         //Main Fees
-        if(currentTime > INFO.getDeadline()){
+        if(currentTime > getDeadline()){
             if(withdrawalAmount == 0){
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
@@ -471,11 +491,11 @@ contract KeepWhatsRaised is
         uint256 tokenId
     )
         external
-        currentTimeIsGreater(INFO.getLaunchTime())
+        currentTimeIsGreater(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
     {
-        if (block.timestamp > (INFO.getDeadline() + s_config.refundDelay) || block.timestamp > (s_cancellationTime + s_config.refundDelay)) {
+        if (block.timestamp > (getDeadline() + s_config.refundDelay) || block.timestamp > (s_cancellationTime + s_config.refundDelay)) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
         uint256 amountToRefund = 0;
@@ -522,7 +542,7 @@ contract KeepWhatsRaised is
     function claimTip()
         external
         onlyPlatformAdmin(PLATFORM_HASH)
-        currentTimeIsGreater(INFO.getDeadline())
+        currentTimeIsGreater(getDeadline())
         whenCampaignNotPaused
         whenNotPaused
     {
@@ -549,7 +569,7 @@ contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
-        if (block.timestamp < (INFO.getDeadline() + s_config.withdrawalDelay) || block.timestamp < (s_cancellationTime + s_config.withdrawalDelay)) {
+        if (block.timestamp < (getDeadline() + s_config.withdrawalDelay) || block.timestamp < (s_cancellationTime + s_config.withdrawalDelay)) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
