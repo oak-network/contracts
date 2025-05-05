@@ -13,7 +13,7 @@ import "../interfaces/IReward.sol";
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-abstract contract KeepWhatsRaised is
+contract KeepWhatsRaised is
     IReward,
     BaseTreasury,
     TimestampChecker,
@@ -595,7 +595,7 @@ abstract contract KeepWhatsRaised is
         override
         returns (bool)
     {
-        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
+        return true;
     }
 
     function _pledge(
