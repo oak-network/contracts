@@ -54,7 +54,8 @@ abstract contract KeepWhatsRaised is
     uint256 private s_availablePledgedAmount;
     uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
-    bool private s_tipDisbursed;
+    bool private s_tipClaimed;
+    bool private s_fundClaimed;
     FeeKeys private s_feeKeys;
     Config private s_config;
 
@@ -100,6 +101,8 @@ abstract contract KeepWhatsRaised is
 
     event TipClaimed(uint256 amount, address claimer);
 
+    event FundClaimed(uint256 amount, address claimer);
+
     /**
      * @dev Emitted when a refund is claimed.
      * @param tokenId The ID of the token representing the pledge.
@@ -136,9 +139,10 @@ abstract contract KeepWhatsRaised is
 
     error KeepWhatsRaisedAlreadyWithdrawn();
 
-    error KeepWhatsRaisedAlreadyDisbursed();
+    error KeepWhatsRaisedAlreadyClaimed();
 
     error KeepWhatsRaisedNotClaimable(uint256 tokenId);
+    error KeepWhatsRaisedNotClaimableAdmin();
 
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
@@ -522,14 +526,14 @@ abstract contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
-        if(s_tipDisbursed){
-            revert KeepWhatsRaisedAlreadyDisbursed();
+        if(s_tipClaimed){
+            revert KeepWhatsRaisedAlreadyClaimed();
         }
 
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
         uint256 tip = s_tip;
         s_tip = 0;
-        s_tipDisbursed = true;
+        s_tipClaimed = true;
 
         TOKEN.safeTransfer(
             platformAdmin,
@@ -537,6 +541,33 @@ abstract contract KeepWhatsRaised is
         );
 
         emit TipClaimed(tip, platformAdmin);
+    }
+
+    function claimFund()
+        external
+        onlyPlatformAdmin(PLATFORM_HASH)
+        whenCampaignNotPaused
+        whenNotPaused
+    {
+        if (block.timestamp < (INFO.getDeadline() + s_config.withdrawalDelay) || block.timestamp < (s_cancellationTime + s_config.withdrawalDelay)) {
+            revert KeepWhatsRaisedNotClaimableAdmin();
+        }
+
+        if(s_fundClaimed){
+            revert KeepWhatsRaisedAlreadyClaimed();
+        }
+
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        uint256 amountToClaim = s_availablePledgedAmount;
+        s_availablePledgedAmount = 0;
+        s_fundClaimed = true;
+
+        TOKEN.safeTransfer(
+            platformAdmin,
+            amountToClaim
+        );
+
+        emit FundClaimed(amountToClaim, platformAdmin);
     }
 
     /**
