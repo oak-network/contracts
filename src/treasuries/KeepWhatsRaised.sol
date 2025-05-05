@@ -43,6 +43,7 @@ abstract contract KeepWhatsRaised is
     struct Config {
         uint256 minimumWithdrawalForFeeExemption;
         uint256 withdrawalDelay;
+        uint256 refundDelay;
     }
 
     string private s_name;
@@ -51,6 +52,7 @@ abstract contract KeepWhatsRaised is
     uint256 private s_platformFee;
     uint256 private s_protocolFee;
     uint256 private s_availablePledgedAmount;
+    uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
     bool private s_tipDisbursed;
     FeeKeys private s_feeKeys;
@@ -99,6 +101,14 @@ abstract contract KeepWhatsRaised is
     event TipClaimed(uint256 amount, address claimer);
 
     /**
+     * @dev Emitted when a refund is claimed.
+     * @param tokenId The ID of the token representing the pledge.
+     * @param refundAmount The refund amount claimed.
+     * @param claimer The address of the claimer.
+     */
+    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
+
+    /**
      * @dev Emitted when an unauthorized action is attempted.
      */
     error KeepWhatsRaisedUnAuthorized();
@@ -127,6 +137,8 @@ abstract contract KeepWhatsRaised is
     error KeepWhatsRaisedAlreadyWithdrawn();
 
     error KeepWhatsRaisedAlreadyDisbursed();
+
+    error KeepWhatsRaisedNotClaimable(uint256 tokenId);
 
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
@@ -451,6 +463,38 @@ abstract contract KeepWhatsRaised is
         emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
+    function claimRefund(
+        uint256 tokenId
+    )
+        external
+        currentTimeIsGreater(INFO.getLaunchTime())
+        whenCampaignNotPaused
+        whenNotPaused
+    {
+        if (block.timestamp > (INFO.getDeadline() + s_config.refundDelay) || block.timestamp > (s_cancellationTime + s_config.refundDelay)) {
+            revert KeepWhatsRaisedNotClaimable(tokenId);
+        }
+        uint256 amountToRefund = 0;
+        uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
+        uint256 availablePledgedAmount = s_availablePledgedAmount;
+        if(availablePledgedAmount < pledgedAmount){
+            amountToRefund = availablePledgedAmount;
+        }else {
+            amountToRefund = pledgedAmount;
+        }
+
+        if (amountToRefund == 0) {
+            revert KeepWhatsRaisedNotClaimable(tokenId);
+        }
+        s_tokenToTotalCollectedAmount[tokenId] -= amountToRefund;
+        s_tokenToPledgedAmount[tokenId] -= amountToRefund;
+        s_pledgedAmount -= amountToRefund;
+        s_availablePledgedAmount -= amountToRefund;
+        burn(tokenId);
+        TOKEN.safeTransfer(msg.sender, amountToRefund);
+        emit RefundClaimed(tokenId, amountToRefund, msg.sender);
+    }
+
     function disburseFees()
         public
         override
@@ -506,6 +550,7 @@ abstract contract KeepWhatsRaised is
         ) {
             revert KeepWhatsRaisedUnAuthorized();
         }
+        s_cancellationTime = block.timestamp;
         _cancel(message);
     }
 
