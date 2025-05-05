@@ -117,6 +117,14 @@ contract KeepWhatsRaised is
     event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
     /**
+     * @dev Emitted when the deadline of the campaign is updated.
+     * @param newDeadline The new deadline.
+     */
+    event KeepWhatsRaisedDeadlineUpdated(uint256 newDeadline);
+
+    event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
+
+    /**
      * @dev Emitted when an unauthorized action is attempted.
      */
     error KeepWhatsRaisedUnAuthorized();
@@ -147,11 +155,21 @@ contract KeepWhatsRaised is
     error KeepWhatsRaisedAlreadyClaimed();
 
     error KeepWhatsRaisedNotClaimable(uint256 tokenId);
+
     error KeepWhatsRaisedNotClaimableAdmin();
+    
+    error KeepWhatsRaisedConfigLocked();
 
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
             revert KeepWhatsRaisedDisabled();
+        }
+        _;
+    }
+
+    modifier onlyBeforeConfigLock() {
+        if(block.timestamp > s_campaignData.deadline - s_config.configLockPeriod){
+            revert KeepWhatsRaisedConfigLocked();
         }
         _;
     }
@@ -255,6 +273,39 @@ contract KeepWhatsRaised is
             campaignData,
             feeKeys
         );
+    }
+
+    function updateDeadline(
+        uint256 deadline
+    )
+        external
+        onlyPlatformAdmin(PLATFORM_HASH)
+        onlyBeforeConfigLock
+        whenNotPaused
+        whenNotCancelled
+    {
+        if (deadline <= getLaunchTime()) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+
+        s_campaignData.deadline = deadline;
+        emit KeepWhatsRaisedDeadlineUpdated(deadline);
+    }
+
+    function updateGoalAmount(
+        uint256 goalAmount
+    )
+        external
+        onlyPlatformAdmin(PLATFORM_HASH)
+        onlyBeforeConfigLock
+        whenNotPaused
+        whenNotCancelled
+    {
+        if (goalAmount == 0) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+        s_campaignData.goalAmount = goalAmount;
+        emit KeepWhatsRaisedGoalAmountUpdated(goalAmount);
     }
 
     /**
