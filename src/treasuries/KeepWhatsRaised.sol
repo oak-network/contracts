@@ -556,16 +556,10 @@ contract KeepWhatsRaised is
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
 
-        uint256 amountToRefund = 0;
-        uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
+        uint256 amountToRefund = s_tokenToPledgedAmount[tokenId];
         uint256 availablePledgedAmount = s_availablePledgedAmount;
-        if(availablePledgedAmount < pledgedAmount){
-            amountToRefund = availablePledgedAmount;
-        }else {
-            amountToRefund = pledgedAmount;
-        }
 
-        if (amountToRefund == 0) {
+        if (amountToRefund == 0 || availablePledgedAmount < amountToRefund) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
         s_tokenToTotalCollectedAmount[tokenId] -= amountToRefund;
