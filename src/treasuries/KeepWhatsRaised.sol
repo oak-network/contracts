@@ -499,7 +499,7 @@ contract KeepWhatsRaised is
         }
 
         //Other Fees
-        uint256 fee = (s_availablePledgedAmount * INFO.getProtocolFeePercent()) /
+        uint256 fee = (withdrawalAmount * INFO.getProtocolFeePercent()) /
             PERCENT_DIVIDER;
         s_protocolFee += fee;
         totalFee += fee;
@@ -507,7 +507,7 @@ contract KeepWhatsRaised is
         //Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for(uint256 i = 0; i < len; i++){
-            fee = (s_availablePledgedAmount * uint256(s_feeKeys.grossPercentageFeeKeys[i])) /
+            fee = (withdrawalAmount * uint256(s_feeKeys.grossPercentageFeeKeys[i])) /
                 PERCENT_DIVIDER;
             s_platformFee += fee;
             totalFee += fee;
