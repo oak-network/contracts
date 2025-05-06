@@ -701,11 +701,11 @@ contract KeepWhatsRaised is
     {
         uint256 deadline = getDeadline();
 
-        bool canceledAndExpired = s_cancellationTime > 0 && block.timestamp > s_cancellationTime + s_config.refundDelay;
-        bool tooEarly = block.timestamp <= deadline;
-        bool tooLate = block.timestamp > deadline + s_config.refundDelay;
+        bool isCancelled = s_cancellationTime > 0;
+        bool refundWindowFromDeadline = !isCancelled && block.timestamp > deadline && block.timestamp <= deadline + s_config.refundDelay;
+        bool refundWindowFromCancellation = isCancelled && block.timestamp <= s_cancellationTime + s_config.refundDelay;
 
-        if (canceledAndExpired || tooEarly || tooLate) {
+        if (!(refundWindowFromDeadline || refundWindowFromCancellation)) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
 
@@ -760,10 +760,13 @@ contract KeepWhatsRaised is
     function claimTip()
         external
         onlyPlatformAdmin(PLATFORM_HASH)
-        currentTimeIsGreater(getDeadline())
         whenCampaignNotPaused
         whenNotPaused
     {
+        if(s_cancellationTime == 0 && block.timestamp <= getDeadline()){
+            revert KeepWhatsRaisedNotClaimableAdmin();
+        }
+
         if(s_tipClaimed){
             revert KeepWhatsRaisedAlreadyClaimed();
         }
@@ -794,10 +797,11 @@ contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
+        bool isCancelled = s_cancellationTime > 0;
         uint256 cancelLimit = s_cancellationTime + s_config.withdrawalDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
-        if ((s_cancellationTime > 0 && block.timestamp <= cancelLimit) || block.timestamp <= deadlineLimit) {
+        if ((isCancelled && block.timestamp <= cancelLimit) || (!isCancelled && block.timestamp <= deadlineLimit)) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
