@@ -36,16 +36,38 @@ contract KeepWhatsRaised is
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
     Counters.Counter private s_rewardCounter;
+
+    /**
+     * @dev Represents keys used to reference different fee configurations.
+     * These keys are typically used to look up fee values stored in `s_platformData`.
+     */
     struct FeeKeys {
+        /// @dev Key for a flat fee applied to an operation.
         bytes32 flatFeeKey;
+
+        /// @dev Key for a cumulative flat fee, potentially across multiple actions.
         bytes32 cumulativeFlatFeeKey;
+
+        /// @dev Keys for gross percentage-based fees (calculated before deductions).
         bytes32[] grossPercentageFeeKeys;
+
+        /// @dev Keys for net percentage-based fees (calculated after deductions).
         bytes32[] netPercentageFeeKeys;
     }
+    /**
+     * @dev System configuration parameters related to withdrawal and refund behavior.
+     */
     struct Config {
+        /// @dev The minimum withdrawal amount required to qualify for fee exemption.
         uint256 minimumWithdrawalForFeeExemption;
+
+        /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
         uint256 withdrawalDelay;
+
+        /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
         uint256 refundDelay;
+
+        /// @dev Duration (in timestamp) for which config changes are locked to prevent immediate updates.
         uint256 configLockPeriod;
     }
 
@@ -94,18 +116,41 @@ contract KeepWhatsRaised is
      */
     event RewardRemoved(bytes32 indexed rewardName);
 
+    /// @dev Emitted when withdrawal functionality has been approved by the platform admin.
     event WithdrawalApproved();
 
+    /**
+     * @dev Emitted when the treasury configuration is updated.
+     * @param config The updated configuration parameters (e.g., delays, exemptions).
+     * @param campaignData The campaign-related data associated with the treasury setup.
+     * @param feeKeys The set of keys used to determine applicable fees.
+     */
     event TreasuryConfigured(
         Config config,
         CampaignData campaignData,
         FeeKeys feeKeys
     );
 
+    /**
+     * @dev Emitted when a withdrawal is successfully processed along with the applied fee.
+     * @param to The recipient address receiving the funds.
+     * @param amount The total amount withdrawn (excluding fee).
+     * @param fee The fee amount deducted from the withdrawal.
+     */
     event WithdrawalWithFeeSuccessful(address to, uint256 amount, uint256 fee);
 
+    /**
+     * @dev Emitted when a tip is claimed from the contract.
+     * @param amount The amount of tip claimed.
+     * @param claimer The address that claimed the tip.
+     */
     event TipClaimed(uint256 amount, address claimer);
 
+    /**
+     * @dev Emitted when campaign or user's remaining funds are successfully claimed by the platform admin.
+     * @param amount The amount of funds claimed.
+     * @param claimer The address that claimed the funds.
+     */
     event FundClaimed(uint256 amount, address claimer);
 
     /**
@@ -122,6 +167,10 @@ contract KeepWhatsRaised is
      */
     event KeepWhatsRaisedDeadlineUpdated(uint256 newDeadline);
 
+    /**
+     * @dev Emitted when the goal amount for a campaign is updated.
+     * @param newGoalAmount The new goal amount set for the campaign.
+     */
     event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
 
     /**
@@ -144,22 +193,49 @@ contract KeepWhatsRaised is
      */
     error KeepWhatsRaisedDisabled();
 
+    /**
+     * @dev Emitted when any functionality is already enabled and cannot be re-enabled.
+    */ 
     error KeepWhatsRaisedAlreadyEnabled();
 
-    error KeepWhatsRaisedInvalidKey();
-
+    /**
+     * @dev Emitted when a withdrawal attempt exceeds the available funds after accounting for the fee.
+     * @param availableAmount The maximum amount that can be withdrawn.
+     * @param withdrawalAmount The attempted withdrawal amount.
+     * @param fee The fee that would be applied to the withdrawal.
+    */
     error KeepWhatsRaisedWithdrawalOverload(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
 
+    /**
+     * @dev Emitted when a withdrawal has already been made and cannot be repeated.
+     */
     error KeepWhatsRaisedAlreadyWithdrawn();
 
+    /**
+     * @dev Emitted when funds or rewards have already been claimed for the given context.
+     */
     error KeepWhatsRaisedAlreadyClaimed();
 
+    /**
+     * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
+     * @param tokenId The ID of the token that was attempted to be claimed.
+     */
     error KeepWhatsRaisedNotClaimable(uint256 tokenId);
 
+    /**
+     * @dev Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
+     */
     error KeepWhatsRaisedNotClaimableAdmin();
     
+    /**
+     * @dev Emitted when a configuration change is attempted during the lock period.
+     */
     error KeepWhatsRaisedConfigLocked();
 
+    /**
+     * @dev Ensures that withdrawals are currently enabled.
+     * Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
+     */
     modifier withdrawalEnabled() {
         if(!s_isWithdrawalApproved){
             revert KeepWhatsRaisedDisabled();
@@ -167,6 +243,11 @@ contract KeepWhatsRaised is
         _;
     }
 
+    /**
+     * @dev Restricts execution to only occur before the configuration lock period.
+     * Reverts with `KeepWhatsRaisedConfigLocked` if called too close to or after the campaign deadline.
+     * The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
+     */
     modifier onlyBeforeConfigLock() {
         if(block.timestamp > s_campaignData.deadline - s_config.configLockPeriod){
             revert KeepWhatsRaisedConfigLocked();
@@ -198,6 +279,9 @@ contract KeepWhatsRaised is
         return s_symbol;
     }
 
+    /**
+     * @notice Retrieves the withdrawal approval status.
+     */
     function getWithdrawalApprovalStatus() public view returns (bool) {
         return s_isWithdrawalApproved;
     }
@@ -223,18 +307,41 @@ contract KeepWhatsRaised is
         return s_pledgedAmount;
     }
 
+    /**
+     * @notice Retrieves the currently available raised amount in the treasury.
+     * @return The current available raised amount as a uint256 value.
+     */
+    function getAvailableRaisedAmount() external view returns (uint256) {
+        return s_availablePledgedAmount;
+    }
+
+    /**
+     * @notice Retrieves the campaign's launch time.
+     * @return The timestamp when the campaign was launched.
+     */
     function getLaunchTime() public view returns (uint256) {
         return s_campaignData.launchTime;
     }
 
+    /**
+     * @notice Retrieves the campaign's deadline.
+     * @return The timestamp when the campaign ends.
+     */
     function getDeadline() public view returns (uint256) {
         return s_campaignData.deadline;
     }
 
+    /**
+     * @notice Retrieves the campaign's funding goal amount.
+     * @return The funding goal amount of the campaign.
+     */
     function getGoalAmount() external view returns (uint256) {
         return s_campaignData.goalAmount;
     }
 
+    /**
+     * @notice Approves the withdrawal of the treasury by the platform admin.
+     */
     function approveWithdrawal() 
         external 
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -252,6 +359,15 @@ contract KeepWhatsRaised is
         emit WithdrawalApproved();
     }
 
+    /**
+     * @dev Configures the treasury for a campaign by setting the system parameters,
+     *      campaign-specific data, and fee configuration keys.
+     * 
+     * @param config The configuration settings including withdrawal delay, refund delay, 
+     *               fee exemption threshold, and configuration lock period.
+     * @param campaignData The campaign-related metadata such as deadlines and funding goals.
+     * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
+    */
     function configureTreasury(
         Config memory config,
         CampaignData memory campaignData,
@@ -275,6 +391,15 @@ contract KeepWhatsRaised is
         );
     }
 
+    /**
+     * @dev Updates the campaign's deadline.
+     * 
+     * @param deadline The new deadline timestamp for the campaign.
+     * 
+     * Requirements:
+     * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
+     * - The new deadline must be a future timestamp.
+     */
     function updateDeadline(
         uint256 deadline
     )
@@ -292,6 +417,14 @@ contract KeepWhatsRaised is
         emit KeepWhatsRaisedDeadlineUpdated(deadline);
     }
 
+    /**
+     * @dev Updates the funding goal amount for the campaign.
+     * 
+     * @param goalAmount The new goal amount.
+     * 
+     * Requirements:
+     * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
+     */
     function updateGoalAmount(
         uint256 goalAmount
     )
@@ -454,6 +587,16 @@ contract KeepWhatsRaised is
         revert KeepWhatsRaisedDisabled();
     }
 
+    /**
+     * @dev Allows a campaign owner or eligible party to withdraw a specified amount of funds.
+     * 
+     * @param amount The amount to withdraw.
+     * 
+     * Requirements:
+     * - Withdrawals must be approved (see `withdrawalEnabled` modifier).
+     * - Amount must not exceed the available balance after fees.
+     * - May apply and deduct a withdrawal fee.
+     */
     function withdraw(
         uint256 amount
     ) 
@@ -507,7 +650,7 @@ contract KeepWhatsRaised is
         //Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for(uint256 i = 0; i < len; i++){
-            fee = (withdrawalAmount * uint256(s_feeKeys.grossPercentageFeeKeys[i])) /
+            fee = (withdrawalAmount * uint256(INFO.getPlatformData(s_feeKeys.grossPercentageFeeKeys[i]))) /
                 PERCENT_DIVIDER;
             s_platformFee += fee;
             totalFee += fee;
@@ -520,7 +663,8 @@ contract KeepWhatsRaised is
         uint256 availableBeforeNet = withdrawalAmount - totalFee;
         len = s_feeKeys.netPercentageFeeKeys.length;
         for(uint256 i = 0; i < len; i++){
-            fee = (availableBeforeNet * uint256(s_feeKeys.netPercentageFeeKeys[i])) /
+            
+            fee = (availableBeforeNet * uint256(INFO.getPlatformData(s_feeKeys.netPercentageFeeKeys[i]))) /
                 PERCENT_DIVIDER;
             s_platformFee += fee;
             totalFee += fee;
@@ -538,6 +682,15 @@ contract KeepWhatsRaised is
         emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
+    /**
+     * @dev Allows a backer to claim a refund associated with a specific pledge (token ID).
+     * 
+     * @param tokenId The ID of the token representing the backer's pledge.
+     * 
+     * Requirements:
+     * - Refund delay must have passed.
+     * - The token must be eligible for a refund and not previously claimed.
+     */
     function claimRefund(
         uint256 tokenId
     )
@@ -571,6 +724,12 @@ contract KeepWhatsRaised is
         emit RefundClaimed(tokenId, amountToRefund, msg.sender);
     }
 
+    /**
+     * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
+     * 
+     * Requirements:
+     * - Only callable when fees are available.
+     */
     function disburseFees()
         public
         override
@@ -591,6 +750,13 @@ contract KeepWhatsRaised is
         emit FeesDisbursed(protocolShare, platformShare);
     }
 
+    /**
+     * @dev Allows an authorized claimer to collect tips contributed during the campaign.
+     * 
+     * Requirements:
+     * - Caller must be authorized to claim tips.
+     * - Tip amount must be non-zero.
+     */
     function claimTip()
         external
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -615,6 +781,13 @@ contract KeepWhatsRaised is
         emit TipClaimed(tip, platformAdmin);
     }
 
+    /**
+     * @dev Allows a campaign owner or authorized user to claim remaining campaign funds.
+     * 
+     * Requirements:
+     * - Claim period must have started and funds must be available.
+     * - Cannot be previously claimed.
+     */
     function claimFund()
         external
         onlyPlatformAdmin(PLATFORM_HASH)
