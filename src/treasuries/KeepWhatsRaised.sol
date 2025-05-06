@@ -546,9 +546,16 @@ contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
-        if (block.timestamp > (getDeadline() + s_config.refundDelay) || block.timestamp > (s_cancellationTime + s_config.refundDelay)) {
+        uint256 deadline = getDeadline();
+
+        bool canceledAndExpired = s_cancellationTime > 0 && block.timestamp > s_cancellationTime + s_config.refundDelay;
+        bool tooEarly = block.timestamp <= deadline;
+        bool tooLate = block.timestamp > deadline + s_config.refundDelay;
+
+        if (canceledAndExpired || tooEarly || tooLate) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
+
         uint256 amountToRefund = 0;
         uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
         uint256 availablePledgedAmount = s_availablePledgedAmount;
@@ -620,7 +627,10 @@ contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
-        if (block.timestamp < (getDeadline() + s_config.withdrawalDelay) || block.timestamp < (s_cancellationTime + s_config.withdrawalDelay)) {
+        uint256 cancelLimit = s_cancellationTime + s_config.withdrawalDelay;
+        uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
+
+        if ((s_cancellationTime > 0 && block.timestamp <= cancelLimit) || block.timestamp <= deadlineLimit) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
