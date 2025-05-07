@@ -24,8 +24,6 @@ contract KeepWhatsRaised is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
-    // Mapping to store the total collected amount (pledged amount and tip amount) per token ID
-    mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
     // Mapping to store the pledged amount per token ID
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     // Mapping to store the tipped amount per token ID
@@ -137,21 +135,21 @@ contract KeepWhatsRaised is
      * @param amount The total amount withdrawn (excluding fee).
      * @param fee The fee amount deducted from the withdrawal.
      */
-    event WithdrawalWithFeeSuccessful(address to, uint256 amount, uint256 fee);
+    event WithdrawalWithFeeSuccessful(address indexed to, uint256 amount, uint256 fee);
 
     /**
      * @dev Emitted when a tip is claimed from the contract.
      * @param amount The amount of tip claimed.
      * @param claimer The address that claimed the tip.
      */
-    event TipClaimed(uint256 amount, address claimer);
+    event TipClaimed(uint256 amount, address indexed claimer);
 
     /**
      * @dev Emitted when campaign or user's remaining funds are successfully claimed by the platform admin.
      * @param amount The amount of funds claimed.
      * @param claimer The address that claimed the funds.
      */
-    event FundClaimed(uint256 amount, address claimer);
+    event FundClaimed(uint256 amount, address indexed claimer);
 
     /**
      * @dev Emitted when a refund is claimed.
@@ -159,7 +157,7 @@ contract KeepWhatsRaised is
      * @param refundAmount The refund amount claimed.
      * @param claimer The address of the claimer.
      */
-    event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
+    event RefundClaimed(uint256 indexed tokenId, uint256 refundAmount, address indexed claimer);
 
     /**
      * @dev Emitted when the deadline of the campaign is updated.
@@ -537,7 +535,7 @@ contract KeepWhatsRaised is
     {
         uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
-        Reward storage tempReward = s_reward[reward[0]];
+        Reward memory tempReward = s_reward[reward[0]];
         if (
             backer == address(0) ||
             rewardLen > s_rewardCounter.current() ||
@@ -715,7 +713,6 @@ contract KeepWhatsRaised is
         if (amountToRefund == 0 || availablePledgedAmount < amountToRefund) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
-        s_tokenToTotalCollectedAmount[tokenId] -= amountToRefund;
         s_tokenToPledgedAmount[tokenId] -= amountToRefund;
         s_pledgedAmount -= amountToRefund;
         s_availablePledgedAmount -= amountToRefund;
@@ -859,15 +856,14 @@ contract KeepWhatsRaised is
         bytes32[] memory rewards
     ) private {
         uint256 totalAmount = pledgeAmount + tip;
-        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
-        s_tokenIdCounter.increment();
-        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         s_tokenToPledgedAmount[tokenId] = pledgeAmount;
-        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_pledgedAmount += pledgeAmount;
         s_availablePledgedAmount += pledgeAmount;
         s_tip += tip;
+        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        s_tokenIdCounter.increment();
+        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         emit Receipt(
             backer,
             reward,
