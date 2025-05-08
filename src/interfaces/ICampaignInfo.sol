@@ -122,6 +122,7 @@ interface ICampaignInfo {
 
     /**
      * @notice Updates the selection status of a platform for the campaign.
+     * @dev It can only be called for a platform if its not approved i.e. the platform treasury is not deployed
      * @param platformHash The bytes32 identifier of the platform.
      * @param selection The new selection status (true or false).
      */
