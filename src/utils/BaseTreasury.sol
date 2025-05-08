@@ -30,7 +30,6 @@ abstract contract BaseTreasury is
     bytes32 internal PLATFORM_HASH;
     uint256 internal PLATFORM_FEE_PERCENT;
     IERC20 internal TOKEN;
-    ICampaignInfo internal CAMPAIGN_INFO;
 
     uint256 internal s_pledgedAmount;
     bool internal s_feesDisbursed;
@@ -80,7 +79,6 @@ abstract contract BaseTreasury is
     ) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
-        CAMPAIGN_INFO = ICampaignInfo(infoAddress);
         TOKEN = IERC20(INFO.getTokenAddress());
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
     }
