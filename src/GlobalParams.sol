@@ -261,13 +261,9 @@ contract GlobalParams is IGlobalParams, Ownable {
         external
         view
         override
-        platformIsListed(platformHash)
         returns (bytes32 platformHash)
     {
         platformHash = s_platformDataOwner[platformDataKey];
-        if (platformHash == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
-        }
     }
 
     /**
@@ -300,7 +296,7 @@ contract GlobalParams is IGlobalParams, Ownable {
         address platformAdminAddress,
         uint256 platformFeePercent
     ) external onlyOwner notAddressZero(platformAdminAddress) {
-        if (platformHash == ZERO_BYTES || platformAdminAddress == address(0)) {
+        if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
         if (s_platformIsListed[platformHash]) {
@@ -344,11 +340,8 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] != false) {
+        if (s_platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataAlreadySet();
-        }
-        if (s_platformDataOwner[platformDataKey] == platformHash) {
-            revert GlobalParamsPlatformDataSlotTaken();
         }
         s_platformData[platformDataKey] = true;
         s_platformDataOwner[platformDataKey] = platformHash;
@@ -367,7 +360,7 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] == false) {
+        if (!s_platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataNotSet();
         }
         s_platformData[platformDataKey] = false;
