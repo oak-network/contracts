@@ -82,7 +82,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         CampaignData calldata campaignData
     ) external override {
         if (
-            campaignData.launchTime < block.timestamp &&
+            campaignData.launchTime < block.timestamp ||
             campaignData.deadline <= campaignData.launchTime
         ) {
             revert CampaignInfoFactoryInvalidInput();
