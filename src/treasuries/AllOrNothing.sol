@@ -384,10 +384,10 @@ contract AllOrNothing is
         uint256 totalAmount = pledgeAmount + shippingFee;
         TOKEN.safeTransferFrom(backer, address(this), totalAmount);
         s_tokenIdCounter.increment();
-        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         s_tokenToPledgedAmount[tokenId] = pledgeAmount;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_pledgedAmount += pledgeAmount;
+        _safeMint(backer, tokenId, abi.encodePacked(backer, reward, rewards));
         emit Receipt(
             backer,
             reward,
