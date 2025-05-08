@@ -28,30 +28,21 @@ contract CampaignInfo is
 {
     CampaignData private s_campaignData;
 
-    mapping(bytes32 => bool) private s_selectedPlatformHash;
     mapping(bytes32 => address) private s_platformTreasuryAddress;
     mapping(bytes32 => uint256) private s_platformFeePercent;
+    mapping(bytes32 => bool) private s_isSelectedPlatform;
+    mapping(bytes32 => bool) private s_isApprovedPlatform;
     mapping(bytes32 => bytes32) private s_platformData;
 
-    bytes32[] private s_approvedplatformHash;
+    bytes32[] private s_approvedPlatformHashes;
 
     function getApprovedPlatformHashes()
         external
         view
         returns (bytes32[] memory)
     {
-        return s_approvedplatformHash;
+        return s_approvedPlatformHashes;
     }
-
-    /**
-     * @dev Emitted when a platform is selected for the campaign.
-     * @param platformHash The bytes32 identifier of the platform.
-     * @param platformTreasury The address of the platform's treasury.
-     */
-    event CampaignInfoPlatformSelected(
-        bytes32 indexed platformHash,
-        address indexed platformTreasury
-    );
 
     /**
      * @dev Emitted when the launch time of the campaign is updated.
@@ -127,6 +118,12 @@ contract CampaignInfo is
      */
     error CampaignInfoPlatformNotSelected(bytes32 platformHash);
 
+    /**
+     * @dev Emitted when a platform is already approved for the campaign.
+     * @param platformHash The bytes32 identifier of the platform.
+     */
+    error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
+
     constructor(address creator) Ownable(creator) {}
 
     function initialize(
@@ -144,7 +141,7 @@ contract CampaignInfo is
         for (uint256 i = 0; i < len; ++i) {
             s_platformFeePercent[selectedPlatformHash[i]] = GLOBAL_PARAMS
                 .getPlatformFeePercent(selectedPlatformHash[i]);
-            s_selectedPlatformHash[selectedPlatformHash[i]] = true;
+            s_isSelectedPlatform[selectedPlatformHash[i]] = true;
         }
         len = platformDataKey.length;
         bool isValid;
@@ -182,7 +179,18 @@ contract CampaignInfo is
     function checkIfPlatformSelected(
         bytes32 platformHash
     ) public view override returns (bool) {
-        return s_selectedPlatformHash[platformHash];
+        return s_isSelectedPlatform[platformHash];
+    }
+
+    /**
+     * @dev Check if a platform is already approved
+     * @param platformHash The bytes32 identifier of the platform.
+     * @return True if the platform is already approved, false otherwise.
+     */
+    function checkIfPlatformApproved(
+        bytes32 platformHash
+    ) public view returns (bool) {
+        return s_isApprovedPlatform[platformHash];
     }
 
     /**
@@ -208,8 +216,8 @@ contract CampaignInfo is
      * @inheritdoc ICampaignInfo
      */
     function getTotalRaisedAmount() external view override returns (uint256) {
-        bytes32[] memory tempPlatforms = s_approvedplatformHash;
-        uint256 length = s_approvedplatformHash.length;
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
         uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
@@ -324,7 +332,13 @@ contract CampaignInfo is
      */
     function transferOwnership(
         address newOwner
-    ) public override(ICampaignInfo, Ownable) onlyOwner whenNotPaused whenNotCancelled {
+    )
+        public
+        override(ICampaignInfo, Ownable)
+        onlyOwner
+        whenNotPaused
+        whenNotCancelled
+    {
         super.transferOwnership(newOwner);
     }
 
@@ -341,7 +355,7 @@ contract CampaignInfo is
         whenNotPaused
         whenNotCancelled
     {
-        if (launchTime < block.timestamp && getDeadline() <= launchTime) {
+        if (launchTime < block.timestamp || getDeadline() <= launchTime) {
             revert CampaignInfoInvalidInput();
         }
         s_campaignData.launchTime = launchTime;
@@ -385,6 +399,7 @@ contract CampaignInfo is
         if (goalAmount == 0) {
             revert CampaignInfoInvalidInput();
         }
+        s_campaignData.goalAmount = goalAmount;
         emit CampaignInfoGoalAmountUpdated(goalAmount);
     }
 
@@ -408,7 +423,17 @@ contract CampaignInfo is
         if (!GLOBAL_PARAMS.checkIfPlatformIsListed(platformHash)) {
             revert CampaignInfoInvalidPlatformUpdate(platformHash, selection);
         }
-        s_selectedPlatformHash[platformHash] = selection;
+
+        if (!selection && checkIfPlatformApproved(platformHash)) {
+            revert CampaignInfoPlatformAlreadyApproved(platformHash);
+        }
+        s_isSelectedPlatform[platformHash] = selection;
+        if (selection) {
+            s_platformFeePercent[platformHash] = GLOBAL_PARAMS
+                .getPlatformFeePercent(platformHash);
+        } else {
+            s_platformFeePercent[platformHash] = 0;
+        }
         emit CampaignInfoSelectedPlatformUpdated(platformHash, selection);
     }
 
@@ -453,8 +478,13 @@ contract CampaignInfo is
         if (!selected) {
             revert CampaignInfoPlatformNotSelected(platformHash);
         }
+        if (s_isApprovedPlatform[platformHash]) {
+            revert CampaignInfoPlatformAlreadyApproved(platformHash);
+        }
         s_platformTreasuryAddress[platformHash] = platformTreasuryAddress;
-        s_approvedplatformHash.push(platformHash);
+        s_approvedPlatformHashes.push(platformHash);
+        s_isApprovedPlatform[platformHash] = true;
+
         emit CampaignInfoPlatformInfoUpdated(
             platformHash,
             platformTreasuryAddress
