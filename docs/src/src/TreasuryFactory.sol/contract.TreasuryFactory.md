@@ -1,5 +1,5 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/TreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/TreasuryFactory.sol)
 
 **Inherits:**
 [ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
@@ -9,14 +9,14 @@
 ### implementationMap
 
 ```solidity
-mapping(bytes32 => mapping(uint256 => address)) implementationMap;
+mapping(bytes32 => mapping(uint256 => address)) private implementationMap;
 ```
 
 
 ### approvedImplementations
 
 ```solidity
-mapping(address => bool) approvedImplementations;
+mapping(address => bool) private approvedImplementations;
 ```
 
 
@@ -183,5 +183,11 @@ error TreasuryFactoryImplementationNotSetOrApproved();
 
 ```solidity
 error TreasuryFactoryTreasuryInitializationFailed();
+```
+
+### TreasuryFactorySettingPlatformInfoFailed
+
+```solidity
+error TreasuryFactorySettingPlatformInfoFailed();
 ```
 

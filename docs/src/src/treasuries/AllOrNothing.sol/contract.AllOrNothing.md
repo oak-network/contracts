@@ -1,5 +1,5 @@
 # AllOrNothing
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/treasuries/AllOrNothing.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/treasuries/AllOrNothing.sol)
 
 **Inherits:**
 [IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable
@@ -8,10 +8,17 @@ A contract for handling crowdfunding campaigns with rewards.
 
 
 ## State Variables
-### s_tokenToCollectedAmount
+### s_tokenToTotalCollectedAmount
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToCollectedAmount;
+mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
+```
+
+
+### s_tokenToPledgedAmount
+
+```solidity
+mapping(uint256 => uint256) private s_tokenToPledgedAmount;
 ```
 
 
@@ -119,35 +126,18 @@ function getRaisedAmount() external view override returns (uint256);
 |`<none>`|`uint256`|The total raised amount as a uint256 value.|
 
 
-### addReward
-
-Adds a reward to the campaign.
-
-
-```solidity
-function addReward(bytes32 rewardName, Reward calldata reward)
-    external
-    onlyCampaignOwner
-    whenCampaignNotPaused
-    whenNotPaused
-    whenCampaignNotCancelled
-    whenNotCancelled;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`rewardName`|`bytes32`|The name of the reward.|
-|`reward`|`Reward`|The details of the reward as a `Reward` struct.|
-
-
-### addRewardsBatch
+### addRewards
 
 Adds multiple rewards in a batch.
 
+*This function allows for both reward tiers and non-reward tiers.
+For both types, rewards must have non-zero value.
+If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
+Empty arrays are allowed for both reward tiers and non-reward tiers.*
+
 
 ```solidity
-function addRewardsBatch(bytes32[] calldata rewardNames, Reward[] calldata rewards)
+function addRewards(bytes32[] calldata rewardNames, Reward[] calldata rewards)
     external
     onlyCampaignOwner
     whenCampaignNotPaused
@@ -187,6 +177,9 @@ function removeReward(bytes32 rewardName)
 ### pledgeForAReward
 
 Allows a backer to pledge for a reward.
+
+*The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+The non-reward tiers cannot be pledged for without a reward.*
 
 
 ```solidity
@@ -275,20 +268,6 @@ function withdraw() public override whenNotPaused whenNotCancelled;
 function cancelTreasury(bytes32 message) public override;
 ```
 
-### _pledge
-
-
-```solidity
-function _pledge(
-    address backer,
-    bytes32 reward,
-    uint256 pledgeAmount,
-    uint256 shippingFee,
-    uint256 tokenId,
-    bytes32[] memory rewards
-) internal;
-```
-
 ### _checkSuccessCondition
 
 *Internal function to check the success condition for fee disbursement.*
@@ -303,6 +282,20 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 |----|----|-----------|
 |`<none>`|`bool`|Whether the success condition is met.|
 
+
+### _pledge
+
+
+```solidity
+function _pledge(
+    address backer,
+    bytes32 reward,
+    uint256 pledgeAmount,
+    uint256 shippingFee,
+    uint256 tokenId,
+    bytes32[] memory rewards
+) private;
+```
 
 ### supportsInterface
 
@@ -338,20 +331,20 @@ event Receipt(
 |`tokenId`|`uint256`|The ID of the token representing the pledge.|
 |`rewards`|`bytes32[]`|An array of reward names.|
 
-### RewardAdded
-*Emitted when a reward is added to the campaign.*
+### RewardsAdded
+*Emitted when rewards are added to the campaign.*
 
 
 ```solidity
-event RewardAdded(bytes32 indexed rewardName, Reward reward);
+event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 ```
 
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`rewardName`|`bytes32`|The name of the reward.|
-|`reward`|`Reward`|The details of the reward.|
+|`rewardNames`|`bytes32[]`|The names of the rewards.|
+|`rewards`|`Reward[]`|The details of the rewards.|
 
 ### RewardRemoved
 *Emitted when a reward is removed from the campaign.*

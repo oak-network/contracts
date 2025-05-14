@@ -13,7 +13,6 @@
   - [❱ treasuries](src/treasuries/README.md)
     - [AllOrNothing](src/treasuries/AllOrNothing.sol/contract.AllOrNothing.md)
   - [❱ utils](src/utils/README.md)
-    - [AddressCalculator](src/utils/AddressCalculator.sol/library.AddressCalculator.md)
     - [AdminAccessChecker](src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
     - [BaseTreasury](src/utils/BaseTreasury.sol/abstract.BaseTreasury.md)
     - [CampaignAccessChecker](src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md)

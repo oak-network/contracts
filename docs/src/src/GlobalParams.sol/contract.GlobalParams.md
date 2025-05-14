@@ -1,8 +1,8 @@
 # GlobalParams
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/GlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/GlobalParams.sol)
 
 **Inherits:**
-[IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable, Pausable
+[IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable
 
 Manages global parameters and platform information.
 
@@ -127,27 +127,6 @@ constructor(address protocolAdminAddress, address tokenAddress, uint256 protocol
 |`protocolFeePercent`|`uint256`|The protocol fee percentage.|
 
 
-### checkIfPlatformIsListed
-
-Checks if a platform is listed in the protocol.
-
-
-```solidity
-function checkIfPlatformIsListed(bytes32 platformHash) public view override returns (bool);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`platformHash`|`bytes32`||
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|True if the platform is listed; otherwise, false.|
-
-
 ### getPlatformAdminAddress
 
 Retrieves the admin address of a platform.
@@ -266,12 +245,7 @@ Retrieves the owner of platform-specific data.
 
 
 ```solidity
-function getPlatformDataOwner(bytes32 platformDataKey)
-    external
-    view
-    override
-    platformIsListed(platformHash)
-    returns (bytes32 platformHash);
+function getPlatformDataOwner(bytes32 platformDataKey) external view override returns (bytes32 platformHash);
 ```
 **Parameters**
 
@@ -284,6 +258,27 @@ function getPlatformDataOwner(bytes32 platformDataKey)
 |Name|Type|Description|
 |----|----|-----------|
 |`platformHash`|`bytes32`|The platform identifier associated with the data.|
+
+
+### checkIfPlatformIsListed
+
+Checks if a platform is listed in the protocol.
+
+
+```solidity
+function checkIfPlatformIsListed(bytes32 platformHash) public view override returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`||
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the platform is listed; otherwise, false.|
 
 
 ### checkIfPlatformDataKeyValid
@@ -311,11 +306,14 @@ function checkIfPlatformDataKeyValid(bytes32 platformDataKey) external view over
 
 Enlists a platform with its admin address and fee percentage.
 
+*The platformFeePercent can be any value including zero.*
+
 
 ```solidity
 function enlistPlatform(bytes32 platformHash, address platformAdminAddress, uint256 platformFeePercent)
     external
-    onlyOwner;
+    onlyOwner
+    notAddressZero(platformAdminAddress);
 ```
 **Parameters**
 
@@ -332,7 +330,7 @@ Delists a platform.
 
 
 ```solidity
-function delistPlatform(bytes32 platformHash) external onlyOwner;
+function delistPlatform(bytes32 platformHash) external onlyOwner platformIsListed(platformHash);
 ```
 **Parameters**
 
@@ -449,13 +447,13 @@ function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminA
 |`platformAdminAddress`|`address`||
 
 
-### _checkIfAddressZero
+### _revertIfAddressZero
 
 *Reverts if the input address is zero.*
 
 
 ```solidity
-function _checkIfAddressZero(address account) internal pure;
+function _revertIfAddressZero(address account) internal pure;
 ```
 
 ### _onlyPlatformAdmin

@@ -1,5 +1,5 @@
 # TimestampChecker
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/TimestampChecker.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/utils/TimestampChecker.sol)
 
 A contract that provides timestamp-related checks for contract functions.
 
@@ -51,13 +51,13 @@ modifier currentTimeIsWithinRange(uint256 initialTime, uint256 finalTime);
 |`finalTime`|`uint256`|The final timestamp of the range.|
 
 
-### _checkIfCurrentTimeIsLess
+### _revertIfCurrentTimeIsNotLess
 
-*Internal function to check if the current timestamp is less than or equal a specified time.*
+*Internal function to revert if the current timestamp is less than or equal a specified time.*
 
 
 ```solidity
-function _checkIfCurrentTimeIsLess(uint256 inputTime) internal view virtual;
+function _revertIfCurrentTimeIsNotLess(uint256 inputTime) internal view virtual;
 ```
 **Parameters**
 
@@ -66,13 +66,13 @@ function _checkIfCurrentTimeIsLess(uint256 inputTime) internal view virtual;
 |`inputTime`|`uint256`|The timestamp being checked against.|
 
 
-### _checkIfCurrentTimeIsGreater
+### _revertIfCurrentTimeIsNotGreater
 
-*Internal function to check if the current timestamp is greater than or equal a specified time.*
+*Internal function to revert if the current timestamp is not greater than or equal a specified time.*
 
 
 ```solidity
-function _checkIfCurrentTimeIsGreater(uint256 inputTime) internal view virtual;
+function _revertIfCurrentTimeIsNotGreater(uint256 inputTime) internal view virtual;
 ```
 **Parameters**
 
@@ -81,13 +81,13 @@ function _checkIfCurrentTimeIsGreater(uint256 inputTime) internal view virtual;
 |`inputTime`|`uint256`|The timestamp being checked against.|
 
 
-### _checkIfCurrentTimeIsWithinRange
+### _revertIfCurrentTimeIsNotWithinRange
 
-*Internal function to check if the current timestamp is within a specified time range.*
+*Internal function to revert if the current timestamp is not within a specified time range.*
 
 
 ```solidity
-function _checkIfCurrentTimeIsWithinRange(uint256 initialTime, uint256 finalTime) internal view virtual;
+function _revertIfCurrentTimeIsNotWithinRange(uint256 initialTime, uint256 finalTime) internal view virtual;
 ```
 **Parameters**
 

@@ -1,5 +1,5 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/CampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/CampaignInfo.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), Initializable
@@ -12,13 +12,6 @@ Manages campaign information and platform data.
 
 ```solidity
 CampaignData private s_campaignData;
-```
-
-
-### s_selectedPlatformHash
-
-```solidity
-mapping(bytes32 => bool) private s_selectedPlatformHash;
 ```
 
 
@@ -36,6 +29,20 @@ mapping(bytes32 => uint256) private s_platformFeePercent;
 ```
 
 
+### s_isSelectedPlatform
+
+```solidity
+mapping(bytes32 => bool) private s_isSelectedPlatform;
+```
+
+
+### s_isApprovedPlatform
+
+```solidity
+mapping(bytes32 => bool) private s_isApprovedPlatform;
+```
+
+
 ### s_platformData
 
 ```solidity
@@ -43,10 +50,10 @@ mapping(bytes32 => bytes32) private s_platformData;
 ```
 
 
-### s_approvedplatformHash
+### s_approvedPlatformHashes
 
 ```solidity
-bytes32[] private s_approvedplatformHash;
+bytes32[] private s_approvedPlatformHashes;
 ```
 
 
@@ -74,7 +81,8 @@ function initialize(
     IGlobalParams globalParams,
     bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
-    bytes32[] calldata platformDataValue
+    bytes32[] calldata platformDataValue,
+    CampaignData calldata campaignData
 ) external initializer;
 ```
 
@@ -106,6 +114,27 @@ function checkIfPlatformSelected(bytes32 platformHash) public view override retu
 |`<none>`|`bool`|True if the platform is selected, false otherwise.|
 
 
+### checkIfPlatformApproved
+
+*Check if a platform is already approved*
+
+
+```solidity
+function checkIfPlatformApproved(bytes32 platformHash) public view returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the platform is already approved, false otherwise.|
+
+
 ### owner
 
 Returns the owner of the contract.
@@ -121,6 +150,21 @@ function owner() public view override(ICampaignInfo, Ownable) returns (address a
 |`account`|`address`|The address of the contract owner.|
 
 
+### getProtocolAdminAddress
+
+Retrieves the address of the protocol administrator.
+
+
+```solidity
+function getProtocolAdminAddress() public view override returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The address of the protocol administrator.|
+
+
 ### getTotalRaisedAmount
 
 Retrieves the total amount raised in the campaign.
@@ -134,21 +178,6 @@ function getTotalRaisedAmount() external view override returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total amount raised in the campaign.|
-
-
-### getProtocolAdminAddress
-
-Retrieves the address of the protocol administrator.
-
-
-```solidity
-function getProtocolAdminAddress() external view override returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the protocol administrator.|
 
 
 ### getPlatformAdminAddress
@@ -193,7 +222,7 @@ Retrieves the campaign's deadline.
 
 
 ```solidity
-function getDeadline() external view override returns (uint256);
+function getDeadline() public view override returns (uint256);
 ```
 **Returns**
 
@@ -329,7 +358,12 @@ Can only be called by the current owner.*
 
 
 ```solidity
-function transferOwnership(address newOwner) public override(ICampaignInfo, Ownable) onlyOwner whenNotPaused;
+function transferOwnership(address newOwner)
+    public
+    override(ICampaignInfo, Ownable)
+    onlyOwner
+    whenNotPaused
+    whenNotCancelled;
 ```
 
 ### updateLaunchTime
@@ -338,7 +372,13 @@ Updates the campaign's launch time.
 
 
 ```solidity
-function updateLaunchTime(uint256 launchTime) external override onlyOwner currentTimeIsLess(launchTime) whenNotPaused;
+function updateLaunchTime(uint256 launchTime)
+    external
+    override
+    onlyOwner
+    currentTimeIsLess(getLaunchTime())
+    whenNotPaused
+    whenNotCancelled;
 ```
 **Parameters**
 
@@ -358,7 +398,8 @@ function updateDeadline(uint256 deadline)
     override
     onlyOwner
     currentTimeIsLess(getLaunchTime())
-    whenNotPaused;
+    whenNotPaused
+    whenNotCancelled;
 ```
 **Parameters**
 
@@ -377,8 +418,9 @@ function updateGoalAmount(uint256 goalAmount)
     external
     override
     onlyOwner
-    currentTimeIsLess(s_campaignData.launchTime)
-    whenNotPaused;
+    currentTimeIsLess(getLaunchTime())
+    whenNotPaused
+    whenNotCancelled;
 ```
 **Parameters**
 
@@ -391,14 +433,17 @@ function updateGoalAmount(uint256 goalAmount)
 
 Updates the selection status of a platform for the campaign.
 
+*It can only be called for a platform if its not approved i.e. the platform treasury is not deployed*
+
 
 ```solidity
 function updateSelectedPlatform(bytes32 platformHash, bool selection)
     external
     override
     onlyOwner
-    currentTimeIsLess(s_campaignData.launchTime)
-    whenNotPaused;
+    currentTimeIsLess(getLaunchTime())
+    whenNotPaused
+    whenNotCancelled;
 ```
 **Parameters**
 
@@ -432,7 +477,7 @@ function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin;
 
 
 ```solidity
-function _cancelCampaign(bytes32 message) external onlyProtocolAdmin;
+function _cancelCampaign(bytes32 message) external;
 ```
 
 ### _setPlatformInfo
@@ -452,21 +497,6 @@ function _setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress)
 
 
 ## Events
-### CampaignInfoPlatformSelected
-*Emitted when a platform is selected for the campaign.*
-
-
-```solidity
-event CampaignInfoPlatformSelected(bytes32 indexed platformHash, address indexed platformTreasury);
-```
-
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
-|`platformTreasury`|`address`|The address of the platform's treasury.|
-
 ### CampaignInfoLaunchTimeUpdated
 *Emitted when the launch time of the campaign is updated.*
 
@@ -600,6 +630,20 @@ error CampaignInfoPlatformNotSelected(bytes32 platformHash);
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 
+### CampaignInfoPlatformAlreadyApproved
+*Emitted when a platform is already approved for the campaign.*
+
+
+```solidity
+error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
+
 ## Structs
 ### Config
 
@@ -609,9 +653,6 @@ struct Config {
     address token;
     uint256 protocolFeePercent;
     bytes32 identifierHash;
-    uint256 launchTime;
-    uint256 deadline;
-    uint256 goalAmount;
 }
 ```
 

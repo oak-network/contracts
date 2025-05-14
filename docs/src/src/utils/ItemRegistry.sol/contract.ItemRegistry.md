@@ -1,5 +1,5 @@
 # ItemRegistry
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/ItemRegistry.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/utils/ItemRegistry.sol)
 
 **Inherits:**
 [IItem](/src/interfaces/IItem.sol/interface.IItem.md), Context
@@ -86,4 +86,13 @@ event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
 |`owner`|`address`|The address of the item owner.|
 |`itemId`|`bytes32`|The unique identifier of the item.|
 |`item`|`Item`|The item details including actual weight, dimensions, category, and declared currency.|
+
+## Errors
+### ItemRegistryMismatchedArraysLength
+*Thrown when the input arrays have mismatched lengths.*
+
+
+```solidity
+error ItemRegistryMismatchedArraysLength();
+```
 

@@ -1,5 +1,5 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/utils/BaseTreasury.sol)
 
 **Inherits:**
 Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
@@ -44,13 +44,6 @@ uint256 internal PLATFORM_FEE_PERCENT;
 
 ```solidity
 IERC20 internal TOKEN;
-```
-
-
-### CAMPAIGN_INFO
-
-```solidity
-ICampaignInfo internal CAMPAIGN_INFO;
 ```
 
 
