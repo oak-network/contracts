@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestUSD} from "../../mocks/TestUSD.sol";
 import {AdminAccessChecker} from "src/utils/AdminAccessChecker.sol";
 
 contract TreasuryFactory_UpdatedUnitTest is Test {

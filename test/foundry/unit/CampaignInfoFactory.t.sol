@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestUSD} from "../../mocks/TestUSD.sol";
 import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";

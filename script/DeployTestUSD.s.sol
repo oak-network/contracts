@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {TestUSD} from "../src/TestUSD.sol";
+import {TestUSD} from "../test/mocks/TestUSD.sol";
 import {DeployBase} from "./lib/DeployBase.s.sol";
 
 contract DeployTestUSD is DeployBase {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestUSD} from "../test/mocks/TestUSD.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
