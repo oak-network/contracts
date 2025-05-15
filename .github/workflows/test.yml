@@ -28,12 +28,21 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install dependencies
-        run: forge install
+      - name: Debug Info
+        run: |
+          pwd
+          ls -la
+          cat foundry.toml
 
+      - name: Install dependencies
+        run: |
+          # Install OpenZeppelin contracts version 4.8.0
+          forge install OpenZeppelin/openzeppelin-contracts@v4.8.0 --no-commit
+          ls -la lib/
+          
       - name: Run Forge build
         run: |
-          forge --version
+          forge remappings
           forge build --sizes
         id: build
 
