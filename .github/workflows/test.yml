@@ -20,14 +20,13 @@ jobs:
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Check-out the repo
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: "1.1.0"
 
       - name: Install dependencies
         run: forge install
@@ -39,13 +38,11 @@ jobs:
         id: build
 
       - name: Run Forge tests
-        run: |
-          forge test -vvv
+        run: forge test -vvv
         id: test
 
       - name: Run gas report
-        run: |
-          forge test --gas-report > gas-report.txt
+        run: forge test --gas-report > gas-report.txt
         if: always()
         id: gas
 
