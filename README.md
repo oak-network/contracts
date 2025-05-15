@@ -6,16 +6,15 @@ CC Protocol is a decentralized crowdfunding protocol designed to help creators l
 
 ## Features
 
-- Cross-listable campaign creation
-- Multiple treasury models
-- Secure fund management
-- Customizable protocol parameters
+* Cross-listable campaign creation
+* Multiple treasury models
+* Secure fund management
+* Customizable protocol parameters
 
 ## Prerequisites
 
-- [Foundry](https://book.getfoundry.sh/)
-- Solidity ^0.8.20
-- Node.js (recommended)
+* [Foundry](https://book.getfoundry.sh/)
+* Solidity ^0.8.20
 
 ## Installation
 
@@ -40,23 +39,22 @@ cp .env.example .env
 
 4. Configure your `.env` file with:
 
-- Private key
-- RPC URL
-- (Optional) Contract addresses for reuse
+* Private key
+* RPC URL
+* (Optional) Contract addresses for reuse
 
 ## Documentation
 
 Comprehensive documentation is available in the `docs/` folder:
 
-- Technical specifications
-- Contract interfaces
-- Deployment guides
-- Development setup instructions
+* Technical specifications
+* Contract interfaces
+* Deployment guides
+* Development setup instructions
 
 To view the documentation:
 
 ```bash
-# Navigate to docs folder
 cd docs
 ```
 
@@ -104,37 +102,43 @@ forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $
 
 ### Core Contracts
 
-- `TestUSD`: Mock ERC20 token for testing
-- `GlobalParams`: Protocol-wide parameter management
-- `CampaignInfoFactory`: Campaign creation and management
-- `TreasuryFactory`: Treasury contract deployment
+* `GlobalParams`: Protocol-wide parameter management
+* `CampaignInfoFactory`: Campaign creation and management
+* `TreasuryFactory`: Treasury contract deployment
 
 ### Treasury Models
 
-- `AllOrNothing`: Funds refunded if campaign goal not met
+* `AllOrNothing`: Funds refunded if campaign goal not met
+
+### Notes on Mock Contracts
+
+* `TestUSD` is a mock ERC20 token used **only for testing and development purposes**.
+* It is located in the `mocks/` directory and should **not be included in production deployments**.
 
 ## Deployment Workflow
 
-1. Deploy `TestUSD`
-2. Deploy `GlobalParams`
-3. Deploy `TreasuryFactory`
-4. Deploy `CampaignInfoFactory`
+1. Deploy `GlobalParams`
+2. Deploy `TreasuryFactory`
+3. Deploy `CampaignInfoFactory`
+
+>For local testing or development, the `TestUSD` mock token needs to be deployed before interacting with contracts requiring an ERC20 token.
 
 ## Environment Variables
 
 Key environment variables in `.env`:
 
-- `PRIVATE_KEY`: Deployment wallet private key
-- `RPC_URL`: Network RPC endpoint
-- `SIMULATE`: Toggle simulation mode
-- Contract address variables for reuse
+* `PRIVATE_KEY`: Deployment wallet private key
+* `RPC_URL`: Network RPC endpoint
+* `SIMULATE`: Toggle simulation mode
+* Contract address variables for reuse
 
 ## Troubleshooting
 
-- Ensure sufficient network gas tokens
-- Verify RPC URL connectivity
-- Check contract dependencies
+* Ensure sufficient network gas tokens
+* Verify RPC URL connectivity
+* Check contract dependencies
 
 ## License
 
-[SPDX-License-Identifier: MIT]
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+
