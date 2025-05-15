@@ -1,15 +1,18 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 
 contract DeployAllOrNothingImplementation is Script {
     function deploy() public returns (address) {
-        console.log("Deploying AllOrNothingImplementation...");
+        console2.log("Deploying AllOrNothingImplementation...");
         AllOrNothing allOrNothingImplementation = new AllOrNothing();
-        console.log("AllOrNothingImplementation deployed at:", address(allOrNothingImplementation));
+        console2.log(
+            "AllOrNothingImplementation deployed at:",
+            address(allOrNothingImplementation)
+        );
         return address(allOrNothingImplementation);
     }
 
@@ -27,6 +30,9 @@ contract DeployAllOrNothingImplementation is Script {
             vm.stopBroadcast();
         }
 
-        console.log("ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS", implementationAddress);
+        console2.log(
+            "ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS",
+            implementationAddress
+        );
     }
 }

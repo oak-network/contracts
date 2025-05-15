@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "./interfaces/IGlobalParams.sol";
-import "./interfaces/ICampaignInfoFactory.sol";
+import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
+import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
 
 /**
  * @title CampaignInfoFactory

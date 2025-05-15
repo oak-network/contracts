@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/IGlobalParams.sol";
-import "./utils/Counters.sol";
+import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
+import {Counters} from "./utils/Counters.sol";
 
 /**
  * @title GlobalParams
@@ -257,12 +257,7 @@ contract GlobalParams is IGlobalParams, Ownable {
      */
     function getPlatformDataOwner(
         bytes32 platformDataKey
-    )
-        external
-        view
-        override
-        returns (bytes32 platformHash)
-    {
+    ) external view override returns (bytes32 platformHash) {
         platformHash = s_platformDataOwner[platformDataKey];
     }
 

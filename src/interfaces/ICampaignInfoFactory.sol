@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./ICampaignData.sol";
+import {ICampaignData} from "./ICampaignData.sol";
 
 /**
  * @title ICampaignInfoFactory
@@ -18,11 +18,10 @@ interface ICampaignInfoFactory is ICampaignData {
         address indexed campaignInfoAddress
     );
 
-    /** 
+    /**
      * @notice Emitted when the campaign after creation is initialized.
-    */
-    event CampaignInfoFactoryCampaignInitialized(
-    );
+     */
+    event CampaignInfoFactoryCampaignInitialized();
 
     /**
      * @notice Creates a new campaign information contract.
@@ -46,7 +45,5 @@ interface ICampaignInfoFactory is ICampaignData {
      * @notice Updates the campaign implementation address.
      * @param newImplementation The address of the camapaignInfo implementation contract.
      */
-    function updateImplementation(
-        address newImplementation
-    ) external;
+    function updateImplementation(address newImplementation) external;
 }

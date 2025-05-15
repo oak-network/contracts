@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/utils/Context.sol";
-import "../interfaces/IItem.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+
+import {IItem} from "../interfaces/IItem.sol";
 
 /**
  * @title ItemRegistry
@@ -18,7 +19,7 @@ contract ItemRegistry is IItem, Context {
      * @param item The item details including actual weight, dimensions, category, and declared currency.
      */
     event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
-    
+
     /**
      * @dev Thrown when the input arrays have mismatched lengths.
      */

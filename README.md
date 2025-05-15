@@ -137,4 +137,4 @@ Key environment variables in `.env`:
 
 ## License
 
-[SPDX-License-Identifier: UNLICENSED]
+[SPDX-License-Identifier: MIT]

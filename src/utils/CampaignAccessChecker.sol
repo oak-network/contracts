@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/ICampaignInfo.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title CampaignAccessChecker
@@ -22,7 +22,6 @@ abstract contract CampaignAccessChecker {
      * @dev Constructor to initialize the contract with the address of the campaign information contract.
      * @param campaignInfo The address of the ICampaignInfo contract.
      */
-
     function __CampaignAccessChecker_init(address campaignInfo) internal {
         INFO = ICampaignInfo(campaignInfo);
     }

@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
-import "./DeployGlobalParams.s.sol";
-import "./DeployTestUSD.s.sol";
-import "./DeployCampaignInfoFactory.s.sol";
-import "./DeployTreasuryFactory.s.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
+import {DeployGlobalParams} from "./DeployGlobalParams.s.sol";
+import {DeployTestUSD} from "./DeployTestUSD.s.sol";
+import {DeployCampaignInfoFactory} from "./DeployCampaignInfoFactory.s.sol";
+import {DeployTreasuryFactory} from "./DeployTreasuryFactory.s.sol";
 
 contract DeployAll is Script {
     function deployTestUSD() internal returns (address) {

@@ -1,13 +1,15 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
-import "../utils/Counters.sol";
-import "../utils/TimestampChecker.sol";
-import "../utils/BaseTreasury.sol";
-import "../interfaces/IReward.sol";
+import {Counters} from "../utils/Counters.sol";
+import {TimestampChecker} from "../utils/TimestampChecker.sol";
+import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
+import {BaseTreasury} from "../utils/BaseTreasury.sol";
+import {IReward} from "../interfaces/IReward.sol";
 
 /**
  * @title AllOrNothing

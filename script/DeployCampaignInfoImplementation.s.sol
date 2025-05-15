@@ -1,17 +1,20 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 
 contract DeployCampaignInfoImplementation is Script {
     function deploy() public returns (address) {
-        console.log("Deploying CampaignInfo implementation...");
-        // Implementation will use the script address as admin, but this will be replaced 
+        console2.log("Deploying CampaignInfo implementation...");
+        // Implementation will use the script address as admin, but this will be replaced
         // when the factory creates new instances
         CampaignInfo campaignInfo = new CampaignInfo(address(this));
-        console.log("CampaignInfo implementation deployed at:", address(campaignInfo));
+        console2.log(
+            "CampaignInfo implementation deployed at:",
+            address(campaignInfo)
+        );
         return address(campaignInfo);
     }
 
@@ -29,6 +32,6 @@ contract DeployCampaignInfoImplementation is Script {
             vm.stopBroadcast();
         }
 
-        console.log("CAMPAIGN_INFO_ADDRESS", implementationAddress);
+        console2.log("CAMPAIGN_INFO_ADDRESS", implementationAddress);
     }
 }

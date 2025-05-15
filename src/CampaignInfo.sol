@@ -1,17 +1,17 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "./interfaces/ICampaignInfo.sol";
-import "./interfaces/ICampaignData.sol";
-import "./interfaces/ICampaignTreasury.sol";
-import "./interfaces/IGlobalParams.sol";
-import "./utils/TimestampChecker.sol";
-import "./utils/AdminAccessChecker.sol";
-import "./utils/PausableCancellable.sol";
+import {ICampaignInfo} from "./interfaces/ICampaignInfo.sol";
+import {ICampaignData} from "./interfaces/ICampaignData.sol";
+import {ICampaignTreasury} from "./interfaces/ICampaignTreasury.sol";
+import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
+import {TimestampChecker} from "./utils/TimestampChecker.sol";
+import {AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
+import {PausableCancellable} from "./utils/PausableCancellable.sol";
 
 /**
  * @title CampaignInfo

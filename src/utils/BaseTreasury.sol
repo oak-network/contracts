@@ -1,14 +1,12 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-import "../interfaces/ICampaignInfo.sol";
-import "../interfaces/ICampaignTreasury.sol";
-import "./CampaignAccessChecker.sol";
-import "./PausableCancellable.sol";
+import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
+import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
+import {PausableCancellable} from "./PausableCancellable.sol";
 
 /**
  * @title BaseTreasury
@@ -23,6 +21,7 @@ abstract contract BaseTreasury is
     PausableCancellable
 {
     using SafeERC20 for IERC20;
+
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;

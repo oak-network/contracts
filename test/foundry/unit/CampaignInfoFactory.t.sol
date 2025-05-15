@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
@@ -20,7 +20,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
     address internal admin = address(0xA11CE);
 
     function setUp() public {
-
         testUSD = new TestUSD();
         globalParams = new GlobalParams(
             admin,
@@ -29,7 +28,10 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         );
         campaignInfoImplementation = new CampaignInfo(address(this));
         treasuryFactory = new TreasuryFactory(globalParams);
-        factory = new CampaignInfoFactory(globalParams, address(campaignInfoImplementation));
+        factory = new CampaignInfoFactory(
+            globalParams,
+            address(campaignInfoImplementation)
+        );
         vm.startPrank(admin);
         globalParams.enlistPlatform(
             PLATFORM_1_HASH,
@@ -46,7 +48,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Success assumed if no revert
         // vm.stopPrank();
     }
-
 
     function testCreateCampaignDeploysSuccessfully() public {
         factory._initialize(address(treasuryFactory), address(globalParams));

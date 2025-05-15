@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
@@ -49,7 +49,10 @@ abstract contract Base_Test is Test, Defaults {
 
         campaignInfo = new CampaignInfo(address(this));
         console.log("CampaignInfo address: ", address(campaignInfo));
-        campaignInfoFactory = new CampaignInfoFactory(globalParams, address(campaignInfo));
+        campaignInfoFactory = new CampaignInfoFactory(
+            globalParams,
+            address(campaignInfo)
+        );
         treasuryFactory = new TreasuryFactory(globalParams);
 
         //Initialize campaignInfoFactory
