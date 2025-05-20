@@ -13,7 +13,7 @@ import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 /**
  * @notice Script to deploy and setup all needed contracts for the protocol
  */
-contract DeployAllAndSetup is Script {
+contract DeployAllAndSetupAllOrNothing is Script {
     // Customizable values (set through environment variables)
     bytes32 platformHash;
     uint256 protocolFeePercent;
@@ -24,7 +24,7 @@ contract DeployAllAndSetup is Script {
     // Contract addresses
     address testUSD;
     address globalParams;
-    address campaignInfo;
+    address campaignInfoImplementation;
     address treasuryFactory;
     address campaignInfoFactory;
     address allOrNothingImplementation;
@@ -79,7 +79,7 @@ contract DeployAllAndSetup is Script {
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
 
         // Check for existing contract addresses
-        testUSD = vm.envOr("TEST_USD_ADDRESS", address(0));
+        testUSD = vm.envOr("TOKEN_ADDRESS", address(0));
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr(
@@ -134,8 +134,8 @@ contract DeployAllAndSetup is Script {
 
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
-            campaignInfo = address(new CampaignInfo(address(this)));
-            console2.log("CampaignInfo deployed at:", campaignInfo);
+            campaignInfoImplementation = address(new CampaignInfo(address(this)));
+            console2.log("CampaignInfo implementation deployed at:", campaignInfoImplementation);
         }
 
         // Deploy or reuse TreasuryFactory
@@ -154,7 +154,7 @@ contract DeployAllAndSetup is Script {
             campaignInfoFactory = address(
                 new CampaignInfoFactory(
                     GlobalParams(globalParams),
-                    campaignInfo
+                    campaignInfoImplementation
                 )
             );
             CampaignInfoFactory(campaignInfoFactory)._initialize(
@@ -362,10 +362,10 @@ contract DeployAllAndSetup is Script {
         // Output summary
         console2.log("\n--- Deployment & Setup Summary ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TEST_USD_ADDRESS:", testUSD);
+        console2.log("TOKEN_ADDRESS:", testUSD);
         console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
-        if (campaignInfo != address(0)) {
-            console2.log("CAMPAIGN_INFO_ADDRESS:", campaignInfo);
+        if (campaignInfoImplementation != address(0)) {
+            console2.log("CAMPAIGN_INFO_IMPLEMENTATION_ADDRESS:", campaignInfoImplementation);
         }
         console2.log("TREASURY_FACTORY_ADDRESS:", treasuryFactory);
         console2.log("CAMPAIGN_INFO_FACTORY_ADDRESS:", campaignInfoFactory);
