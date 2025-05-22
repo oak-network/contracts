@@ -4,19 +4,19 @@ pragma solidity ^0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {DeployGlobalParams} from "./DeployGlobalParams.s.sol";
-import {DeployTestUSD} from "./DeployTestUSD.s.sol";
+import {DeployTestToken} from "./DeployTestToken.s.sol";
 import {DeployCampaignInfoFactory} from "./DeployCampaignInfoFactory.s.sol";
 import {DeployTreasuryFactory} from "./DeployTreasuryFactory.s.sol";
 
 contract DeployAll is Script {
-    function deployTestUSD() internal returns (address) {
-        DeployTestUSD script = new DeployTestUSD();
+    function deployTestToken() internal returns (address) {
+        DeployTestToken script = new DeployTestToken();
         return script.deploy();
     }
 
-    function deployGlobalParams(address testUSD) internal returns (address) {
+    function deployGlobalParams(address testToken) internal returns (address) {
         DeployGlobalParams script = new DeployGlobalParams();
-        return script.deployWithToken(testUSD);
+        return script.deployWithToken(testToken);
     }
 
     function deployTreasuryFactory(
@@ -42,8 +42,8 @@ contract DeployAll is Script {
             vm.startBroadcast(deployerKey);
         }
 
-        address testUSD = deployTestUSD();
-        address globalParams = deployGlobalParams(testUSD);
+        address testToken = deployTestToken();
+        address globalParams = deployGlobalParams(testToken);
         address treasuryFactory = deployTreasuryFactory(globalParams);
         address campaignFactory = deployCampaignFactory(
             globalParams,
@@ -54,7 +54,7 @@ contract DeployAll is Script {
             vm.stopBroadcast();
         }
 
-        console2.log("TEST_USD_ADDRESS", testUSD);
+        console2.log("TOKEN_ADDRESS", testToken);
         console2.log("GLOBAL_PARAMS_ADDRESS", globalParams);
         console2.log("TREASURY_FACTORY_ADDRESS", treasuryFactory);
         console2.log("CAMPAIGN_INFO_FACTORY_ADDRESS", campaignFactory);

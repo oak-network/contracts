@@ -3,17 +3,18 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
-import {TestUSD} from "../../mocks/TestUSD.sol";
+import {Defaults} from "../Base.t.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
 
-contract GlobalParams_UnitTest is Test {
+contract GlobalParams_UnitTest is Test, Defaults{
     GlobalParams internal globalParams;
-    TestUSD internal token;
+    TestToken internal token;
 
     address internal admin = address(0xA11CE);
     uint256 internal protocolFee = 300; // 3%
 
     function setUp() public {
-        token = new TestUSD();
+        token = new TestToken(tokenName, tokenSymbol);
         globalParams = new GlobalParams(admin, address(token), protocolFee);
     }
 

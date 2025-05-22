@@ -63,7 +63,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             bytes32[] memory rewards
         ) = pledgeForAReward(
                 users.backer1Address,
-                address(testUSD),
+                address(testToken),
                 address(allOrNothing),
                 PLEDGE_AMOUNT,
                 SHIPPING_FEE,
@@ -71,8 +71,8 @@ contract AllOrNothingFunction_Integration_Shared_Test is
                 REWARD_NAME_1_HASH
             );
 
-        uint256 backerBalance = testUSD.balanceOf(users.backer1Address);
-        uint256 treasuryBalance = testUSD.balanceOf(address(allOrNothing));
+        uint256 backerBalance = testToken.balanceOf(users.backer1Address);
+        uint256 treasuryBalance = testToken.balanceOf(address(allOrNothing));
         uint256 backerNftBalance = allOrNothing.balanceOf(users.backer1Address);
         address nftOwnerAddress = allOrNothing.ownerOf(pledgeForARewardTokenId);
 
@@ -91,7 +91,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
 
         (, uint256 rewardTokenId, ) = pledgeForAReward(
             users.backer1Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             PLEDGE_AMOUNT,
             SHIPPING_FEE,
@@ -101,7 +101,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
 
         (, uint256 tokenId) = pledgeWithoutAReward(
             users.backer1Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             PLEDGE_AMOUNT,
             LAUNCH_TIME
@@ -129,7 +129,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
 
         pledgeForAReward(
             users.backer1Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             PLEDGE_AMOUNT,
             SHIPPING_FEE,
@@ -138,7 +138,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
         );
         pledgeWithoutAReward(
             users.backer2Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             GOAL_AMOUNT,
             LAUNCH_TIME
@@ -179,7 +179,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
 
         pledgeForAReward(
             users.backer1Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             PLEDGE_AMOUNT,
             SHIPPING_FEE,
@@ -188,7 +188,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
         );
         pledgeWithoutAReward(
             users.backer2Address,
-            address(testUSD),
+            address(testToken),
             address(allOrNothing),
             GOAL_AMOUNT,
             LAUNCH_TIME

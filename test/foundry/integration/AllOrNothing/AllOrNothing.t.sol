@@ -174,7 +174,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testUSD.approve(allOrNothingAddress, pledgeAmount + shippingFee);
+        testToken.approve(allOrNothingAddress, pledgeAmount + shippingFee);
         vm.warp(launchTime);
 
         bytes32[] memory reward = new bytes32[](1);
@@ -216,7 +216,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testUSD.approve(allOrNothingAddress, pledgeAmount);
+        testToken.approve(allOrNothingAddress, pledgeAmount);
         vm.warp(launchTime);
 
         AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(

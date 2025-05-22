@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
-import {TestUSD} from "../test/mocks/TestUSD.sol";
+import {TestToken} from "../test/mocks/TestToken.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -22,7 +22,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
     bool simulate;
 
     // Contract addresses
-    address testUSD;
+    address testToken;
     address globalParams;
     address campaignInfoImplementation;
     address treasuryFactory;
@@ -36,6 +36,10 @@ contract DeployAllAndSetupAllOrNothing is Script {
     address backer1;
     address backer2;
 
+    // Token details
+    // string tokenName;
+    // string tokenSymbol;
+
     // Flags to track what was completed
     bool platformEnlisted = false;
     bool implementationRegistered = false;
@@ -43,7 +47,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
     bool adminRightsTransferred = false;
 
     // Flags for contract deployment or reuse
-    bool testUsdDeployed = false;
+    bool testTokenDeployed = false;
     bool globalParamsDeployed = false;
     bool treasuryFactoryDeployed = false;
     bool campaignInfoFactoryDeployed = false;
@@ -56,6 +60,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
             "PLATFORM_NAME",
             string("MiniFunder")
         );
+
         platformHash = keccak256(abi.encodePacked(platformName));
         protocolFeePercent = vm.envOr("PROTOCOL_FEE_PERCENT", uint256(100)); // Default 1%
         platformFeePercent = vm.envOr("PLATFORM_FEE_PERCENT", uint256(400)); // Default 4%
@@ -79,7 +84,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
 
         // Check for existing contract addresses
-        testUSD = vm.envOr("TOKEN_ADDRESS", address(0));
+        testToken = vm.envOr("TOKEN_ADDRESS", address(0));
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr(
@@ -104,13 +109,17 @@ contract DeployAllAndSetupAllOrNothing is Script {
     function deployContracts() internal {
         console2.log("Setting up contracts...");
 
-        // Deploy or reuse TestUSD
-        if (testUSD == address(0)) {
-            testUSD = address(new TestUSD());
-            testUsdDeployed = true;
-            console2.log("TestUSD deployed at:", testUSD);
+        // Deploy or reuse TestToken
+
+        string memory tokenName = vm.envOr("TOKEN_NAME", string("TestToken"));
+        string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
+
+        if (testToken == address(0)) {
+            testToken = address(new TestToken(tokenName, tokenSymbol));
+            testTokenDeployed = true;
+            console2.log("TestToken deployed at:", testToken);
         } else {
-            console2.log("Reusing TestUSD at:", testUSD);
+            console2.log("Reusing TestToken at:", testToken);
         }
 
         // Deploy or reuse GlobalParams
@@ -118,7 +127,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
             globalParams = address(
                 new GlobalParams(
                     deployerAddress, // Initially deployer is protocol admin
-                    testUSD,
+                    testToken,
                     protocolFeePercent
                 )
             );
@@ -128,14 +137,19 @@ contract DeployAllAndSetupAllOrNothing is Script {
             console2.log("Reusing GlobalParams at:", globalParams);
         }
 
-        // We need at least TestUSD and GlobalParams to continue
-        require(testUSD != address(0), "TestUSD address is required");
+        // We need at least TestToken and GlobalParams to continue
+        require(testToken != address(0), "TestToken address is required");
         require(globalParams != address(0), "GlobalParams address is required");
 
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
-            campaignInfoImplementation = address(new CampaignInfo(address(this)));
-            console2.log("CampaignInfo implementation deployed at:", campaignInfoImplementation);
+            campaignInfoImplementation = address(
+                new CampaignInfo(address(this))
+            );
+            console2.log(
+                "CampaignInfo implementation deployed at:",
+                campaignInfoImplementation
+            );
         }
 
         // Deploy or reuse TreasuryFactory
@@ -277,17 +291,17 @@ contract DeployAllAndSetupAllOrNothing is Script {
     }
 
     function mintTokens() internal {
-        // Only mint tokens if we deployed TestUSD
-        if (!testUsdDeployed) {
-            console2.log("Skipping mintTokens - using existing TestUSD");
+        // Only mint tokens if we deployed TestToken
+        if (!testTokenDeployed) {
+            console2.log("Skipping mintTokens - using existing TestToken");
             return;
         }
 
         if (backer1 != address(0) && backer2 != address(0)) {
             console2.log("Minting tokens to test backers");
-            TestUSD(testUSD).mint(backer1, tokenMintAmount);
+            TestToken(testToken).mint(backer1, tokenMintAmount);
             if (backer1 != backer2) {
-                TestUSD(testUSD).mint(backer2, tokenMintAmount);
+                TestToken(testToken).mint(backer2, tokenMintAmount);
             }
             console2.log("Tokens minted successfully");
         }
@@ -362,10 +376,13 @@ contract DeployAllAndSetupAllOrNothing is Script {
         // Output summary
         console2.log("\n--- Deployment & Setup Summary ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TOKEN_ADDRESS:", testUSD);
+        console2.log("TOKEN_ADDRESS:", testToken);
         console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
         if (campaignInfoImplementation != address(0)) {
-            console2.log("CAMPAIGN_INFO_IMPLEMENTATION_ADDRESS:", campaignInfoImplementation);
+            console2.log(
+                "CAMPAIGN_INFO_IMPLEMENTATION_ADDRESS:",
+                campaignInfoImplementation
+            );
         }
         console2.log("TREASURY_FACTORY_ADDRESS:", treasuryFactory);
         console2.log("CAMPAIGN_INFO_FACTORY_ADDRESS:", campaignInfoFactory);
@@ -385,8 +402,8 @@ contract DeployAllAndSetupAllOrNothing is Script {
 
         console2.log("\nDeployment status:");
         console2.log(
-            "- TestUSD:",
-            testUsdDeployed ? "Newly deployed" : "Reused existing"
+            "- TestToken:",
+            testTokenDeployed ? "Newly deployed" : "Reused existing"
         );
         console2.log(
             "- GlobalParams:",

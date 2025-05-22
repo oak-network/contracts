@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
-import {TestUSD} from "../../mocks/TestUSD.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -14,16 +14,16 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
     CampaignInfoFactory internal factory;
     TreasuryFactory internal treasuryFactory;
     GlobalParams internal globalParams;
-    TestUSD internal testUSD;
+    TestToken internal testToken;
     CampaignInfo internal campaignInfoImplementation;
 
     address internal admin = address(0xA11CE);
 
     function setUp() public {
-        testUSD = new TestUSD();
+        testToken = new TestToken(tokenName, tokenSymbol);
         globalParams = new GlobalParams(
             admin,
-            address(testUSD),
+            address(testToken),
             PROTOCOL_FEE_PERCENT
         );
         campaignInfoImplementation = new CampaignInfo(address(this));

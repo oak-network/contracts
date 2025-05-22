@@ -16,8 +16,8 @@ contract DeployGlobalParams is DeployBase {
 
     function _deploy() internal returns (address) {
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        address token = vm.envOr("TEST_USD_ADDRESS", address(0));
-        require(token != address(0), "TestUSD address must be set");
+        address token = vm.envOr("TOKEN_ADDRESS", address(0));
+        require(token != address(0), "TestToken address must be set");
         return address(new GlobalParams(deployer, token, 200));
     }
 
