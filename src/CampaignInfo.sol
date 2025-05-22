@@ -83,16 +83,6 @@ contract CampaignInfo is
     );
 
     /**
-     * @dev Emitted when ownership of the contract is transferred.
-     * @param previousOwner The address of the previous owner.
-     * @param newOwner The address of the new owner.
-     */
-    event CampaignInfoOwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-
-    /**
      * @dev Emitted when an invalid platform update is attempted.
      * @param platformHash The bytes32 identifier of the platform.
      * @param selection The selection state (true/false).
