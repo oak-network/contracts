@@ -30,6 +30,10 @@ contract Defaults is Constants, ICampaignData, IReward {
     uint256 public immutable LAUNCH_TIME;
     uint256 public immutable DEADLINE;
 
+    //Token details
+    string tokenName = "TestToken";
+    string tokenSymbol = "TST";
+
     //Variables
     CampaignData public CAMPAIGN_DATA;
     AllOrNothing.Reward public REWARD1;
