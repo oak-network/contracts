@@ -14,7 +14,3 @@ remappings = [
 [rpc_endpoints]
 mainnet = "https://forno.celo.org/"
 alfajores = "https://alfajores-forno.celo-testnet.org/"
-
-[etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}", url = "https://api.celoscan.io/api" }
-alfajores = { key = "${ETHERSCAN_API_KEY}", url = "https://api-alfajores.celoscan.io/api" }
