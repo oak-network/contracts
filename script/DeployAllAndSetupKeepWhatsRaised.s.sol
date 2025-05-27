@@ -1,19 +1,19 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
-import "forge-std/console2.sol";
-import "src/TestUSD.sol";
-import "src/GlobalParams.sol";
-import "src/CampaignInfoFactory.sol";
-import "src/CampaignInfo.sol";
-import "src/TreasuryFactory.sol";
-import "src/treasuries/KeepWhatsRaised.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
+import {TestToken} from "../test/mocks/TestToken.sol";
+import {GlobalParams} from "src/GlobalParams.sol";
+import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
+import {CampaignInfo} from "src/CampaignInfo.sol";
+import {TreasuryFactory} from "src/TreasuryFactory.sol";
+import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 
 /**
  * @notice Script to deploy and setup all needed contracts for the keepWhatsRaised
  */
-contract DeployAllKeepWhatsRaisedAndSetup is Script {
+contract DeployAllAndSetupKeepWhatsRaised is Script {
     // Customizable values (set through environment variables)
     bytes32 platformHash;
     uint256 protocolFeePercent;
@@ -22,7 +22,7 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
     bool simulate;
     
     // Contract addresses
-    address testUSD;
+    address testToken;
     address globalParams;
     address campaignInfo;
     address treasuryFactory;
@@ -44,7 +44,7 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
     bool platformDataKeyAdded = false;
     
     // Flags for contract deployment or reuse
-    bool testUsdDeployed = false;
+    bool testTokenDeployed = false;
     bool globalParamsDeployed = false;
     bool treasuryFactoryDeployed = false;
     bool campaignInfoFactoryDeployed = false;
@@ -78,18 +78,29 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
         
         // Check for existing contract addresses
-        testUSD = vm.envOr("TEST_USD_ADDRESS", address(0));
+        testToken = vm.envOr("TEST_USD_ADDRESS", address(0));
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr("CAMPAIGN_INFO_FACTORY_ADDRESS", address(0));
         keepWhatsRaisedImplementation = vm.envOr("KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS", address(0));
 
         //Get Treasury Keys
-        PLATFORM_FEE_KEY = keccak256(abi.encodePacked("platformFee"));
-        FLAT_FEE_KEY = keccak256(abi.encodePacked("flatFee"));
-        CUMULATIVE_FLAT_FEE_KEY = keccak256(abi.encodePacked("cumulativeFlatFee"));
-        PAYMENT_GATEWAY_FEE_KEY = keccak256(abi.encodePacked("paymentGatewayFee"));
-        COLUMBIAN_CREATOR_TAX_KEY = keccak256(abi.encodePacked("columbianCreatorTax"));
+        PLATFORM_FEE_KEY = bytes32("platformFee");
+        FLAT_FEE_KEY = bytes32("flatFee");
+        CUMULATIVE_FLAT_FEE_KEY = bytes32("cumulativeFlatFee");
+        PAYMENT_GATEWAY_FEE_KEY = bytes32("paymentGatewayFee");
+        COLUMBIAN_CREATOR_TAX_KEY = bytes32("columbianCreatorTax");
+
+        console2.log("Platform Fee Key:");
+        console2.logBytes32(PLATFORM_FEE_KEY);
+        console2.log("Flat Fee Key:");
+        console2.logBytes32(FLAT_FEE_KEY);
+        console2.log("Cumulative Fee Key:");
+        console2.logBytes32(CUMULATIVE_FLAT_FEE_KEY);
+        console2.log("Payment Gateway Fee Key:");
+        console2.logBytes32(PAYMENT_GATEWAY_FEE_KEY);
+        console2.log("Columbian Creator Tax Key:");
+        console2.logBytes32(COLUMBIAN_CREATOR_TAX_KEY);
         
         console2.log("Using platform hash for:", platformName);
         console2.log("Protocol fee percent:", protocolFeePercent);
@@ -104,20 +115,24 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
     function deployContracts() internal {
         console2.log("Setting up contracts...");
         
-        // Deploy or reuse TestUSD
-        if (testUSD == address(0)) {
-            testUSD = address(new TestUSD());
-            testUsdDeployed = true;
-            console2.log("TestUSD deployed at:", testUSD);
+        // Deploy or reuse TestToken
+
+        string memory tokenName = vm.envOr("TOKEN_NAME", string("TestToken"));
+        string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
+
+        if (testToken == address(0)) {
+            testToken = address(new TestToken(tokenName, tokenSymbol));
+            testTokenDeployed = true;
+            console2.log("TestToken deployed at:", testToken);
         } else {
-            console2.log("Reusing TestUSD at:", testUSD);
+            console2.log("Reusing TestToken at:", testToken);
         }
         
         // Deploy or reuse GlobalParams
         if (globalParams == address(0)) {
             globalParams = address(new GlobalParams(
                 deployerAddress,  // Initially deployer is protocol admin
-                testUSD,
+                testToken,
                 protocolFeePercent
             ));
             globalParamsDeployed = true;
@@ -126,8 +141,8 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
             console2.log("Reusing GlobalParams at:", globalParams);
         }
         
-        // We need at least TestUSD and GlobalParams to continue
-        require(testUSD != address(0), "TestUSD address is required");
+        // We need at least TestToken and GlobalParams to continue
+        require(testToken != address(0), "TestToken address is required");
         require(globalParams != address(0), "GlobalParams address is required");
         
         // Deploy CampaignInfo implementation if needed for new deployments
@@ -290,17 +305,17 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
     }
     
     function mintTokens() internal {
-        // Only mint tokens if we deployed TestUSD
-        if (!testUsdDeployed) {
-            console2.log("Skipping mintTokens - using existing TestUSD");
+        // Only mint tokens if we deployed TestToken
+        if (!testTokenDeployed) {
+            console2.log("Skipping mintTokens - using existing TestToken");
             return;
         }
         
         if (backer1 != address(0) && backer2 != address(0)) {
             console2.log("Minting tokens to test backers");
-            TestUSD(testUSD).mint(backer1, tokenMintAmount);
+            TestToken(testToken).mint(backer1, tokenMintAmount);
             if (backer1 != backer2) {
-                TestUSD(testUSD).mint(backer2, tokenMintAmount);
+                TestToken(testToken).mint(backer2, tokenMintAmount);
             }
             console2.log("Tokens minted successfully");
         }
@@ -363,7 +378,7 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
         // Output summary
         console2.log("\n--- Deployment & Setup Summary ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TEST_USD_ADDRESS:", testUSD);
+        console2.log("TEST_TOKEN_ADDRESS:", testToken);
         console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
         if (campaignInfo != address(0)) {
             console2.log("CAMPAIGN_INFO_ADDRESS:", campaignInfo);
@@ -382,7 +397,7 @@ contract DeployAllKeepWhatsRaisedAndSetup is Script {
         }
         
         console2.log("\nDeployment status:");
-        console2.log("- TestUSD:", testUsdDeployed ? "Newly deployed" : "Reused existing");
+        console2.log("- TestToken:", testTokenDeployed ? "Newly deployed" : "Reused existing");
         console2.log("- GlobalParams:", globalParamsDeployed ? "Newly deployed" : "Reused existing");
         console2.log("- TreasuryFactory:", treasuryFactoryDeployed ? "Newly deployed" : "Reused existing");
         console2.log("- CampaignInfoFactory:", campaignInfoFactoryDeployed ? "Newly deployed" : "Reused existing");
