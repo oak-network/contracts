@@ -1,41 +1,900 @@
 # KeepWhatsRaised
-
-[Git Source](https://github.com/ccprotocol/campaign-utils-contracts-aggregator/blob/79d78188e565502f83e2c0309c9a4ea3b35cee91/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ac353e6507e46c7ee7bc7cb49a3fb20dfde2b56/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
-[AllOrNothing](/src/treasuries/AllOrNothing.sol/contract.AllOrNothing.md)
+[IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable, [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
 
 A contract that keeps all the funds raised, regardless of the success condition.
 
-_This contract inherits from the `AllOrNothing` contract and overrides the `_checkSuccessCondition` function to always return true._
+
+## State Variables
+### s_tokenToPledgedAmount
+
+```solidity
+mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+```
+
+
+### s_tokenToTippedAmount
+
+```solidity
+mapping(uint256 => uint256) private s_tokenToTippedAmount;
+```
+
+
+### s_reward
+
+```solidity
+mapping(bytes32 => Reward) private s_reward;
+```
+
+
+### s_tokenIdCounter
+
+```solidity
+Counters.Counter private s_tokenIdCounter;
+```
+
+
+### s_rewardCounter
+
+```solidity
+Counters.Counter private s_rewardCounter;
+```
+
+
+### s_name
+
+```solidity
+string private s_name;
+```
+
+
+### s_symbol
+
+```solidity
+string private s_symbol;
+```
+
+
+### s_tip
+
+```solidity
+uint256 private s_tip;
+```
+
+
+### s_platformFee
+
+```solidity
+uint256 private s_platformFee;
+```
+
+
+### s_protocolFee
+
+```solidity
+uint256 private s_protocolFee;
+```
+
+
+### s_availablePledgedAmount
+
+```solidity
+uint256 private s_availablePledgedAmount;
+```
+
+
+### s_cancellationTime
+
+```solidity
+uint256 private s_cancellationTime;
+```
+
+
+### s_isWithdrawalApproved
+
+```solidity
+bool private s_isWithdrawalApproved;
+```
+
+
+### s_tipClaimed
+
+```solidity
+bool private s_tipClaimed;
+```
+
+
+### s_fundClaimed
+
+```solidity
+bool private s_fundClaimed;
+```
+
+
+### s_feeKeys
+
+```solidity
+FeeKeys private s_feeKeys;
+```
+
+
+### s_config
+
+```solidity
+Config private s_config;
+```
+
+
+### s_campaignData
+
+```solidity
+CampaignData private s_campaignData;
+```
+
 
 ## Functions
+### withdrawalEnabled
+
+*Ensures that withdrawals are currently enabled.
+Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.*
+
+
+```solidity
+modifier withdrawalEnabled();
+```
+
+### onlyBeforeConfigLock
+
+*Restricts execution to only occur before the configuration lock period.
+Reverts with `KeepWhatsRaisedConfigLocked` if called too close to or after the campaign deadline.
+The lock period is defined as the duration before the deadline during which configuration changes are not allowed.*
+
+
+```solidity
+modifier onlyBeforeConfigLock();
+```
 
 ### constructor
 
-_Initializes the KeepWhatsRaised contract._
+*Constructor for the KeepWhatsRaised contract.*
+
 
 ```solidity
-constructor(bytes32 platformHash, address infoAddress) AllOrNothing(platformHash, infoAddress);
+constructor() ERC721("", "");
+```
+
+### initialize
+
+
+```solidity
+function initialize(bytes32 _platformHash, address _infoAddress, string calldata _name, string calldata _symbol)
+    external
+    initializer;
+```
+
+### name
+
+
+```solidity
+function name() public view override returns (string memory);
+```
+
+### symbol
+
+
+```solidity
+function symbol() public view override returns (string memory);
+```
+
+### getWithdrawalApprovalStatus
+
+Retrieves the withdrawal approval status.
+
+
+```solidity
+function getWithdrawalApprovalStatus() public view returns (bool);
+```
+
+### getReward
+
+Retrieves the details of a reward.
+
+
+```solidity
+function getReward(bytes32 rewardName) external view returns (Reward memory reward);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardName`|`bytes32`|The name of the reward.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`reward`|`Reward`|The details of the reward as a `Reward` struct.|
+
+
+### getRaisedAmount
+
+Retrieves the total raised amount in the treasury.
+
+
+```solidity
+function getRaisedAmount() external view override returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total raised amount as a uint256 value.|
+
+
+### getAvailableRaisedAmount
+
+Retrieves the currently available raised amount in the treasury.
+
+
+```solidity
+function getAvailableRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The current available raised amount as a uint256 value.|
+
+
+### getLaunchTime
+
+Retrieves the campaign's launch time.
+
+
+```solidity
+function getLaunchTime() public view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The timestamp when the campaign was launched.|
+
+
+### getDeadline
+
+Retrieves the campaign's deadline.
+
+
+```solidity
+function getDeadline() public view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The timestamp when the campaign ends.|
+
+
+### getGoalAmount
+
+Retrieves the campaign's funding goal amount.
+
+
+```solidity
+function getGoalAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The funding goal amount of the campaign.|
+
+
+### approveWithdrawal
+
+Approves the withdrawal of the treasury by the platform admin.
+
+
+```solidity
+function approveWithdrawal()
+    external
+    onlyPlatformAdmin(PLATFORM_HASH)
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+
+### configureTreasury
+
+*Configures the treasury for a campaign by setting the system parameters,
+campaign-specific data, and fee configuration keys.*
+
+
+```solidity
+function configureTreasury(Config memory config, CampaignData memory campaignData, FeeKeys memory feeKeys)
+    external
+    onlyPlatformAdmin(PLATFORM_HASH)
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`config`|`Config`|The configuration settings including withdrawal delay, refund delay, fee exemption threshold, and configuration lock period.|
+|`campaignData`|`CampaignData`|The campaign-related metadata such as deadlines and funding goals.|
+|`feeKeys`|`FeeKeys`|The set of keys used to reference applicable flat and percentage-based fees.|
+
+
+### updateDeadline
+
+*Updates the campaign's deadline.*
+
+
+```solidity
+function updateDeadline(uint256 deadline)
+    external
+    onlyPlatformAdmin(PLATFORM_HASH)
+    onlyBeforeConfigLock
+    whenNotPaused
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`deadline`|`uint256`|The new deadline timestamp for the campaign. Requirements: - Must be called before the configuration lock period (see `onlyBeforeConfigLock`). - The new deadline must be a future timestamp.|
+
+
+### updateGoalAmount
+
+*Updates the funding goal amount for the campaign.*
+
+
+```solidity
+function updateGoalAmount(uint256 goalAmount)
+    external
+    onlyPlatformAdmin(PLATFORM_HASH)
+    onlyBeforeConfigLock
+    whenNotPaused
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`goalAmount`|`uint256`|The new goal amount. Requirements: - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).|
+
+
+### addRewards
+
+Adds multiple rewards in a batch.
+
+*This function allows for both reward tiers and non-reward tiers.
+For both types, rewards must have non-zero value.
+If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
+Empty arrays are allowed for both reward tiers and non-reward tiers.*
+
+
+```solidity
+function addRewards(bytes32[] calldata rewardNames, Reward[] calldata rewards)
+    external
+    onlyCampaignOwner
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardNames`|`bytes32[]`|An array of reward names.|
+|`rewards`|`Reward[]`|An array of `Reward` structs containing reward details.|
+
+
+### removeReward
+
+Removes a reward from the campaign.
+
+
+```solidity
+function removeReward(bytes32 rewardName)
+    external
+    onlyCampaignOwner
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardName`|`bytes32`|The name of the reward.|
+
+
+### pledgeForAReward
+
+Allows a backer to pledge for a reward.
+
+*The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+The non-reward tiers cannot be pledged for without a reward.*
+
+
+```solidity
+function pledgeForAReward(address backer, uint256 tip, bytes32[] calldata reward)
+    external
+    currentTimeIsWithinRange(getLaunchTime(), getDeadline())
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`backer`|`address`|The address of the backer making the pledge.|
+|`tip`|`uint256`|An optional tip can be added during the process.|
+|`reward`|`bytes32[]`|An array of reward names.|
+
+
+### pledgeWithoutAReward
+
+Allows a backer to pledge without selecting a reward.
+
+
+```solidity
+function pledgeWithoutAReward(address backer, uint256 pledgeAmount, uint256 tip)
+    external
+    currentTimeIsWithinRange(getLaunchTime(), getDeadline())
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeAmount`|`uint256`|The amount of the pledge.|
+|`tip`|`uint256`|An optional tip can be added during the process.|
+
+
+### withdraw
+
+Withdraws funds from the treasury.
+
+
+```solidity
+function withdraw() public view override whenNotPaused whenNotCancelled;
+```
+
+### withdraw
+
+*Allows a campaign owner or eligible party to withdraw a specified amount of funds.*
+
+
+```solidity
+function withdraw(uint256 amount)
+    public
+    currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
+    whenNotPaused
+    whenNotCancelled
+    withdrawalEnabled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`amount`|`uint256`|The amount to withdraw. Requirements: - Withdrawals must be approved (see `withdrawalEnabled` modifier). - Amount must not exceed the available balance after fees. - May apply and deduct a withdrawal fee.|
+
+
+### claimRefund
+
+*Allows a backer to claim a refund associated with a specific pledge (token ID).*
+
+
+```solidity
+function claimRefund(uint256 tokenId)
+    external
+    currentTimeIsGreater(getLaunchTime())
+    whenCampaignNotPaused
+    whenNotPaused;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The ID of the token representing the backer's pledge. Requirements: - Refund delay must have passed. - The token must be eligible for a refund and not previously claimed.|
+
+
+### disburseFees
+
+*Disburses all accumulated fees to the appropriate fee collector or treasury.
+Requirements:
+- Only callable when fees are available.*
+
+
+```solidity
+function disburseFees() public override whenNotPaused whenNotCancelled;
+```
+
+### claimTip
+
+*Allows an authorized claimer to collect tips contributed during the campaign.
+Requirements:
+- Caller must be authorized to claim tips.
+- Tip amount must be non-zero.*
+
+
+```solidity
+function claimTip() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused;
+```
+
+### claimFund
+
+*Allows a campaign owner or authorized user to claim remaining campaign funds.
+Requirements:
+- Claim period must have started and funds must be available.
+- Cannot be previously claimed.*
+
+
+```solidity
+function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused;
+```
+
+### cancelTreasury
+
+*This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.*
+
+
+```solidity
+function cancelTreasury(bytes32 message) public override;
+```
+
+### _checkSuccessCondition
+
+*Internal function to check the success condition for fee disbursement.*
+
+
+```solidity
+function _checkSuccessCondition() internal view virtual override returns (bool);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|Whether the success condition is met.|
+
+
+### _pledge
+
+
+```solidity
+function _pledge(
+    address backer,
+    bytes32 reward,
+    uint256 pledgeAmount,
+    uint256 tip,
+    uint256 tokenId,
+    bytes32[] memory rewards
+) private;
+```
+
+### supportsInterface
+
+
+```solidity
+function supportsInterface(bytes4 interfaceId) public view override returns (bool);
+```
+
+## Events
+### Receipt
+*Emitted when a backer makes a pledge.*
+
+
+```solidity
+event Receipt(
+    address indexed backer,
+    bytes32 indexed reward,
+    uint256 pledgeAmount,
+    uint256 tip,
+    uint256 tokenId,
+    bytes32[] rewards
+);
 ```
 
 **Parameters**
 
-| Name           | Type      | Description                                                  |
-| -------------- | --------- | ------------------------------------------------------------ |
-| `platformHash` | `bytes32` | The unique identifier of the platform.                       |
-| `infoAddress`  | `address` | The address of the associated campaign information contract. |
+|Name|Type|Description|
+|----|----|-----------|
+|`backer`|`address`|The address of the backer making the pledge.|
+|`reward`|`bytes32`|The name of the reward.|
+|`pledgeAmount`|`uint256`|The amount pledged.|
+|`tip`|`uint256`|An optional tip can be added during the process.|
+|`tokenId`|`uint256`|The ID of the token representing the pledge.|
+|`rewards`|`bytes32[]`|An array of reward names.|
 
-### \_checkSuccessCondition
+### RewardsAdded
+*Emitted when rewards are added to the campaign.*
 
-_Internal function to check the success condition for fee disbursement._
 
 ```solidity
-function _checkSuccessCondition() internal pure override returns (bool);
+event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 ```
 
-**Returns**
+**Parameters**
 
-| Name     | Type   | Description                           |
-| -------- | ------ | ------------------------------------- |
-| `<none>` | `bool` | Whether the success condition is met. |
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardNames`|`bytes32[]`|The names of the rewards.|
+|`rewards`|`Reward[]`|The details of the rewards.|
+
+### RewardRemoved
+*Emitted when a reward is removed from the campaign.*
+
+
+```solidity
+event RewardRemoved(bytes32 indexed rewardName);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardName`|`bytes32`|The name of the reward.|
+
+### WithdrawalApproved
+*Emitted when withdrawal functionality has been approved by the platform admin.*
+
+
+```solidity
+event WithdrawalApproved();
+```
+
+### TreasuryConfigured
+*Emitted when the treasury configuration is updated.*
+
+
+```solidity
+event TreasuryConfigured(Config config, CampaignData campaignData, FeeKeys feeKeys);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`config`|`Config`|The updated configuration parameters (e.g., delays, exemptions).|
+|`campaignData`|`CampaignData`|The campaign-related data associated with the treasury setup.|
+|`feeKeys`|`FeeKeys`|The set of keys used to determine applicable fees.|
+
+### WithdrawalWithFeeSuccessful
+*Emitted when a withdrawal is successfully processed along with the applied fee.*
+
+
+```solidity
+event WithdrawalWithFeeSuccessful(address indexed to, uint256 amount, uint256 fee);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`to`|`address`|The recipient address receiving the funds.|
+|`amount`|`uint256`|The total amount withdrawn (excluding fee).|
+|`fee`|`uint256`|The fee amount deducted from the withdrawal.|
+
+### TipClaimed
+*Emitted when a tip is claimed from the contract.*
+
+
+```solidity
+event TipClaimed(uint256 amount, address indexed claimer);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`amount`|`uint256`|The amount of tip claimed.|
+|`claimer`|`address`|The address that claimed the tip.|
+
+### FundClaimed
+*Emitted when campaign or user's remaining funds are successfully claimed by the platform admin.*
+
+
+```solidity
+event FundClaimed(uint256 amount, address indexed claimer);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`amount`|`uint256`|The amount of funds claimed.|
+|`claimer`|`address`|The address that claimed the funds.|
+
+### RefundClaimed
+*Emitted when a refund is claimed.*
+
+
+```solidity
+event RefundClaimed(uint256 indexed tokenId, uint256 refundAmount, address indexed claimer);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The ID of the token representing the pledge.|
+|`refundAmount`|`uint256`|The refund amount claimed.|
+|`claimer`|`address`|The address of the claimer.|
+
+### KeepWhatsRaisedDeadlineUpdated
+*Emitted when the deadline of the campaign is updated.*
+
+
+```solidity
+event KeepWhatsRaisedDeadlineUpdated(uint256 newDeadline);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newDeadline`|`uint256`|The new deadline.|
+
+### KeepWhatsRaisedGoalAmountUpdated
+*Emitted when the goal amount for a campaign is updated.*
+
+
+```solidity
+event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newGoalAmount`|`uint256`|The new goal amount set for the campaign.|
+
+## Errors
+### KeepWhatsRaisedUnAuthorized
+*Emitted when an unauthorized action is attempted.*
+
+
+```solidity
+error KeepWhatsRaisedUnAuthorized();
+```
+
+### KeepWhatsRaisedInvalidInput
+*Emitted when an invalid input is detected.*
+
+
+```solidity
+error KeepWhatsRaisedInvalidInput();
+```
+
+### KeepWhatsRaisedRewardExists
+*Emitted when a `Reward` already exists for given input.*
+
+
+```solidity
+error KeepWhatsRaisedRewardExists();
+```
+
+### KeepWhatsRaisedDisabled
+*Emitted when anyone called a disabled function.*
+
+
+```solidity
+error KeepWhatsRaisedDisabled();
+```
+
+### KeepWhatsRaisedAlreadyEnabled
+*Emitted when any functionality is already enabled and cannot be re-enabled.*
+
+
+```solidity
+error KeepWhatsRaisedAlreadyEnabled();
+```
+
+### KeepWhatsRaisedWithdrawalOverload
+*Emitted when a withdrawal attempt exceeds the available funds after accounting for the fee.*
+
+
+```solidity
+error KeepWhatsRaisedWithdrawalOverload(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`availableAmount`|`uint256`|The maximum amount that can be withdrawn.|
+|`withdrawalAmount`|`uint256`|The attempted withdrawal amount.|
+|`fee`|`uint256`|The fee that would be applied to the withdrawal.|
+
+### KeepWhatsRaisedAlreadyWithdrawn
+*Emitted when a withdrawal has already been made and cannot be repeated.*
+
+
+```solidity
+error KeepWhatsRaisedAlreadyWithdrawn();
+```
+
+### KeepWhatsRaisedAlreadyClaimed
+*Emitted when funds or rewards have already been claimed for the given context.*
+
+
+```solidity
+error KeepWhatsRaisedAlreadyClaimed();
+```
+
+### KeepWhatsRaisedNotClaimable
+*Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).*
+
+
+```solidity
+error KeepWhatsRaisedNotClaimable(uint256 tokenId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The ID of the token that was attempted to be claimed.|
+
+### KeepWhatsRaisedNotClaimableAdmin
+*Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.*
+
+
+```solidity
+error KeepWhatsRaisedNotClaimableAdmin();
+```
+
+### KeepWhatsRaisedConfigLocked
+*Emitted when a configuration change is attempted during the lock period.*
+
+
+```solidity
+error KeepWhatsRaisedConfigLocked();
+```
+
+## Structs
+### FeeKeys
+*Represents keys used to reference different fee configurations.
+These keys are typically used to look up fee values stored in `s_platformData`.*
+
+
+```solidity
+struct FeeKeys {
+    bytes32 flatFeeKey;
+    bytes32 cumulativeFlatFeeKey;
+    bytes32[] grossPercentageFeeKeys;
+    bytes32[] netPercentageFeeKeys;
+}
+```
+
+### Config
+*System configuration parameters related to withdrawal and refund behavior.*
+
+
+```solidity
+struct Config {
+    uint256 minimumWithdrawalForFeeExemption;
+    uint256 withdrawalDelay;
+    uint256 refundDelay;
+    uint256 configLockPeriod;
+}
+```
+

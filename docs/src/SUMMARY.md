@@ -12,6 +12,7 @@
     - [ITreasuryFactory](src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md)
   - [❱ treasuries](src/treasuries/README.md)
     - [AllOrNothing](src/treasuries/AllOrNothing.sol/contract.AllOrNothing.md)
+    - [KeepWhatsRaised](src/treasuries/KeepWhatsRaised.sol/contract.KeepWhatsRaised.md)
   - [❱ utils](src/utils/README.md)
     - [AdminAccessChecker](src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
     - [BaseTreasury](src/utils/BaseTreasury.sol/abstract.BaseTreasury.md)
@@ -24,5 +25,4 @@
   - [CampaignInfo](src/CampaignInfo.sol/contract.CampaignInfo.md)
   - [CampaignInfoFactory](src/CampaignInfoFactory.sol/contract.CampaignInfoFactory.md)
   - [GlobalParams](src/GlobalParams.sol/contract.GlobalParams.md)
-  - [TestUSD](src/TestUSD.sol/contract.TestUSD.md)
   - [TreasuryFactory](src/TreasuryFactory.sol/contract.TreasuryFactory.md)
