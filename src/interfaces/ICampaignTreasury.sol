@@ -26,13 +26,13 @@ interface ICampaignTreasury {
      * @notice Retrieves the platform identifier associated with the treasury.
      * @return The platform identifier as a bytes32 value.
      */
-    function getplatformHash() external view returns (bytes32);
+    function getPlatformHash() external view returns (bytes32);
 
     /**
      * @notice Retrieves the platform fee percentage for the treasury.
      * @return The platform fee percentage as a uint256 value.
      */
-    function getplatformFeePercent() external view returns (uint256);
+    function getPlatformFeePercent() external view returns (uint256);
 
     /**
      * @notice Retrieves the total raised amount in the treasury.
