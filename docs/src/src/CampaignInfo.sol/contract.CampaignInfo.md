@@ -1,5 +1,5 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/32b7b1617200d0c6f3248845ef972180411f1f65/src/CampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/CampaignInfo.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), Initializable
@@ -568,21 +568,6 @@ event CampaignInfoPlatformInfoUpdated(bytes32 indexed platformHash, address inde
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 |`platformTreasury`|`address`|The address of the platform's treasury.|
-
-### CampaignInfoOwnershipTransferred
-*Emitted when ownership of the contract is transferred.*
-
-
-```solidity
-event CampaignInfoOwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-```
-
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`previousOwner`|`address`|The address of the previous owner.|
-|`newOwner`|`address`|The address of the new owner.|
 
 ## Errors
 ### CampaignInfoInvalidPlatformUpdate
