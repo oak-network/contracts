@@ -24,5 +24,4 @@
   - [CampaignInfo](src/CampaignInfo.sol/contract.CampaignInfo.md)
   - [CampaignInfoFactory](src/CampaignInfoFactory.sol/contract.CampaignInfoFactory.md)
   - [GlobalParams](src/GlobalParams.sol/contract.GlobalParams.md)
-  - [TestUSD](src/TestUSD.sol/contract.TestUSD.md)
   - [TreasuryFactory](src/TreasuryFactory.sol/contract.TreasuryFactory.md)
