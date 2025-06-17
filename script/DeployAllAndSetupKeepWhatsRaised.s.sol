@@ -88,8 +88,8 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         PLATFORM_FEE_KEY = bytes32("platformFee");
         FLAT_FEE_KEY = bytes32("flatFee");
         CUMULATIVE_FLAT_FEE_KEY = bytes32("cumulativeFlatFee");
-        PAYMENT_GATEWAY_FEE_KEY = bytes32("paymentGatewayFee");
-        COLUMBIAN_CREATOR_TAX_KEY = bytes32("columbianCreatorTax");
+        //PAYMENT_GATEWAY_FEE_KEY = bytes32("paymentGatewayFee");
+        //COLUMBIAN_CREATOR_TAX_KEY = bytes32("columbianCreatorTax");
 
         console2.log("Platform Fee Key:");
         console2.logBytes32(PLATFORM_FEE_KEY);
@@ -97,10 +97,10 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         console2.logBytes32(FLAT_FEE_KEY);
         console2.log("Cumulative Fee Key:");
         console2.logBytes32(CUMULATIVE_FLAT_FEE_KEY);
-        console2.log("Payment Gateway Fee Key:");
-        console2.logBytes32(PAYMENT_GATEWAY_FEE_KEY);
-        console2.log("Columbian Creator Tax Key:");
-        console2.logBytes32(COLUMBIAN_CREATOR_TAX_KEY);
+        // console2.log("Payment Gateway Fee Key:");
+        // console2.logBytes32(PAYMENT_GATEWAY_FEE_KEY);
+        // console2.log("Columbian Creator Tax Key:");
+        // console2.logBytes32(COLUMBIAN_CREATOR_TAX_KEY);
         
         console2.log("Using platform hash for:", platformName);
         console2.log("Protocol fee percent:", protocolFeePercent);
@@ -288,14 +288,14 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
             platformHash,
             CUMULATIVE_FLAT_FEE_KEY
         );
-        GlobalParams(globalParams).addPlatformData(
-            platformHash,
-            PAYMENT_GATEWAY_FEE_KEY
-        );
-        GlobalParams(globalParams).addPlatformData(
-            platformHash,
-            COLUMBIAN_CREATOR_TAX_KEY
-        );
+        // GlobalParams(globalParams).addPlatformData(
+        //     platformHash,
+        //     PAYMENT_GATEWAY_FEE_KEY
+        // );
+        // GlobalParams(globalParams).addPlatformData(
+        //     platformHash,
+        //     COLUMBIAN_CREATOR_TAX_KEY
+        // );
 
         if (simulate) {
             vm.stopPrank();
