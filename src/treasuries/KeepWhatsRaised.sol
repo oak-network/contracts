@@ -30,6 +30,8 @@ contract KeepWhatsRaised is
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     // Mapping to store the tipped amount per token ID
     mapping(uint256 => uint256) private s_tokenToTippedAmount;
+    // Mapping to store the payment fee per token ID
+    mapping(uint256 => uint256) private s_tokenToPaymentFee;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
 
@@ -50,9 +52,6 @@ contract KeepWhatsRaised is
 
         /// @dev Keys for gross percentage-based fees (calculated before deductions).
         bytes32[] grossPercentageFeeKeys;
-
-        /// @dev Keys for net percentage-based fees (calculated after deductions).
-        bytes32[] netPercentageFeeKeys;
     }
     /**
      * @dev System configuration parameters related to withdrawal and refund behavior.
@@ -69,6 +68,9 @@ contract KeepWhatsRaised is
 
         /// @dev Duration (in timestamp) for which config changes are locked to prevent immediate updates.
         uint256 configLockPeriod;
+
+        /// @dev True if the creator is Colombian, false otherwise.
+        bool isColumbianCreator;
     }
 
     string private s_name;
@@ -233,6 +235,11 @@ contract KeepWhatsRaised is
     error KeepWhatsRaisedConfigLocked();
 
     /**
+     * @dev Emitted when a disbursement is attempted before the refund period has ended.
+     */
+    error KeepWhatsRaisedDisbursementBlocked();
+
+    /**
      * @dev Ensures that withdrawals are currently enabled.
      * Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
      */
@@ -251,6 +258,19 @@ contract KeepWhatsRaised is
     modifier onlyBeforeConfigLock() {
         if(block.timestamp > s_campaignData.deadline - s_config.configLockPeriod){
             revert KeepWhatsRaisedConfigLocked();
+        }
+        _;
+    }
+
+    /// @notice Restricts access to only the platform admin or the campaign owner.
+    /// @dev Checks if `msg.sender` is either the platform admin (via `INFO.getPlatformAdminAddress`)
+    ///      or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
+    modifier onlyPlatformAdminOrCampaignOwner() {
+        if (
+            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
+            msg.sender != INFO.owner()
+        ) {
+            revert KeepWhatsRaisedUnAuthorized();
         }
         _;
     }
@@ -404,7 +424,7 @@ contract KeepWhatsRaised is
         uint256 deadline
     )
         external
-        onlyPlatformAdmin(PLATFORM_HASH)
+        onlyPlatformAdminOrCampaignOwner
         onlyBeforeConfigLock
         whenNotPaused
         whenNotCancelled
@@ -429,7 +449,7 @@ contract KeepWhatsRaised is
         uint256 goalAmount
     )
         external
-        onlyPlatformAdmin(PLATFORM_HASH)
+        onlyPlatformAdminOrCampaignOwner
         onlyBeforeConfigLock
         whenNotPaused
         whenNotCancelled
@@ -647,29 +667,6 @@ contract KeepWhatsRaised is
         s_protocolFee += fee;
         totalFee += fee;
 
-        //Gross Percentage Fee Calculation
-        uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
-        for(uint256 i = 0; i < len; i++){
-            fee = (withdrawalAmount * uint256(INFO.getPlatformData(s_feeKeys.grossPercentageFeeKeys[i]))) /
-                PERCENT_DIVIDER;
-            s_platformFee += fee;
-            totalFee += fee;
-        }
-
-        //Net Percentage Fee Calculation
-        if(totalFee > withdrawalAmount){
-            revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
-        }
-        uint256 availableBeforeNet = withdrawalAmount - totalFee;
-        len = s_feeKeys.netPercentageFeeKeys.length;
-        for(uint256 i = 0; i < len; i++){
-            
-            fee = (availableBeforeNet * uint256(INFO.getPlatformData(s_feeKeys.netPercentageFeeKeys[i]))) /
-                PERCENT_DIVIDER;
-            s_platformFee += fee;
-            totalFee += fee;
-        }
-
         if(totalFee > withdrawalAmount){
             revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
         }
@@ -699,25 +696,23 @@ contract KeepWhatsRaised is
         whenCampaignNotPaused
         whenNotPaused
     {
-        uint256 deadline = getDeadline();
-
-        bool isCancelled = s_cancellationTime > 0;
-        bool refundWindowFromDeadline = !isCancelled && block.timestamp > deadline && block.timestamp <= deadline + s_config.refundDelay;
-        bool refundWindowFromCancellation = isCancelled && block.timestamp <= s_cancellationTime + s_config.refundDelay;
-
-        if (!(refundWindowFromDeadline || refundWindowFromCancellation)) {
+        if (!_checkRefundPeriodStatus(false)) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
 
         uint256 amountToRefund = s_tokenToPledgedAmount[tokenId];
         uint256 availablePledgedAmount = s_availablePledgedAmount;
+        uint256 paymentFee = s_tokenToPaymentFee[tokenId];
 
-        if (amountToRefund == 0 || availablePledgedAmount < amountToRefund) {
+        if (amountToRefund == 0 || (availablePledgedAmount + paymentFee) < amountToRefund) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
-        s_tokenToPledgedAmount[tokenId] -= amountToRefund;
+        s_tokenToPledgedAmount[tokenId] = 0;
         s_pledgedAmount -= amountToRefund;
-        s_availablePledgedAmount -= amountToRefund;
+        s_availablePledgedAmount -= (amountToRefund - paymentFee);
+        s_tokenToPaymentFee[tokenId] = 0;
+        s_platformFee -= paymentFee;
+
         burn(tokenId);
         TOKEN.safeTransfer(msg.sender, amountToRefund);
         emit RefundClaimed(tokenId, amountToRefund, msg.sender);
@@ -735,6 +730,10 @@ contract KeepWhatsRaised is
         whenNotPaused
         whenNotCancelled
     {
+        if (!_checkRefundPeriodStatus(true)) {
+            revert KeepWhatsRaisedDisbursementBlocked();
+        }
+
         uint256 protocolShare = s_protocolFee;
         uint256 platformShare = s_platformFee;
         (s_protocolFee, s_platformFee) = (0, 0);
@@ -797,7 +796,7 @@ contract KeepWhatsRaised is
         whenNotPaused
     {
         bool isCancelled = s_cancellationTime > 0;
-        uint256 cancelLimit = s_cancellationTime + s_config.withdrawalDelay;
+        uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
         if ((isCancelled && block.timestamp <= cancelLimit) || (!isCancelled && block.timestamp <= deadlineLimit)) {
@@ -825,13 +824,7 @@ contract KeepWhatsRaised is
      * @inheritdoc BaseTreasury
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
-    function cancelTreasury(bytes32 message) public override {
-        if (
-            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            msg.sender != INFO.owner()
-        ) {
-            revert KeepWhatsRaisedUnAuthorized();
-        }
+    function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
         s_cancellationTime = block.timestamp;
         _cancel(message);
     }
@@ -858,13 +851,17 @@ contract KeepWhatsRaised is
         bytes32[] memory rewards
     ) private {
         uint256 totalAmount = pledgeAmount + tip;
+        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        s_tokenIdCounter.increment();
         s_tokenToPledgedAmount[tokenId] = pledgeAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_pledgedAmount += pledgeAmount;
-        s_availablePledgedAmount += pledgeAmount;
         s_tip += tip;
-        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
-        s_tokenIdCounter.increment();
+
+        //Fee Calculation
+        pledgeAmount = _calculateNetAvailable(tokenId, pledgeAmount);
+        s_availablePledgedAmount += pledgeAmount;
+
         _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         emit Receipt(
             backer,
@@ -874,6 +871,85 @@ contract KeepWhatsRaised is
             tokenId,
             rewards
         );
+    }
+
+    /**
+     * @dev Calculates the net available amount after deducting platform fees and applicable taxes
+     * @param tokenId The ID of the token representing the pledge.
+     * @param pledgeAmount The total pledge amount before any deductions
+     * @return The net available amount after all fees and taxes are deducted
+     * 
+     * @notice This function performs the following calculations:
+     *         1. Applies all gross percentage fees based on platform configuration
+     *         2. Calculates Colombian creator tax if applicable (0.4% effective rate)
+     *         3. Updates the total platform fee accumulator
+     */
+    function _calculateNetAvailable(uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
+        uint256 totalFee = 0;
+
+        // Gross Percentage Fee Calculation
+        uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 fee = (pledgeAmount * uint256(INFO.getPlatformData(s_feeKeys.grossPercentageFeeKeys[i]))) 
+                        / PERCENT_DIVIDER;
+            s_platformFee += fee;
+            totalFee += fee;
+        }
+
+        uint256 availableBeforeTax = pledgeAmount - totalFee;
+
+        // Colombian creator tax
+        if (s_config.isColumbianCreator) {
+            // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
+            uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
+            uint256 numerator = scaled * 40;
+            uint256 denominator = 10040;
+            uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
+
+            s_platformFee += columbianCreatorTax;
+            totalFee += columbianCreatorTax;
+        }
+
+        s_tokenToPaymentFee[tokenId] = totalFee;
+
+        return pledgeAmount - totalFee;
+    }
+
+    /**
+     * @dev Checks the refund period status based on campaign state
+     * @param checkIfOver If true, returns whether refund period is over; if false, returns whether currently within refund period
+     * @return bool Status based on checkIfOver parameter
+     * 
+     * @notice Refund period logic:
+     *         - If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
+     *         - If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
+     *         - Before deadline (non-cancelled): not in refund period
+     * 
+     * @dev This function handles both cancelled and non-cancelled campaign scenarios
+     */
+    function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool) {
+        uint256 deadline = getDeadline();
+        bool isCancelled = s_cancellationTime > 0;
+        
+        bool refundPeriodOver;
+        
+        if (isCancelled) {
+            // If cancelled, refund period ends after s_config.refundDelay from cancellation time
+            refundPeriodOver = block.timestamp > s_cancellationTime + s_config.refundDelay;
+        } else {
+            // If not cancelled, refund period ends after s_config.refundDelay from deadline
+            refundPeriodOver = block.timestamp > deadline + s_config.refundDelay;
+        }
+        
+        if (checkIfOver) {
+            return refundPeriodOver;
+        } else {
+            // For non-cancelled campaigns, also check if we're after deadline
+            if (!isCancelled) {
+                return block.timestamp > deadline && !refundPeriodOver;
+            }
+            return !refundPeriodOver;
+        }
     }
 
     // The following functions are overrides required by Solidity.
