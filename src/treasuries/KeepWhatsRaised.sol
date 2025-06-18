@@ -34,6 +34,10 @@ contract KeepWhatsRaised is
     mapping(uint256 => uint256) private s_tokenToPaymentFee;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
+    /// Tracks whether a pledge with a specific ID has already been processed
+    mapping(bytes32 => bool) public s_processedPledges;
+    /// Mapping to store payment gateway fees by unique pledge ID
+    mapping(bytes32 => uint256) public s_paymentGatewayFees;
 
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
@@ -176,6 +180,13 @@ contract KeepWhatsRaised is
     event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
 
     /**
+     * @dev Emitted when a gateway fee is set for a specific pledge.
+     * @param pledgeId The unique identifier of the pledge.
+     * @param fee The amount of the payment gateway fee set.
+     */
+    event KeepWhatsRaisedPaymentGatewayFeeSet(bytes32 indexed pledgeId, uint256 fee);
+
+    /**
      * @dev Emitted when an unauthorized action is attempted.
      */
     error KeepWhatsRaisedUnAuthorized();
@@ -238,6 +249,12 @@ contract KeepWhatsRaised is
      * @dev Emitted when a disbursement is attempted before the refund period has ended.
      */
     error KeepWhatsRaisedDisbursementBlocked();
+
+    /**
+     * @dev Emitted when a pledge is submitted using a pledgeId that has already been processed.
+     * @param pledgeId The unique identifier of the pledge that was already used.
+     */
+    error KeepWhatsRaisedPledgeAlreadyProcessed(bytes32 pledgeId);
 
     /**
      * @dev Ensures that withdrawals are currently enabled.
@@ -357,6 +374,33 @@ contract KeepWhatsRaised is
      */
     function getGoalAmount() external view returns (uint256) {
         return s_campaignData.goalAmount;
+    }
+
+    /**
+     * @notice Retrieves the payment gateway fee for a given pledge ID.
+     * @param pledgeId The unique identifier of the pledge.
+     * @return The fixed gateway fee amount associated with the pledge ID.
+     */
+    function getPaymentGatewayFee(bytes32 pledgeId) public view returns (uint256) {
+        return s_paymentGatewayFees[pledgeId];
+    }
+
+    /**
+     * @notice Sets the fixed payment gateway fee for a specific pledge.
+     * @param pledgeId The unique identifier of the pledge.
+     * @param fee The gateway fee amount to be associated with the given pledge ID.
+     */
+    function setPaymentGatewayFee(bytes32 pledgeId, uint256 fee) 
+        public 
+        onlyPlatformAdmin(PLATFORM_HASH)
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        s_paymentGatewayFees[pledgeId] = fee;
+
+        emit KeepWhatsRaisedPaymentGatewayFeeSet(pledgeId, fee);
     }
 
     /**
@@ -536,25 +580,68 @@ contract KeepWhatsRaised is
     }
 
     /**
+     * @notice Sets the payment gateway fee and executes a pledge in a single transaction.
+     * @param pledgeId The unique identifier of the pledge.
+     * @param backer The address of the backer making the pledge.
+     * @param pledgeAmount The amount of the pledge.
+     * @param tip An optional tip can be added during the process.
+     * @param fee The payment gateway fee to associate with this pledge.
+     * @param reward An array of reward names.
+     * @param isPledgeForAReward A boolean indicating whether this pledge is for a reward or without..
+     */
+    function setFeeAndPledge(
+        bytes32 pledgeId,
+        address backer,
+        uint256 pledgeAmount,
+        uint256 tip,
+        uint256 fee,
+        bytes32[] calldata reward,
+        bool isPledgeForAReward
+    ) 
+        external 
+        onlyPlatformAdmin(PLATFORM_HASH)
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        //Set Payment Gateway Fee
+        setPaymentGatewayFee(pledgeId, fee);
+
+        if(isPledgeForAReward){
+            pledgeForAReward(pledgeId, backer, tip, reward);
+        }else {
+            pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip);
+        }
+    }
+
+    /**
      * @notice Allows a backer to pledge for a reward.
      * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
      *      The non-reward tiers cannot be pledged for without a reward.
+     * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
      */
     function pledgeForAReward(
+        bytes32 pledgeId,
         address backer,
         uint256 tip,
         bytes32[] calldata reward
     )
-        external
+        public
         currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
+        if(s_processedPledges[pledgeId]){
+            revert KeepWhatsRaisedPledgeAlreadyProcessed(pledgeId);
+        }
+        s_processedPledges[pledgeId] = true;
+
         uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
         Reward memory tempReward = s_reward[reward[0]];
@@ -573,31 +660,38 @@ contract KeepWhatsRaised is
             }
             pledgeAmount += s_reward[reward[i]].rewardValue;
         }
-        _pledge(backer, reward[0], pledgeAmount, tip, tokenId, reward);
+        _pledge(pledgeId, backer, reward[0], pledgeAmount, tip, tokenId, reward);
     }
 
     /**
      * @notice Allows a backer to pledge without selecting a reward.
+     * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
      * @param pledgeAmount The amount of the pledge.
      * @param tip An optional tip can be added during the process.
      */
     function pledgeWithoutAReward(
+        bytes32 pledgeId,
         address backer,
         uint256 pledgeAmount,
         uint256 tip
     )
-        external
+        public
         currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
+        if(s_processedPledges[pledgeId]){
+            revert KeepWhatsRaisedPledgeAlreadyProcessed(pledgeId);
+        }
+        s_processedPledges[pledgeId] = true;
+
         uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray);
+        _pledge(pledgeId, backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray);
     }
 
     /**
@@ -843,6 +937,7 @@ contract KeepWhatsRaised is
     }
 
     function _pledge(
+        bytes32 pledgeId,
         address backer,
         bytes32 reward,
         uint256 pledgeAmount,
@@ -859,7 +954,7 @@ contract KeepWhatsRaised is
         s_tip += tip;
 
         //Fee Calculation
-        pledgeAmount = _calculateNetAvailable(tokenId, pledgeAmount);
+        pledgeAmount = _calculateNetAvailable(pledgeId, tokenId, pledgeAmount);
         s_availablePledgedAmount += pledgeAmount;
 
         _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
@@ -875,6 +970,7 @@ contract KeepWhatsRaised is
 
     /**
      * @dev Calculates the net available amount after deducting platform fees and applicable taxes
+     * @param pledgeId The unique identifier of the pledge.
      * @param tokenId The ID of the token representing the pledge.
      * @param pledgeAmount The total pledge amount before any deductions
      * @return The net available amount after all fees and taxes are deducted
@@ -884,7 +980,7 @@ contract KeepWhatsRaised is
      *         2. Calculates Colombian creator tax if applicable (0.4% effective rate)
      *         3. Updates the total platform fee accumulator
      */
-    function _calculateNetAvailable(uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
+    function _calculateNetAvailable(bytes32 pledgeId, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
         uint256 totalFee = 0;
 
         // Gross Percentage Fee Calculation
@@ -895,6 +991,11 @@ contract KeepWhatsRaised is
             s_platformFee += fee;
             totalFee += fee;
         }
+
+        //Payment Gateway Fee Calculation
+        uint256 paymentGatewayFee = getPaymentGatewayFee(pledgeId);
+        s_platformFee += paymentGatewayFee;
+        totalFee += paymentGatewayFee;
 
         uint256 availableBeforeTax = pledgeAmount - totalFee;
 
