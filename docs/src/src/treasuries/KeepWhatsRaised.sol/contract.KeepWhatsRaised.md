@@ -1,5 +1,5 @@
 # KeepWhatsRaised
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ac353e6507e46c7ee7bc7cb49a3fb20dfde2b56/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
 [IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable, [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -22,10 +22,35 @@ mapping(uint256 => uint256) private s_tokenToTippedAmount;
 ```
 
 
+### s_tokenToPaymentFee
+
+```solidity
+mapping(uint256 => uint256) private s_tokenToPaymentFee;
+```
+
+
 ### s_reward
 
 ```solidity
 mapping(bytes32 => Reward) private s_reward;
+```
+
+
+### s_processedPledges
+Tracks whether a pledge with a specific ID has already been processed
+
+
+```solidity
+mapping(bytes32 => bool) public s_processedPledges;
+```
+
+
+### s_paymentGatewayFees
+Mapping to store payment gateway fees by unique pledge ID
+
+
+```solidity
+mapping(bytes32 => uint256) public s_paymentGatewayFees;
 ```
 
 
@@ -154,6 +179,18 @@ The lock period is defined as the duration before the deadline during which conf
 
 ```solidity
 modifier onlyBeforeConfigLock();
+```
+
+### onlyPlatformAdminOrCampaignOwner
+
+Restricts access to only the platform admin or the campaign owner.
+
+*Checks if `msg.sender` is either the platform admin (via `INFO.getPlatformAdminAddress`)
+or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.*
+
+
+```solidity
+modifier onlyPlatformAdminOrCampaignOwner();
 ```
 
 ### constructor
@@ -293,6 +330,49 @@ function getGoalAmount() external view returns (uint256);
 |`<none>`|`uint256`|The funding goal amount of the campaign.|
 
 
+### getPaymentGatewayFee
+
+Retrieves the payment gateway fee for a given pledge ID.
+
+
+```solidity
+function getPaymentGatewayFee(bytes32 pledgeId) public view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The fixed gateway fee amount associated with the pledge ID.|
+
+
+### setPaymentGatewayFee
+
+Sets the fixed payment gateway fee for a specific pledge.
+
+
+```solidity
+function setPaymentGatewayFee(bytes32 pledgeId, uint256 fee)
+    public
+    onlyPlatformAdmin(PLATFORM_HASH)
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
+|`fee`|`uint256`|The gateway fee amount to be associated with the given pledge ID.|
+
+
 ### approveWithdrawal
 
 Approves the withdrawal of the treasury by the platform admin.
@@ -340,7 +420,7 @@ function configureTreasury(Config memory config, CampaignData memory campaignDat
 ```solidity
 function updateDeadline(uint256 deadline)
     external
-    onlyPlatformAdmin(PLATFORM_HASH)
+    onlyPlatformAdminOrCampaignOwner
     onlyBeforeConfigLock
     whenNotPaused
     whenNotCancelled;
@@ -360,7 +440,7 @@ function updateDeadline(uint256 deadline)
 ```solidity
 function updateGoalAmount(uint256 goalAmount)
     external
-    onlyPlatformAdmin(PLATFORM_HASH)
+    onlyPlatformAdminOrCampaignOwner
     onlyBeforeConfigLock
     whenNotPaused
     whenNotCancelled;
@@ -420,6 +500,41 @@ function removeReward(bytes32 rewardName)
 |`rewardName`|`bytes32`|The name of the reward.|
 
 
+### setFeeAndPledge
+
+Sets the payment gateway fee and executes a pledge in a single transaction.
+
+
+```solidity
+function setFeeAndPledge(
+    bytes32 pledgeId,
+    address backer,
+    uint256 pledgeAmount,
+    uint256 tip,
+    uint256 fee,
+    bytes32[] calldata reward,
+    bool isPledgeForAReward
+)
+    external
+    onlyPlatformAdmin(PLATFORM_HASH)
+    whenCampaignNotPaused
+    whenNotPaused
+    whenCampaignNotCancelled
+    whenNotCancelled;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
+|`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeAmount`|`uint256`|The amount of the pledge.|
+|`tip`|`uint256`|An optional tip can be added during the process.|
+|`fee`|`uint256`|The payment gateway fee to associate with this pledge.|
+|`reward`|`bytes32[]`|An array of reward names.|
+|`isPledgeForAReward`|`bool`|A boolean indicating whether this pledge is for a reward or without..|
+
+
 ### pledgeForAReward
 
 Allows a backer to pledge for a reward.
@@ -429,8 +544,8 @@ The non-reward tiers cannot be pledged for without a reward.*
 
 
 ```solidity
-function pledgeForAReward(address backer, uint256 tip, bytes32[] calldata reward)
-    external
+function pledgeForAReward(bytes32 pledgeId, address backer, uint256 tip, bytes32[] calldata reward)
+    public
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -441,6 +556,7 @@ function pledgeForAReward(address backer, uint256 tip, bytes32[] calldata reward
 
 |Name|Type|Description|
 |----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`reward`|`bytes32[]`|An array of reward names.|
@@ -452,8 +568,8 @@ Allows a backer to pledge without selecting a reward.
 
 
 ```solidity
-function pledgeWithoutAReward(address backer, uint256 pledgeAmount, uint256 tip)
-    external
+function pledgeWithoutAReward(bytes32 pledgeId, address backer, uint256 pledgeAmount, uint256 tip)
+    public
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -464,6 +580,7 @@ function pledgeWithoutAReward(address backer, uint256 pledgeAmount, uint256 tip)
 
 |Name|Type|Description|
 |----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
@@ -558,7 +675,7 @@ function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPa
 
 
 ```solidity
-function cancelTreasury(bytes32 message) public override;
+function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner;
 ```
 
 ### _checkSuccessCondition
@@ -581,6 +698,7 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 
 ```solidity
 function _pledge(
+    bytes32 pledgeId,
     address backer,
     bytes32 reward,
     uint256 pledgeAmount,
@@ -589,6 +707,62 @@ function _pledge(
     bytes32[] memory rewards
 ) private;
 ```
+
+### _calculateNetAvailable
+
+This function performs the following calculations:
+1. Applies all gross percentage fees based on platform configuration
+2. Calculates Colombian creator tax if applicable (0.4% effective rate)
+3. Updates the total platform fee accumulator
+
+*Calculates the net available amount after deducting platform fees and applicable taxes*
+
+
+```solidity
+function _calculateNetAvailable(bytes32 pledgeId, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
+|`tokenId`|`uint256`|The ID of the token representing the pledge.|
+|`pledgeAmount`|`uint256`|The total pledge amount before any deductions|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The net available amount after all fees and taxes are deducted|
+
+
+### _checkRefundPeriodStatus
+
+Refund period logic:
+- If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
+- If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
+- Before deadline (non-cancelled): not in refund period
+
+*Checks the refund period status based on campaign state*
+
+*This function handles both cancelled and non-cancelled campaign scenarios*
+
+
+```solidity
+function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`checkIfOver`|`bool`|If true, returns whether refund period is over; if false, returns whether currently within refund period|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|bool Status based on checkIfOver parameter|
+
 
 ### supportsInterface
 
@@ -767,6 +941,21 @@ event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
 |----|----|-----------|
 |`newGoalAmount`|`uint256`|The new goal amount set for the campaign.|
 
+### KeepWhatsRaisedPaymentGatewayFeeSet
+*Emitted when a gateway fee is set for a specific pledge.*
+
+
+```solidity
+event KeepWhatsRaisedPaymentGatewayFeeSet(bytes32 indexed pledgeId, uint256 fee);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge.|
+|`fee`|`uint256`|The amount of the payment gateway fee set.|
+
 ## Errors
 ### KeepWhatsRaisedUnAuthorized
 *Emitted when an unauthorized action is attempted.*
@@ -870,6 +1059,28 @@ error KeepWhatsRaisedNotClaimableAdmin();
 error KeepWhatsRaisedConfigLocked();
 ```
 
+### KeepWhatsRaisedDisbursementBlocked
+*Emitted when a disbursement is attempted before the refund period has ended.*
+
+
+```solidity
+error KeepWhatsRaisedDisbursementBlocked();
+```
+
+### KeepWhatsRaisedPledgeAlreadyProcessed
+*Emitted when a pledge is submitted using a pledgeId that has already been processed.*
+
+
+```solidity
+error KeepWhatsRaisedPledgeAlreadyProcessed(bytes32 pledgeId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|The unique identifier of the pledge that was already used.|
+
 ## Structs
 ### FeeKeys
 *Represents keys used to reference different fee configurations.
@@ -881,7 +1092,6 @@ struct FeeKeys {
     bytes32 flatFeeKey;
     bytes32 cumulativeFlatFeeKey;
     bytes32[] grossPercentageFeeKeys;
-    bytes32[] netPercentageFeeKeys;
 }
 ```
 
@@ -895,6 +1105,7 @@ struct Config {
     uint256 withdrawalDelay;
     uint256 refundDelay;
     uint256 configLockPeriod;
+    bool isColumbianCreator;
 }
 ```
 
