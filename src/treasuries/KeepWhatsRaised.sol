@@ -797,19 +797,19 @@ contract KeepWhatsRaised is
         uint256 amountToRefund = s_tokenToPledgedAmount[tokenId];
         uint256 availablePledgedAmount = s_availablePledgedAmount;
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
+        uint256 netRefundAmount = amountToRefund - paymentFee;
 
-        if (amountToRefund == 0 || (availablePledgedAmount + paymentFee) < amountToRefund) {
+        if (netRefundAmount == 0 || availablePledgedAmount < netRefundAmount) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
         s_tokenToPledgedAmount[tokenId] = 0;
         s_pledgedAmount -= amountToRefund;
-        s_availablePledgedAmount -= (amountToRefund - paymentFee);
+        s_availablePledgedAmount -= netRefundAmount;
         s_tokenToPaymentFee[tokenId] = 0;
-        s_platformFee -= paymentFee;
 
         burn(tokenId);
-        TOKEN.safeTransfer(msg.sender, amountToRefund);
-        emit RefundClaimed(tokenId, amountToRefund, msg.sender);
+        TOKEN.safeTransfer(msg.sender, netRefundAmount);
+        emit RefundClaimed(tokenId, netRefundAmount, msg.sender);
     }
 
     /**
