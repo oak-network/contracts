@@ -74,7 +74,7 @@ contract KeepWhatsRaised is
         uint256 configLockPeriod;
 
         /// @dev True if the creator is Colombian, false otherwise.
-        bool isColumbianCreator;
+        bool isColombianCreator;
     }
 
     string private s_name;
@@ -768,7 +768,7 @@ contract KeepWhatsRaised is
         uint256 availableBeforeTax = withdrawalAmount - totalFee;
 
         // Colombian creator tax
-        if (s_config.isColumbianCreator) {
+        if (s_config.isColombianCreator) {
             // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
             uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
             uint256 numerator = scaled * 40;
