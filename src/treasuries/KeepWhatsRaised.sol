@@ -765,6 +765,24 @@ contract KeepWhatsRaised is
             revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
         }
 
+        uint256 availableBeforeTax = withdrawalAmount - totalFee;
+
+        // Colombian creator tax
+        if (s_config.isColumbianCreator) {
+            // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
+            uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
+            uint256 numerator = scaled * 40;
+            uint256 denominator = 10040;
+            uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
+
+            s_platformFee += columbianCreatorTax;
+            totalFee += columbianCreatorTax;
+
+            if(totalFee > withdrawalAmount){
+                revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
+            }
+        }
+
         s_availablePledgedAmount -= withdrawalAmount;
         withdrawalAmount -= totalFee;
 
@@ -992,20 +1010,6 @@ contract KeepWhatsRaised is
         uint256 paymentGatewayFee = getPaymentGatewayFee(pledgeId);
         s_platformFee += paymentGatewayFee;
         totalFee += paymentGatewayFee;
-
-        uint256 availableBeforeTax = pledgeAmount - totalFee;
-
-        // Colombian creator tax
-        if (s_config.isColumbianCreator) {
-            // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
-            uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
-            uint256 numerator = scaled * 40;
-            uint256 denominator = 10040;
-            uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
-
-            s_platformFee += columbianCreatorTax;
-            totalFee += columbianCreatorTax;
-        }
 
         s_tokenToPaymentFee[tokenId] = totalFee;
 
