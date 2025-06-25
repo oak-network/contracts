@@ -824,10 +824,6 @@ contract KeepWhatsRaised is
         whenNotPaused
         whenNotCancelled
     {
-        if (!_checkRefundPeriodStatus(true)) {
-            revert KeepWhatsRaisedDisbursementBlocked();
-        }
-
         uint256 protocolShare = s_protocolFee;
         uint256 platformShare = s_platformFee;
         (s_protocolFee, s_platformFee) = (0, 0);
