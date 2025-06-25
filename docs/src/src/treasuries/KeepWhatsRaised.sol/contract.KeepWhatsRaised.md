@@ -1,5 +1,5 @@
 # KeepWhatsRaised
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/3ab694bc5ce5037adb836a85fe710f413c2c20cc/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
 [IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable, [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -1105,7 +1105,7 @@ struct Config {
     uint256 withdrawalDelay;
     uint256 refundDelay;
     uint256 configLockPeriod;
-    bool isColumbianCreator;
+    bool isColombianCreator;
 }
 ```
 
