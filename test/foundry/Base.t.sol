@@ -10,6 +10,7 @@ import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
+import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 
 /// @notice Base test contract with common logic needed by all tests.
 abstract contract Base_Test is Test, Defaults {
@@ -22,6 +23,7 @@ abstract contract Base_Test is Test, Defaults {
     CampaignInfoFactory internal campaignInfoFactory;
     TreasuryFactory internal treasuryFactory;
     AllOrNothing internal allOrNothingImplementation;
+    KeepWhatsRaised internal keepWhatsRaisedImplementation;
     CampaignInfo internal campaignInfo;
 
     function setUp() public virtual {
@@ -62,6 +64,7 @@ abstract contract Base_Test is Test, Defaults {
         );
 
         allOrNothingImplementation = new AllOrNothing();
+        keepWhatsRaisedImplementation = new KeepWhatsRaised();
         //Mint token to the backer
         testToken.mint(users.backer1Address, TOKEN_MINT_AMOUNT);
         testToken.mint(users.backer2Address, TOKEN_MINT_AMOUNT);
