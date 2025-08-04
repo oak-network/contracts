@@ -246,7 +246,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     function claimRefund(
         address caller,
         address allOrNothingAddress,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 warpTime
     )
         internal
         returns (
@@ -256,6 +257,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
             address claimer
         )
     {
+        vm.warp(warpTime);
         vm.startPrank(caller);
         vm.recordLogs();
 

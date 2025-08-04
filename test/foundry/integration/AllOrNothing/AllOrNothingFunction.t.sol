@@ -112,7 +112,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             uint256 refundedTokenId,
             uint256 refundAmount,
             address claimer
-        ) = claimRefund(users.backer1Address, address(allOrNothing), tokenId);
+        ) = claimRefund(users.backer1Address, address(allOrNothing), tokenId, LAUNCH_TIME + 1 days);
 
         assertEq(refundedTokenId, tokenId);
         assertEq(refundAmount, PLEDGE_AMOUNT);
@@ -150,7 +150,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             Vm.Log[] memory logs,
             uint256 protocolShare,
             uint256 platformShare
-        ) = disburseFees(address(allOrNothing), DEADLINE);
+        ) = disburseFees(address(allOrNothing), DEADLINE + 1 days);
 
         uint256 expectedProtocolShare = (totalPledged * PROTOCOL_FEE_PERCENT) /
             PERCENT_DIVIDER;
@@ -195,7 +195,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
         );
 
         uint256 totalPledged = GOAL_AMOUNT + PLEDGE_AMOUNT;
-        disburseFees(address(allOrNothing), DEADLINE);
+        disburseFees(address(allOrNothing), DEADLINE + 1 days);
 
         (Vm.Log[] memory logs, address to, uint256 amount) = withdraw(
             address(allOrNothing),
