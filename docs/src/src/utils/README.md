@@ -2,6 +2,7 @@
 
 # Contents
 - [AdminAccessChecker](AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
+- [BasePaymentTreasury](BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md)
 - [BaseTreasury](BaseTreasury.sol/abstract.BaseTreasury.md)
 - [CampaignAccessChecker](CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md)
 - [Counters](Counters.sol/library.Counters.md)
