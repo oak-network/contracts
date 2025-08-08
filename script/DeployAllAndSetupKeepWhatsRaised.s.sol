@@ -12,6 +12,7 @@ import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 
 /**
  * @notice Script to deploy and setup all needed contracts for the keepWhatsRaised
+ * @dev Updated for the new KeepWhatsRaised contract that stores fees locally
  */
 contract DeployAllAndSetupKeepWhatsRaised is Script {
     // Customizable values (set through environment variables)
@@ -41,7 +42,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
     bool implementationRegistered = false;
     bool implementationApproved = false;
     bool adminRightsTransferred = false;
-    bool platformDataKeyAdded = false;
     
     // Flags for contract deployment or reuse
     bool testTokenDeployed = false;
@@ -49,13 +49,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
     bool treasuryFactoryDeployed = false;
     bool campaignInfoFactoryDeployed = false;
     bool keepWhatsRaisedDeployed = false;
-
-    //Treasury Keys
-    bytes32 PLATFORM_FEE_KEY;
-    bytes32 FLAT_FEE_KEY;
-    bytes32 CUMULATIVE_FLAT_FEE_KEY;
-    bytes32 PAYMENT_GATEWAY_FEE_KEY;
-    bytes32 COLUMBIAN_CREATOR_TAX_KEY;
 
     // Configure parameters based on environment variables
     function setupParams() internal {
@@ -83,18 +76,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr("CAMPAIGN_INFO_FACTORY_ADDRESS", address(0));
         keepWhatsRaisedImplementation = vm.envOr("KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS", address(0));
-
-        //Get Treasury Keys
-        PLATFORM_FEE_KEY = keccak256(abi.encodePacked("platformFee"));
-        FLAT_FEE_KEY = keccak256(abi.encodePacked("flatFee"));
-        CUMULATIVE_FLAT_FEE_KEY = keccak256(abi.encodePacked("cumulativeFlatFee"));
-
-        console2.log("Platform Fee Key:");
-        console2.logBytes32(PLATFORM_FEE_KEY);
-        console2.log("Flat Fee Key:");
-        console2.logBytes32(FLAT_FEE_KEY);
-        console2.log("Cumulative Fee Key:");
-        console2.logBytes32(CUMULATIVE_FLAT_FEE_KEY);
         
         console2.log("Using platform hash for:", platformName);
         console2.log("Protocol fee percent:", protocolFeePercent);
@@ -110,7 +91,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         console2.log("Setting up contracts...");
         
         // Deploy or reuse TestToken
-
         string memory tokenName = vm.envOr("TOKEN_NAME", string("TestToken"));
         string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
 
@@ -141,7 +121,7 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
-            campaignInfo = address(new CampaignInfo(address(this)));
+            campaignInfo = address(new CampaignInfo(deployerAddress));
             console2.log("CampaignInfo deployed at:", campaignInfo);
         }
         
@@ -260,35 +240,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         implementationApproved = true;
         console2.log("Treasury implementation approved successfully");
     }
-
-    function addPlatformDataKey() internal {
-
-        console2.log("Setting up: addPlatformDataKey");
-
-        // Only use startPrank in simulation mode
-        if (simulate) {
-            vm.startPrank(deployerAddress);
-        }
-        
-        GlobalParams(globalParams).addPlatformData(
-            platformHash,
-            PLATFORM_FEE_KEY
-        );
-        GlobalParams(globalParams).addPlatformData(
-            platformHash,
-            FLAT_FEE_KEY
-        );
-        GlobalParams(globalParams).addPlatformData(
-            platformHash,
-            CUMULATIVE_FLAT_FEE_KEY
-        );
-
-        if (simulate) {
-            vm.stopPrank();
-        }
-        platformDataKeyAdded = true;
-        console2.log("Platform Data Key Added successfully");
-    }
     
     function mintTokens() internal {
         // Only mint tokens if we deployed TestToken
@@ -350,7 +301,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         enlistPlatform();
         registerTreasuryImplementation();
         approveTreasuryImplementation();
-        addPlatformDataKey();
         
         // Mint tokens if needed
         mintTokens();
@@ -394,8 +344,6 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         console2.log("2. Treasury implementation registered:", implementationRegistered);
         console2.log("3. Treasury implementation approved:", implementationApproved);
         console2.log("4. Admin rights transferred:", adminRightsTransferred);
-        console2.log("5. Added Platform Data Key:", platformDataKeyAdded);
-        
         console2.log("\nDeployment and setup completed successfully!");
     }
 }

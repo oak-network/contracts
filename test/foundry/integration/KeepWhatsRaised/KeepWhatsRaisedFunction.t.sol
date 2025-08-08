@@ -86,6 +86,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         assertEq(1, backerNftBalance);
         assertEq(keepWhatsRaised.getRaisedAmount(), PLEDGE_AMOUNT);
 
+        // Account for protocol fee being deducted during pledge
         assertTrue(keepWhatsRaised.getAvailableRaisedAmount() < PLEDGE_AMOUNT);
     }
 
@@ -108,6 +109,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         assertEq(1, backerNftBalance);
         assertEq(keepWhatsRaised.getRaisedAmount(), PLEDGE_AMOUNT);
 
+        // Account for protocol fee being deducted during pledge
         assertTrue(keepWhatsRaised.getAvailableRaisedAmount() < PLEDGE_AMOUNT);
     }
 
@@ -134,7 +136,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Verify fee was set
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
         
-        // Verify pledge was made
+        // Verify pledge was made - tokens come from admin not backer
         address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
     }
@@ -159,14 +161,15 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Verify fee was set
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
         
-        // Verify pledge was made
+        // Verify pledge was made - tokens come from admin not backer
         address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
     }
 
     function test_withdrawWithColombianCreatorTax() external {
         // Configure with Colombian creator
-        configureTreasury(users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS);
+        KeepWhatsRaised.FeeValues memory feeValues = createFeeValues();
+        configureTreasury(users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
         
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
@@ -195,7 +198,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 ownerBalanceBefore = testToken.balanceOf(actualOwner);
 
         (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(address(keepWhatsRaised), 0, DEADLINE + 1 days);
+            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + 1 days);
 
         uint256 ownerBalanceAfter = testToken.balanceOf(actualOwner);
 
@@ -231,9 +234,11 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         assertEq(refundedTokenId, tokenId);
    
+        // Account for all fees including protocol fee
         uint256 platformFee = (PLEDGE_AMOUNT * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 vakiCommission = (PLEDGE_AMOUNT * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
-        uint256 expectedRefund = PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission;
+        uint256 protocolFee = (PLEDGE_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedRefund = PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission - protocolFee;
 
         assertEq(refundAmount, expectedRefund);
         assertEq(claimer, users.backer1Address);
@@ -261,9 +266,12 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             users.backer2Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_2, PLEDGE_AMOUNT, 0, LAUNCH_TIME
         );
 
-        // Approve and withdraw
+        // Approve and withdraw (as platform admin)
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
-        withdraw(address(keepWhatsRaised), PLEDGE_AMOUNT, DEADLINE - 1 days);
+        
+        vm.warp(DEADLINE - 1 days);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.withdraw(PLEDGE_AMOUNT);
 
         uint256 protocolAdminBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
@@ -366,7 +374,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 ownerBalanceBefore = testToken.balanceOf(actualOwner);
 
         (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(address(keepWhatsRaised), 0, DEADLINE + 1 days);
+            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + 1 days);
 
         uint256 ownerBalanceAfter = testToken.balanceOf(actualOwner);
 
@@ -387,16 +395,22 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Approve withdrawal
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
 
-        uint256 partialAmount = 500e18; // Withdraw less than full amount
         uint256 availableBefore = keepWhatsRaised.getAvailableRaisedAmount();
+        
+        // Calculate safe withdrawal amount that accounts for cumulative fee
+        // For small withdrawals, cumulative fee (200e18) is applied
+        // So we need available >= withdrawalAmount + cumulativeFee
+        uint256 partialAmount = 300e18; // Small amount to ensure we have enough for fees
 
         (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(address(keepWhatsRaised), partialAmount, DEADLINE - 1 days);
+            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), partialAmount, DEADLINE - 1 days);
 
         uint256 availableAfter = keepWhatsRaised.getAvailableRaisedAmount();
 
-        assertEq(withdrawalAmount + fee, partialAmount, "Incorrect partial withdrawal");
-        assertTrue(availableAfter < availableBefore, "Available amount should be reduced");
+        // For partial withdrawals, the full amount requested is transferred
+        assertEq(withdrawalAmount, partialAmount, "Incorrect partial withdrawal");
+        // Available amount is reduced by withdrawal amount plus fees
+        assertEq(availableBefore - availableAfter, partialAmount + fee, "Available should be reduced by withdrawal plus fee");
     }
 
     function test_claimTip() external {
@@ -569,9 +583,11 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         assertEq(refundedTokenId, tokenId);
 
+        // Account for all fees including protocol fee
         uint256 platformFee = (PLEDGE_AMOUNT * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 vakiCommission = (PLEDGE_AMOUNT * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
-        uint256 expectedRefund = PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission;
+        uint256 protocolFee = (PLEDGE_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedRefund = PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission - protocolFee;
         
         assertEq(refundAmount, expectedRefund, "Refund amount should be pledge minus fees");
         assertEq(claimer, users.backer1Address);

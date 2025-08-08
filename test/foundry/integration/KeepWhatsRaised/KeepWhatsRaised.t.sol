@@ -32,11 +32,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         approveTreasuryImplementation(PLATFORM_2_HASH);
         console.log("approved treasury");
-
-        // Add platform data keys
-        addPlatformData(PLATFORM_2_HASH);
-        console.log("added platform data");
-
+        
         // Create Campaign
         createCampaign(PLATFORM_2_HASH);
         console.log("created campaign");
@@ -45,8 +41,17 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         deploy(PLATFORM_2_HASH);
         console.log("deployed treasury");
 
-        // Configure Treasury
-        configureTreasury(users.platform2AdminAddress, treasuryAddress, CONFIG, CAMPAIGN_DATA, FEE_KEYS);
+        // Create FeeValues struct
+        KeepWhatsRaised.FeeValues memory feeValues = KeepWhatsRaised.FeeValues({
+            flatFeeValue: uint256(FLAT_FEE_VALUE),
+            cumulativeFlatFeeValue: uint256(CUMULATIVE_FLAT_FEE_VALUE),
+            grossPercentageFeeValues: new uint256[](2)
+        });
+        feeValues.grossPercentageFeeValues[0] = uint256(PLATFORM_FEE_VALUE);
+        feeValues.grossPercentageFeeValues[1] = uint256(VAKI_COMMISSION_VALUE);
+
+        // Configure Treasury with fee values
+        configureTreasury(users.platform2AdminAddress, treasuryAddress, CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
         console.log("configured treasury");
     }
 
@@ -100,27 +105,9 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         bytes32[] memory selectedPlatformHash = new bytes32[](1);
         selectedPlatformHash[0] = platformHash;
 
-        // Calculate total size needed
-        uint256 totalSize = GROSS_PERCENTAGE_FEE_KEYS.length + 2; // +2 for flat fees
-
-        // Create arrays for platform data keys and values
-        bytes32[] memory platformDataKey = new bytes32[](totalSize);
-        bytes32[] memory platformDataValue = new bytes32[](totalSize);
-
-        // Add the individual fee key-value pairs
-        platformDataKey[0] = FLAT_FEE_KEY;
-        platformDataValue[0] = FLAT_FEE_VALUE;
-
-        platformDataKey[1] = CUMULATIVE_FLAT_FEE_KEY;
-        platformDataValue[1] = CUMULATIVE_FLAT_FEE_VALUE;
-
-        // Add gross percentage fees
-        uint256 currentIndex = 2;
-        for (uint256 i = 0; i < GROSS_PERCENTAGE_FEE_KEYS.length; i++) {
-            platformDataKey[currentIndex] = GROSS_PERCENTAGE_FEE_KEYS[i];
-            platformDataValue[currentIndex] = GROSS_PERCENTAGE_FEE_VALUES[i];
-            currentIndex++;
-        }
+        // Pass empty arrays since fees are now configured via configureTreasury
+        bytes32[] memory platformDataKey = new bytes32[](0);
+        bytes32[] memory platformDataValue = new bytes32[](0);
 
         vm.startPrank(users.creator1Address);
         vm.recordLogs();
@@ -129,8 +116,8 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             users.creator1Address,
             identifierHash,
             selectedPlatformHash,
-            platformDataKey,
-            platformDataValue,
+            platformDataKey,     
+            platformDataValue,   
             CAMPAIGN_DATA
         );
 
@@ -179,11 +166,25 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         address treasury,
         KeepWhatsRaised.Config memory _config,
         ICampaignData.CampaignData memory campaignData,
-        KeepWhatsRaised.FeeKeys memory _feeKeys
+        KeepWhatsRaised.FeeKeys memory _feeKeys,
+        KeepWhatsRaised.FeeValues memory _feeValues
     ) internal {
         vm.startPrank(caller);
-        KeepWhatsRaised(treasury).configureTreasury(_config, campaignData, _feeKeys);
+        KeepWhatsRaised(treasury).configureTreasury(_config, campaignData, _feeKeys, _feeValues);
         vm.stopPrank();
+    }
+
+    /**
+     * @notice Helper function to create FeeValues struct
+     */
+    function createFeeValues() internal pure returns (KeepWhatsRaised.FeeValues memory) {
+        KeepWhatsRaised.FeeValues memory feeValues;
+        feeValues.flatFeeValue = uint256(FLAT_FEE_VALUE);
+        feeValues.cumulativeFlatFeeValue = uint256(CUMULATIVE_FLAT_FEE_VALUE);
+        feeValues.grossPercentageFeeValues = new uint256[](2);
+        feeValues.grossPercentageFeeValues[0] = uint256(PLATFORM_FEE_VALUE);
+        feeValues.grossPercentageFeeValues[1] = uint256(VAKI_COMMISSION_VALUE);
+        return feeValues;
     }
 
     /**
@@ -259,10 +260,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.startPrank(caller);
         vm.recordLogs();
 
-        // Approve tokens from backer first
-        vm.stopPrank();
-        vm.startPrank(backer);
-        
+        // Approve tokens from admin (caller) since admin will be the token source
         if (isPledgeForAReward) {
             // Calculate total pledge amount from rewards
             uint256 totalPledgeAmount = 0;
@@ -273,9 +271,6 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         } else {
             testToken.approve(treasury, pledgeAmount + tip);
         }
-        
-        vm.stopPrank();
-        vm.startPrank(caller);
 
         KeepWhatsRaised(treasury).setFeeAndPledge(pledgeId, backer, pledgeAmount, tip, fee, reward, isPledgeForAReward);
 
@@ -358,11 +353,12 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
     /**
      * @notice Implements withdraw helper function with amount parameter.
      */
-    function withdraw(address keepWhatsRaisedAddress, uint256 amount, uint256 warpTime)
+    function withdraw(address caller, address keepWhatsRaisedAddress, uint256 amount, uint256 warpTime)
         internal
         returns (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee)
     {
         vm.warp(warpTime);
+        vm.startPrank(caller);
         vm.recordLogs();
 
         KeepWhatsRaised(keepWhatsRaisedAddress).withdraw(amount);
@@ -375,6 +371,8 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         to = address(uint160(uint256(topics[1])));
 
         (withdrawalAmount, fee) = abi.decode(data, (uint256, uint256));
+        
+        vm.stopPrank();
     }
 
     /**

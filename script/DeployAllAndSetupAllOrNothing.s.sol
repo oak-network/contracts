@@ -144,7 +144,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
             campaignInfoImplementation = address(
-                new CampaignInfo(address(this))
+                new CampaignInfo(deployerAddress)
             );
             console2.log(
                 "CampaignInfo implementation deployed at:",
