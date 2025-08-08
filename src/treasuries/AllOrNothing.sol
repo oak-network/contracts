@@ -270,7 +270,11 @@ contract AllOrNothing is
             if (reward[i] == ZERO_BYTES) {
                 revert AllOrNothingInvalidInput();
             }
-            pledgeAmount += s_reward[reward[i]].rewardValue;
+            tempReward = s_reward[reward[i]];
+            if (tempReward.rewardValue == 0) {
+                revert AllOrNothingInvalidInput();
+            }
+            pledgeAmount += tempReward.rewardValue;
         }
         _pledge(backer, reward[0], pledgeAmount, shippingFee, tokenId, reward);
     }

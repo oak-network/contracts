@@ -125,10 +125,14 @@ interface ICampaignInfo {
      * @dev It can only be called for a platform if its not approved i.e. the platform treasury is not deployed
      * @param platformHash The bytes32 identifier of the platform.
      * @param selection The new selection status (true or false).
+     * @param platformDataKey An array of platform-specific data keys.
+     * @param platformDataValue An array of platform-specific data values.
      */
     function updateSelectedPlatform(
         bytes32 platformHash,
-        bool selection
+        bool selection,
+        bytes32[] calldata platformDataKey,
+        bytes32[] calldata platformDataValue
     ) external;
 
     /**

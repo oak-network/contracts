@@ -25,6 +25,11 @@ interface ICampaignInfoFactory is ICampaignData {
 
     /**
      * @notice Creates a new campaign information contract.
+     * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked 
+     *      permanently in the campaign contract. Users should verify current fees before 
+     *      calling this function or using intermediate contracts that check fees haven't 
+     *      changed from expected values. The protocol fee is stored as immutable in the cloned 
+     *      contract and platform fees are stored during initialization.
      * @param creator The address of the creator of the campaign.
      * @param identifierHash The unique identifier hash of the campaign.
      * @param selectedPlatformHash An array of platform identifiers selected for the campaign.

@@ -81,6 +81,9 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData
     ) external override {
+        if (creator == address(0)) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
         if (
             campaignData.launchTime < block.timestamp ||
             campaignData.deadline <= campaignData.launchTime
@@ -89,6 +92,19 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         }
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
+        }
+        
+        bool isValid;
+        for (uint256 i = 0; i < platformDataKey.length; i++) {
+            isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
+                platformDataKey[i]
+            );
+            if (!isValid) {
+                revert CampaignInfoFactoryInvalidInput();
+            }
+            if (platformDataValue[i] == bytes32(0)) {
+                revert CampaignInfoFactoryInvalidInput();
+            }
         }
         address cloneExists = identifierToCampaignInfo[identifierHash];
         if (cloneExists != address(0)) {

@@ -38,6 +38,8 @@ contract KeepWhatsRaised is
     mapping(bytes32 => bool) public s_processedPledges;
     /// Mapping to store payment gateway fees by unique pledge ID
     mapping(bytes32 => uint256) public s_paymentGatewayFees;
+    /// Mapping that stores fee values indexed by their corresponding fee keys.
+    mapping(bytes32 => uint256) private s_feeValues;
 
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
@@ -56,6 +58,22 @@ contract KeepWhatsRaised is
 
         /// @dev Keys for gross percentage-based fees (calculated before deductions).
         bytes32[] grossPercentageFeeKeys;
+    }
+
+    /**
+     * @dev Represents the complete fee structure values for treasury operations.
+     * These values correspond to the fees that will be applied to transactions
+     * and are typically retrieved using keys from `FeeKeys` struct.
+     */
+    struct FeeValues {
+        /// @dev Value for a flat fee applied to an operation.
+        uint256 flatFeeValue;
+        
+        /// @dev Value for a cumulative flat fee, potentially across multiple actions.
+        uint256 cumulativeFlatFeeValue;
+        
+        /// @dev Values for gross percentage-based fees (calculated before deductions).
+        uint256[] grossPercentageFeeValues;
     }
     /**
      * @dev System configuration parameters related to withdrawal and refund behavior.
@@ -130,11 +148,13 @@ contract KeepWhatsRaised is
      * @param config The updated configuration parameters (e.g., delays, exemptions).
      * @param campaignData The campaign-related data associated with the treasury setup.
      * @param feeKeys The set of keys used to determine applicable fees.
+     * @param feeValues The fee values corresponding to the fee keys.
      */
     event TreasuryConfigured(
         Config config,
         CampaignData campaignData,
-        FeeKeys feeKeys
+        FeeKeys feeKeys,
+        FeeValues feeValues
     );
 
     /**
@@ -217,7 +237,15 @@ contract KeepWhatsRaised is
      * @param withdrawalAmount The attempted withdrawal amount.
      * @param fee The fee that would be applied to the withdrawal.
     */
-    error KeepWhatsRaisedWithdrawalOverload(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
+    error KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
+
+    /**
+     * @notice Emitted when the fee exceeds the requested withdrawal amount.
+     *
+     * @param withdrawalAmount The amount requested for withdrawal.
+     * @param fee The calculated fee, which is greater than the withdrawal amount.
+     */
+    error KeepWhatsRaisedInsufficientFundsForFee(uint256 withdrawalAmount, uint256 fee);
 
     /**
      * @dev Emitted when a withdrawal has already been made and cannot be repeated.
@@ -385,6 +413,16 @@ contract KeepWhatsRaised is
         return s_paymentGatewayFees[pledgeId];
     }
 
+     /**
+     * @dev Retrieves the fee value associated with a specific fee key from storage.
+     * @param {bytes32} feeKey - The unique identifier key used to reference a specific fee type.
+     * 
+     * @return {uint256} The fee value corresponding to the provided fee key. 
+     */
+    function getFeeValue(bytes32 feeKey) public view returns (uint256) {
+        return s_feeValues[feeKey];
+    }
+
     /**
      * @notice Sets the fixed payment gateway fee for a specific pledge.
      * @param pledgeId The unique identifier of the pledge.
@@ -431,11 +469,13 @@ contract KeepWhatsRaised is
      *               fee exemption threshold, and configuration lock period.
      * @param campaignData The campaign-related metadata such as deadlines and funding goals.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
+     * @param feeValues The fee values corresponding to the fee keys.
     */
     function configureTreasury(
         Config memory config,
         CampaignData memory campaignData,
-        FeeKeys memory feeKeys
+        FeeKeys memory feeKeys,
+        FeeValues memory feeValues
     ) 
         external 
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -444,14 +484,34 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
+        if (
+            campaignData.launchTime < block.timestamp ||
+            campaignData.deadline <= campaignData.launchTime
+        ) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+        if(
+            feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length
+        ) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+        
         s_config = config;
         s_feeKeys = feeKeys;
         s_campaignData = campaignData;
 
+        s_feeValues[feeKeys.flatFeeKey] = feeValues.flatFeeValue;
+        s_feeValues[feeKeys.cumulativeFlatFeeKey] = feeValues.cumulativeFlatFeeValue;
+        
+        for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
+            s_feeValues[feeKeys.grossPercentageFeeKeys[i]] = feeValues.grossPercentageFeeValues[i];
+        }
+
         emit TreasuryConfigured(
             config,
             campaignData,
-            feeKeys
+            feeKeys,
+            feeValues
         );
     }
 
@@ -473,7 +533,7 @@ contract KeepWhatsRaised is
         whenNotPaused
         whenNotCancelled
     {
-        if (deadline <= getLaunchTime()) {
+        if (deadline <= getLaunchTime() || deadline <= block.timestamp) {
             revert KeepWhatsRaisedInvalidInput();
         }
 
@@ -609,9 +669,9 @@ contract KeepWhatsRaised is
         setPaymentGatewayFee(pledgeId, fee);
 
         if(isPledgeForAReward){
-            pledgeForAReward(pledgeId, backer, tip, reward);
+            _pledgeForAReward(pledgeId, backer, tip, reward, msg.sender); // Pass admin as token source
         }else {
-            pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip);
+            _pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip, msg.sender); // Pass admin as token source
         }
     }
 
@@ -637,10 +697,41 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if(s_processedPledges[pledgeId]){
-            revert KeepWhatsRaisedPledgeAlreadyProcessed(pledgeId);
+        _pledgeForAReward(pledgeId, backer, tip, reward, backer); // Pass backer as token source for direct calls
+    }
+
+    /**
+     * @notice Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
+     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+     *      The non-reward tiers cannot be pledged for without a reward.
+     *      This function is called internally by both public pledgeForAReward (with backer as token source) and 
+     *      setFeeAndPledge (with admin as token source).
+     * @param pledgeId The unique identifier of the pledge.
+     * @param backer The address of the backer making the pledge (receives the NFT).
+     * @param tip An optional tip can be added during the process.
+     * @param reward An array of reward names.
+     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     */
+    function _pledgeForAReward(
+        bytes32 pledgeId,
+        address backer,
+        uint256 tip,
+        bytes32[] calldata reward,
+        address tokenSource
+    )
+        internal
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, msg.sender));
+
+        if(s_processedPledges[internalPledgeId]){
+            revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
         }
-        s_processedPledges[pledgeId] = true;
+        s_processedPledges[internalPledgeId] = true;
 
         uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
@@ -658,9 +749,13 @@ contract KeepWhatsRaised is
             if (reward[i] == ZERO_BYTES) {
                 revert KeepWhatsRaisedInvalidInput();
             }
-            pledgeAmount += s_reward[reward[i]].rewardValue;
+            tempReward = s_reward[reward[i]];
+            if (tempReward.rewardValue == 0) {
+                revert KeepWhatsRaisedInvalidInput();
+            }
+            pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, reward[0], pledgeAmount, tip, tokenId, reward);
+        _pledge(pledgeId, backer, reward[0], pledgeAmount, tip, tokenId, reward, tokenSource);
     }
 
     /**
@@ -683,15 +778,44 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if(s_processedPledges[pledgeId]){
-            revert KeepWhatsRaisedPledgeAlreadyProcessed(pledgeId);
+        _pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip, backer); // Pass backer as token source for direct calls
+    }
+
+    /**
+     * @notice Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
+     * @dev This function is called internally by both public pledgeWithoutAReward (with backer as token source) and 
+     *      setFeeAndPledge (with admin as token source).
+     * @param pledgeId The unique identifier of the pledge.
+     * @param backer The address of the backer making the pledge (receives the NFT).
+     * @param pledgeAmount The amount of the pledge.
+     * @param tip An optional tip can be added during the process.
+     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     */
+    function _pledgeWithoutAReward(
+        bytes32 pledgeId,
+        address backer,
+        uint256 pledgeAmount,
+        uint256 tip,
+        address tokenSource
+    )
+        internal
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, msg.sender));
+
+        if(s_processedPledges[internalPledgeId]){
+            revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
         }
-        s_processedPledges[pledgeId] = true;
+        s_processedPledges[internalPledgeId] = true;
 
         uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(pledgeId, backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray);
+        _pledge(pledgeId, backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray, tokenSource);
     }
 
     /**
@@ -702,33 +826,49 @@ contract KeepWhatsRaised is
     }
 
     /**
-     * @dev Allows a campaign owner or eligible party to withdraw a specified amount of funds.
-     * 
-     * @param amount The amount to withdraw.
-     * 
+     * @dev Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
+     *
+     * @param amount The withdrawal amount (ignored for final withdrawals).
+     *
      * Requirements:
-     * - Withdrawals must be approved (see `withdrawalEnabled` modifier).
-     * - Amount must not exceed the available balance after fees.
-     * - May apply and deduct a withdrawal fee.
+     * - Caller must be authorized.
+     * - Withdrawals must be enabled, not paused, and within the allowed time.
+     * - For partial withdrawals:
+     *   - `amount` > 0 and `amount + fees` ≤ available balance.
+     * - For final withdrawals:
+     *   - Available balance > 0 and fees ≤ available balance.
+     *
+     * Effects:
+     * - Deducts fees (flat, cumulative, and Colombian tax if applicable).
+     * - Updates available balance.
+     * - Transfers net funds to the recipient.
+     *
+     * Reverts:
+     * - If insufficient funds or invalid input.
+     *
+     * Emits:
+     * - `WithdrawalWithFeeSuccessful`.
      */
     function withdraw(
         uint256 amount
     ) 
         public
+        onlyPlatformAdminOrCampaignOwner
         currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
         whenNotPaused
         whenNotCancelled
         withdrawalEnabled
     {
-        uint256 flatFee = uint256(INFO.getPlatformData(s_feeKeys.flatFeeKey));
-        uint256 cumulativeFee = uint256(INFO.getPlatformData(s_feeKeys.cumulativeFlatFeeKey));
+        uint256 flatFee = getFeeValue(s_feeKeys.flatFeeKey);
+        uint256 cumulativeFee = getFeeValue(s_feeKeys.cumulativeFlatFeeKey);
         uint256 currentTime = block.timestamp;
         uint256 withdrawalAmount = s_availablePledgedAmount;
         uint256 totalFee = 0;
         address recipient = INFO.owner();
+        bool isFinalWithdrawal = (currentTime > getDeadline());
 
         //Main Fees
-        if(currentTime > getDeadline()){
+        if(isFinalWithdrawal){
             if(withdrawalAmount == 0){
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
@@ -743,7 +883,7 @@ contract KeepWhatsRaised is
                 revert KeepWhatsRaisedInvalidInput();
             }
             if(withdrawalAmount > s_availablePledgedAmount){
-                revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee); 
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePledgedAmount, withdrawalAmount, totalFee); 
             }
 
             if(withdrawalAmount < s_config.minimumWithdrawalForFeeExemption){
@@ -755,17 +895,7 @@ contract KeepWhatsRaised is
             }
         }
 
-        //Other Fees
-        uint256 fee = (withdrawalAmount * INFO.getProtocolFeePercent()) /
-            PERCENT_DIVIDER;
-        s_protocolFee += fee;
-        totalFee += fee;
-
-        if(totalFee > withdrawalAmount){
-            revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
-        }
-
-        uint256 availableBeforeTax = withdrawalAmount - totalFee;
+        uint256 availableBeforeTax = withdrawalAmount; //The tax implemented is on the withdrawal amount
 
         // Colombian creator tax
         if (s_config.isColombianCreator) {
@@ -777,18 +907,25 @@ contract KeepWhatsRaised is
 
             s_platformFee += columbianCreatorTax;
             totalFee += columbianCreatorTax;
-
-            if(totalFee > withdrawalAmount){
-                revert KeepWhatsRaisedWithdrawalOverload(s_availablePledgedAmount, withdrawalAmount, totalFee);
-            }
         }
 
-        s_availablePledgedAmount -= withdrawalAmount;
-        withdrawalAmount -= totalFee;
+        if(isFinalWithdrawal) {
+            if(withdrawalAmount < totalFee) {
+                revert KeepWhatsRaisedInsufficientFundsForFee(withdrawalAmount, totalFee);
+            }
+            
+            s_availablePledgedAmount = 0;
+            TOKEN.safeTransfer(recipient, withdrawalAmount - totalFee);
+        } else {
+            if(s_availablePledgedAmount < (withdrawalAmount + totalFee)) {
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePledgedAmount, withdrawalAmount, totalFee);
+            }
+            
+            s_availablePledgedAmount -= (withdrawalAmount + totalFee);
+            TOKEN.safeTransfer(recipient, withdrawalAmount);
+        }
 
-        TOKEN.safeTransfer(recipient, withdrawalAmount);
-
-        emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
+        emit WithdrawalWithFeeSuccessful(recipient, isFinalWithdrawal ? withdrawalAmount - totalFee : withdrawalAmount, totalFee);
     }
 
     /**
@@ -891,12 +1028,12 @@ contract KeepWhatsRaised is
     }
 
     /**
-     * @dev Allows a campaign owner or authorized user to claim remaining campaign funds.
-     * 
-     * Requirements:
-     * - Claim period must have started and funds must be available.
-     * - Cannot be previously claimed.
-     */
+    * @dev Allows the platform admin to claim the remaining funds from a campaign.
+    *
+    * Requirements:
+    * - Claim period must have started and funds must be available.
+    * - Cannot be previously claimed.
+    */
     function claimFund()
         external
         onlyPlatformAdmin(PLATFORM_HASH)
@@ -957,10 +1094,14 @@ contract KeepWhatsRaised is
         uint256 pledgeAmount,
         uint256 tip,
         uint256 tokenId,
-        bytes32[] memory rewards
+        bytes32[] memory rewards,
+        address tokenSource
     ) private {
         uint256 totalAmount = pledgeAmount + tip;
-        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        
+        // Transfer tokens from tokenSource (either admin or backer)
+        TOKEN.safeTransferFrom(tokenSource, address(this), totalAmount);
+        
         s_tokenIdCounter.increment();
         s_tokenToPledgedAmount[tokenId] = pledgeAmount;
         s_tokenToTippedAmount[tokenId] = tip;
@@ -983,16 +1124,21 @@ contract KeepWhatsRaised is
     }
 
     /**
-     * @dev Calculates the net available amount after deducting platform fees and applicable taxes
-     * @param pledgeId The unique identifier of the pledge.
-     * @param tokenId The ID of the token representing the pledge.
-     * @param pledgeAmount The total pledge amount before any deductions
-     * @return The net available amount after all fees and taxes are deducted
-     * 
-     * @notice This function performs the following calculations:
-     *         1. Applies all gross percentage fees based on platform configuration
-     *         2. Calculates Colombian creator tax if applicable (0.4% effective rate)
-     *         3. Updates the total platform fee accumulator
+     * @notice Calculates the net amount available from a pledge after deducting 
+     *         all applicable fees.
+     *
+     * @dev The function performs the following:
+     *      - Applies all configured gross percentage-based fees
+     *      - Applies payment gateway fee for the given pledge
+     *      - Applies protocol fee based on protocol configuration
+     *      - Accumulates total platform and protocol fees
+     *      - Records the total deducted fee for the token
+     *
+     * @param pledgeId The unique identifier of the pledge
+     * @param tokenId The token ID representing the pledge
+     * @param pledgeAmount The original pledged amount before deductions
+     *
+     * @return The net available amount after all fees are deducted
      */
     function _calculateNetAvailable(bytes32 pledgeId, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
         uint256 totalFee = 0;
@@ -1000,7 +1146,7 @@ contract KeepWhatsRaised is
         // Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
-            uint256 fee = (pledgeAmount * uint256(INFO.getPlatformData(s_feeKeys.grossPercentageFeeKeys[i]))) 
+            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i]))
                         / PERCENT_DIVIDER;
             s_platformFee += fee;
             totalFee += fee;
@@ -1010,6 +1156,12 @@ contract KeepWhatsRaised is
         uint256 paymentGatewayFee = getPaymentGatewayFee(pledgeId);
         s_platformFee += paymentGatewayFee;
         totalFee += paymentGatewayFee;
+
+        //Protocol Fee Calculation
+        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) /
+            PERCENT_DIVIDER;
+        s_protocolFee += protocolFee;
+        totalFee += protocolFee;
 
         s_tokenToPaymentFee[tokenId] = totalFee;
 

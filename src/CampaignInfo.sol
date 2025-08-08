@@ -134,14 +134,7 @@ contract CampaignInfo is
             s_isSelectedPlatform[selectedPlatformHash[i]] = true;
         }
         len = platformDataKey.length;
-        bool isValid;
         for (uint256 i = 0; i < len; ++i) {
-            isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
-                platformDataKey[i]
-            );
-            if (!isValid) {
-                revert CampaignInfoInvalidInput();
-            }
             s_platformData[platformDataKey[i]] = platformDataValue[i];
         }
     }
@@ -398,7 +391,9 @@ contract CampaignInfo is
      */
     function updateSelectedPlatform(
         bytes32 platformHash,
-        bool selection
+        bool selection,
+        bytes32[] calldata platformDataKey,
+        bytes32[] calldata platformDataValue
     )
         external
         override
@@ -417,6 +412,28 @@ contract CampaignInfo is
         if (!selection && checkIfPlatformApproved(platformHash)) {
             revert CampaignInfoPlatformAlreadyApproved(platformHash);
         }
+
+        if (platformDataKey.length != platformDataValue.length) {
+            revert CampaignInfoInvalidInput();
+        }
+
+        if (selection) {
+            bool isValid;
+            for (uint256 i = 0; i < platformDataKey.length; i++) {
+                isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
+                    platformDataKey[i]
+                );
+                if (!isValid) {
+                    revert CampaignInfoInvalidInput();
+                }
+                if (platformDataValue[i] == bytes32(0)) {
+                    revert CampaignInfoInvalidInput();
+                }
+
+                s_platformData[platformDataKey[i]] = platformDataValue[i];
+            }
+        }
+
         s_isSelectedPlatform[platformHash] = selection;
         if (selection) {
             s_platformFeePercent[platformHash] = GLOBAL_PARAMS
