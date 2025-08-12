@@ -1,5 +1,5 @@
 # ICampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/interfaces/ICampaignInfo.sol)
 
 An interface for managing campaign information in a crowdfunding system.
 
@@ -292,7 +292,12 @@ Updates the selection status of a platform for the campaign.
 
 
 ```solidity
-function updateSelectedPlatform(bytes32 platformHash, bool selection) external;
+function updateSelectedPlatform(
+    bytes32 platformHash,
+    bool selection,
+    bytes32[] calldata platformDataKey,
+    bytes32[] calldata platformDataValue
+) external;
 ```
 **Parameters**
 
@@ -300,6 +305,8 @@ function updateSelectedPlatform(bytes32 platformHash, bool selection) external;
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 |`selection`|`bool`|The new selection status (true or false).|
+|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
+|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
 
 
 ### paused

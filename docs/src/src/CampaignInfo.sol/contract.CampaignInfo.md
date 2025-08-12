@@ -1,5 +1,5 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/CampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/CampaignInfo.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), Initializable
@@ -437,13 +437,12 @@ Updates the selection status of a platform for the campaign.
 
 
 ```solidity
-function updateSelectedPlatform(bytes32 platformHash, bool selection)
-    external
-    override
-    onlyOwner
-    currentTimeIsLess(getLaunchTime())
-    whenNotPaused
-    whenNotCancelled;
+function updateSelectedPlatform(
+    bytes32 platformHash,
+    bool selection,
+    bytes32[] calldata platformDataKey,
+    bytes32[] calldata platformDataValue
+) external override onlyOwner currentTimeIsLess(getLaunchTime()) whenNotPaused whenNotCancelled;
 ```
 **Parameters**
 
@@ -451,6 +450,8 @@ function updateSelectedPlatform(bytes32 platformHash, bool selection)
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 |`selection`|`bool`|The new selection status (true or false).|
+|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
+|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
 
 
 ### _pauseCampaign

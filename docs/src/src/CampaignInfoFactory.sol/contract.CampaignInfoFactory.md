@@ -1,5 +1,5 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/CampaignInfoFactory.sol)
 
 **Inherits:**
 Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), Ownable
@@ -84,6 +84,12 @@ function _initialize(address treasuryFactoryAddress, address globalParams) exter
 ### createCampaign
 
 Creates a new campaign information contract.
+
+*IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+permanently in the campaign contract. Users should verify current fees before
+calling this function or using intermediate contracts that check fees haven't
+changed from expected values. The protocol fee is stored as immutable in the cloned
+contract and platform fees are stored during initialization.*
 
 
 ```solidity

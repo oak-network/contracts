@@ -1,5 +1,5 @@
 # GlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/7ba93df0a979ce4ef420098855e6b4bfadbb6ecd/src/GlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/GlobalParams.sol)
 
 **Inherits:**
 [IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable
