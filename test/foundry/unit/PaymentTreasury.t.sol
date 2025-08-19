@@ -182,15 +182,11 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     
     function testCreatePaymentRevertWhenPaused() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        // Pause the treasury - but this won't affect createPayment
+        // Pause the treasury
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.pauseTreasury(keccak256("Pause"));
 
-        // createPayment checks campaign pause, not treasury pause
-        CampaignInfo actualCampaignInfo = CampaignInfo(campaignAddress);
-        vm.prank(users.protocolAdminAddress);
-        actualCampaignInfo._pauseCampaign(keccak256("Pause"));
-        
+        // createPayment checks both treasury and campaign pause
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -218,6 +214,47 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_AMOUNT_1,
             expiration
         );
+    }
+    
+    /*//////////////////////////////////////////////////////////////
+                       CRYPTO PAYMENT PROCESSING
+    //////////////////////////////////////////////////////////////*/
+    
+    function testProcessCryptoPayment() public {
+        uint256 amount = 1500e18;
+        deal(address(testToken), users.backer1Address, amount);
+        
+        vm.prank(users.backer1Address);
+        testToken.approve(treasuryAddress, amount);
+        
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        
+        assertEq(paymentTreasury.getRaisedAmount(), amount);
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), amount);
+        assertEq(testToken.balanceOf(treasuryAddress), amount);
+    }
+    
+    function testProcessCryptoPaymentRevertWhenZeroBuyerAddress() public {
+        vm.expectRevert();
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, address(0), 1000e18);
+    }
+    
+    function testProcessCryptoPaymentRevertWhenZeroAmount() public {
+        vm.expectRevert();
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, 0);
+    }
+    
+    function testProcessCryptoPaymentRevertWhenPaymentExists() public {
+        uint256 amount = 1500e18;
+        deal(address(testToken), users.backer1Address, amount * 2);
+        
+        vm.prank(users.backer1Address);
+        testToken.approve(treasuryAddress, amount * 2);
+        
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        
+        vm.expectRevert();
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -276,6 +313,15 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.cancelPayment(PAYMENT_ID_1);
     }
     
+    function testCancelPaymentRevertWhenCryptoPayment() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.cancelPayment(PAYMENT_ID_1);
+    }
+    
     /*//////////////////////////////////////////////////////////////
                         PAYMENT CONFIRMATION
     //////////////////////////////////////////////////////////////*/
@@ -323,6 +369,15 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.stopPrank();
     }
     
+    function testConfirmPaymentRevertWhenCryptoPayment() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+    }
+    
     /*//////////////////////////////////////////////////////////////
                               REFUNDS
     //////////////////////////////////////////////////////////////*/
@@ -342,6 +397,37 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         assertEq(balanceAfter - balanceBefore, PAYMENT_AMOUNT_1);
         assertEq(paymentTreasury.getRaisedAmount(), 0);
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
+    }
+    
+    function testClaimRefundBuyerInitiated() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        uint256 balanceBefore = testToken.balanceOf(users.backer1Address);
+        
+        vm.prank(users.backer1Address);
+        paymentTreasury.claimRefund(PAYMENT_ID_1);
+        
+        uint256 balanceAfter = testToken.balanceOf(users.backer1Address);
+        
+        assertEq(balanceAfter - balanceBefore, amount);
+        assertEq(paymentTreasury.getRaisedAmount(), 0);
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
+    }
+    
+    function testClaimRefundByPlatformAdminForCryptoPayment() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        uint256 balanceBefore = testToken.balanceOf(users.backer1Address);
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.claimRefund(PAYMENT_ID_1);
+        
+        uint256 balanceAfter = testToken.balanceOf(users.backer1Address);
+        
+        assertEq(balanceAfter - balanceBefore, amount);
+        assertEq(paymentTreasury.getRaisedAmount(), 0);
     }
     
     function testClaimRefundRevertWhenNotConfirmed() public {
@@ -379,6 +465,15 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.claimRefund(PAYMENT_ID_1, users.backer1Address);
     }
     
+    function testClaimRefundRevertWhenUnauthorizedForCryptoPayment() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        vm.expectRevert();
+        vm.prank(users.backer2Address); // Different buyer
+        paymentTreasury.claimRefund(PAYMENT_ID_1);
+    }
+    
     /*//////////////////////////////////////////////////////////////
                           FEE DISBURSEMENT
     //////////////////////////////////////////////////////////////*/
@@ -387,6 +482,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Withdraw first to calculate fees
+        paymentTreasury.withdraw();
         
         uint256 protocolBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
         uint256 platformBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
@@ -399,14 +497,22 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         assertTrue(platformBalanceAfter > platformBalanceBefore);
     }
     
-    function testDisburseFeesRevertWhenAlreadyDisbursed() public {
+    function testDisburseFeesMultipleTimes() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
+        
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
+        // First withdrawal and disbursement
+        paymentTreasury.withdraw();
         paymentTreasury.disburseFees();
         
-        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        
+        // Second withdrawal and disbursement
+        paymentTreasury.withdraw();
         paymentTreasury.disburseFees();
     }
     
@@ -414,6 +520,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        paymentTreasury.withdraw();
         
         // Pause treasury
         vm.prank(users.platform1AdminAddress);
@@ -432,26 +540,19 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
-        paymentTreasury.disburseFees();
-        
         address owner = CampaignInfo(campaignAddress).owner();
         uint256 ownerBalanceBefore = testToken.balanceOf(owner);
-        uint256 availableAmount = paymentTreasury.getAvailableRaisedAmount();
         
         paymentTreasury.withdraw();
         
         uint256 ownerBalanceAfter = testToken.balanceOf(owner);
-        assertEq(ownerBalanceAfter - ownerBalanceBefore, availableAmount);
-        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
-    }
-    
-    function testWithdrawRevertWhenFeesNotDisbursed() public {
-        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
-        vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
-        vm.expectRevert();
-        paymentTreasury.withdraw();
+        uint256 expectedProtocolFee = (PAYMENT_AMOUNT_1 * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedPlatformFee = (PAYMENT_AMOUNT_1 * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedWithdrawal = PAYMENT_AMOUNT_1 - expectedProtocolFee - expectedPlatformFee;
+        
+        assertEq(ownerBalanceAfter - ownerBalanceBefore, expectedWithdrawal);
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
     }
     
     function testWithdrawRevertWhenAlreadyWithdrawn() public {
@@ -459,8 +560,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
-        paymentTreasury.disburseFees();
         paymentTreasury.withdraw();
+        paymentTreasury.disburseFees();
         
         vm.expectRevert();
         paymentTreasury.withdraw();
@@ -470,7 +571,6 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
-        paymentTreasury.disburseFees();
         
         // Pause treasury
         vm.prank(users.platform1AdminAddress);
@@ -503,8 +603,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.expectRevert();
         paymentTreasury.disburseFees();
 
-        // createPayment checks campaign pause, not treasury pause
+        // createPayment checks treasury pause as well
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
@@ -546,6 +647,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.disburseFees();
 
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
@@ -569,6 +671,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.disburseFees();
 
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
@@ -636,9 +739,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         assertEq(paymentTreasury.getRaisedAmount(), 0);
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
         
-        // Disbursing fees with zero balance should succeed (transferring 0 amounts)
-        paymentTreasury.disburseFees();
-        // But withdraw should revert because balance is 0
+        // Withdraw should revert because balance is 0
         vm.expectRevert();
         paymentTreasury.withdraw();
     }
@@ -685,5 +786,26 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.confirmPayment(PAYMENT_ID_2);
         
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2);
+    }
+
+    function testMixedPaymentTypes() public {
+        // Create both regular and crypto payments
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndProcessCryptoPayment(PAYMENT_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
+        
+        // Confirm regular payment
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Both should contribute to raised amount
+        uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
+        assertEq(paymentTreasury.getRaisedAmount(), totalAmount);
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), totalAmount);
+        
+        // Withdraw and disburse fees
+        paymentTreasury.withdraw();
+        paymentTreasury.disburseFees();
+        
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
     }
 }

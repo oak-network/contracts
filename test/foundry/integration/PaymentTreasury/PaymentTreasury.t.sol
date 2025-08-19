@@ -150,6 +150,20 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     }
 
     /**
+     * @notice Processes a crypto payment
+     */
+    function processCryptoPayment(
+        address caller,
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        uint256 amount
+    ) internal {
+        vm.prank(caller);
+        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, amount);
+    }
+
+    /**
      * @notice Cancels a payment
      */
     function cancelPayment(address caller, bytes32 paymentId) internal {
@@ -197,6 +211,29 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     }
 
     /**
+     * @notice Claims a refund (buyer-initiated)
+     */
+    function claimRefund(address caller, bytes32 paymentId) 
+        internal 
+        returns (uint256 refundAmount) 
+    {
+        vm.startPrank(caller);
+        vm.recordLogs();
+        
+        paymentTreasury.claimRefund(paymentId);
+        
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
+            logs, "RefundClaimed(bytes32,uint256,address)", treasuryAddress
+        );
+        
+        refundAmount = abi.decode(data, (uint256));
+        
+        vm.stopPrank();
+    }
+
+    /**
      * @notice Disburses fees
      */
     function disburseFees(address treasury)
@@ -219,7 +256,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      */
     function withdraw(address treasury)
         internal
-        returns (address to, uint256 amount)
+        returns (address to, uint256 amount, uint256 fee)
     {
         vm.recordLogs();
 
@@ -228,10 +265,10 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         (bytes32[] memory topics, bytes memory data) =
-            decodeTopicsAndData(logs, "WithdrawalSuccessful(address,uint256)", treasury);
+            decodeTopicsAndData(logs, "WithdrawalWithFeeSuccessful(address,uint256,uint256)", treasury);
 
         to = address(uint160(uint256(topics[1])));
-        amount = abi.decode(data, (uint256));
+        (amount, fee) = abi.decode(data, (uint256, uint256));
     }
 
     /**
@@ -282,6 +319,26 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
         testToken.transfer(treasuryAddress, amount);
+    }
+
+    /**
+     * @notice Helper to create and process a crypto payment
+     */
+    function _createAndProcessCryptoPayment(
+        bytes32 paymentId,
+        bytes32 itemId,
+        uint256 amount,
+        address buyerAddress
+    ) internal {
+        // Fund buyer
+        deal(address(testToken), buyerAddress, amount);
+        
+        // Buyer approves treasury
+        vm.prank(buyerAddress);
+        testToken.approve(treasuryAddress, amount);
+        
+        // Process crypto payment
+        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, amount);
     }
 
     /**

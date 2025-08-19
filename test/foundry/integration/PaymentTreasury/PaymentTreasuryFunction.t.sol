@@ -88,7 +88,7 @@ contract PaymentTreasuryFunction_Integration_Test is
             users.backer1Address
         );
 
-        // Assert: The refund amount is correct and all balances are updated as expected.
+        // Verify the refund amount is correct and all balances are updated as expected.
         assertEq(refundAmount, PAYMENT_AMOUNT_1, "Refunded amount is incorrect");
         assertEq(
             testToken.balanceOf(users.backer1Address),
@@ -99,11 +99,47 @@ contract PaymentTreasuryFunction_Integration_Test is
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Available amount should be zero after refund");
         assertEq(testToken.balanceOf(treasuryAddress), 0, "Treasury token balance should be zero after refund");
     }
+
+    /**
+     * @notice Tests the processing of a crypto payment.
+     */
+    function test_processCryptoPayment() public {
+        uint256 amount = 1500e18;
+        deal(address(testToken), users.backer1Address, amount);
+        
+        vm.prank(users.backer1Address);
+        testToken.approve(treasuryAddress, amount);
+        
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        
+        assertEq(paymentTreasury.getRaisedAmount(), amount, "Raised amount should match crypto payment");
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), amount, "Available amount should match crypto payment");
+        assertEq(testToken.balanceOf(treasuryAddress), amount, "Treasury should hold the tokens");
+    }
+
+    /**
+     * @notice Tests buyer-initiated refund for crypto payment.
+     */
+    function test_claimRefundBuyerInitiated() public {
+        uint256 amount = 1500e18;
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
+        
+        uint256 buyerBalanceBefore = testToken.balanceOf(users.backer1Address);
+        uint256 refundAmount = claimRefund(users.backer1Address, PAYMENT_ID_1);
+        
+        assertEq(refundAmount, amount, "Refund amount should match payment");
+        assertEq(
+            testToken.balanceOf(users.backer1Address),
+            buyerBalanceBefore + amount,
+            "Buyer should receive refund"
+        );
+        assertEq(paymentTreasury.getRaisedAmount(), 0, "Raised amount should be zero after refund");
+    }
     
     /**
-     * @notice Tests the correct disbursement of fees to the protocol and platform.
+     * @notice Tests the final withdrawal of funds by the campaign owner after fees have been calculated.
      */
-    function test_disburseFees() public {
+    function test_withdraw() public {
         _createTestPayments();
         uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
         bytes32[] memory paymentIds = new bytes32[](2);
@@ -111,13 +147,49 @@ contract PaymentTreasuryFunction_Integration_Test is
         paymentIds[1] = PAYMENT_ID_2;
         confirmPaymentBatch(users.platform1AdminAddress, paymentIds);
 
+        address campaignOwner = CampaignInfo(campaignAddress).owner();
+        uint256 ownerBalanceBefore = testToken.balanceOf(campaignOwner);
+
+        (address recipient, uint256 withdrawnAmount, uint256 fee) = withdraw(treasuryAddress);
+        uint256 ownerBalanceAfter = testToken.balanceOf(campaignOwner);
+
+        // Check that the correct amount is withdrawn to the campaign owner's address.
+        uint256 expectedProtocolFee = (totalAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedPlatformFee = (totalAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedTotalFee = expectedProtocolFee + expectedPlatformFee;
+        uint256 expectedWithdrawalAmount = totalAmount - expectedTotalFee;
+
+        assertEq(recipient, campaignOwner, "Funds withdrawn to incorrect address");
+        assertEq(withdrawnAmount, expectedWithdrawalAmount, "Incorrect amount withdrawn");
+        assertEq(fee, expectedTotalFee, "Incorrect fee amount");
+        assertEq(
+            ownerBalanceAfter - ownerBalanceBefore, 
+            expectedWithdrawalAmount, 
+            "Campaign owner did not receive correct withdrawn amount"
+        );
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Available amount should be zero after withdrawal");
+    }
+
+    /**
+     * @notice Tests the correct disbursement of fees to the protocol and platform after withdrawal.
+     */
+    function test_disburseFeesAfterWithdraw() public {
+        _createTestPayments();
+        uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
+        bytes32[] memory paymentIds = new bytes32[](2);
+        paymentIds[0] = PAYMENT_ID_1;
+        paymentIds[1] = PAYMENT_ID_2;
+        confirmPaymentBatch(users.platform1AdminAddress, paymentIds);
+        
+        // Withdraw first to calculate fees
+        withdraw(treasuryAddress);
+
         uint256 protocolAdminBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
-        uint256 treasuryAvailableAmountBefore = paymentTreasury.getAvailableRaisedAmount();
 
         (uint256 protocolShare, uint256 platformShare) = disburseFees(treasuryAddress);
 
-        // Assert: Fees are calculated and transferred correctly.
+        // Verify fees are calculated and transferred correctly.
         uint256 expectedProtocolShare = (totalAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 expectedPlatformShare = (totalAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
 
@@ -134,41 +206,7 @@ contract PaymentTreasuryFunction_Integration_Test is
             platformAdminBalanceBefore + expectedPlatformShare,
             "Platform admin did not receive correct fee amount"
         );
-        assertEq(
-            paymentTreasury.getAvailableRaisedAmount(),
-            treasuryAvailableAmountBefore - protocolShare - platformShare,
-            "Treasury available amount not reduced correctly after disbursing fees"
-        );
-    }
-
-    /**
-     * @notice Tests the final withdrawal of funds by the campaign owner after fees have been disbursed.
-     */
-    function test_withdraw() public {
-        _createTestPayments();
-        uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
-        bytes32[] memory paymentIds = new bytes32[](2);
-        paymentIds[0] = PAYMENT_ID_1;
-        paymentIds[1] = PAYMENT_ID_2;
-        confirmPaymentBatch(users.platform1AdminAddress, paymentIds);
-        (uint256 protocolShare, uint256 platformShare) = disburseFees(treasuryAddress);
-
-        address campaignOwner = CampaignInfo(campaignAddress).owner();
-        uint256 ownerBalanceBefore = testToken.balanceOf(campaignOwner);
-
-        (address recipient, uint256 withdrawnAmount) = withdraw(treasuryAddress);
-        uint256 ownerBalanceAfter = testToken.balanceOf(campaignOwner);
-
-        // Check that the correct amount is withdrawn to the campaign owner's address.
-        uint256 expectedWithdrawalAmount = totalAmount - protocolShare - platformShare;
-        assertEq(recipient, campaignOwner, "Funds withdrawn to incorrect address");
-        assertEq(withdrawnAmount, expectedWithdrawalAmount, "Incorrect amount withdrawn");
-        assertEq(
-            ownerBalanceAfter - ownerBalanceBefore, 
-            expectedWithdrawalAmount, 
-            "Campaign owner did not receive correct withdrawn amount"
-        );
-        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Available amount should be zero after withdrawal");
-        assertEq(testToken.balanceOf(treasuryAddress), 0, "Treasury token balance should be zero after withdrawal");
+        
+        assertEq(testToken.balanceOf(treasuryAddress), 0, "Treasury should have zero balance after disbursing fees");
     }
 }
