@@ -72,7 +72,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -88,20 +88,20 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.backer1Address);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
         );
     }
     
-    function testCreatePaymentRevertWhenZeroBuyerAddress() public {
+    function testCreatePaymentRevertWhenZeroBuyerId() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            address(0),
+            bytes32(0),
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -114,7 +114,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             0,
             expiration
@@ -126,7 +126,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             block.timestamp - 1
@@ -139,7 +139,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             bytes32(0),
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -152,7 +152,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             bytes32(0),
             PAYMENT_AMOUNT_1,
             expiration
@@ -164,7 +164,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.startPrank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -172,7 +172,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.expectRevert();
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer2Address,
+            BUYER_ID_2,
             ITEM_ID_2,
             PAYMENT_AMOUNT_2,
             expiration
@@ -195,7 +195,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -213,7 +213,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -230,7 +230,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -249,7 +249,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testCancelPaymentRevertWhenAlreadyConfirmed() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -263,7 +263,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -281,7 +281,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
     
     function testConfirmPayment() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -290,9 +290,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testConfirmPaymentBatch() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
-        _createAndFundPayment(PAYMENT_ID_2, users.backer2Address, ITEM_ID_2, PAYMENT_AMOUNT_2);
-        _createAndFundPayment(PAYMENT_ID_3, users.backer1Address, ITEM_ID_1, 500e18);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
+        _createAndFundPayment(PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, 500e18, users.backer1Address);
         
         bytes32[] memory paymentIds = new bytes32[](3);
         paymentIds[0] = PAYMENT_ID_1;
@@ -314,7 +314,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testConfirmPaymentRevertWhenAlreadyConfirmed() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.startPrank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -328,7 +328,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
     
     function testClaimRefund() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -349,7 +349,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -366,7 +366,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testClaimRefundRevertWhenPaused() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -384,7 +384,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
     
     function testDisburseFees() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -400,7 +400,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testDisburseFeesRevertWhenAlreadyDisbursed() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -411,7 +411,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testDisburseFeesRevertWhenPaused() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -428,7 +428,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
     
     function testWithdraw() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -446,7 +446,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testWithdrawRevertWhenFeesNotDisbursed() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -455,7 +455,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testWithdrawRevertWhenAlreadyWithdrawn() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -467,7 +467,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testWithdrawRevertWhenPaused() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         paymentTreasury.disburseFees();
@@ -486,7 +486,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     
     function testPauseTreasury() public {
         // First create and confirm a payment to test functions that require it
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
         
@@ -508,7 +508,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
-            users.backer2Address,
+            BUYER_ID_1,
             ITEM_ID_2,
             PAYMENT_AMOUNT_2,
             expiration
@@ -527,7 +527,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             expiration
@@ -535,7 +535,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
 
     function testCancelTreasuryByPlatformAdmin() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
 
@@ -549,7 +549,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
-            users.backer2Address,
+            BUYER_ID_1,
             ITEM_ID_2,
             PAYMENT_AMOUNT_2,
             expiration
@@ -557,7 +557,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testCancelTreasuryByCampaignOwner() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
 
@@ -572,7 +572,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
-            users.backer2Address,
+            BUYER_ID_1,
             ITEM_ID_2,
             PAYMENT_AMOUNT_2,
             expiration
@@ -591,9 +591,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     
     function testMultipleRefundsAfterBatchConfirm() public {
         // Create multiple payments
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
-        _createAndFundPayment(PAYMENT_ID_2, users.backer2Address, ITEM_ID_2, PAYMENT_AMOUNT_2);
-        _createAndFundPayment(PAYMENT_ID_3, users.backer1Address, ITEM_ID_1, 500e18);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
+        _createAndFundPayment(PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, 500e18, users.backer1Address);
         
         // Confirm all in batch
         bytes32[] memory paymentIds = new bytes32[](3);
@@ -621,8 +621,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
     
     function testZeroBalanceAfterAllRefunds() public {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
-        _createAndFundPayment(PAYMENT_ID_2, users.backer2Address, ITEM_ID_2, PAYMENT_AMOUNT_2);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
         
         vm.startPrank(users.platform1AdminAddress);
         paymentTreasury.confirmPayment(PAYMENT_ID_1);
@@ -651,14 +651,14 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.startPrank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
             PAYMENT_AMOUNT_1,
             shortExpiration
         );
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
-            users.backer2Address,
+            BUYER_ID_2,
             ITEM_ID_2,
             PAYMENT_AMOUNT_2,
             longExpiration

@@ -24,6 +24,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     uint256 internal constant PAYMENT_AMOUNT_1 = 1000e18;
     uint256 internal constant PAYMENT_AMOUNT_2 = 2000e18;
     uint256 internal constant PAYMENT_EXPIRATION = 7 days;
+    bytes32 internal constant BUYER_ID_1 = keccak256("buyer1");
+    bytes32 internal constant BUYER_ID_2 = keccak256("buyer2");
+    bytes32 internal constant BUYER_ID_3 = keccak256("buyer3");
 
     /// @dev Initial dependent functions setup included for PaymentTreasury Integration Tests.
     function setUp() public virtual override {
@@ -137,13 +140,13 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     function createPayment(
         address caller,
         bytes32 paymentId,
-        address buyerAddress,
+        bytes32 buyerId,
         bytes32 itemId,
         uint256 amount,
         uint256 expiration
     ) internal {
         vm.prank(caller);
-        paymentTreasury.createPayment(paymentId, buyerAddress, itemId, amount, expiration);
+        paymentTreasury.createPayment(paymentId, buyerId, itemId, amount, expiration);
     }
 
     /**
@@ -260,9 +263,10 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      */
     function _createAndFundPayment(
         bytes32 paymentId,
-        address buyerAddress,
+        bytes32 buyerId,
         bytes32 itemId,
-        uint256 amount
+        uint256 amount,
+        address buyerAddress
     ) internal {
         // Fund buyer
         deal(address(testToken), buyerAddress, amount);
@@ -273,7 +277,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         
         // Create payment
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        createPayment(users.platform1AdminAddress, paymentId, buyerAddress, itemId, amount, expiration);
+        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, amount, expiration);
         
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
@@ -284,7 +288,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      * @notice Helper to create multiple test payments
      */
     function _createTestPayments() internal {
-        _createAndFundPayment(PAYMENT_ID_1, users.backer1Address, ITEM_ID_1, PAYMENT_AMOUNT_1);
-        _createAndFundPayment(PAYMENT_ID_2, users.backer2Address, ITEM_ID_2, PAYMENT_AMOUNT_2);
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+        _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
     }
 }

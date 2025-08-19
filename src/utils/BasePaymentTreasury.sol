@@ -23,14 +23,26 @@ abstract contract BasePaymentTreasury is
     bytes32 internal PLATFORM_HASH;
     uint256 internal PLATFORM_FEE_PERCENT;
     IERC20 internal TOKEN;
-    bool internal s_feesDisbursed;
-
+    uint256 internal s_platformFee;
+    uint256 internal s_protocolFee;
+    /**
+     * @dev Stores information about a payment in the treasury.
+     * @param buyerAddress The address of the buyer who made the payment.
+     * @param buyerId The ID of the buyer.
+     * @param itemId The identifier of the item being purchased.
+     * @param amount The amount to be paid for the item.
+     * @param expiration The timestamp after which the payment expires.
+     * @param isConfirmed Boolean indicating whether the payment has been confirmed.
+     * @param isCryptoPayment Boolean indicating whether the payment is made using direct crypto payment.
+     */
     struct PaymentInfo {
         address buyerAddress;
+        bytes32 buyerId;
         bytes32 itemId;
         uint256 amount;
         uint256 expiration;
         bool isConfirmed;
+        bool isCryptoPayment;
     }
 
     mapping (bytes32 => PaymentInfo) internal s_payment;
@@ -40,18 +52,22 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @dev Emitted when a new payment is created.
+     * @param buyerAddress The address of the buyer making the payment.
      * @param paymentId The unique identifier of the payment.
-     * @param buyerAddress The address of the buyer who initiated the payment.
+     * @param buyerId The id of the buyer.
      * @param itemId The identifier of the item being purchased.
      * @param amount The amount to be paid for the item.
      * @param expiration The timestamp after which the payment expires.
+     * @param isCryptoPayment Boolean indicating whether the payment is made using direct crypto payment.
      */
     event PaymentCreated(
+        address buyerAddress,
         bytes32 indexed paymentId,
-        address indexed buyerAddress,
+        bytes32 buyerId,
         bytes32 indexed itemId,
         uint256 amount,
-        uint256 expiration
+        uint256 expiration,
+        bool isCryptoPayment
     );
 
     /**
@@ -86,11 +102,12 @@ abstract contract BasePaymentTreasury is
     event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
 
     /**
-     * @notice Emitted when a withdrawal is successful.
-     * @param to The recipient of the withdrawal.
-     * @param amount The amount withdrawn.
+     * @dev Emitted when a withdrawal is successfully processed along with the applied fee.
+     * @param to The recipient address receiving the funds.
+     * @param amount The total amount withdrawn (excluding fee).
+     * @param fee The fee amount deducted from the withdrawal.
      */
-    event WithdrawalSuccessful(address indexed to, uint256 amount);
+    event WithdrawalWithFeeSuccessful(address indexed to, uint256 amount, uint256 fee);
 
     /**
      * @dev Emitted when a refund is claimed.
@@ -156,6 +173,20 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryAlreadyWithdrawn();
 
+    /**
+     * @dev This error is thrown when an operation is attempted on a crypto payment that is only valid for non-crypto payments.
+     * @param paymentId The unique identifier of the payment that caused the error.
+     */
+    error PaymentTreasuryCryptoPayment(bytes32 paymentId);
+
+    /**
+     * @notice Emitted when the fee exceeds the requested withdrawal amount.
+     *
+     * @param withdrawalAmount The amount requested for withdrawal.
+     * @param fee The calculated fee, which is greater than the withdrawal amount.
+     */
+    error PaymentTreasuryInsufficientFundsForFee(uint256 withdrawalAmount, uint256 fee);
+
     function __BaseContract_init(
         bytes32 platformHash,
         address infoAddress
@@ -176,6 +207,23 @@ abstract contract BasePaymentTreasury is
 
     modifier whenCampaignNotCancelled() {
         _revertIfCampaignCancelled();
+        _;
+    }
+
+    /**
+     * @notice Ensures that the caller is either the payment's buyer or the platform admin.
+     * @param paymentId The unique identifier of the payment to validate access for.
+     */
+    modifier onlyBuyerOrPlatformAdmin(bytes32 paymentId) {
+        PaymentInfo memory payment = s_payment[paymentId];
+        address buyerAddress = payment.buyerAddress;
+
+        if (
+            msg.sender != buyerAddress &&
+            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH)
+        ) {
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
+        }
         _;
     }
 
@@ -212,13 +260,13 @@ abstract contract BasePaymentTreasury is
      */
     function createPayment(
         bytes32 paymentId,
-        address buyerAddress,
+        bytes32 buyerId,
         bytes32 itemId,
         uint256 amount,
         uint256 expiration
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
 
-        if(buyerAddress == address(0) ||
+        if(buyerId == ZERO_BYTES ||
            amount == 0 || 
            expiration <= block.timestamp ||
            paymentId == ZERO_BYTES ||
@@ -227,28 +275,80 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput();
         }
 
-        if(s_payment[paymentId].buyerAddress != address(0)){
+        if(s_payment[paymentId].buyerId != ZERO_BYTES || s_payment[paymentId].buyerAddress != address(0)){
             revert PaymentTreasuryPaymentAlreadyExist(paymentId);
         }
 
         s_payment[paymentId] = PaymentInfo({
-            buyerAddress: buyerAddress,
+            buyerId: buyerId,
+            buyerAddress: address(0),
             itemId: itemId,
             amount: amount,
             expiration: expiration,
-            isConfirmed: false
+            isConfirmed: false,
+            isCryptoPayment: false
         });
 
         s_pendingPaymentAmount += amount;
 
         emit PaymentCreated(
+            address(0),
             paymentId,
-            buyerAddress,
+            buyerId,
             itemId,
             amount,
-            expiration
+            expiration,
+            false
         );
 
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function processCryptoPayment(
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        uint256 amount
+    ) public override virtual whenCampaignNotPaused whenCampaignNotCancelled {
+        
+        if(buyerAddress == address(0) ||
+           amount == 0 || 
+           paymentId == ZERO_BYTES ||
+           itemId == ZERO_BYTES
+        ){
+            revert PaymentTreasuryInvalidInput();
+        }
+
+        if(s_payment[paymentId].buyerAddress != address(0) || s_payment[paymentId].buyerId != ZERO_BYTES){
+            revert PaymentTreasuryPaymentAlreadyExist(paymentId);
+        }
+
+        TOKEN.safeTransferFrom(buyerAddress, address(this), amount);
+
+        s_payment[paymentId] = PaymentInfo({
+            buyerId: ZERO_BYTES,
+            buyerAddress: buyerAddress,
+            itemId: itemId,
+            amount: amount,
+            expiration: 0, 
+            isConfirmed: true, 
+            isCryptoPayment: true
+        });
+
+        s_confirmedPaymentAmount += amount;
+        s_availableConfirmedPaymentAmount += amount;
+
+        emit PaymentCreated(
+            buyerAddress,
+            paymentId,
+            ZERO_BYTES,
+            itemId,
+            amount,
+            0,
+            true
+        );
     }
 
     /**
@@ -313,22 +413,28 @@ abstract contract BasePaymentTreasury is
 
     }
 
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
     function claimRefund(
         bytes32 paymentId, 
         address refundAddress
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled
     {
+        if(refundAddress == address(0)){
+            revert PaymentTreasuryInvalidInput();
+        }
         PaymentInfo memory payment = s_payment[paymentId];
+        uint256 amountToRefund = payment.amount;
+        uint256 availablePaymentAmount = s_availableConfirmedPaymentAmount;
 
-        if (payment.buyerAddress == address(0)) {
+        if (payment.buyerId == ZERO_BYTES) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
         }
         if(!payment.isConfirmed){
             revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
-
-        uint256 amountToRefund = payment.amount;
-        if (amountToRefund == 0) {
+        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
 
@@ -344,6 +450,34 @@ abstract contract BasePaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
+    function claimRefund(
+        bytes32 paymentId
+    ) public override virtual onlyBuyerOrPlatformAdmin(paymentId) whenCampaignNotPaused whenCampaignNotCancelled
+    {
+        PaymentInfo memory payment = s_payment[paymentId];
+        address buyerAddress = payment.buyerAddress;
+        uint256 amountToRefund = payment.amount;
+        uint256 availablePaymentAmount = s_availableConfirmedPaymentAmount;
+
+        if (buyerAddress == address(0)) {
+            revert PaymentTreasuryPaymentNotExist(paymentId);
+        }
+        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
+        }
+
+        delete s_payment[paymentId];
+
+        s_confirmedPaymentAmount -= amountToRefund;
+        s_availableConfirmedPaymentAmount -= amountToRefund;
+
+        TOKEN.safeTransfer(buyerAddress, amountToRefund);
+        emit RefundClaimed(paymentId, amountToRefund, buyerAddress);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
     function disburseFees()
         public
         virtual
@@ -351,26 +485,17 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotPaused
         whenCampaignNotCancelled
     {
-        if (!_checkSuccessCondition()) {
-            revert PaymentTreasurySuccessConditionNotFulfilled();
-        }
-        uint256 balance = s_availableConfirmedPaymentAmount;
-        uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
-            PERCENT_DIVIDER;
-        uint256 platformShare = (balance *
-            INFO.getPlatformFeePercent(PLATFORM_HASH)) / PERCENT_DIVIDER;
-
-        s_availableConfirmedPaymentAmount -= protocolShare;
-        s_availableConfirmedPaymentAmount -= platformShare;
-
+        uint256 protocolShare = s_protocolFee;
+        uint256 platformShare = s_platformFee;
+        (s_protocolFee, s_platformFee) = (0, 0);
+        
         TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
-
+        
         TOKEN.safeTransfer(
             INFO.getPlatformAdminAddress(PLATFORM_HASH),
             platformShare
         );
-
-        s_feesDisbursed = true;
+        
         emit FeesDisbursed(protocolShare, platformShare);
     }
 
@@ -384,20 +509,36 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotPaused
         whenCampaignNotCancelled
     {
-        if (!s_feesDisbursed) {
-            revert PaymentTreasuryFeeNotDisbursed();
+        if (!_checkSuccessCondition()) {
+            revert PaymentTreasurySuccessConditionNotFulfilled();
         }
+
+        address recipient = INFO.owner();
         uint256 balance = s_availableConfirmedPaymentAmount;
         if (balance == 0) {
             revert PaymentTreasuryAlreadyWithdrawn();
         }
 
-        address recipient = INFO.owner();
+        // Calculate fees
+        uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+        uint256 platformShare = (balance * INFO.getPlatformFeePercent(PLATFORM_HASH)) / PERCENT_DIVIDER;
+
+        s_protocolFee += protocolShare;
+        s_platformFee += platformShare;
+
+        uint256 totalFee = protocolShare + platformShare;
+
+        if(balance < totalFee) {
+            revert PaymentTreasuryInsufficientFundsForFee(balance, totalFee);
+        }
+        uint256 withdrawalAmount = balance - totalFee;
+        
+        // Reset balance
         s_availableConfirmedPaymentAmount = 0;
 
-        TOKEN.safeTransfer(recipient, balance);
+        TOKEN.safeTransfer(recipient, withdrawalAmount);
 
-        emit WithdrawalSuccessful(recipient, balance);
+        emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
     /**
@@ -449,12 +590,13 @@ abstract contract BasePaymentTreasury is
      * - The payment does not exist.
      * - The payment has already been confirmed.
      * - The payment has already expired.
+     * - The payment is a crypto payment
      * @param paymentId The unique identifier of the payment to validate.
      */
     function _validatePaymentForAction(bytes32 paymentId) internal view {
         PaymentInfo memory payment = s_payment[paymentId];
 
-        if (payment.buyerAddress == address(0)) {
+        if (payment.buyerId == ZERO_BYTES) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
         }
 
@@ -464,6 +606,10 @@ abstract contract BasePaymentTreasury is
 
         if (payment.expiration <= block.timestamp) {
             revert PaymentTreasuryPaymentAlreadyExpired(paymentId);
+        }
+
+        if (payment.isCryptoPayment) {
+            revert PaymentTreasuryCryptoPayment(paymentId);
         }
     }
 

@@ -10,17 +10,32 @@ interface ICampaignPaymentTreasury {
     /**
      * @notice Creates a new payment entry with the specified details.
      * @param paymentId A unique identifier for the payment.
-     * @param buyerAddress The address of the buyer initiating the payment.
+     * @param buyerId The id of the buyer initiating the payment.
      * @param itemId The identifier of the item being purchased.
      * @param amount The amount to be paid for the item.
      * @param expiration The timestamp after which the payment expires.
      */
     function createPayment(
         bytes32 paymentId,
-        address buyerAddress,
+        bytes32 buyerId,
         bytes32 itemId,
         uint256 amount,
         uint256 expiration
+    ) external;
+
+    /**
+     * @notice Allows a buyer to make a direct crypto payment for an item.
+     * @dev This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
+     * @param paymentId The unique identifier of the payment.
+     * @param itemId The identifier of the item being purchased.
+     * @param buyerAddress The address of the buyer making the payment.
+     * @param amount The amount to be paid for the item.
+     */
+    function processCryptoPayment(
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        uint256 amount
     ) external;
 
     /**
@@ -63,6 +78,14 @@ interface ICampaignPaymentTreasury {
      * @param refundAddress The address where the refunded amount should be sent.
      */
     function claimRefund(bytes32 paymentId, address refundAddress) external;
+
+    /**
+     * @notice Allows buyers to claim refunds for crypto payments, or platform admin to process refunds on behalf of buyers.
+     * @param paymentId The unique identifier of the refundable payment.
+     */
+    function claimRefund(
+        bytes32 paymentId
+    ) external;
 
     /**
      * @notice Retrieves the platform identifier associated with the treasury.

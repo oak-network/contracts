@@ -51,11 +51,72 @@ contract PaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
+    function createPayment(
+        bytes32 paymentId,
+        bytes32 buyerId,
+        bytes32 itemId,
+        uint256 amount,
+        uint256 expiration
+    ) public override whenNotPaused whenNotCancelled {
+        super.createPayment(paymentId, buyerId, itemId, amount, expiration);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function processCryptoPayment(
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        uint256 amount
+    ) public override whenNotPaused whenNotCancelled {
+        super.processCryptoPayment(paymentId, itemId, buyerAddress, amount);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function cancelPayment(
+        bytes32 paymentId
+    ) public override whenNotPaused whenNotCancelled {
+        super.cancelPayment(paymentId);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function confirmPayment(
+        bytes32 paymentId
+    ) public override whenNotPaused whenNotCancelled {
+        super.confirmPayment(paymentId);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function confirmPaymentBatch(
+        bytes32[] calldata paymentIds
+    ) public override whenNotPaused whenNotCancelled {
+        super.confirmPaymentBatch(paymentIds);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
     function claimRefund(
         bytes32 paymentId, 
         address refundAddress
     ) public override whenNotPaused whenNotCancelled {
         super.claimRefund(paymentId, refundAddress);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function claimRefund(
+        bytes32 paymentId
+    ) public override whenNotPaused whenNotCancelled {
+        super.claimRefund(paymentId);
     }
 
     /**
@@ -67,9 +128,6 @@ contract PaymentTreasury is
         whenNotPaused
         whenNotCancelled
     {
-        if (s_feesDisbursed) {
-            revert PaymentTreasuryFeeAlreadyDisbursed();
-        }
         super.disburseFees();
     }
 

@@ -22,9 +22,10 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_confirmPayment() public {
         _createAndFundPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
-            PAYMENT_AMOUNT_1
+            PAYMENT_AMOUNT_1,
+            users.backer1Address
         );
         assertEq(testToken.balanceOf(treasuryAddress), PAYMENT_AMOUNT_1);
 
@@ -73,9 +74,10 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_claimRefund() public {
         _createAndFundPayment(
             PAYMENT_ID_1,
-            users.backer1Address,
+            BUYER_ID_1,
             ITEM_ID_1,
-            PAYMENT_AMOUNT_1
+            PAYMENT_AMOUNT_1,
+            users.backer1Address
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
         uint256 backerBalanceBefore = testToken.balanceOf(users.backer1Address);
