@@ -187,6 +187,8 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryInsufficientFundsForFee(uint256 withdrawalAmount, uint256 fee);
 
+    error PaymentTreasuryInsufficientBalance(uint256 required, uint256 available);
+
     function __BaseContract_init(
         bytes32 platformHash,
         address infoAddress
@@ -376,17 +378,27 @@ abstract contract BasePaymentTreasury is
     function confirmPayment(
         bytes32 paymentId
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
-
         _validatePaymentForAction(paymentId);
-
+    
+        uint256 paymentAmount = s_payment[paymentId].amount;
+        
+        // Check that we have enough unallocated tokens for this payment
+        uint256 actualBalance = TOKEN.balanceOf(address(this));
+        uint256 currentlyCommitted = s_availableConfirmedPaymentAmount + s_protocolFee + s_platformFee;
+        
+        if (currentlyCommitted + paymentAmount > actualBalance) {
+            revert PaymentTreasuryInsufficientBalance(
+                currentlyCommitted + paymentAmount,
+                actualBalance
+            );
+        }
+        
         s_payment[paymentId].isConfirmed = true;
-
-        uint256 amount = s_payment[paymentId].amount;
-
-        s_pendingPaymentAmount -= amount;
-        s_confirmedPaymentAmount += amount;
-        s_availableConfirmedPaymentAmount += amount;
-
+ 
+        s_pendingPaymentAmount -= paymentAmount;
+        s_confirmedPaymentAmount += paymentAmount;
+        s_availableConfirmedPaymentAmount += paymentAmount;
+        
         emit PaymentConfirmed(paymentId);
     }
 
@@ -395,22 +407,37 @@ abstract contract BasePaymentTreasury is
      */
     function confirmPaymentBatch(
         bytes32[] calldata paymentIds
-    ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled { 
-
-        for(uint256 i = 0; i < paymentIds.length; i++){
-            _validatePaymentForAction(paymentIds[i]);
-
-            s_payment[paymentIds[i]].isConfirmed = true;
-
-            uint256 amount = s_payment[paymentIds[i]].amount;
-
+    ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
+        uint256 actualBalance = TOKEN.balanceOf(address(this));
+        bytes32 currentPaymentId;
+        
+        for(uint256 i = 0; i < paymentIds.length;){
+            currentPaymentId = paymentIds[i];
+            _validatePaymentForAction(currentPaymentId);
+            
+            uint256 amount = s_payment[currentPaymentId].amount;
+            
+            // Check if this confirmation would exceed balance
+            uint256 currentlyCommitted = s_availableConfirmedPaymentAmount + s_protocolFee + s_platformFee;
+            
+            if (currentlyCommitted + amount > actualBalance) {
+                revert PaymentTreasuryInsufficientBalance(
+                    currentlyCommitted + amount,
+                    actualBalance
+                );
+            }
+            
+            s_payment[currentPaymentId].isConfirmed = true;
             s_pendingPaymentAmount -= amount;
             s_confirmedPaymentAmount += amount;
             s_availableConfirmedPaymentAmount += amount;
+
+            unchecked {
+                ++i;
+            }
         }
-
+        
         emit PaymentBatchConfirmed(paymentIds);
-
     }
 
     /**

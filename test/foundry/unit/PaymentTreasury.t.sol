@@ -808,4 +808,81 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
     }
+
+    function testCannotCreatePhantomBalances() public {
+        // Create payment for 1000 USDC
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            1000e18,
+            expiration
+        );
+        
+        // Try to confirm without any tokens - should revert
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Send the tokens
+        deal(address(testToken), users.backer1Address, 1000e18);
+        vm.prank(users.backer1Address);
+        testToken.transfer(treasuryAddress, 1000e18);
+        
+        // Now confirmation works
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        assertEq(paymentTreasury.getRaisedAmount(), 1000e18);
+    }
+
+    function testCannotConfirmMoreThanBalance() public {
+        // Create two payments of 500 each
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, 500e18, expiration);
+        vm.stopPrank();
+        
+        // Send only 500 tokens total
+        deal(address(testToken), users.backer1Address, 500e18);
+        vm.prank(users.backer1Address);
+        testToken.transfer(treasuryAddress, 500e18);
+        
+        // Can confirm one payment
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Cannot confirm second payment - total would exceed balance
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        
+        assertEq(paymentTreasury.getRaisedAmount(), 500e18);
+    }
+
+    function testBatchConfirmRespectsBalance() public {
+        // Create two payments
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, 500e18, expiration);
+        vm.stopPrank();
+        
+        // Send only 500 tokens
+        deal(address(testToken), users.backer1Address, 500e18);
+        vm.prank(users.backer1Address);
+        testToken.transfer(treasuryAddress, 500e18);
+        
+        // Try to confirm both 
+        bytes32[] memory paymentIds = new bytes32[](2);
+        paymentIds[0] = PAYMENT_ID_1;
+        paymentIds[1] = PAYMENT_ID_2;
+        
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPaymentBatch(paymentIds);
+    }
 }
