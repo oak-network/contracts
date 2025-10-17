@@ -71,7 +71,7 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
         
         // Check for existing contract addresses
-        testToken = vm.envOr("TEST_USD_ADDRESS", address(0));
+        testToken = vm.envOr("TOKEN_ADDRESS", address(0));
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr("CAMPAIGN_INFO_FACTORY_ADDRESS", address(0));
@@ -268,16 +268,22 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         }
         
         console2.log("Transferring admin rights to final addresses...");
-        
+
         // Only transfer if the final addresses are different from deployer
-        if (finalProtocolAdmin != deployerAddress) {
-            console2.log("Transferring protocol admin rights to:", finalProtocolAdmin);
-            GlobalParams(globalParams).updateProtocolAdminAddress(finalProtocolAdmin);
-        }
-        
         if (finalPlatformAdmin != deployerAddress) {
             console2.log("Updating platform admin address for platform hash:", vm.toString(platformHash));
             GlobalParams(globalParams).updatePlatformAdminAddress(platformHash, finalPlatformAdmin);
+        }
+        
+        if (finalProtocolAdmin != deployerAddress) {
+            console2.log("Transferring protocol admin rights to:", finalProtocolAdmin);
+            GlobalParams(globalParams).updateProtocolAdminAddress(finalProtocolAdmin);
+
+            //Transfer admin rights to the final protocol admin
+            GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
+            console2.log("GlobalParams transferred to:", finalProtocolAdmin);
+            CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
+            console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
         }
         
         adminRightsTransferred = true;
@@ -314,7 +320,7 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         // Output summary
         console2.log("\n--- Deployment & Setup Summary ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TEST_TOKEN_ADDRESS:", testToken);
+        console2.log("TOKEN_ADDRESS:", testToken);
         console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
         if (campaignInfo != address(0)) {
             console2.log("CAMPAIGN_INFO_ADDRESS:", campaignInfo);
@@ -324,6 +330,8 @@ contract DeployAllAndSetupKeepWhatsRaised is Script {
         console2.log("KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS:", keepWhatsRaisedImplementation);
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
+        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
+        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
         
         if (backer1 != address(0)) {
             console2.log("Backer1 (tokens minted):", backer1);

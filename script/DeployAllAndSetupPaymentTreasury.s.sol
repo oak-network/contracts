@@ -144,7 +144,7 @@ contract DeployAllAndSetupPaymentTreasury is Script {
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
             campaignInfoImplementation = address(
-                new CampaignInfo(address(this))
+                new CampaignInfo(deployerAddress)
             );
             console2.log(
                 "CampaignInfo implementation deployed at:",
@@ -321,16 +321,6 @@ contract DeployAllAndSetupPaymentTreasury is Script {
         console2.log("Transferring admin rights to final addresses...");
 
         // Only transfer if the final addresses are different from deployer
-        if (finalProtocolAdmin != deployerAddress) {
-            console2.log(
-                "Transferring protocol admin rights to:",
-                finalProtocolAdmin
-            );
-            GlobalParams(globalParams).updateProtocolAdminAddress(
-                finalProtocolAdmin
-            );
-        }
-
         if (finalPlatformAdmin != deployerAddress) {
             console2.log(
                 "Updating platform admin address for platform hash:",
@@ -340,6 +330,22 @@ contract DeployAllAndSetupPaymentTreasury is Script {
                 platformHash,
                 finalPlatformAdmin
             );
+        }
+
+        if (finalProtocolAdmin != deployerAddress) {
+            console2.log(
+                "Transferring protocol admin rights to:",
+                finalProtocolAdmin
+            );
+            GlobalParams(globalParams).updateProtocolAdminAddress(
+                finalProtocolAdmin
+            );
+
+            //Transfer admin rights to the final protocol admin
+            GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
+            console2.log("GlobalParams transferred to:", finalProtocolAdmin);
+            CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
+            console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
         }
 
         adminRightsTransferred = true;
@@ -376,7 +382,7 @@ contract DeployAllAndSetupPaymentTreasury is Script {
         // Output summary
         console2.log("\n--- Deployment & Setup Summary ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TOKEN_ADDRESS:", testToken);
+        console2.log("TEST_TOKEN_ADDRESS:", testToken);
         console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
         if (campaignInfoImplementation != address(0)) {
             console2.log(
@@ -392,6 +398,8 @@ contract DeployAllAndSetupPaymentTreasury is Script {
         );
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
+        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
+        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
 
         if (backer1 != address(0)) {
             console2.log("Backer1 (tokens minted):", backer1);

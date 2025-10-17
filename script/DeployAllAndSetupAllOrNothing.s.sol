@@ -321,16 +321,6 @@ contract DeployAllAndSetupAllOrNothing is Script {
         console2.log("Transferring admin rights to final addresses...");
 
         // Only transfer if the final addresses are different from deployer
-        if (finalProtocolAdmin != deployerAddress) {
-            console2.log(
-                "Transferring protocol admin rights to:",
-                finalProtocolAdmin
-            );
-            GlobalParams(globalParams).updateProtocolAdminAddress(
-                finalProtocolAdmin
-            );
-        }
-
         if (finalPlatformAdmin != deployerAddress) {
             console2.log(
                 "Updating platform admin address for platform hash:",
@@ -340,6 +330,22 @@ contract DeployAllAndSetupAllOrNothing is Script {
                 platformHash,
                 finalPlatformAdmin
             );
+        }
+
+        if (finalProtocolAdmin != deployerAddress) {
+            console2.log(
+                "Transferring protocol admin rights to:",
+                finalProtocolAdmin
+            );
+            GlobalParams(globalParams).updateProtocolAdminAddress(
+                finalProtocolAdmin
+            );
+
+            //Transfer admin rights to the final protocol admin
+            GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
+            console2.log("GlobalParams transferred to:", finalProtocolAdmin);
+            CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
+            console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
         }
 
         adminRightsTransferred = true;
@@ -392,6 +398,8 @@ contract DeployAllAndSetupAllOrNothing is Script {
         );
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
+        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
+        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
 
         if (backer1 != address(0)) {
             console2.log("Backer1 (tokens minted):", backer1);
