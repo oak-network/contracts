@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
@@ -19,18 +20,22 @@ abstract contract BasePaymentTreasury is
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
+    uint256 internal constant STANDARD_DECIMALS = 18;
 
     bytes32 internal PLATFORM_HASH;
     uint256 internal PLATFORM_FEE_PERCENT;
-    IERC20 internal TOKEN;
-    uint256 internal s_platformFee;
-    uint256 internal s_protocolFee;
+    
+    // Multi-token support
+    mapping(bytes32 => address) internal s_paymentIdToToken; // Track token used for each payment
+    mapping(address => uint256) internal s_platformFeePerToken; // Platform fees per token
+    mapping(address => uint256) internal s_protocolFeePerToken; // Protocol fees per token
+    
     /**
      * @dev Stores information about a payment in the treasury.
      * @param buyerAddress The address of the buyer who made the payment.
      * @param buyerId The ID of the buyer.
      * @param itemId The identifier of the item being purchased.
-     * @param amount The amount to be paid for the item.
+     * @param amount The amount to be paid for the item (in token's native decimals).
      * @param expiration The timestamp after which the payment expires.
      * @param isConfirmed Boolean indicating whether the payment has been confirmed.
      * @param isCryptoPayment Boolean indicating whether the payment is made using direct crypto payment.
@@ -46,9 +51,11 @@ abstract contract BasePaymentTreasury is
     }
 
     mapping (bytes32 => PaymentInfo) internal s_payment;
-    uint256 internal s_pendingPaymentAmount;
-    uint256 internal s_confirmedPaymentAmount;
-    uint256 internal s_availableConfirmedPaymentAmount;
+    
+    // Multi-token balances (all in token's native decimals)
+    mapping(address => uint256) internal s_pendingPaymentPerToken; // Pending payment amounts per token
+    mapping(address => uint256) internal s_confirmedPaymentPerToken; // Confirmed payment amounts per token
+    mapping(address => uint256) internal s_availableConfirmedPerToken; // Available confirmed amounts per token
 
     /**
      * @dev Emitted when a new payment is created.
@@ -56,7 +63,8 @@ abstract contract BasePaymentTreasury is
      * @param paymentId The unique identifier of the payment.
      * @param buyerId The id of the buyer.
      * @param itemId The identifier of the item being purchased.
-     * @param amount The amount to be paid for the item.
+     * @param paymentToken The token used for the payment.
+     * @param amount The amount to be paid for the item (in token's native decimals).
      * @param expiration The timestamp after which the payment expires.
      * @param isCryptoPayment Boolean indicating whether the payment is made using direct crypto payment.
      */
@@ -65,6 +73,7 @@ abstract contract BasePaymentTreasury is
         bytes32 indexed paymentId,
         bytes32 buyerId,
         bytes32 indexed itemId,
+        address indexed paymentToken,
         uint256 amount,
         uint256 expiration,
         bool isCryptoPayment
@@ -96,18 +105,20 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @notice Emitted when fees are successfully disbursed.
+     * @param token The token in which fees were disbursed.
      * @param protocolShare The amount of fees sent to the protocol.
      * @param platformShare The amount of fees sent to the platform.
      */
-    event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
+    event FeesDisbursed(address indexed token, uint256 protocolShare, uint256 platformShare);
 
     /**
      * @dev Emitted when a withdrawal is successfully processed along with the applied fee.
+     * @param token The token that was withdrawn.
      * @param to The recipient address receiving the funds.
      * @param amount The total amount withdrawn (excluding fee).
      * @param fee The fee amount deducted from the withdrawal.
      */
-    event WithdrawalWithFeeSuccessful(address indexed to, uint256 amount, uint256 fee);
+    event WithdrawalWithFeeSuccessful(address indexed token, address indexed to, uint256 amount, uint256 fee);
 
     /**
      * @dev Emitted when a refund is claimed.
@@ -123,7 +134,7 @@ abstract contract BasePaymentTreasury is
     error PaymentTreasuryInvalidInput();
 
     /**
-     * @dev Throws an error indicating that the payment id is already exist.
+     * @dev Throws an error indicating that the payment id already exists.
      */
     error PaymentTreasuryPaymentAlreadyExist(bytes32 paymentId);
 
@@ -138,7 +149,7 @@ abstract contract BasePaymentTreasury is
     error PaymentTreasuryPaymentAlreadyExpired(bytes32 paymentId);
 
     /**
-     * @dev Throws an error indicating that the payment id is not exist.
+     * @dev Throws an error indicating that the payment id does not exist.
      */
     error PaymentTreasuryPaymentNotExist(bytes32 paymentId);
 
@@ -146,6 +157,11 @@ abstract contract BasePaymentTreasury is
      * @dev Throws an error indicating that the campaign is paused.
      */
     error PaymentTreasuryCampaignInfoIsPaused();
+
+    /**
+     * @dev Emitted when a token is not accepted for the campaign.
+     */
+    error PaymentTreasuryTokenNotAccepted(address token);
 
     /**
      * @dev Throws an error indicating that the success condition was not fulfilled.
@@ -187,6 +203,9 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryInsufficientFundsForFee(uint256 withdrawalAmount, uint256 fee);
 
+    /**
+     * @dev Emitted when there are insufficient unallocated tokens for a payment confirmation.
+     */
     error PaymentTreasuryInsufficientBalance(uint256 required, uint256 available);
 
     function __BaseContract_init(
@@ -195,7 +214,6 @@ abstract contract BasePaymentTreasury is
     ) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
-        TOKEN = IERC20(INFO.getTokenAddress());
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
     }
 
@@ -221,8 +239,8 @@ abstract contract BasePaymentTreasury is
         address buyerAddress = payment.buyerAddress;
 
         if (
-            msg.sender != buyerAddress &&
-            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH)
+            _msgSender() != buyerAddress &&
+            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH)
         ) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
@@ -247,14 +265,57 @@ abstract contract BasePaymentTreasury is
      * @inheritdoc ICampaignPaymentTreasury
      */
     function getRaisedAmount() public view override virtual returns (uint256) {
-        return s_confirmedPaymentAmount;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_confirmedPaymentPerToken[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
     function getAvailableRaisedAmount() external view returns (uint256) {
-        return s_availableConfirmedPaymentAmount;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_availableConfirmedPerToken[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+    
+    /**
+     * @dev Normalizes token amounts to 18 decimals for consistent comparisons.
+     * @param token The token address.
+     * @param amount The amount to normalize.
+     * @return The normalized amount (scaled to 18 decimals).
+     */
+    function _normalizeAmount(
+        address token,
+        uint256 amount
+    ) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(token).decimals();
+        
+        if (decimals == STANDARD_DECIMALS) {
+            return amount;
+        } else if (decimals < STANDARD_DECIMALS) {
+            return amount * (10 ** (STANDARD_DECIMALS - decimals));
+        } else {
+            return amount / (10 ** (decimals - STANDARD_DECIMALS));
+        }
     }
 
     /**
@@ -264,6 +325,7 @@ abstract contract BasePaymentTreasury is
         bytes32 paymentId,
         bytes32 buyerId,
         bytes32 itemId,
+        address paymentToken,
         uint256 amount,
         uint256 expiration
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
@@ -272,9 +334,15 @@ abstract contract BasePaymentTreasury is
            amount == 0 || 
            expiration <= block.timestamp ||
            paymentId == ZERO_BYTES ||
-           itemId == ZERO_BYTES
+           itemId == ZERO_BYTES ||
+           paymentToken == address(0)
         ){
             revert PaymentTreasuryInvalidInput();
+        }
+
+        // Validate token is accepted
+        if (!INFO.isTokenAccepted(paymentToken)) {
+            revert PaymentTreasuryTokenNotAccepted(paymentToken);
         }
 
         if(s_payment[paymentId].buyerId != ZERO_BYTES || s_payment[paymentId].buyerAddress != address(0)){
@@ -285,24 +353,25 @@ abstract contract BasePaymentTreasury is
             buyerId: buyerId,
             buyerAddress: address(0),
             itemId: itemId,
-            amount: amount,
+            amount: amount, // Amount in token's native decimals
             expiration: expiration,
             isConfirmed: false,
             isCryptoPayment: false
         });
 
-        s_pendingPaymentAmount += amount;
+        s_paymentIdToToken[paymentId] = paymentToken;
+        s_pendingPaymentPerToken[paymentToken] += amount;
 
         emit PaymentCreated(
             address(0),
             paymentId,
             buyerId,
             itemId,
+            paymentToken,
             amount,
             expiration,
             false
         );
-
     }
 
     /**
@@ -312,41 +381,50 @@ abstract contract BasePaymentTreasury is
         bytes32 paymentId,
         bytes32 itemId,
         address buyerAddress,
+        address paymentToken,
         uint256 amount
     ) public override virtual whenCampaignNotPaused whenCampaignNotCancelled {
         
         if(buyerAddress == address(0) ||
            amount == 0 || 
            paymentId == ZERO_BYTES ||
-           itemId == ZERO_BYTES
+           itemId == ZERO_BYTES ||
+           paymentToken == address(0)
         ){
             revert PaymentTreasuryInvalidInput();
+        }
+
+        // Validate token is accepted
+        if (!INFO.isTokenAccepted(paymentToken)) {
+            revert PaymentTreasuryTokenNotAccepted(paymentToken);
         }
 
         if(s_payment[paymentId].buyerAddress != address(0) || s_payment[paymentId].buyerId != ZERO_BYTES){
             revert PaymentTreasuryPaymentAlreadyExist(paymentId);
         }
 
-        TOKEN.safeTransferFrom(buyerAddress, address(this), amount);
+        IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), amount);
 
         s_payment[paymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
             buyerAddress: buyerAddress,
             itemId: itemId,
-            amount: amount,
+            amount: amount, // Amount in token's native decimals
             expiration: 0, 
             isConfirmed: true, 
             isCryptoPayment: true
         });
 
-        s_confirmedPaymentAmount += amount;
-        s_availableConfirmedPaymentAmount += amount;
+        s_paymentIdToToken[paymentId] = paymentToken;
+        s_confirmedPaymentPerToken[paymentToken] += amount;
+        s_availableConfirmedPerToken[paymentToken] += amount;
 
         emit PaymentCreated(
             buyerAddress,
             paymentId,
             ZERO_BYTES,
             itemId,
+            paymentToken,
             amount,
             0,
             true
@@ -362,14 +440,15 @@ abstract contract BasePaymentTreasury is
 
         _validatePaymentForAction(paymentId);
 
+        address paymentToken = s_paymentIdToToken[paymentId];
         uint256 amount = s_payment[paymentId].amount;
 
         delete s_payment[paymentId];
+        delete s_paymentIdToToken[paymentId];
 
-        s_pendingPaymentAmount -= amount;
+        s_pendingPaymentPerToken[paymentToken] -= amount;
 
         emit PaymentCancelled(paymentId);
-
     }
 
     /**
@@ -380,11 +459,14 @@ abstract contract BasePaymentTreasury is
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
         _validatePaymentForAction(paymentId);
     
+        address paymentToken = s_paymentIdToToken[paymentId];
         uint256 paymentAmount = s_payment[paymentId].amount;
         
         // Check that we have enough unallocated tokens for this payment
-        uint256 actualBalance = TOKEN.balanceOf(address(this));
-        uint256 currentlyCommitted = s_availableConfirmedPaymentAmount + s_protocolFee + s_platformFee;
+        uint256 actualBalance = IERC20(paymentToken).balanceOf(address(this));
+        uint256 currentlyCommitted = s_availableConfirmedPerToken[paymentToken] + 
+                                      s_protocolFeePerToken[paymentToken] + 
+                                      s_platformFeePerToken[paymentToken];
         
         if (currentlyCommitted + paymentAmount > actualBalance) {
             revert PaymentTreasuryInsufficientBalance(
@@ -395,9 +477,9 @@ abstract contract BasePaymentTreasury is
         
         s_payment[paymentId].isConfirmed = true;
  
-        s_pendingPaymentAmount -= paymentAmount;
-        s_confirmedPaymentAmount += paymentAmount;
-        s_availableConfirmedPaymentAmount += paymentAmount;
+        s_pendingPaymentPerToken[paymentToken] -= paymentAmount;
+        s_confirmedPaymentPerToken[paymentToken] += paymentAmount;
+        s_availableConfirmedPerToken[paymentToken] += paymentAmount;
         
         emit PaymentConfirmed(paymentId);
     }
@@ -408,17 +490,23 @@ abstract contract BasePaymentTreasury is
     function confirmPaymentBatch(
         bytes32[] calldata paymentIds
     ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
-        uint256 actualBalance = TOKEN.balanceOf(address(this));
+        
         bytes32 currentPaymentId;
+        address currentToken;
         
         for(uint256 i = 0; i < paymentIds.length;){
             currentPaymentId = paymentIds[i];
+            
             _validatePaymentForAction(currentPaymentId);
             
+            currentToken = s_paymentIdToToken[currentPaymentId];
             uint256 amount = s_payment[currentPaymentId].amount;
+            uint256 actualBalance = IERC20(currentToken).balanceOf(address(this));
             
             // Check if this confirmation would exceed balance
-            uint256 currentlyCommitted = s_availableConfirmedPaymentAmount + s_protocolFee + s_platformFee;
+            uint256 currentlyCommitted = s_availableConfirmedPerToken[currentToken] + 
+                                          s_protocolFeePerToken[currentToken] + 
+                                          s_platformFeePerToken[currentToken];
             
             if (currentlyCommitted + amount > actualBalance) {
                 revert PaymentTreasuryInsufficientBalance(
@@ -428,9 +516,9 @@ abstract contract BasePaymentTreasury is
             }
             
             s_payment[currentPaymentId].isConfirmed = true;
-            s_pendingPaymentAmount -= amount;
-            s_confirmedPaymentAmount += amount;
-            s_availableConfirmedPaymentAmount += amount;
+            s_pendingPaymentPerToken[currentToken] -= amount;
+            s_confirmedPaymentPerToken[currentToken] += amount;
+            s_availableConfirmedPerToken[currentToken] += amount;
 
             unchecked {
                 ++i;
@@ -452,8 +540,9 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput();
         }
         PaymentInfo memory payment = s_payment[paymentId];
+        address paymentToken = s_paymentIdToToken[paymentId];
         uint256 amountToRefund = payment.amount;
-        uint256 availablePaymentAmount = s_availableConfirmedPaymentAmount;
+        uint256 availablePaymentAmount = s_availableConfirmedPerToken[paymentToken];
 
         if (payment.buyerId == ZERO_BYTES) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
@@ -466,11 +555,12 @@ abstract contract BasePaymentTreasury is
         }
 
         delete s_payment[paymentId];
+        delete s_paymentIdToToken[paymentId];
 
-        s_confirmedPaymentAmount -= amountToRefund;
-        s_availableConfirmedPaymentAmount -= amountToRefund;
+        s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
+        s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
 
-        TOKEN.safeTransfer(refundAddress, amountToRefund);
+        IERC20(paymentToken).safeTransfer(refundAddress, amountToRefund);
         emit RefundClaimed(paymentId, amountToRefund, refundAddress);
     }
 
@@ -482,9 +572,10 @@ abstract contract BasePaymentTreasury is
     ) public override virtual onlyBuyerOrPlatformAdmin(paymentId) whenCampaignNotPaused whenCampaignNotCancelled
     {
         PaymentInfo memory payment = s_payment[paymentId];
+        address paymentToken = s_paymentIdToToken[paymentId];
         address buyerAddress = payment.buyerAddress;
         uint256 amountToRefund = payment.amount;
-        uint256 availablePaymentAmount = s_availableConfirmedPaymentAmount;
+        uint256 availablePaymentAmount = s_availableConfirmedPerToken[paymentToken];
 
         if (buyerAddress == address(0)) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
@@ -494,11 +585,12 @@ abstract contract BasePaymentTreasury is
         }
 
         delete s_payment[paymentId];
+        delete s_paymentIdToToken[paymentId];
 
-        s_confirmedPaymentAmount -= amountToRefund;
-        s_availableConfirmedPaymentAmount -= amountToRefund;
+        s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
+        s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
 
-        TOKEN.safeTransfer(buyerAddress, amountToRefund);
+        IERC20(paymentToken).safeTransfer(buyerAddress, amountToRefund);
         emit RefundClaimed(paymentId, amountToRefund, buyerAddress);
     }
 
@@ -512,18 +604,30 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotPaused
         whenCampaignNotCancelled
     {
-        uint256 protocolShare = s_protocolFee;
-        uint256 platformShare = s_platformFee;
-        (s_protocolFee, s_platformFee) = (0, 0);
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        address protocolAdmin = INFO.getProtocolAdminAddress();
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
         
-        TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
-        
-        TOKEN.safeTransfer(
-            INFO.getPlatformAdminAddress(PLATFORM_HASH),
-            platformShare
-        );
-        
-        emit FeesDisbursed(protocolShare, platformShare);
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 protocolShare = s_protocolFeePerToken[token];
+            uint256 platformShare = s_platformFeePerToken[token];
+            
+            if (protocolShare > 0 || platformShare > 0) {
+                s_protocolFeePerToken[token] = 0;
+                s_platformFeePerToken[token] = 0;
+                
+                if (protocolShare > 0) {
+                    IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                }
+                
+                if (platformShare > 0) {
+                    IERC20(token).safeTransfer(platformAdmin, platformShare);
+                }
+                
+                emit FeesDisbursed(token, protocolShare, platformShare);
+            }
+        }
     }
 
     /**
@@ -541,31 +645,45 @@ abstract contract BasePaymentTreasury is
         }
 
         address recipient = INFO.owner();
-        uint256 balance = s_availableConfirmedPaymentAmount;
-        if (balance == 0) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 protocolFeePercent = INFO.getProtocolFeePercent();
+        uint256 platformFeePercent = INFO.getPlatformFeePercent(PLATFORM_HASH);
+        
+        bool hasWithdrawn = false;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 balance = s_availableConfirmedPerToken[token];
+            
+            if (balance > 0) {
+                hasWithdrawn = true;
+                
+                // Calculate fees
+                uint256 protocolShare = (balance * protocolFeePercent) / PERCENT_DIVIDER;
+                uint256 platformShare = (balance * platformFeePercent) / PERCENT_DIVIDER;
+
+                s_protocolFeePerToken[token] += protocolShare;
+                s_platformFeePerToken[token] += platformShare;
+
+                uint256 totalFee = protocolShare + platformShare;
+
+                if(balance < totalFee) {
+                    revert PaymentTreasuryInsufficientFundsForFee(balance, totalFee);
+                }
+                uint256 withdrawalAmount = balance - totalFee;
+                
+                // Reset balance
+                s_availableConfirmedPerToken[token] = 0;
+
+                IERC20(token).safeTransfer(recipient, withdrawalAmount);
+
+                emit WithdrawalWithFeeSuccessful(token, recipient, withdrawalAmount, totalFee);
+            }
+        }
+        
+        if (!hasWithdrawn) {
             revert PaymentTreasuryAlreadyWithdrawn();
         }
-
-        // Calculate fees
-        uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
-        uint256 platformShare = (balance * INFO.getPlatformFeePercent(PLATFORM_HASH)) / PERCENT_DIVIDER;
-
-        s_protocolFee += protocolShare;
-        s_platformFee += platformShare;
-
-        uint256 totalFee = protocolShare + platformShare;
-
-        if(balance < totalFee) {
-            revert PaymentTreasuryInsufficientFundsForFee(balance, totalFee);
-        }
-        uint256 withdrawalAmount = balance - totalFee;
-        
-        // Reset balance
-        s_availableConfirmedPaymentAmount = 0;
-
-        TOKEN.safeTransfer(recipient, withdrawalAmount);
-
-        emit WithdrawalWithFeeSuccessful(recipient, withdrawalAmount, totalFee);
     }
 
     /**
@@ -597,7 +715,7 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @dev Internal function to check if the campaign is paused.
-     * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
+     * If the campaign is paused, it reverts with PaymentTreasuryCampaignInfoIsPaused error.
      */
     function _revertIfCampaignPaused() internal view {
         if (INFO.paused()) {
@@ -645,5 +763,4 @@ abstract contract BasePaymentTreasury is
      * @return Whether the success condition is met.
      */
     function _checkSuccessCondition() internal view virtual returns (bool);
-
 }

@@ -1,13 +1,23 @@
 # GlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/GlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/GlobalParams.sol)
 
 **Inherits:**
-[IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable
+Initializable, [IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), OwnableUpgradeable, UUPSUpgradeable
 
 Manages global parameters and platform information.
 
+*UUPS Upgradeable contract with ERC-7201 namespaced storage*
+
 
 ## State Variables
+### GLOBAL_PARAMS_STORAGE_LOCATION
+
+```solidity
+bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION =
+    0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00;
+```
+
+
 ### ZERO_BYTES
 
 ```solidity
@@ -15,70 +25,14 @@ bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000
 ```
 
 
-### s_protocolAdminAddress
-
-```solidity
-address private s_protocolAdminAddress;
-```
-
-
-### s_tokenAddress
-
-```solidity
-address private s_tokenAddress;
-```
-
-
-### s_protocolFeePercent
-
-```solidity
-uint256 private s_protocolFeePercent;
-```
-
-
-### s_platformIsListed
-
-```solidity
-mapping(bytes32 => bool) private s_platformIsListed;
-```
-
-
-### s_platformAdminAddress
-
-```solidity
-mapping(bytes32 => address) private s_platformAdminAddress;
-```
-
-
-### s_platformFeePercent
-
-```solidity
-mapping(bytes32 => uint256) private s_platformFeePercent;
-```
-
-
-### s_platformDataOwner
-
-```solidity
-mapping(bytes32 => bytes32) private s_platformDataOwner;
-```
-
-
-### s_platformData
-
-```solidity
-mapping(bytes32 => bool) private s_platformData;
-```
-
-
-### s_numberOfListedPlatforms
-
-```solidity
-Counters.Counter private s_numberOfListedPlatforms;
-```
-
-
 ## Functions
+### _getGlobalParamsStorage
+
+
+```solidity
+function _getGlobalParamsStorage() private pure returns (GlobalParamsStorage storage $);
+```
+
 ### notAddressZero
 
 *Reverts if the input address is zero.*
@@ -113,18 +67,86 @@ modifier platformIsListed(bytes32 platformHash);
 
 ### constructor
 
+*Constructor that disables initializers to prevent implementation contract initialization*
+
 
 ```solidity
-constructor(address protocolAdminAddress, address tokenAddress, uint256 protocolFeePercent)
-    Ownable(protocolAdminAddress);
+constructor();
+```
+
+### initialize
+
+*Initializer function (replaces constructor)*
+
+
+```solidity
+function initialize(
+    address protocolAdminAddress,
+    uint256 protocolFeePercent,
+    bytes32[] memory currencies,
+    address[][] memory tokensPerCurrency
+) public initializer;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`protocolAdminAddress`|`address`|The address of the protocol admin.|
-|`tokenAddress`|`address`|The address of the token contract.|
 |`protocolFeePercent`|`uint256`|The protocol fee percentage.|
+|`currencies`|`bytes32[]`|The array of currency identifiers.|
+|`tokensPerCurrency`|`address[][]`|The array of token arrays for each currency.|
+
+
+### _authorizeUpgrade
+
+*Function that authorizes an upgrade to a new implementation*
+
+
+```solidity
+function _authorizeUpgrade(address newImplementation) internal override onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|Address of the new implementation|
+
+
+### addToRegistry
+
+Adds a key-value pair to the data registry.
+
+
+```solidity
+function addToRegistry(bytes32 key, bytes32 value) external onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+|`value`|`bytes32`|The registry value.|
+
+
+### getFromRegistry
+
+Retrieves a value from the data registry.
+
+
+```solidity
+function getFromRegistry(bytes32 key) external view returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
 
 
 ### getPlatformAdminAddress
@@ -181,21 +203,6 @@ function getProtocolAdminAddress() external view override returns (address);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`address`|The admin address of the protocol.|
-
-
-### getTokenAddress
-
-Retrieves the address of the protocol's native token.
-
-
-```solidity
-function getTokenAddress() external view override returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the native token.|
 
 
 ### getProtocolFeePercent
@@ -396,21 +403,6 @@ function updateProtocolAdminAddress(address protocolAdminAddress)
 |`protocolAdminAddress`|`address`||
 
 
-### updateTokenAddress
-
-Updates the address of the protocol's native token.
-
-
-```solidity
-function updateTokenAddress(address tokenAddress) external override onlyOwner notAddressZero(tokenAddress);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`tokenAddress`|`address`||
-
-
 ### updateProtocolFeePercent
 
 Updates the protocol fee percentage.
@@ -445,6 +437,59 @@ function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminA
 |----|----|-----------|
 |`platformHash`|`bytes32`||
 |`platformAdminAddress`|`address`||
+
+
+### addTokenToCurrency
+
+Adds a token to a currency.
+
+
+```solidity
+function addTokenToCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to add.|
+
+
+### removeTokenFromCurrency
+
+Removes a token from a currency.
+
+
+```solidity
+function removeTokenFromCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to remove.|
+
+
+### getTokensForCurrency
+
+Retrieves all tokens accepted for a specific currency.
+
+
+```solidity
+function getTokensForCurrency(bytes32 currency) external view override returns (address[] memory);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the currency.|
 
 
 ### _revertIfAddressZero
@@ -517,19 +562,35 @@ event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 |----|----|-----------|
 |`newAdminAddress`|`address`|The new protocol admin address.|
 
-### TokenAddressUpdated
-*Emitted when the token address is updated.*
+### TokenAddedToCurrency
+*Emitted when a token is added to a currency.*
 
 
 ```solidity
-event TokenAddressUpdated(address indexed newTokenAddress);
+event TokenAddedToCurrency(bytes32 indexed currency, address indexed token);
 ```
 
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`newTokenAddress`|`address`|The new token address.|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address added.|
+
+### TokenRemovedFromCurrency
+*Emitted when a token is removed from a currency.*
+
+
+```solidity
+event TokenRemovedFromCurrency(bytes32 indexed currency, address indexed token);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address removed.|
 
 ### ProtocolFeePercentUpdated
 *Emitted when the protocol fee percent is updated.*
@@ -589,6 +650,21 @@ event PlatformDataRemoved(bytes32 indexed platformHash, bytes32 platformDataKey)
 |----|----|-----------|
 |`platformHash`|`bytes32`|The identifier of the platform.|
 |`platformDataKey`|`bytes32`|The data key removed from the platform.|
+
+### DataAddedToRegistry
+*Emitted when data is added to the registry.*
+
+
+```solidity
+event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+|`value`|`bytes32`|The registry value.|
 
 ## Errors
 ### GlobalParamsInvalidInput
@@ -685,5 +761,63 @@ error GlobalParamsPlatformDataSlotTaken();
 
 ```solidity
 error GlobalParamsUnauthorized();
+```
+
+### GlobalParamsCurrencyTokenLengthMismatch
+*Throws when currency and token arrays length mismatch.*
+
+
+```solidity
+error GlobalParamsCurrencyTokenLengthMismatch();
+```
+
+### GlobalParamsCurrencyHasNoTokens
+*Throws when a currency has no tokens registered.*
+
+
+```solidity
+error GlobalParamsCurrencyHasNoTokens(bytes32 currency);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+### GlobalParamsTokenNotInCurrency
+*Throws when a token is not found in a currency.*
+
+
+```solidity
+error GlobalParamsTokenNotInCurrency(bytes32 currency, address token);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address.|
+
+## Structs
+### GlobalParamsStorage
+**Note:**
+storage-location: erc7201:ccprotocol.storage.GlobalParams
+
+
+```solidity
+struct GlobalParamsStorage {
+    address protocolAdminAddress;
+    uint256 protocolFeePercent;
+    mapping(bytes32 => bool) platformIsListed;
+    mapping(bytes32 => address) platformAdminAddress;
+    mapping(bytes32 => uint256) platformFeePercent;
+    mapping(bytes32 => bytes32) platformDataOwner;
+    mapping(bytes32 => bool) platformData;
+    mapping(bytes32 => bytes32) dataRegistry;
+    mapping(bytes32 => address[]) currencyToTokens;
+    Counters.Counter numberOfListedPlatforms;
+}
 ```
 

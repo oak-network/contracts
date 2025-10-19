@@ -1,5 +1,5 @@
 # ICampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/interfaces/ICampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ICampaignInfoFactory.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -38,7 +38,7 @@ function createCampaign(
 |`selectedPlatformHash`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
 |`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
 |`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
-|`campaignData`|`CampaignData`|The struct containing campaign launch details.|
+|`campaignData`|`CampaignData`|The struct containing campaign launch details (including currency).|
 
 
 ### updateImplementation

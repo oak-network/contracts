@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {ICampaignData} from "./ICampaignData.sol";
 
@@ -35,7 +35,7 @@ interface ICampaignInfoFactory is ICampaignData {
      * @param selectedPlatformHash An array of platform identifiers selected for the campaign.
      * @param platformDataKey An array of platform-specific data keys.
      * @param platformDataValue An array of platform-specific data values.
-     * @param campaignData The struct containing campaign launch details.
+     * @param campaignData The struct containing campaign launch details (including currency).
      */
     function createCampaign(
         address creator,

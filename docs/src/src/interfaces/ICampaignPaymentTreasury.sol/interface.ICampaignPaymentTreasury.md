@@ -1,5 +1,5 @@
 # ICampaignPaymentTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/4076c45194ab23360a65e56402b026ef44f70a42/src/interfaces/ICampaignPaymentTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ICampaignPaymentTreasury.sol)
 
 An interface for managing campaign payment treasury contracts.
 
@@ -11,18 +11,52 @@ Creates a new payment entry with the specified details.
 
 
 ```solidity
-function createPayment(bytes32 paymentId, address buyerAddress, bytes32 itemId, uint256 amount, uint256 expiration)
-    external;
+function createPayment(
+    bytes32 paymentId,
+    bytes32 buyerId,
+    bytes32 itemId,
+    address paymentToken,
+    uint256 amount,
+    uint256 expiration
+) external;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`paymentId`|`bytes32`|A unique identifier for the payment.|
-|`buyerAddress`|`address`|The address of the buyer initiating the payment.|
+|`buyerId`|`bytes32`|The id of the buyer initiating the payment.|
 |`itemId`|`bytes32`|The identifier of the item being purchased.|
+|`paymentToken`|`address`|The token to use for the payment.|
 |`amount`|`uint256`|The amount to be paid for the item.|
 |`expiration`|`uint256`|The timestamp after which the payment expires.|
+
+
+### processCryptoPayment
+
+Allows a buyer to make a direct crypto payment for an item.
+
+*This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.*
+
+
+```solidity
+function processCryptoPayment(
+    bytes32 paymentId,
+    bytes32 itemId,
+    address buyerAddress,
+    address paymentToken,
+    uint256 amount
+) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`paymentId`|`bytes32`|The unique identifier of the payment.|
+|`itemId`|`bytes32`|The identifier of the item being purchased.|
+|`buyerAddress`|`address`|The address of the buyer making the payment.|
+|`paymentToken`|`address`|The token to use for the payment.|
+|`amount`|`uint256`|The amount to be paid for the item.|
 
 
 ### cancelPayment
@@ -102,6 +136,21 @@ function claimRefund(bytes32 paymentId, address refundAddress) external;
 |----|----|-----------|
 |`paymentId`|`bytes32`|The unique identifier of the refundable payment.|
 |`refundAddress`|`address`|The address where the refunded amount should be sent.|
+
+
+### claimRefund
+
+Allows buyers to claim refunds for crypto payments, or platform admin to process refunds on behalf of buyers.
+
+
+```solidity
+function claimRefund(bytes32 paymentId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`paymentId`|`bytes32`|The unique identifier of the refundable payment.|
 
 
 ### getplatformHash

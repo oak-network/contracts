@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
@@ -9,6 +9,8 @@ import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
+import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @notice Script to deploy and setup all needed contracts for the protocol
@@ -115,7 +117,8 @@ contract DeployAllAndSetupAllOrNothing is Script {
         string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
 
         if (testToken == address(0)) {
-            testToken = address(new TestToken(tokenName, tokenSymbol));
+            uint8 decimals = uint8(vm.envOr("TOKEN_DECIMALS", uint256(18)));
+            testToken = address(new TestToken(tokenName, tokenSymbol, decimals));
             testTokenDeployed = true;
             console2.log("TestToken deployed at:", testToken);
         } else {
@@ -124,13 +127,28 @@ contract DeployAllAndSetupAllOrNothing is Script {
 
         // Deploy or reuse GlobalParams
         if (globalParams == address(0)) {
-            globalParams = address(
-                new GlobalParams(
-                    deployerAddress, // Initially deployer is protocol admin
-                    testToken,
-                    protocolFeePercent
-                )
+            // Setup currencies and tokens for multi-token support
+            bytes32[] memory currencies = new bytes32[](1);
+            address[][] memory tokensPerCurrency = new address[][](1);
+            
+            currencies[0] = keccak256(abi.encodePacked("USD"));
+            tokensPerCurrency[0] = new address[](1);
+            tokensPerCurrency[0][0] = testToken;
+            
+            // Deploy GlobalParams with UUPS proxy
+            GlobalParams globalParamsImpl = new GlobalParams();
+            bytes memory globalParamsInitData = abi.encodeWithSelector(
+                GlobalParams.initialize.selector,
+                deployerAddress,
+                protocolFeePercent,
+                currencies,
+                tokensPerCurrency
             );
+            ERC1967Proxy globalParamsProxy = new ERC1967Proxy(
+                address(globalParamsImpl),
+                globalParamsInitData
+            );
+            globalParams = address(globalParamsProxy);
             globalParamsDeployed = true;
             console2.log("GlobalParams deployed at:", globalParams);
         } else {
@@ -144,7 +162,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
             campaignInfoImplementation = address(
-                new CampaignInfo(deployerAddress)
+                new CampaignInfo()
             );
             console2.log(
                 "CampaignInfo implementation deployed at:",
@@ -154,9 +172,17 @@ contract DeployAllAndSetupAllOrNothing is Script {
 
         // Deploy or reuse TreasuryFactory
         if (treasuryFactory == address(0)) {
-            treasuryFactory = address(
-                new TreasuryFactory(GlobalParams(globalParams))
+            // Deploy TreasuryFactory with UUPS proxy
+            TreasuryFactory treasuryFactoryImpl = new TreasuryFactory();
+            bytes memory treasuryFactoryInitData = abi.encodeWithSelector(
+                TreasuryFactory.initialize.selector,
+                IGlobalParams(globalParams)
             );
+            ERC1967Proxy treasuryFactoryProxy = new ERC1967Proxy(
+                address(treasuryFactoryImpl),
+                treasuryFactoryInitData
+            );
+            treasuryFactory = address(treasuryFactoryProxy);
             treasuryFactoryDeployed = true;
             console2.log("TreasuryFactory deployed at:", treasuryFactory);
         } else {
@@ -165,16 +191,20 @@ contract DeployAllAndSetupAllOrNothing is Script {
 
         // Deploy or reuse CampaignInfoFactory
         if (campaignInfoFactory == address(0)) {
-            campaignInfoFactory = address(
-                new CampaignInfoFactory(
-                    GlobalParams(globalParams),
-                    campaignInfoImplementation
-                )
+            // Deploy CampaignInfoFactory with UUPS proxy
+            CampaignInfoFactory campaignFactoryImpl = new CampaignInfoFactory();
+            bytes memory campaignFactoryInitData = abi.encodeWithSelector(
+                CampaignInfoFactory.initialize.selector,
+                deployerAddress,
+                IGlobalParams(globalParams),
+                campaignInfoImplementation,
+                treasuryFactory
             );
-            CampaignInfoFactory(campaignInfoFactory)._initialize(
-                treasuryFactory,
-                globalParams
+            ERC1967Proxy campaignFactoryProxy = new ERC1967Proxy(
+                address(campaignFactoryImpl),
+                campaignFactoryInitData
             );
+            campaignInfoFactory = address(campaignFactoryProxy);
             campaignInfoFactoryDeployed = true;
             console2.log(
                 "CampaignInfoFactory deployed and initialized at:",

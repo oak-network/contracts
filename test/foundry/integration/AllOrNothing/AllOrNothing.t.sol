@@ -182,22 +182,24 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
         AllOrNothing(allOrNothingAddress).pledgeForAReward(
             caller,
+            address(token),
             shippingFee,
             reward
         );
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
             logs,
-            "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])",
+            "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])",
             allOrNothingAddress
         );
 
-        // (, tokenId, rewards) = abi.decode(data, (uint256, uint256, bytes32[]));
-        (, , tokenId, rewards) = abi.decode(
+        // Indexed params: backer (topics[1]), pledgeToken (topics[2])
+        // Data params: reward, pledgeAmount, shippingFee, tokenId, rewards
+        (, , , tokenId, rewards) = abi.decode(
             data,
-            (uint256, uint256, uint256, bytes32[])
+            (bytes32, uint256, uint256, uint256, bytes32[])
         );
 
         vm.stopPrank();
@@ -221,21 +223,24 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
         AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(
             caller,
+            address(token),
             pledgeAmount
         );
 
         logs = vm.getRecordedLogs();
 
         // Decode receipt event if available
-        bytes memory data = decodeEventFromLogs(
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
             logs,
-            "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])",
+            "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])",
             allOrNothingAddress
         );
 
-        (, , tokenId, ) = abi.decode(
+        // Indexed params: backer (topics[1]), pledgeToken (topics[2])
+        // Data params: reward, pledgeAmount, shippingFee, tokenId, rewards
+        (, , , tokenId, ) = abi.decode(
             data,
-            (uint256, uint256, uint256, bytes32[])
+            (bytes32, uint256, uint256, uint256, bytes32[])
         );
         vm.stopPrank();
     }
@@ -300,12 +305,13 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
             logs,
-            "FeesDisbursed(uint256,uint256)",
+            "FeesDisbursed(address,uint256,uint256)",
             allOrNothingAddress
         );
 
+        // topics[1] is the indexed token
         (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
     }
 
@@ -327,12 +333,13 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         logs = vm.getRecordedLogs();
 
         // Decode the data from the logs
-        bytes memory data = decodeEventFromLogs(
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
             logs,
-            "WithdrawalSuccessful(address,uint256)",
+            "WithdrawalSuccessful(address,address,uint256)",
             allOrNothingAddress
         );
 
+        // topics[1] is the indexed token
         // Decode the amount and the address of the receiver
         (to, amount) = abi.decode(data, (address, uint256));
 

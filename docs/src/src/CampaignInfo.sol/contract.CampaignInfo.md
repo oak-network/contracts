@@ -1,5 +1,5 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/CampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/CampaignInfo.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), Initializable
@@ -57,6 +57,20 @@ bytes32[] private s_approvedPlatformHashes;
 ```
 
 
+### s_acceptedTokens
+
+```solidity
+address[] private s_acceptedTokens;
+```
+
+
+### s_isAcceptedToken
+
+```solidity
+mapping(address => bool) private s_isAcceptedToken;
+```
+
+
 ## Functions
 ### getApprovedPlatformHashes
 
@@ -69,7 +83,7 @@ function getApprovedPlatformHashes() external view returns (bytes32[] memory);
 
 
 ```solidity
-constructor(address creator) Ownable(creator);
+constructor() Ownable(_msgSender());
 ```
 
 ### initialize
@@ -82,7 +96,8 @@ function initialize(
     bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
     bytes32[] calldata platformDataValue,
-    CampaignData calldata campaignData
+    CampaignData calldata campaignData,
+    address[] calldata acceptedTokens
 ) external initializer;
 ```
 
@@ -246,21 +261,6 @@ function getGoalAmount() external view override returns (uint256);
 |`<none>`|`uint256`|The funding goal amount of the campaign.|
 
 
-### getTokenAddress
-
-Retrieves the address of the token used in the campaign.
-
-
-```solidity
-function getTokenAddress() external view override returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the campaign's token.|
-
-
 ### getProtocolFeePercent
 
 Retrieves the protocol fee percentage for the campaign.
@@ -274,6 +274,57 @@ function getProtocolFeePercent() external view override returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The protocol fee percentage applied to the campaign.|
+
+
+### getCampaignCurrency
+
+Retrieves the campaign's currency identifier.
+
+
+```solidity
+function getCampaignCurrency() external view override returns (bytes32);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bytes32`|The bytes32 currency identifier for the campaign.|
+
+
+### getAcceptedTokens
+
+Retrieves the cached accepted tokens for the campaign.
+
+
+```solidity
+function getAcceptedTokens() external view override returns (address[] memory);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the campaign.|
+
+
+### isTokenAccepted
+
+Checks if a token is accepted for the campaign.
+
+
+```solidity
+function isTokenAccepted(address token) external view override returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`token`|`address`|The token address to check.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the token is accepted; otherwise, false.|
 
 
 ### paused
@@ -636,7 +687,6 @@ error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
 ```solidity
 struct Config {
     address treasuryFactory;
-    address token;
     uint256 protocolFeePercent;
     bytes32 identifierHash;
 }

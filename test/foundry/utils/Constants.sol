@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 abstract contract Constants {
     uint40 internal constant OCTOBER_1_2023 = 1_696_118_400;

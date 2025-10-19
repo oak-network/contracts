@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Constants} from "./Constants.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
@@ -83,7 +83,12 @@ contract Defaults is Constants, ICampaignData, IReward {
         DEADLINE = LAUNCH_TIME + CAMPAIGN_DURATION;
 
         //Add Campaign Data
-        CAMPAIGN_DATA = CampaignData({launchTime: LAUNCH_TIME, deadline: DEADLINE, goalAmount: GOAL_AMOUNT});
+        CAMPAIGN_DATA = CampaignData({
+            launchTime: LAUNCH_TIME,
+            deadline: DEADLINE,
+            goalAmount: GOAL_AMOUNT,
+            currency: bytes32("USD")
+        });
 
         // Initialize the reward arrays
         setupRewardData();

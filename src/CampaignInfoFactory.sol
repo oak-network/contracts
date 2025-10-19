@@ -1,29 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
+import {CampaignInfoFactoryStorage} from "./storage/CampaignInfoFactoryStorage.sol";
 
 /**
  * @title CampaignInfoFactory
  * @notice Factory contract for creating campaign information contracts.
+ * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
-contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
-    IGlobalParams private GLOBAL_PARAMS;
-    address private s_treasuryFactoryAddress;
-    bool private s_initialized;
-    address private s_implementation;
-    mapping(address => bool) public isValidCampaignInfo;
-    mapping(bytes32 => address) public identifierToCampaignInfo;
-
-    /**
-     * @dev Emitted when the factory is initialized.
-     */
-    error CampaignInfoFactoryAlreadyInitialized();
+contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgradeable, UUPSUpgradeable {
 
     /**
      * @dev Emitted when invalid input is provided.
@@ -41,34 +33,53 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
     );
 
     /**
-     * @param globalParams The address of the global parameters contract.
+     * @dev Emitted when the campaign currency has no tokens.
      */
-    constructor(
-        IGlobalParams globalParams,
-        address campaignImplementation
-    ) Ownable(msg.sender) {
-        GLOBAL_PARAMS = globalParams;
-        s_implementation = campaignImplementation;
+    error CampaignInfoInvalidTokenList();
+
+    /**
+     * @dev Constructor that disables initializers to prevent implementation contract initialization
+     */
+    constructor() {
+        _disableInitializers();
     }
 
     /**
-     * @dev Initializes the factory with treasury factory address.
-     * @param treasuryFactoryAddress The address of the treasury factory contract.
+     * @notice Initializes the CampaignInfoFactory contract.
+     * @param initialOwner The address that will own the factory
      * @param globalParams The address of the global parameters contract.
+     * @param campaignImplementation The address of the campaign implementation contract.
+     * @param treasuryFactoryAddress The address of the treasury factory contract.
      */
-    function _initialize(
-        address treasuryFactoryAddress,
-        address globalParams
-    ) external onlyOwner initializer {
+    function initialize(
+        address initialOwner,
+        IGlobalParams globalParams,
+        address campaignImplementation,
+        address treasuryFactoryAddress
+    ) public initializer {
         if (
-            treasuryFactoryAddress == address(0) || globalParams == address(0)
+            address(globalParams) == address(0) ||
+            campaignImplementation == address(0) ||
+            treasuryFactoryAddress == address(0) ||
+            initialOwner == address(0)
         ) {
             revert CampaignInfoFactoryInvalidInput();
         }
-        GLOBAL_PARAMS = IGlobalParams(globalParams);
-        s_treasuryFactoryAddress = treasuryFactoryAddress;
-        s_initialized = true;
+
+        __Ownable_init(initialOwner);
+        __UUPSUpgradeable_init();
+
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
+        $.globalParams = globalParams;
+        $.implementation = campaignImplementation;
+        $.treasuryFactoryAddress = treasuryFactoryAddress;
     }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
      * @inheritdoc ICampaignInfoFactory
@@ -93,10 +104,12 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
         }
+
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         
         bool isValid;
         for (uint256 i = 0; i < platformDataKey.length; i++) {
-            isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
+            isValid = $.globalParams.checkIfPlatformDataKeyValid(
                 platformDataKey[i]
             );
             if (!isValid) {
@@ -106,7 +119,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
                 revert CampaignInfoFactoryInvalidInput();
             }
         }
-        address cloneExists = identifierToCampaignInfo[identifierHash];
+        address cloneExists = $.identifierToCampaignInfo[identifierHash];
         if (cloneExists != address(0)) {
             revert CampaignInfoFactoryCampaignWithSameIdentifierExists(
                 identifierHash,
@@ -117,35 +130,41 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         bytes32 platformHash;
         for (uint256 i = 0; i < selectedPlatformHash.length; i++) {
             platformHash = selectedPlatformHash[i];
-            isListed = GLOBAL_PARAMS.checkIfPlatformIsListed(platformHash);
+            isListed = $.globalParams.checkIfPlatformIsListed(platformHash);
             if (!isListed) {
                 revert CampaignInfoFactoryPlatformNotListed(platformHash);
             }
         }
 
+        // Get accepted tokens for the campaign currency
+        address[] memory acceptedTokens = $.globalParams.getTokensForCurrency(campaignData.currency);
+        if (acceptedTokens.length == 0) {
+            revert CampaignInfoInvalidTokenList();
+        }
+
         bytes memory args = abi.encode(
-            s_treasuryFactoryAddress,
-            GLOBAL_PARAMS.getTokenAddress(),
-            GLOBAL_PARAMS.getProtocolFeePercent(),
+            $.treasuryFactoryAddress,
+            $.globalParams.getProtocolFeePercent(),
             identifierHash
         );
-        address clone = Clones.cloneWithImmutableArgs(s_implementation, args);
+        address clone = Clones.cloneWithImmutableArgs($.implementation, args);
         (bool success, ) = clone.call(
             abi.encodeWithSignature(
-                "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256))",
+                "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256,bytes32),address[])",
                 creator,
-                address(GLOBAL_PARAMS),
+                address($.globalParams),
                 selectedPlatformHash,
                 platformDataKey,
                 platformDataValue,
-                campaignData
+                campaignData,
+                acceptedTokens
             )
         );
         if (!success) {
             revert CampaignInfoFactoryCampaignInitializationFailed();
         }
-        identifierToCampaignInfo[identifierHash] = clone;
-        isValidCampaignInfo[clone] = true;
+        $.identifierToCampaignInfo[identifierHash] = clone;
+        $.isValidCampaignInfo[clone] = true;
         emit CampaignInfoFactoryCampaignCreated(identifierHash, clone);
         emit CampaignInfoFactoryCampaignInitialized();
     }
@@ -159,6 +178,27 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, Ownable {
         if (newImplementation == address(0)) {
             revert CampaignInfoFactoryInvalidInput();
         }
-        s_implementation = newImplementation;
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
+        $.implementation = newImplementation;
+    }
+
+    /**
+     * @notice Check if a campaign info address is valid
+     * @param campaignInfo The campaign info address to check
+     * @return bool True if valid, false otherwise
+     */
+    function isValidCampaignInfo(address campaignInfo) external view returns (bool) {
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
+        return $.isValidCampaignInfo[campaignInfo];
+    }
+
+    /**
+     * @notice Get campaign info address from identifier
+     * @param identifierHash The identifier hash
+     * @return address The campaign info address
+     */
+    function identifierToCampaignInfo(bytes32 identifierHash) external view returns (address) {
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
+        return $.identifierToCampaignInfo[identifierHash];
     }
 }

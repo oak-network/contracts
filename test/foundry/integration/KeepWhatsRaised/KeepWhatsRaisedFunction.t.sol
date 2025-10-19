@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "./KeepWhatsRaised.t.sol";
 import "forge-std/Vm.sol";
@@ -271,7 +271,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         
         vm.warp(DEADLINE - 1 days);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.withdraw(PLEDGE_AMOUNT);
+        keepWhatsRaised.withdraw(address(testToken), PLEDGE_AMOUNT);
 
         uint256 protocolAdminBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
@@ -519,7 +519,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         vm.startPrank(users.backer2Address);
         testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
         vm.expectRevert();
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, PLEDGE_AMOUNT, 0);
+        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0);
         vm.stopPrank();
     }
 
@@ -549,7 +549,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         vm.startPrank(users.backer2Address);
         testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
         vm.expectRevert();
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, PLEDGE_AMOUNT, 0);
+        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0);
         vm.stopPrank();
     }
 

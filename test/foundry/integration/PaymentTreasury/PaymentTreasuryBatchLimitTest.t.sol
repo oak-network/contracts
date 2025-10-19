@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "./PaymentTreasury.t.sol";
 import "forge-std/Vm.sol";
@@ -33,7 +33,7 @@ contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Te
             bytes32 buyerId = keccak256(abi.encodePacked("buyer", i));
             bytes32 itemId = keccak256(abi.encodePacked("item", i));
 
-            paymentTreasury.createPayment(paymentId, buyerId, itemId, paymentAmount, expiration);
+            paymentTreasury.createPayment(paymentId, buyerId, itemId, address(testToken), paymentAmount, expiration);
 
             paymentIds[i] = paymentId;
         }

@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {ITreasuryFactory} from "./interfaces/ITreasuryFactory.sol";
 import {IGlobalParams, AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
+import {TreasuryFactoryStorage} from "./storage/TreasuryFactoryStorage.sol";
 
-contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
-    mapping(bytes32 => mapping(uint256 => address)) private implementationMap;
-    mapping(address => bool) private approvedImplementations;
+/**
+ * @title TreasuryFactory
+ * @notice Factory contract for creating treasury contracts
+ * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
+ */
+contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker, UUPSUpgradeable {
 
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
@@ -20,12 +26,26 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     error TreasuryFactorySettingPlatformInfoFailed();
 
     /**
-     * @notice Initializes the TreasuryFactory contract.
-     * @dev This constructor sets the address of the GlobalParams contract as the admin.
+     * @dev Constructor that disables initializers to prevent implementation contract initialization
      */
-    constructor(IGlobalParams globalParams) {
-        __AccessChecker_init(globalParams);
+    constructor() {
+        _disableInitializers();
     }
+
+    /**
+     * @notice Initializes the TreasuryFactory contract.
+     * @param globalParams The address of the GlobalParams contract
+     */
+    function initialize(IGlobalParams globalParams) public initializer {
+        __AccessChecker_init(globalParams);
+        __UUPSUpgradeable_init();
+    }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin {}
 
     /**
      * @inheritdoc ITreasuryFactory
@@ -38,7 +58,8 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         if (implementation == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
-        implementationMap[platformHash][implementationId] = implementation;
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        $.implementationMap[platformHash][implementationId] = implementation;
     }
 
     /**
@@ -48,13 +69,12 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformHash,
         uint256 implementationId
     ) external override onlyProtocolAdmin {
-        address implementation = implementationMap[platformHash][
-            implementationId
-        ];
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        address implementation = $.implementationMap[platformHash][implementationId];
         if (implementation == address(0)) {
             revert TreasuryFactoryImplementationNotSet();
         }
-        approvedImplementations[implementation] = true;
+        $.approvedImplementations[implementation] = true;
     }
 
     /**
@@ -63,7 +83,8 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
     function disapproveTreasuryImplementation(
         address implementation
     ) external override onlyProtocolAdmin {
-        approvedImplementations[implementation] = false;
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        $.approvedImplementations[implementation] = false;
     }
 
     /**
@@ -73,7 +94,8 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         bytes32 platformHash,
         uint256 implementationId
     ) external override onlyPlatformAdmin(platformHash) {
-        delete implementationMap[platformHash][implementationId];
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        delete $.implementationMap[platformHash][implementationId];
     }
 
     /**
@@ -91,10 +113,9 @@ contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
         onlyPlatformAdmin(platformHash)
         returns (address clone)
     {
-        address implementation = implementationMap[platformHash][
-            implementationId
-        ];
-        if (!approvedImplementations[implementation]) {
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        address implementation = $.implementationMap[platformHash][implementationId];
+        if (!$.approvedImplementations[implementation]) {
             revert TreasuryFactoryImplementationNotSetOrApproved();
         }
 

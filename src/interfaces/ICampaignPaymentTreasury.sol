@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /**
  * @title ICampaignPaymentTreasury
@@ -12,6 +12,7 @@ interface ICampaignPaymentTreasury {
      * @param paymentId A unique identifier for the payment.
      * @param buyerId The id of the buyer initiating the payment.
      * @param itemId The identifier of the item being purchased.
+     * @param paymentToken The token to use for the payment.
      * @param amount The amount to be paid for the item.
      * @param expiration The timestamp after which the payment expires.
      */
@@ -19,6 +20,7 @@ interface ICampaignPaymentTreasury {
         bytes32 paymentId,
         bytes32 buyerId,
         bytes32 itemId,
+        address paymentToken,
         uint256 amount,
         uint256 expiration
     ) external;
@@ -29,12 +31,14 @@ interface ICampaignPaymentTreasury {
      * @param paymentId The unique identifier of the payment.
      * @param itemId The identifier of the item being purchased.
      * @param buyerAddress The address of the buyer making the payment.
+     * @param paymentToken The token to use for the payment.
      * @param amount The amount to be paid for the item.
      */
     function processCryptoPayment(
         bytes32 paymentId,
         bytes32 itemId,
         address buyerAddress,
+        address paymentToken,
         uint256 amount
     ) external;
 

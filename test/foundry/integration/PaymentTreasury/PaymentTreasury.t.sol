@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Base_Test} from "../../Base.t.sol";
 import "forge-std/Vm.sol";
@@ -8,6 +8,7 @@ import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
+import {TestToken} from "../../../mocks/TestToken.sol";
 
 /// @notice Common testing logic needed by all PaymentTreasury integration tests.
 abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Test {
@@ -142,11 +143,12 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         bytes32 paymentId,
         bytes32 buyerId,
         bytes32 itemId,
+        address paymentToken,
         uint256 amount,
         uint256 expiration
     ) internal {
         vm.prank(caller);
-        paymentTreasury.createPayment(paymentId, buyerId, itemId, amount, expiration);
+        paymentTreasury.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration);
     }
 
     /**
@@ -157,10 +159,11 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         bytes32 paymentId,
         bytes32 itemId,
         address buyerAddress,
+        address paymentToken,
         uint256 amount
     ) internal {
         vm.prank(caller);
-        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, amount);
+        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount);
     }
 
     /**
@@ -246,8 +249,10 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(logs, "FeesDisbursed(uint256,uint256)", treasury);
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", treasury);
 
+        // topics[1] is the indexed token
+        // Data contains protocolShare and platformShare
         (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
     }
 
@@ -265,9 +270,12 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         (bytes32[] memory topics, bytes memory data) =
-            decodeTopicsAndData(logs, "WithdrawalWithFeeSuccessful(address,uint256,uint256)", treasury);
+            decodeTopicsAndData(logs, "WithdrawalWithFeeSuccessful(address,address,uint256,uint256)", treasury);
 
-        to = address(uint160(uint256(topics[1])));
+        // topics[0] is the event signature hash
+        // topics[1] is the indexed token
+        // topics[2] is the indexed to address
+        to = address(uint160(uint256(topics[2])));
         (amount, fee) = abi.decode(data, (uint256, uint256));
     }
 
@@ -312,9 +320,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         vm.prank(buyerAddress);
         testToken.approve(treasuryAddress, amount);
         
-        // Create payment
+        // Create payment with token specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, amount, expiration);
+        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, address(testToken), amount, expiration);
         
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
@@ -338,7 +346,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         testToken.approve(treasuryAddress, amount);
         
         // Process crypto payment
-        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, amount);
+        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, address(testToken), amount);
     }
 
     /**
@@ -347,5 +355,53 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     function _createTestPayments() internal {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
+    }
+
+    /**
+    * @notice Helper to create and fund a payment from buyer with specific token
+    */
+    function _createAndFundPaymentWithToken(
+        bytes32 paymentId,
+        bytes32 buyerId,
+        bytes32 itemId,
+        uint256 amount,
+        address buyerAddress,
+        address token
+    ) internal {
+        // Fund buyer
+        deal(token, buyerAddress, amount);
+        
+        // Buyer approves treasury
+        vm.prank(buyerAddress);
+        TestToken(token).approve(treasuryAddress, amount);
+        
+        // Create payment with token specified
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, token, amount, expiration);
+        
+        // Transfer tokens from buyer to treasury
+        vm.prank(buyerAddress);
+        TestToken(token).transfer(treasuryAddress, amount);
+    }
+
+    /**
+    * @notice Helper to create and process a crypto payment with specific token
+    */
+    function _createAndProcessCryptoPaymentWithToken(
+        bytes32 paymentId,
+        bytes32 itemId,
+        uint256 amount,
+        address buyerAddress,
+        address token
+    ) internal {
+        // Fund buyer
+        deal(token, buyerAddress, amount);
+        
+        // Buyer approves treasury
+        vm.prank(buyerAddress);
+        TestToken(token).approve(treasuryAddress, amount);
+        
+        // Process crypto payment
+        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, token, amount);
     }
 }

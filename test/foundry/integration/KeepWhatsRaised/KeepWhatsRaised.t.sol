@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "forge-std/Vm.sol";
 import "forge-std/console.sol";
@@ -272,15 +272,17 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             testToken.approve(treasury, pledgeAmount + tip);
         }
 
-        KeepWhatsRaised(treasury).setFeeAndPledge(pledgeId, backer, pledgeAmount, tip, fee, reward, isPledgeForAReward);
+        KeepWhatsRaised(treasury).setFeeAndPledge(pledgeId, backer, address(testToken), pledgeAmount, tip, fee, reward, isPledgeForAReward);
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
-            logs, "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])", treasury
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
+            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", treasury
         );
 
-        (,, tokenId, rewards) = abi.decode(data, (uint256, uint256, uint256, bytes32[]));
+        // Indexed params: backer (topics[1]), pledgeToken (topics[2])
+        // Data params: reward, pledgeAmount, tip, tokenId, rewards
+        (,, , tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
 
         vm.stopPrank();
     }
@@ -307,15 +309,17 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeForAReward(pledgeId, caller, tip, reward);
+        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeForAReward(pledgeId, caller, token, tip, reward);
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
-            logs, "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])", keepWhatsRaisedAddress
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
+            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", keepWhatsRaisedAddress
         );
 
-        (,, tokenId, rewards) = abi.decode(data, (uint256, uint256, uint256, bytes32[]));
+        // Indexed params: backer (topics[1]), pledgeToken (topics[2])
+        // Data params: reward, pledgeAmount, tip, tokenId, rewards
+        (,, , tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
 
         vm.stopPrank();
     }
@@ -338,15 +342,17 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         testToken.approve(keepWhatsRaisedAddress, pledgeAmount + tip);
         vm.warp(launchTime);
 
-        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeWithoutAReward(pledgeId, caller, pledgeAmount, tip);
+        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeWithoutAReward(pledgeId, caller, token, pledgeAmount, tip);
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
-            logs, "Receipt(address,bytes32,uint256,uint256,uint256,bytes32[])", keepWhatsRaisedAddress
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
+            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", keepWhatsRaisedAddress
         );
 
-        (,, tokenId,) = abi.decode(data, (uint256, uint256, uint256, bytes32[]));
+        // Indexed params: backer (topics[1]), pledgeToken (topics[2])
+        // Data params: reward, pledgeAmount, tip, tokenId, rewards
+        (,, , tokenId,) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
         vm.stopPrank();
     }
 
@@ -361,7 +367,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.startPrank(caller);
         vm.recordLogs();
 
-        KeepWhatsRaised(keepWhatsRaisedAddress).withdraw(amount);
+        KeepWhatsRaised(keepWhatsRaisedAddress).withdraw(address(testToken), amount);
 
         logs = vm.getRecordedLogs();
 
@@ -463,8 +469,9 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(logs, "FeesDisbursed(uint256,uint256)", keepWhatsRaisedAddress);
+        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", keepWhatsRaisedAddress);
 
+        // topics[1] is the indexed token
         (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
     }
 

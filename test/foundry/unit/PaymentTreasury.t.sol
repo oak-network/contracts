@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "../integration/PaymentTreasury/PaymentTreasury.t.sol";
 import "forge-std/Test.sol";
 import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
 
 contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Test {
     
@@ -74,6 +75,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken), // Added token parameter
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -90,6 +92,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -103,6 +106,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             bytes32(0),
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -116,6 +120,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             0,
             expiration
         );
@@ -128,6 +133,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             block.timestamp - 1
         );
@@ -141,6 +147,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             bytes32(0),
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -154,6 +161,38 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             bytes32(0),
+            address(testToken),
+            PAYMENT_AMOUNT_1,
+            expiration
+        );
+    }
+    
+    function testCreatePaymentRevertWhenZeroTokenAddress() public {
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            address(0), // Zero token address
+            PAYMENT_AMOUNT_1,
+            expiration
+        );
+    }
+    
+    function testCreatePaymentRevertWhenTokenNotAccepted() public {
+        // Create unaccepted token
+        TestToken unacceptedToken = new TestToken("Unaccepted", "UNACC", 18);
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            address(unacceptedToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -166,6 +205,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -174,6 +214,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_2,
             ITEM_ID_2,
+            address(testToken),
             PAYMENT_AMOUNT_2,
             expiration
         );
@@ -193,6 +234,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -211,6 +253,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -227,7 +270,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount);
         
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
         
         assertEq(paymentTreasury.getRaisedAmount(), amount);
         assertEq(paymentTreasury.getAvailableRaisedAmount(), amount);
@@ -236,12 +279,12 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     
     function testProcessCryptoPaymentRevertWhenZeroBuyerAddress() public {
         vm.expectRevert();
-        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, address(0), 1000e18);
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, address(0), address(testToken), 1000e18);
     }
     
     function testProcessCryptoPaymentRevertWhenZeroAmount() public {
         vm.expectRevert();
-        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, 0);
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), 0);
     }
     
     function testProcessCryptoPaymentRevertWhenPaymentExists() public {
@@ -251,10 +294,10 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount * 2);
         
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
         
         vm.expectRevert();
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, amount);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -269,6 +312,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -288,7 +332,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCancelPaymentRevertWhenAlreadyConfirmed() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -302,6 +346,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -329,7 +374,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testConfirmPayment() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1);
         assertEq(paymentTreasury.getAvailableRaisedAmount(), PAYMENT_AMOUNT_1);
@@ -346,7 +391,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentIds[2] = PAYMENT_ID_3;
         
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPaymentBatch(paymentIds);
+        paymentTreasury.confirmPaymentBatch(paymentIds); // Removed token array
         
         uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2 + 500e18;
         assertEq(paymentTreasury.getRaisedAmount(), totalAmount);
@@ -356,16 +401,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testConfirmPaymentRevertWhenNotExists() public {
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
     }
     
     function testConfirmPaymentRevertWhenAlreadyConfirmed() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         vm.expectRevert();
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         vm.stopPrank();
     }
     
@@ -375,7 +420,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -385,7 +430,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testClaimRefund() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         uint256 balanceBefore = testToken.balanceOf(users.backer1Address);
         
@@ -437,6 +482,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -454,7 +500,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testClaimRefundRevertWhenPaused() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Pause treasury
         vm.prank(users.platform1AdminAddress);
@@ -481,7 +527,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testDisburseFees() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Withdraw first to calculate fees
         paymentTreasury.withdraw();
@@ -502,14 +548,14 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
         
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // First withdrawal and disbursement
         paymentTreasury.withdraw();
         paymentTreasury.disburseFees();
         
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2); // Removed token parameter
         
         // Second withdrawal and disbursement
         paymentTreasury.withdraw();
@@ -519,7 +565,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testDisburseFeesRevertWhenPaused() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         paymentTreasury.withdraw();
         
@@ -538,7 +584,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testWithdraw() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         address owner = CampaignInfo(campaignAddress).owner();
         uint256 ownerBalanceBefore = testToken.balanceOf(owner);
@@ -558,7 +604,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testWithdrawRevertWhenAlreadyWithdrawn() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         paymentTreasury.withdraw();
         paymentTreasury.disburseFees();
@@ -570,7 +616,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testWithdrawRevertWhenPaused() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Pause treasury
         vm.prank(users.platform1AdminAddress);
@@ -588,7 +634,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // First create and confirm a payment to test functions that require it
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Pause the treasury
         vm.prank(users.platform1AdminAddress);
@@ -611,6 +657,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_2,
             BUYER_ID_1,
             ITEM_ID_2,
+            address(testToken),
             PAYMENT_AMOUNT_2,
             expiration
         );
@@ -630,6 +677,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             expiration
         );
@@ -638,7 +686,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCancelTreasuryByPlatformAdmin() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
 
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.cancelTreasury(keccak256("Cancel"));
@@ -653,6 +701,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_2,
             BUYER_ID_1,
             ITEM_ID_2,
+            address(testToken),
             PAYMENT_AMOUNT_2,
             expiration
         );
@@ -661,7 +710,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCancelTreasuryByCampaignOwner() public {
         _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
 
         address owner = CampaignInfo(campaignAddress).owner();
         vm.prank(owner);
@@ -677,6 +726,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_2,
             BUYER_ID_1,
             ITEM_ID_2,
+            address(testToken),
             PAYMENT_AMOUNT_2,
             expiration
         );
@@ -705,7 +755,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentIds[2] = PAYMENT_ID_3;
         
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPaymentBatch(paymentIds);
+        paymentTreasury.confirmPaymentBatch(paymentIds); // Removed token array
         
         uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2 + 500e18;
         assertEq(paymentTreasury.getRaisedAmount(), totalAmount);
@@ -728,8 +778,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, PAYMENT_AMOUNT_2, users.backer2Address);
         
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
-        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
+        paymentTreasury.confirmPayment(PAYMENT_ID_2); // Removed token parameter
         
         // Refund all payments
         paymentTreasury.claimRefund(PAYMENT_ID_1, users.backer1Address);
@@ -754,6 +804,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken),
             PAYMENT_AMOUNT_1,
             shortExpiration
         );
@@ -761,6 +812,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             PAYMENT_ID_2,
             BUYER_ID_2,
             ITEM_ID_2,
+            address(testToken),
             PAYMENT_AMOUNT_2,
             longExpiration
         );
@@ -774,7 +826,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         testToken.transfer(treasuryAddress, PAYMENT_AMOUNT_2);
         // Confirm first payment before expiration
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         // Warp past first expiration but before second
         vm.warp(shortExpiration + 1);
         // Cannot cancel or confirm expired payment
@@ -783,7 +835,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.cancelPayment(PAYMENT_ID_1);
         // Can still confirm non-expired payment
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2); // Removed token parameter
         
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2);
     }
@@ -795,7 +847,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         // Confirm regular payment
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Both should contribute to raised amount
         uint256 totalAmount = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
@@ -810,13 +862,14 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
 
     function testCannotCreatePhantomBalances() public {
-        // Create payment for 1000 USDC
+        // Create payment for 1000 tokens with USDC specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
+            address(testToken), // Token specified during creation
             1000e18,
             expiration
         );
@@ -839,11 +892,11 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
 
     function testCannotConfirmMoreThanBalance() public {
-        // Create two payments of 500 each
+        // Create two payments of 500 each, both with testToken
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, 500e18, expiration);
-        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration);
         vm.stopPrank();
         
         // Send only 500 tokens total
@@ -853,12 +906,12 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         // Can confirm one payment
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1); // Removed token parameter
         
         // Cannot confirm second payment - total would exceed balance
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2); // Removed token parameter
         
         assertEq(paymentTreasury.getRaisedAmount(), 500e18);
     }
@@ -867,8 +920,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Create two payments
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, 500e18, expiration);
-        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration);
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration);
         vm.stopPrank();
         
         // Send only 500 tokens
@@ -883,6 +936,361 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPaymentBatch(paymentIds); // Removed token array
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    MULTI-TOKEN SPECIFIC UNIT TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function testConfirmPaymentWithDifferentTokens() public {
+        // Create payments expecting different tokens
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), 500e18);
+        uint256 cUSDAmount = 700e18;
+        
+        // Create USDT payment - token specified during creation
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        // Create cUSD payment - token specified during creation
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            cUSDAmount,
+            users.backer2Address,
+            address(cUSDToken)
+        );
+        
+        // Confirm without specifying token
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        vm.stopPrank();
+        
+        uint256 expectedTotal = 500e18 + 700e18;
+        assertEq(paymentTreasury.getRaisedAmount(), expectedTotal);
+    }
+
+    function testProcessCryptoPaymentWithDifferentTokens() public {
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), 800e18);
+        uint256 cUSDAmount = 1200e18;
+        
+        // USDC payment
+        deal(address(usdcToken), users.backer1Address, usdcAmount);
+        vm.prank(users.backer1Address);
+        usdcToken.approve(treasuryAddress, usdcAmount);
+        processCryptoPayment(
+            users.backer1Address,
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            users.backer1Address,
+            address(usdcToken),
+            usdcAmount
+        );
+        
+        // cUSD payment
+        deal(address(cUSDToken), users.backer2Address, cUSDAmount);
+        vm.prank(users.backer2Address);
+        cUSDToken.approve(treasuryAddress, cUSDAmount);
+        processCryptoPayment(
+            users.backer2Address,
+            PAYMENT_ID_2,
+            ITEM_ID_2,
+            users.backer2Address,
+            address(cUSDToken),
+            cUSDAmount
+        );
+        
+        uint256 expectedTotal = 800e18 + 1200e18;
+        assertEq(paymentTreasury.getRaisedAmount(), expectedTotal);
+        assertEq(usdcToken.balanceOf(treasuryAddress), usdcAmount);
+        assertEq(cUSDToken.balanceOf(treasuryAddress), cUSDAmount);
+    }
+
+    function testBatchConfirmWithMixedTokens() public {
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), 500e18);
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), 600e18);
+        uint256 cUSDAmount = 700e18;
+        
+        // Create payments with tokens specified
+        _createAndFundPaymentWithToken(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken));
+        _createAndFundPaymentWithToken(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, usdcAmount, users.backer2Address, address(usdcToken));
+        _createAndFundPaymentWithToken(PAYMENT_ID_3, BUYER_ID_3, ITEM_ID_1, cUSDAmount, users.backer1Address, address(cUSDToken));
+        
+        // Batch confirm without token array
+        bytes32[] memory paymentIds = new bytes32[](3);
+        paymentIds[0] = PAYMENT_ID_1;
+        paymentIds[1] = PAYMENT_ID_2;
+        paymentIds[2] = PAYMENT_ID_3;
+        
+        vm.prank(users.platform1AdminAddress);
         paymentTreasury.confirmPaymentBatch(paymentIds);
+        
+        uint256 expectedTotal = 500e18 + 600e18 + 700e18;
+        assertEq(paymentTreasury.getRaisedAmount(), expectedTotal);
+    }
+
+    function testRefundReturnsCorrectTokenType() public {
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), PAYMENT_AMOUNT_1);
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        uint256 usdtBefore = usdtToken.balanceOf(users.backer1Address);
+        uint256 cUSDBefore = cUSDToken.balanceOf(users.backer1Address);
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.claimRefund(PAYMENT_ID_1, users.backer1Address);
+        
+        // Should receive USDT, not cUSD
+        assertEq(
+            usdtToken.balanceOf(users.backer1Address) - usdtBefore,
+            usdtAmount,
+            "Should receive USDT"
+        );
+        assertEq(
+            cUSDToken.balanceOf(users.backer1Address),
+            cUSDBefore,
+            "cUSD should be unchanged"
+        );
+    }
+
+    function testWithdrawDistributesAllTokens() public {
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), 1000e18);
+        uint256 cUSDAmount = 1500e18;
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            cUSDAmount,
+            users.backer2Address,
+            address(cUSDToken)
+        );
+        
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        vm.stopPrank();
+        
+        address owner = CampaignInfo(campaignAddress).owner();
+        uint256 ownerUSDTBefore = usdtToken.balanceOf(owner);
+        uint256 ownerCUSDBefore = cUSDToken.balanceOf(owner);
+        
+        paymentTreasury.withdraw();
+        
+        // Should receive both tokens
+        assertTrue(usdtToken.balanceOf(owner) > ownerUSDTBefore, "Should receive USDT");
+        assertTrue(cUSDToken.balanceOf(owner) > ownerCUSDBefore, "Should receive cUSD");
+    }
+
+    function testDisburseFeesDistributesAllTokens() public {
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), PAYMENT_AMOUNT_1);
+        uint256 cUSDAmount = PAYMENT_AMOUNT_2;
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdcAmount,
+            users.backer1Address,
+            address(usdcToken)
+        );
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            cUSDAmount,
+            users.backer2Address,
+            address(cUSDToken)
+        );
+        
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        vm.stopPrank();
+        
+        paymentTreasury.withdraw();
+        
+        uint256 protocolUSDCBefore = usdcToken.balanceOf(users.protocolAdminAddress);
+        uint256 protocolCUSDBefore = cUSDToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformUSDCBefore = usdcToken.balanceOf(users.platform1AdminAddress);
+        uint256 platformCUSDBefore = cUSDToken.balanceOf(users.platform1AdminAddress);
+        
+        paymentTreasury.disburseFees();
+        
+        // All token types should have fees disbursed
+        assertTrue(
+            usdcToken.balanceOf(users.protocolAdminAddress) > protocolUSDCBefore,
+            "Should disburse USDC to protocol"
+        );
+        assertTrue(
+            cUSDToken.balanceOf(users.protocolAdminAddress) > protocolCUSDBefore,
+            "Should disburse cUSD to protocol"
+        );
+        assertTrue(
+            usdcToken.balanceOf(users.platform1AdminAddress) > platformUSDCBefore,
+            "Should disburse USDC to platform"
+        );
+        assertTrue(
+            cUSDToken.balanceOf(users.platform1AdminAddress) > platformCUSDBefore,
+            "Should disburse cUSD to platform"
+        );
+    }
+
+    function testDecimalNormalizationAccuracy() public {
+        // Test that 1000 USDT (6 decimals) = 1000 cUSD (18 decimals) after normalization
+        uint256 baseAmount = 1000e18;
+        uint256 usdtAmount = baseAmount / 1e12; // 1000 USDT (1000000000)
+        uint256 cUSDAmount = baseAmount;        // 1000 cUSD (1000000000000000000000)
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        uint256 raisedAfterUSDT = paymentTreasury.getRaisedAmount();
+        assertEq(raisedAfterUSDT, baseAmount, "1000 USDT should equal 1000e18 normalized");
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            cUSDAmount,
+            users.backer2Address,
+            address(cUSDToken)
+        );
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        
+        uint256 totalRaised = paymentTreasury.getRaisedAmount();
+        assertEq(totalRaised, baseAmount * 2, "Both should contribute equally");
+    }
+
+    function testCannotConfirmWithInsufficientBalancePerToken() public {
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), 1000e18);
+        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        
+        // Create two payments expecting USDT
+        _createAndFundPaymentWithToken(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken));
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.createPayment(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            address(usdtToken), // Token specified
+            usdtAmount,
+            expiration
+        );
+        
+        // Only funded first payment, second has no tokens
+        
+        // Can confirm first
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Cannot confirm second - insufficient USDT balance
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+    }
+
+    function testMixedTokenRefundsAfterPartialWithdraw() public {
+        // This tests the edge case where some tokens are withdrawn but others have pending refunds
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), 1000e18);
+        uint256 cUSDAmount = 1500e18;
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_2,
+            BUYER_ID_2,
+            ITEM_ID_2,
+            cUSDAmount,
+            users.backer2Address,
+            address(cUSDToken)
+        );
+        
+        vm.startPrank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        paymentTreasury.confirmPayment(PAYMENT_ID_2);
+        vm.stopPrank();
+        
+        // Withdraw (takes fees)
+        paymentTreasury.withdraw();
+        
+        // Try to refund - should fail because funds were withdrawn
+        vm.expectRevert();
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.claimRefund(PAYMENT_ID_1, users.backer1Address);
+    }
+
+    function testZeroBalanceTokensHandledGracefully() public {
+        // Create payment with USDT only
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), PAYMENT_AMOUNT_1);
+        
+        _createAndFundPaymentWithToken(
+            PAYMENT_ID_1,
+            BUYER_ID_1,
+            ITEM_ID_1,
+            usdtAmount,
+            users.backer1Address,
+            address(usdtToken)
+        );
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.confirmPayment(PAYMENT_ID_1);
+        
+        // Withdraw should handle zero-balance tokens (USDC, cUSD) gracefully
+        paymentTreasury.withdraw();
+        
+        // Disburse should also handle it
+        paymentTreasury.disburseFees();
+        
+        // Verify only USDT was processed
+        assertEq(usdcToken.balanceOf(treasuryAddress), 0, "USDC should remain zero");
+        assertEq(cUSDToken.balanceOf(treasuryAddress), 0, "cUSD should remain zero");
     }
 }

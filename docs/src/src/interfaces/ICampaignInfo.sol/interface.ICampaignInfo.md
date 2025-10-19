@@ -1,5 +1,5 @@
 # ICampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ICampaignInfo.sol)
 
 An interface for managing campaign information in a crowdfunding system.
 
@@ -137,21 +137,6 @@ function getGoalAmount() external view returns (uint256);
 |`<none>`|`uint256`|The funding goal amount of the campaign.|
 
 
-### getTokenAddress
-
-Retrieves the address of the token used in the campaign.
-
-
-```solidity
-function getTokenAddress() external view returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the campaign's token.|
-
-
 ### getProtocolFeePercent
 
 Retrieves the protocol fee percentage for the campaign.
@@ -165,6 +150,57 @@ function getProtocolFeePercent() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The protocol fee percentage applied to the campaign.|
+
+
+### getCampaignCurrency
+
+Retrieves the campaign's currency identifier.
+
+
+```solidity
+function getCampaignCurrency() external view returns (bytes32);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bytes32`|The bytes32 currency identifier for the campaign.|
+
+
+### getAcceptedTokens
+
+Retrieves the cached accepted tokens for the campaign.
+
+
+```solidity
+function getAcceptedTokens() external view returns (address[] memory);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the campaign.|
+
+
+### isTokenAccepted
+
+Checks if a token is accepted for the campaign.
+
+
+```solidity
+function isTokenAccepted(address token) external view returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`token`|`address`|The token address to check.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the token is accepted; otherwise, false.|
 
 
 ### getPlatformFeePercent

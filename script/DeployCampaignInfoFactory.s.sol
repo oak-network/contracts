@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
+import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DeployBase} from "./lib/DeployBase.s.sol";
 
 contract DeployCampaignInfoFactory is DeployBase {
@@ -15,24 +17,34 @@ contract DeployCampaignInfoFactory is DeployBase {
     ) public returns (address) {
         console2.log("Deploying CampaignInfoFactory...");
 
-        // Properly deploy CampaignInfo with direct instantiation
-        CampaignInfo campaignInfoImpl = new CampaignInfo(address(this));
+        address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
+
+        // Deploy CampaignInfo implementation
+        CampaignInfo campaignInfoImpl = new CampaignInfo();
         address campaignInfo = address(campaignInfoImpl);
         console2.log("CampaignInfo implementation deployed at:", campaignInfo);
 
-        // Create and initialize the factory
-        CampaignInfoFactory campaignInfoFactory = new CampaignInfoFactory(
-            GlobalParams(globalParams),
-            campaignInfo
+        // Deploy CampaignInfoFactory implementation
+        CampaignInfoFactory factoryImplementation = new CampaignInfoFactory();
+        console2.log("CampaignInfoFactory implementation deployed at:", address(factoryImplementation));
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            CampaignInfoFactory.initialize.selector,
+            deployer,
+            IGlobalParams(globalParams),
+            campaignInfo,
+            treasuryFactory
         );
 
-        campaignInfoFactory._initialize(treasuryFactory, globalParams);
+        // Deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(address(factoryImplementation), initData);
 
         console2.log(
-            "CampaignInfoFactory deployed and initialized at:",
-            address(campaignInfoFactory)
+            "CampaignInfoFactory proxy deployed and initialized at:",
+            address(proxy)
         );
-        return address(campaignInfoFactory);
+        return address(proxy);
     }
 
     function run() external {

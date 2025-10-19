@@ -1,5 +1,5 @@
 # AllOrNothing
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/treasuries/AllOrNothing.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/treasuries/AllOrNothing.sol)
 
 **Inherits:**
 [IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable
@@ -26,6 +26,13 @@ mapping(uint256 => uint256) private s_tokenToPledgedAmount;
 
 ```solidity
 mapping(bytes32 => Reward) private s_reward;
+```
+
+
+### s_tokenIdToPledgeToken
+
+```solidity
+mapping(uint256 => address) private s_tokenIdToPledgeToken;
 ```
 
 
@@ -183,7 +190,7 @@ The non-reward tiers cannot be pledged for without a reward.*
 
 
 ```solidity
-function pledgeForAReward(address backer, uint256 shippingFee, bytes32[] calldata reward)
+function pledgeForAReward(address backer, address pledgeToken, uint256 shippingFee, bytes32[] calldata reward)
     external
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     whenCampaignNotPaused
@@ -196,7 +203,8 @@ function pledgeForAReward(address backer, uint256 shippingFee, bytes32[] calldat
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
-|`shippingFee`|`uint256`||
+|`pledgeToken`|`address`|The token address to use for the pledge.|
+|`shippingFee`|`uint256`|The shipping fee amount.|
 |`reward`|`bytes32[]`|An array of reward names.|
 
 
@@ -206,7 +214,7 @@ Allows a backer to pledge without selecting a reward.
 
 
 ```solidity
-function pledgeWithoutAReward(address backer, uint256 pledgeAmount)
+function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledgeAmount)
     external
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     whenCampaignNotPaused
@@ -219,6 +227,7 @@ function pledgeWithoutAReward(address backer, uint256 pledgeAmount)
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token address to use for the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 
 
@@ -289,6 +298,7 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 ```solidity
 function _pledge(
     address backer,
+    address pledgeToken,
     bytes32 reward,
     uint256 pledgeAmount,
     uint256 shippingFee,
@@ -312,7 +322,8 @@ function supportsInterface(bytes4 interfaceId) public view override returns (boo
 ```solidity
 event Receipt(
     address indexed backer,
-    bytes32 indexed reward,
+    address indexed pledgeToken,
+    bytes32 reward,
     uint256 pledgeAmount,
     uint256 shippingFee,
     uint256 tokenId,
@@ -325,6 +336,7 @@ event Receipt(
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token used for the pledge.|
 |`reward`|`bytes32`|The name of the reward.|
 |`pledgeAmount`|`uint256`|The amount pledged.|
 |`shippingFee`|`uint256`||
@@ -431,6 +443,14 @@ error AllOrNothingFeeAlreadyDisbursed();
 
 ```solidity
 error AllOrNothingRewardExists();
+```
+
+### AllOrNothingTokenNotAccepted
+*Emitted when a token is not accepted for the campaign.*
+
+
+```solidity
+error AllOrNothingTokenNotAccepted(address token);
 ```
 
 ### AllOrNothingNotClaimable

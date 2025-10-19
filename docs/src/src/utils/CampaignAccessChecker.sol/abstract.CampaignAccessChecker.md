@@ -1,5 +1,8 @@
 # CampaignAccessChecker
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/utils/CampaignAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/utils/CampaignAccessChecker.sol)
+
+**Inherits:**
+Context
 
 *This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators, platform administrators, and campaign owners.*

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
+
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
 /// @title PausableCancellable
 /// @notice Abstract contract providing pause and cancel state management with events and modifiers
-abstract contract PausableCancellable {
+abstract contract PausableCancellable is Context {
     bool private _paused;
     bool private _cancelled;
 
@@ -102,7 +104,7 @@ abstract contract PausableCancellable {
         bytes32 reason
     ) internal virtual whenNotPaused whenNotCancelled {
         _paused = true;
-        emit Paused(msg.sender, reason);
+        emit Paused(_msgSender(), reason);
     }
 
     /**
@@ -112,7 +114,7 @@ abstract contract PausableCancellable {
      */
     function _unpause(bytes32 reason) internal virtual whenPaused {
         _paused = false;
-        emit Unpaused(msg.sender, reason);
+        emit Unpaused(_msgSender(), reason);
     }
 
     /**
@@ -129,6 +131,6 @@ abstract contract PausableCancellable {
             );
         }
         _cancelled = true;
-        emit Cancelled(msg.sender, reason);
+        emit Cancelled(_msgSender(), reason);
     }
 }

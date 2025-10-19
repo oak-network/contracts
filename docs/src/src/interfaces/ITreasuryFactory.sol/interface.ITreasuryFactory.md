@@ -1,5 +1,5 @@
 # ITreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ITreasuryFactory.sol)
 
 *Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.*
 

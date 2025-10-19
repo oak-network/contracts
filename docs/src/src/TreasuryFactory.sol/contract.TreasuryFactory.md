@@ -1,36 +1,69 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/TreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/TreasuryFactory.sol)
 
 **Inherits:**
-[ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
+Initializable, [ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
+
+Factory contract for creating treasury contracts
+
+*UUPS Upgradeable contract with ERC-7201 namespaced storage*
 
 
 ## State Variables
-### implementationMap
+### TREASURY_FACTORY_STORAGE_LOCATION
 
 ```solidity
-mapping(bytes32 => mapping(uint256 => address)) private implementationMap;
-```
-
-
-### approvedImplementations
-
-```solidity
-mapping(address => bool) private approvedImplementations;
+bytes32 private constant TREASURY_FACTORY_STORAGE_LOCATION =
+    0x96b7de8c171ef460648aea35787d043e89feb6b6de2623a1e6f17a91b9c9e900;
 ```
 
 
 ## Functions
-### constructor
-
-Initializes the TreasuryFactory contract.
-
-*This constructor sets the address of the GlobalParams contract as the admin.*
+### _getTreasuryFactoryStorage
 
 
 ```solidity
-constructor(IGlobalParams globalParams);
+function _getTreasuryFactoryStorage() private pure returns (TreasuryFactoryStorage storage $);
 ```
+
+### constructor
+
+*Constructor that disables initializers to prevent implementation contract initialization*
+
+
+```solidity
+constructor();
+```
+
+### initialize
+
+Initializes the TreasuryFactory contract.
+
+
+```solidity
+function initialize(IGlobalParams globalParams) public initializer;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`globalParams`|`IGlobalParams`|The address of the GlobalParams contract|
+
+
+### _authorizeUpgrade
+
+*Function that authorizes an upgrade to a new implementation*
+
+
+```solidity
+function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|Address of the new implementation|
+
 
 ### registerTreasuryImplementation
 
@@ -189,5 +222,18 @@ error TreasuryFactoryTreasuryInitializationFailed();
 
 ```solidity
 error TreasuryFactorySettingPlatformInfoFailed();
+```
+
+## Structs
+### TreasuryFactoryStorage
+**Note:**
+storage-location: erc7201:ccprotocol.storage.TreasuryFactory
+
+
+```solidity
+struct TreasuryFactoryStorage {
+    mapping(bytes32 => mapping(uint256 => address)) implementationMap;
+    mapping(address => bool) approvedImplementations;
+}
 ```
 

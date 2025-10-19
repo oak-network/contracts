@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /**
  * @title IGlobalParams
@@ -35,12 +35,6 @@ interface IGlobalParams {
      * @return The admin address of the protocol.
      */
     function getProtocolAdminAddress() external view returns (address);
-
-    /**
-     * @notice Retrieves the address of the protocol's native token.
-     * @return The address of the native token.
-     */
-    function getTokenAddress() external view returns (address);
 
     /**
      * @notice Retrieves the protocol fee percentage.
@@ -82,12 +76,6 @@ interface IGlobalParams {
     function updateProtocolAdminAddress(address _protocolAdminAddress) external;
 
     /**
-     * @notice Updates the address of the protocol's native token.
-     * @param _tokenAddress The new address of the native token.
-     */
-    function updateTokenAddress(address _tokenAddress) external;
-
-    /**
      * @notice Updates the protocol fee percentage.
      * @param _protocolFeePercent The new protocol fee percentage as a uint256 value.
      */
@@ -102,4 +90,27 @@ interface IGlobalParams {
         bytes32 _platformHash,
         address _platformAdminAddress
     ) external;
+
+    /**
+     * @notice Adds a token to a currency.
+     * @param currency The currency identifier.
+     * @param token The token address to add.
+     */
+    function addTokenToCurrency(bytes32 currency, address token) external;
+
+    /**
+     * @notice Removes a token from a currency.
+     * @param currency The currency identifier.
+     * @param token The token address to remove.
+     */
+    function removeTokenFromCurrency(bytes32 currency, address token) external;
+
+    /**
+     * @notice Retrieves all tokens accepted for a specific currency.
+     * @param currency The currency identifier.
+     * @return An array of token addresses accepted for the currency.
+     */
+    function getTokensForCurrency(
+        bytes32 currency
+    ) external view returns (address[] memory);
 }

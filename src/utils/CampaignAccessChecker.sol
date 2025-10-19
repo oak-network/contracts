@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
@@ -9,7 +10,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
  * @dev This abstract contract provides access control mechanisms to restrict the execution of specific functions
  * to authorized protocol administrators, platform administrators, and campaign owners.
  */
-abstract contract CampaignAccessChecker {
+abstract contract CampaignAccessChecker is Context {
     // Immutable reference to the ICampaignInfo contract, which provides campaign-related information and admin addresses.
     ICampaignInfo internal INFO;
 
@@ -59,7 +60,7 @@ abstract contract CampaignAccessChecker {
      * If the sender is not the protocol admin, it reverts with AccessCheckerUnauthorized error.
      */
     function _onlyProtocolAdmin() private view {
-        if (msg.sender != INFO.getProtocolAdminAddress()) {
+        if (_msgSender() != INFO.getProtocolAdminAddress()) {
             revert AccessCheckerUnauthorized();
         }
     }
@@ -70,7 +71,7 @@ abstract contract CampaignAccessChecker {
      * @param platformHash The unique identifier of the platform.
      */
     function _onlyPlatformAdmin(bytes32 platformHash) private view {
-        if (msg.sender != INFO.getPlatformAdminAddress(platformHash)) {
+        if (_msgSender() != INFO.getPlatformAdminAddress(platformHash)) {
             revert AccessCheckerUnauthorized();
         }
     }
@@ -80,7 +81,7 @@ abstract contract CampaignAccessChecker {
      * If the sender is not the owner, it reverts with AccessCheckerUnauthorized error.
      */
     function _onlyCampaignOwner() private view {
-        if (INFO.owner() != msg.sender) {
+        if (INFO.owner() != _msgSender()) {
             revert AccessCheckerUnauthorized();
         }
     }

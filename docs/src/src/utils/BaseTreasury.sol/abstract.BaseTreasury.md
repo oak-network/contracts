@@ -1,5 +1,5 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/utils/BaseTreasury.sol)
 
 **Inherits:**
 Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
@@ -26,6 +26,13 @@ uint256 internal constant PERCENT_DIVIDER = 10000;
 ```
 
 
+### STANDARD_DECIMALS
+
+```solidity
+uint256 internal constant STANDARD_DECIMALS = 18;
+```
+
+
 ### PLATFORM_HASH
 
 ```solidity
@@ -40,24 +47,17 @@ uint256 internal PLATFORM_FEE_PERCENT;
 ```
 
 
-### TOKEN
-
-```solidity
-IERC20 internal TOKEN;
-```
-
-
-### s_pledgedAmount
-
-```solidity
-uint256 internal s_pledgedAmount;
-```
-
-
 ### s_feesDisbursed
 
 ```solidity
 bool internal s_feesDisbursed;
+```
+
+
+### s_tokenRaisedAmounts
+
+```solidity
+mapping(address => uint256) internal s_tokenRaisedAmounts;
 ```
 
 
@@ -113,6 +113,50 @@ function getplatformFeePercent() external view override returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The platform fee percentage as a uint256 value.|
+
+
+### _normalizeAmount
+
+*Normalizes token amount to 18 decimals for consistent comparison.*
+
+
+```solidity
+function _normalizeAmount(address token, uint256 amount) internal view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`token`|`address`|The token address to normalize.|
+|`amount`|`uint256`|The amount to normalize.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The normalized amount in 18 decimals.|
+
+
+### _denormalizeAmount
+
+*Denormalizes an amount from 18 decimals to the token's actual decimals.*
+
+
+```solidity
+function _denormalizeAmount(address token, uint256 amount) internal view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`token`|`address`|The token address to denormalize for.|
+|`amount`|`uint256`|The amount in 18 decimals to denormalize.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The denormalized amount in token's native decimals.|
 
 
 ### disburseFees
@@ -194,32 +238,34 @@ function _checkSuccessCondition() internal view virtual returns (bool);
 
 ## Events
 ### FeesDisbursed
-Emitted when fees are successfully disbursed.
+Emitted when fees are successfully disbursed for a specific token.
 
 
 ```solidity
-event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
+event FeesDisbursed(address indexed token, uint256 protocolShare, uint256 platformShare);
 ```
 
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
+|`token`|`address`|The token address.|
 |`protocolShare`|`uint256`|The amount of fees sent to the protocol.|
 |`platformShare`|`uint256`|The amount of fees sent to the platform.|
 
 ### WithdrawalSuccessful
-Emitted when a withdrawal is successful.
+Emitted when a withdrawal is successful for a specific token.
 
 
 ```solidity
-event WithdrawalSuccessful(address to, uint256 amount);
+event WithdrawalSuccessful(address indexed token, address to, uint256 amount);
 ```
 
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
+|`token`|`address`|The token address.|
 |`to`|`address`|The recipient of the withdrawal.|
 |`amount`|`uint256`|The amount withdrawn.|
 

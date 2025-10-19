@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -20,12 +20,7 @@ contract PaymentTreasury is
     error PaymentTreasuryUnAuthorized();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
-     */
-    error PaymentTreasuryFeeAlreadyDisbursed();
-
-    /**
-     * @dev Constructor for the AllOrNothing contract.
+     * @dev Constructor for the PaymentTreasury contract.
      */
     constructor() {}
 
@@ -55,10 +50,11 @@ contract PaymentTreasury is
         bytes32 paymentId,
         bytes32 buyerId,
         bytes32 itemId,
+        address paymentToken,
         uint256 amount,
         uint256 expiration
     ) public override whenNotPaused whenNotCancelled {
-        super.createPayment(paymentId, buyerId, itemId, amount, expiration);
+        super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration);
     }
 
     /**
@@ -68,9 +64,10 @@ contract PaymentTreasury is
         bytes32 paymentId,
         bytes32 itemId,
         address buyerAddress,
+        address paymentToken,
         uint256 amount
     ) public override whenNotPaused whenNotCancelled {
-        super.processCryptoPayment(paymentId, itemId, buyerAddress, amount);
+        super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount);
     }
 
     /**
@@ -144,8 +141,8 @@ contract PaymentTreasury is
      */
     function cancelTreasury(bytes32 message) public override {
         if (
-            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            msg.sender != INFO.owner()
+            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
+            _msgSender() != INFO.owner()
         ) {
             revert PaymentTreasuryUnAuthorized();
         }

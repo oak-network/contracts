@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -30,6 +30,8 @@ contract AllOrNothing is
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
+    // Mapping to store the token used for each NFT
+    mapping(uint256 => address) private s_tokenIdToPledgeToken; 
 
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
@@ -41,6 +43,7 @@ contract AllOrNothing is
     /**
      * @dev Emitted when a backer makes a pledge.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token used for the pledge.
      * @param reward The name of the reward.
      * @param pledgeAmount The amount pledged.
      * @param tokenId The ID of the token representing the pledge.
@@ -48,7 +51,8 @@ contract AllOrNothing is
      */
     event Receipt(
         address indexed backer,
-        bytes32 indexed reward,
+        address indexed pledgeToken,
+        bytes32 reward,
         uint256 pledgeAmount,
         uint256 shippingFee,
         uint256 tokenId,
@@ -111,6 +115,11 @@ contract AllOrNothing is
     error AllOrNothingRewardExists();
 
     /**
+     * @dev Emitted when a token is not accepted for the campaign.
+     */
+    error AllOrNothingTokenNotAccepted(address token);
+
+    /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
      */
@@ -158,7 +167,18 @@ contract AllOrNothing is
      * @inheritdoc ICampaignTreasury
      */
     function getRaisedAmount() external view override returns (uint256) {
-        return s_pledgedAmount;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_tokenRaisedAmounts[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
     }
 
     /**
@@ -240,10 +260,13 @@ contract AllOrNothing is
      * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
      *      The non-reward tiers cannot be pledged for without a reward.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token address to use for the pledge.
+     * @param shippingFee The shipping fee amount.
      * @param reward An array of reward names.
      */
     function pledgeForAReward(
         address backer,
+        address pledgeToken,
         uint256 shippingFee,
         bytes32[] calldata reward
     )
@@ -276,16 +299,18 @@ contract AllOrNothing is
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, reward[0], pledgeAmount, shippingFee, tokenId, reward);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, tokenId, reward);
     }
 
     /**
      * @notice Allows a backer to pledge without selecting a reward.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token address to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
      */
     function pledgeWithoutAReward(
         address backer,
+        address pledgeToken,
         uint256 pledgeAmount
     )
         external
@@ -298,7 +323,7 @@ contract AllOrNothing is
         uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(backer, ZERO_BYTES, pledgeAmount, 0, tokenId, emptyByteArray);
+        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, tokenId, emptyByteArray);
     }
 
     /**
@@ -318,15 +343,20 @@ contract AllOrNothing is
         }
         uint256 amountToRefund = s_tokenToTotalCollectedAmount[tokenId];
         uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
+        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
+        
         if (amountToRefund == 0) {
             revert AllOrNothingNotClaimable(tokenId);
         }
+        
         s_tokenToTotalCollectedAmount[tokenId] = 0;
         s_tokenToPledgedAmount[tokenId] = 0;
-        s_pledgedAmount -= pledgedAmount;
+        s_tokenRaisedAmounts[pledgeToken] -= pledgedAmount;
+        delete s_tokenIdToPledgeToken[tokenId];
+        
         burn(tokenId);
-        TOKEN.safeTransfer(msg.sender, amountToRefund);
-        emit RefundClaimed(tokenId, amountToRefund, msg.sender);
+        IERC20(pledgeToken).safeTransfer(_msgSender(), amountToRefund);
+        emit RefundClaimed(tokenId, amountToRefund, _msgSender());
     }
 
     /**
@@ -358,8 +388,8 @@ contract AllOrNothing is
      */
     function cancelTreasury(bytes32 message) public override {
         if (
-            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            msg.sender != INFO.owner()
+            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
+            _msgSender() != INFO.owner()
         ) {
             revert AllOrNothingUnAuthorized();
         }
@@ -381,21 +411,47 @@ contract AllOrNothing is
 
     function _pledge(
         address backer,
+        address pledgeToken,
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 shippingFee,
         uint256 tokenId,
         bytes32[] memory rewards
     ) private {
-        uint256 totalAmount = pledgeAmount + shippingFee;
-        TOKEN.safeTransferFrom(backer, address(this), totalAmount);
+        // Validate token is accepted 
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
+        
+        // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
+        // If not for a reward, amounts are already in token decimals
+        uint256 pledgeAmountInTokenDecimals;
+        uint256 shippingFeeInTokenDecimals;
+        
+        if (reward != ZERO_BYTES) {
+            // Reward pledge: denormalize from 18 decimals to token decimals
+            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
+        } else {
+            // Non-reward pledge: already in token decimals
+            pledgeAmountInTokenDecimals = pledgeAmount;
+            shippingFeeInTokenDecimals = shippingFee;
+        }
+        
+        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+        
+        IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
+        
         s_tokenIdCounter.increment();
-        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
-        s_pledgedAmount += pledgeAmount;
+        s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        
         _safeMint(backer, tokenId, abi.encodePacked(backer, reward, rewards));
         emit Receipt(
             backer,
+            pledgeToken,
             reward,
             pledgeAmount,
             shippingFee,

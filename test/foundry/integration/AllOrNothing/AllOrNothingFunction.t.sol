@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "./AllOrNothing.t.sol";
 import "forge-std/console.sol";
@@ -9,6 +9,7 @@ import {Defaults} from "../../utils/Defaults.sol";
 import {Constants} from "../../utils/Constants.sol";
 import {Users} from "../../utils/Types.sol";
 import {IReward} from "src/interfaces/IReward.sol";
+import {TestToken} from "../../../mocks/TestToken.sol"; 
 
 contract AllOrNothingFunction_Integration_Shared_Test is
     AllOrNothing_Integration_Shared_Test
@@ -217,5 +218,317 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             "Incorrect address receiving the funds"
         );
         assertEq(amount, expectedAmount, "Incorrect withdrawal amount");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        MULTI-TOKEN FUNCTIONALITY TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_pledgeWithMultipleTokens() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+
+        // Pledge with USDC (6 decimals)
+        uint256 usdcPledgeAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
+        uint256 usdcShippingFee = getTokenAmount(address(usdcToken), SHIPPING_FEE); 
+        
+        vm.startPrank(users.backer1Address);
+        usdcToken.approve(address(allOrNothing), usdcPledgeAmount + usdcShippingFee);
+        vm.warp(LAUNCH_TIME);
+        
+        bytes32[] memory reward1 = new bytes32[](1);
+        reward1[0] = REWARD_NAME_1_HASH;
+        allOrNothing.pledgeForAReward(
+            users.backer1Address,
+            address(usdcToken),
+            usdcShippingFee, 
+            reward1
+        );
+        vm.stopPrank();
+        
+        // Pledge with cUSD (18 decimals) - no conversion needed
+        vm.startPrank(users.backer2Address);
+        cUSDToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer2Address,
+            address(cUSDToken),
+            PLEDGE_AMOUNT
+        );
+        vm.stopPrank();
+        
+        // Verify balances
+        assertEq(usdcToken.balanceOf(address(allOrNothing)), usdcPledgeAmount + usdcShippingFee);
+        assertEq(cUSDToken.balanceOf(address(allOrNothing)), PLEDGE_AMOUNT);
+        
+        // Verify normalized raised amount
+        uint256 totalRaised = allOrNothing.getRaisedAmount();
+        assertEq(totalRaised, PLEDGE_AMOUNT * 2, "Total raised should be sum of normalized amounts");
+    }
+
+    function test_getRaisedAmountNormalizesCorrectly() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+        
+        // Pledge same base amount in different tokens
+        uint256 baseAmount = 1000e18;
+        
+        // USDC pledge (6 decimals)
+        uint256 usdcAmount = baseAmount / 1e12;
+        vm.startPrank(users.backer1Address);
+        usdcToken.approve(address(allOrNothing), usdcAmount);
+        vm.warp(LAUNCH_TIME);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(usdcToken),
+            usdcAmount
+        );
+        vm.stopPrank();
+        
+        uint256 raisedAfterUSDC = allOrNothing.getRaisedAmount();
+        assertEq(raisedAfterUSDC, baseAmount, "USDC amount should be normalized to 18 decimals");
+        
+        // cUSD pledge (18 decimals)
+        vm.startPrank(users.backer2Address);
+        cUSDToken.approve(address(allOrNothing), baseAmount);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer2Address,
+            address(cUSDToken),
+            baseAmount
+        );
+        vm.stopPrank();
+        
+        uint256 raisedAfterCUSD = allOrNothing.getRaisedAmount();
+        assertEq(raisedAfterCUSD, baseAmount * 2, "Total should be sum of normalized amounts");
+    }
+
+    function test_disburseFeesWithMultipleTokens() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+        
+        // Pledge with USDC
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
+        vm.startPrank(users.backer1Address);
+        usdcToken.approve(address(allOrNothing), usdcAmount);
+        vm.warp(LAUNCH_TIME);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(usdcToken),
+            usdcAmount
+        );
+        vm.stopPrank();
+        
+        // Pledge with cUSD to meet goal
+        vm.startPrank(users.backer2Address);
+        cUSDToken.approve(address(allOrNothing), GOAL_AMOUNT);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer2Address,
+            address(cUSDToken),
+            GOAL_AMOUNT
+        );
+        vm.stopPrank();
+        
+        uint256 protocolBalanceUSDCBefore = usdcToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformBalanceUSDCBefore = usdcToken.balanceOf(users.platform1AdminAddress);
+        uint256 protocolBalanceCUSDBefore = cUSDToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformBalanceCUSDBefore = cUSDToken.balanceOf(users.platform1AdminAddress);
+        
+        // Disburse fees
+        vm.warp(DEADLINE + 1 days);
+        allOrNothing.disburseFees();
+        
+        // Verify USDC fees
+        uint256 expectedUSDCProtocolFee = (usdcAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedUSDCPlatformFee = (usdcAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        
+        assertEq(
+            usdcToken.balanceOf(users.protocolAdminAddress) - protocolBalanceUSDCBefore,
+            expectedUSDCProtocolFee,
+            "Incorrect USDC protocol fee"
+        );
+        assertEq(
+            usdcToken.balanceOf(users.platform1AdminAddress) - platformBalanceUSDCBefore,
+            expectedUSDCPlatformFee,
+            "Incorrect USDC platform fee"
+        );
+        
+        // Verify cUSD fees
+        uint256 expectedCUSDProtocolFee = (GOAL_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedCUSDPlatformFee = (GOAL_AMOUNT * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        
+        assertEq(
+            cUSDToken.balanceOf(users.protocolAdminAddress) - protocolBalanceCUSDBefore,
+            expectedCUSDProtocolFee,
+            "Incorrect cUSD protocol fee"
+        );
+        assertEq(
+            cUSDToken.balanceOf(users.platform1AdminAddress) - platformBalanceCUSDBefore,
+            expectedCUSDPlatformFee,
+            "Incorrect cUSD platform fee"
+        );
+    }
+
+    function test_withdrawWithMultipleTokens() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+        
+        // Pledge with multiple tokens
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
+        uint256 usdtAmount = getTokenAmount(address(usdtToken), PLEDGE_AMOUNT);
+        
+        vm.startPrank(users.backer1Address);
+        usdcToken.approve(address(allOrNothing), usdcAmount);
+        vm.warp(LAUNCH_TIME);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(usdcToken),
+            usdcAmount
+        );
+        vm.stopPrank();
+        
+        vm.startPrank(users.backer2Address);
+        usdtToken.approve(address(allOrNothing), usdtAmount);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer2Address,
+            address(usdtToken),
+            usdtAmount
+        );
+        vm.stopPrank();
+        
+        // Need cUSD pledge to meet goal
+        vm.startPrank(users.backer1Address);
+        cUSDToken.approve(address(allOrNothing), GOAL_AMOUNT);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(cUSDToken),
+            GOAL_AMOUNT
+        );
+        vm.stopPrank();
+        
+        // Disburse fees and withdraw
+        vm.warp(DEADLINE + 1 days);
+        allOrNothing.disburseFees();
+        
+        uint256 creatorUSDCBefore = usdcToken.balanceOf(users.creator1Address);
+        uint256 creatorUSDTBefore = usdtToken.balanceOf(users.creator1Address);
+        uint256 creatorCUSDBefore = cUSDToken.balanceOf(users.creator1Address);
+        
+        allOrNothing.withdraw();
+        
+        // Verify all tokens were withdrawn
+        assertTrue(usdcToken.balanceOf(users.creator1Address) > creatorUSDCBefore, "Creator should receive USDC");
+        assertTrue(usdtToken.balanceOf(users.creator1Address) > creatorUSDTBefore, "Creator should receive USDT");
+        assertTrue(cUSDToken.balanceOf(users.creator1Address) > creatorCUSDBefore, "Creator should receive cUSD");
+        
+        // Verify treasury is empty
+        assertEq(usdcToken.balanceOf(address(allOrNothing)), 0, "USDC should be fully withdrawn");
+        assertEq(usdtToken.balanceOf(address(allOrNothing)), 0, "USDT should be fully withdrawn");
+        assertEq(cUSDToken.balanceOf(address(allOrNothing)), 0, "cUSD should be fully withdrawn");
+    }
+
+    function test_refundWithCorrectToken() external {
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+        
+        // Backer1 pledges with USDC
+        uint256 usdcAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
+        vm.startPrank(users.backer1Address);
+        usdcToken.approve(address(allOrNothing), usdcAmount);
+        vm.warp(LAUNCH_TIME);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(usdcToken),
+            usdcAmount
+        );
+        uint256 usdcTokenId = 0;
+        vm.stopPrank();
+        
+        // Backer2 pledges with cUSD
+        vm.startPrank(users.backer2Address);
+        cUSDToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
+        allOrNothing.pledgeWithoutAReward(
+            users.backer2Address,
+            address(cUSDToken),
+            PLEDGE_AMOUNT
+        );
+        uint256 cUSDTokenId = 1;
+        vm.stopPrank();
+        
+        uint256 backer1USDCBefore = usdcToken.balanceOf(users.backer1Address);
+        uint256 backer2CUSDBefore = cUSDToken.balanceOf(users.backer2Address);
+        
+        // Claim refunds
+        vm.warp(LAUNCH_TIME + 1 days);
+        
+        vm.prank(users.backer1Address);
+        allOrNothing.claimRefund(usdcTokenId);
+        
+        vm.prank(users.backer2Address);
+        allOrNothing.claimRefund(cUSDTokenId);
+        
+        // Verify refunds in correct tokens
+        assertEq(
+            usdcToken.balanceOf(users.backer1Address) - backer1USDCBefore,
+            usdcAmount,
+            "Should refund in USDC"
+        );
+        assertEq(
+            cUSDToken.balanceOf(users.backer2Address) - backer2CUSDBefore,
+            PLEDGE_AMOUNT,
+            "Should refund in cUSD"
+        );
+        
+        // Verify no cross-token refunds
+        assertEq(cUSDToken.balanceOf(users.backer1Address), TOKEN_MINT_AMOUNT, "Should not receive cUSD");
+        assertEq(usdcToken.balanceOf(users.backer2Address), TOKEN_MINT_AMOUNT / 1e12, "Should not receive USDC");
+    }
+
+    function test_revertWhenPledgingWithUnacceptedToken() external {
+        // Create a token not in the accepted list
+        TestToken unacceptedToken = new TestToken("Unaccepted", "UNA", 18);
+        unacceptedToken.mint(users.backer1Address, PLEDGE_AMOUNT);
+        
+        addRewards(
+            users.creator1Address,
+            address(allOrNothing),
+            REWARD_NAMES,
+            REWARDS
+        );
+        
+        vm.startPrank(users.backer1Address);
+        unacceptedToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
+        vm.warp(LAUNCH_TIME);
+        
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AllOrNothing.AllOrNothingTokenNotAccepted.selector,
+                address(unacceptedToken)
+            )
+        );
+        allOrNothing.pledgeWithoutAReward(
+            users.backer1Address,
+            address(unacceptedToken),
+            PLEDGE_AMOUNT
+        );
+        vm.stopPrank();
     }
 }

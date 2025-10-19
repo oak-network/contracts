@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
@@ -40,6 +41,13 @@ contract KeepWhatsRaised is
     mapping(bytes32 => uint256) public s_paymentGatewayFees;
     /// Mapping that stores fee values indexed by their corresponding fee keys.
     mapping(bytes32 => uint256) private s_feeValues;
+    
+    // Multi-token support
+    mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each NFT
+    mapping(address => uint256) private s_protocolFeePerToken; // Protocol fees per token
+    mapping(address => uint256) private s_platformFeePerToken; // Platform fees per token
+    mapping(address => uint256) private s_tipPerToken; // Tips per token
+    mapping(address => uint256) private s_availablePerToken; // Available amount per token
 
     // Counters for token IDs and rewards
     Counters.Counter private s_tokenIdCounter;
@@ -97,10 +105,6 @@ contract KeepWhatsRaised is
 
     string private s_name;
     string private s_symbol;
-    uint256 private s_tip;
-    uint256 private s_platformFee;
-    uint256 private s_protocolFee;
-    uint256 private s_availablePledgedAmount;
     uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
@@ -112,6 +116,7 @@ contract KeepWhatsRaised is
     /**
      * @dev Emitted when a backer makes a pledge.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token used for the pledge.
      * @param reward The name of the reward.
      * @param pledgeAmount The amount pledged.
      * @param tip An optional tip can be added during the process.
@@ -120,7 +125,8 @@ contract KeepWhatsRaised is
      */
     event Receipt(
         address indexed backer,
-        bytes32 indexed reward,
+        address indexed pledgeToken,
+        bytes32 reward,
         uint256 pledgeAmount,
         uint256 tip,
         uint256 tokenId,
@@ -217,6 +223,11 @@ contract KeepWhatsRaised is
     error KeepWhatsRaisedInvalidInput();
 
     /**
+     * @dev Emitted when a token is not accepted for the campaign.
+     */
+    error KeepWhatsRaisedTokenNotAccepted(address token);
+
+    /**
      * @dev Emitted when a `Reward` already exists for given input.
      */
     error KeepWhatsRaisedRewardExists();
@@ -308,12 +319,12 @@ contract KeepWhatsRaised is
     }
 
     /// @notice Restricts access to only the platform admin or the campaign owner.
-    /// @dev Checks if `msg.sender` is either the platform admin (via `INFO.getPlatformAdminAddress`)
+    /// @dev Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
     ///      or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
     modifier onlyPlatformAdminOrCampaignOwner() {
         if (
-            msg.sender != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            msg.sender != INFO.owner()
+            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
+            _msgSender() != INFO.owner()
         ) {
             revert KeepWhatsRaisedUnAuthorized();
         }
@@ -369,7 +380,18 @@ contract KeepWhatsRaised is
      * @inheritdoc ICampaignTreasury
      */
     function getRaisedAmount() external view override returns (uint256) {
-        return s_pledgedAmount;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_tokenRaisedAmounts[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
     }
 
     /**
@@ -377,7 +399,18 @@ contract KeepWhatsRaised is
      * @return The current available raised amount as a uint256 value.
      */
     function getAvailableRaisedAmount() external view returns (uint256) {
-        return s_availablePledgedAmount;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_availablePerToken[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
     }
 
     /**
@@ -652,6 +685,7 @@ contract KeepWhatsRaised is
     function setFeeAndPledge(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         uint256 pledgeAmount,
         uint256 tip,
         uint256 fee,
@@ -669,9 +703,9 @@ contract KeepWhatsRaised is
         setPaymentGatewayFee(pledgeId, fee);
 
         if(isPledgeForAReward){
-            _pledgeForAReward(pledgeId, backer, tip, reward, msg.sender); // Pass admin as token source
+            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender()); // Pass admin as token source
         }else {
-            _pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip, msg.sender); // Pass admin as token source
+            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender()); // Pass admin as token source
         }
     }
 
@@ -681,12 +715,14 @@ contract KeepWhatsRaised is
      *      The non-reward tiers cannot be pledged for without a reward.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
      */
     function pledgeForAReward(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         uint256 tip,
         bytes32[] calldata reward
     )
@@ -697,7 +733,7 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeForAReward(pledgeId, backer, tip, reward, backer); // Pass backer as token source for direct calls
+        _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, backer); // Pass backer as token source for direct calls
     }
 
     /**
@@ -708,6 +744,7 @@ contract KeepWhatsRaised is
      *      setFeeAndPledge (with admin as token source).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
+     * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
      * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
@@ -715,6 +752,7 @@ contract KeepWhatsRaised is
     function _pledgeForAReward(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         uint256 tip,
         bytes32[] calldata reward,
         address tokenSource
@@ -726,7 +764,7 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, msg.sender));
+        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
         if(s_processedPledges[internalPledgeId]){
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
@@ -755,19 +793,21 @@ contract KeepWhatsRaised is
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, reward[0], pledgeAmount, tip, tokenId, reward, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, tokenId, reward, tokenSource);
     }
 
     /**
      * @notice Allows a backer to pledge without selecting a reward.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
      * @param tip An optional tip can be added during the process.
      */
     function pledgeWithoutAReward(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         uint256 pledgeAmount,
         uint256 tip
     )
@@ -778,7 +818,7 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeWithoutAReward(pledgeId, backer, pledgeAmount, tip, backer); // Pass backer as token source for direct calls
+        _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, backer); // Pass backer as token source for direct calls
     }
 
     /**
@@ -787,6 +827,7 @@ contract KeepWhatsRaised is
      *      setFeeAndPledge (with admin as token source).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
+     * @param pledgeToken The token to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
      * @param tip An optional tip can be added during the process.
      * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
@@ -794,6 +835,7 @@ contract KeepWhatsRaised is
     function _pledgeWithoutAReward(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         uint256 pledgeAmount,
         uint256 tip,
         address tokenSource
@@ -805,7 +847,7 @@ contract KeepWhatsRaised is
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, msg.sender));
+        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
         if(s_processedPledges[internalPledgeId]){
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
@@ -815,7 +857,7 @@ contract KeepWhatsRaised is
         uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(pledgeId, backer, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray, tokenSource);
     }
 
     /**
@@ -828,11 +870,13 @@ contract KeepWhatsRaised is
     /**
      * @dev Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
      *
+     * @param token The token to withdraw.
      * @param amount The withdrawal amount (ignored for final withdrawals).
      *
      * Requirements:
      * - Caller must be authorized.
      * - Withdrawals must be enabled, not paused, and within the allowed time.
+     * - Token must be accepted for the campaign.
      * - For partial withdrawals:
      *   - `amount` > 0 and `amount + fees` ≤ available balance.
      * - For final withdrawals:
@@ -840,7 +884,7 @@ contract KeepWhatsRaised is
      *
      * Effects:
      * - Deducts fees (flat, cumulative, and Colombian tax if applicable).
-     * - Updates available balance.
+     * - Updates available balance per token.
      * - Transfers net funds to the recipient.
      *
      * Reverts:
@@ -850,6 +894,7 @@ contract KeepWhatsRaised is
      * - `WithdrawalWithFeeSuccessful`.
      */
     function withdraw(
+        address token,
         uint256 amount
     ) 
         public
@@ -859,10 +904,17 @@ contract KeepWhatsRaised is
         whenNotCancelled
         withdrawalEnabled
     {
-        uint256 flatFee = getFeeValue(s_feeKeys.flatFeeKey);
-        uint256 cumulativeFee = getFeeValue(s_feeKeys.cumulativeFlatFeeKey);
+        if (!INFO.isTokenAccepted(token)) {
+            revert KeepWhatsRaisedTokenNotAccepted(token);
+        }
+
+        // Fee config values are in 18 decimals, denormalize for comparison/calculation
+        uint256 flatFee = _denormalizeAmount(token, getFeeValue(s_feeKeys.flatFeeKey));
+        uint256 cumulativeFee = _denormalizeAmount(token, getFeeValue(s_feeKeys.cumulativeFlatFeeKey));
+        uint256 minimumWithdrawalForFeeExemption = _denormalizeAmount(token, s_config.minimumWithdrawalForFeeExemption);
+        
         uint256 currentTime = block.timestamp;
-        uint256 withdrawalAmount = s_availablePledgedAmount;
+        uint256 withdrawalAmount = s_availablePerToken[token];
         uint256 totalFee = 0;
         address recipient = INFO.owner();
         bool isFinalWithdrawal = (currentTime > getDeadline());
@@ -872,8 +924,8 @@ contract KeepWhatsRaised is
             if(withdrawalAmount == 0){
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
-            if(withdrawalAmount < s_config.minimumWithdrawalForFeeExemption){
-                 s_platformFee += flatFee;
+            if(withdrawalAmount < minimumWithdrawalForFeeExemption){
+                 s_platformFeePerToken[token] += flatFee;
                  totalFee += flatFee;
             }
 
@@ -882,15 +934,15 @@ contract KeepWhatsRaised is
             if(withdrawalAmount == 0){
                 revert KeepWhatsRaisedInvalidInput();
             }
-            if(withdrawalAmount > s_availablePledgedAmount){
-                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePledgedAmount, withdrawalAmount, totalFee); 
+            if(withdrawalAmount > s_availablePerToken[token]){
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePerToken[token], withdrawalAmount, totalFee); 
             }
 
-            if(withdrawalAmount < s_config.minimumWithdrawalForFeeExemption){
-                 s_platformFee += cumulativeFee;
+            if(withdrawalAmount < minimumWithdrawalForFeeExemption){
+                 s_platformFeePerToken[token] += cumulativeFee;
                  totalFee += cumulativeFee;
             }else {
-                s_platformFee += flatFee;
+                s_platformFeePerToken[token] += flatFee;
                 totalFee += flatFee;
             }
         }
@@ -905,7 +957,7 @@ contract KeepWhatsRaised is
             uint256 denominator = 10040;
             uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
 
-            s_platformFee += columbianCreatorTax;
+            s_platformFeePerToken[token] += columbianCreatorTax;
             totalFee += columbianCreatorTax;
         }
 
@@ -914,15 +966,15 @@ contract KeepWhatsRaised is
                 revert KeepWhatsRaisedInsufficientFundsForFee(withdrawalAmount, totalFee);
             }
             
-            s_availablePledgedAmount = 0;
-            TOKEN.safeTransfer(recipient, withdrawalAmount - totalFee);
+            s_availablePerToken[token] = 0;
+            IERC20(token).safeTransfer(recipient, withdrawalAmount - totalFee);
         } else {
-            if(s_availablePledgedAmount < (withdrawalAmount + totalFee)) {
-                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePledgedAmount, withdrawalAmount, totalFee);
+            if(s_availablePerToken[token] < (withdrawalAmount + totalFee)) {
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePerToken[token], withdrawalAmount, totalFee);
             }
             
-            s_availablePledgedAmount -= (withdrawalAmount + totalFee);
-            TOKEN.safeTransfer(recipient, withdrawalAmount);
+            s_availablePerToken[token] -= (withdrawalAmount + totalFee);
+            IERC20(token).safeTransfer(recipient, withdrawalAmount);
         }
 
         emit WithdrawalWithFeeSuccessful(recipient, isFinalWithdrawal ? withdrawalAmount - totalFee : withdrawalAmount, totalFee);
@@ -949,22 +1001,23 @@ contract KeepWhatsRaised is
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
 
+        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
         uint256 amountToRefund = s_tokenToPledgedAmount[tokenId];
-        uint256 availablePledgedAmount = s_availablePledgedAmount;
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
         uint256 netRefundAmount = amountToRefund - paymentFee;
 
-        if (netRefundAmount == 0 || availablePledgedAmount < netRefundAmount) {
+        if (netRefundAmount == 0 || s_availablePerToken[pledgeToken] < netRefundAmount) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
+        
         s_tokenToPledgedAmount[tokenId] = 0;
-        s_pledgedAmount -= amountToRefund;
-        s_availablePledgedAmount -= netRefundAmount;
+        s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
+        s_availablePerToken[pledgeToken] -= netRefundAmount;
         s_tokenToPaymentFee[tokenId] = 0;
 
         burn(tokenId);
-        TOKEN.safeTransfer(msg.sender, netRefundAmount);
-        emit RefundClaimed(tokenId, netRefundAmount, msg.sender);
+        IERC20(pledgeToken).safeTransfer(_msgSender(), netRefundAmount);
+        emit RefundClaimed(tokenId, netRefundAmount, _msgSender());
     }
 
     /**
@@ -979,18 +1032,30 @@ contract KeepWhatsRaised is
         whenNotPaused
         whenNotCancelled
     {
-        uint256 protocolShare = s_protocolFee;
-        uint256 platformShare = s_platformFee;
-        (s_protocolFee, s_platformFee) = (0, 0);
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        address protocolAdmin = INFO.getProtocolAdminAddress();
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
         
-        TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
-        
-        TOKEN.safeTransfer(
-            INFO.getPlatformAdminAddress(PLATFORM_HASH),
-            platformShare
-        );
-        
-        emit FeesDisbursed(protocolShare, platformShare);
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 protocolShare = s_protocolFeePerToken[token];
+            uint256 platformShare = s_platformFeePerToken[token];
+            
+            if (protocolShare > 0 || platformShare > 0) {
+                s_protocolFeePerToken[token] = 0;
+                s_platformFeePerToken[token] = 0;
+                
+                if (protocolShare > 0) {
+                    IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                }
+                
+                if (platformShare > 0) {
+                    IERC20(token).safeTransfer(platformAdmin, platformShare);
+                }
+                
+                emit FeesDisbursed(token, protocolShare, platformShare);
+            }
+        }
     }
 
     /**
@@ -1015,16 +1080,19 @@ contract KeepWhatsRaised is
         }
 
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-        uint256 tip = s_tip;
-        s_tip = 0;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
         s_tipClaimed = true;
 
-        TOKEN.safeTransfer(
-            platformAdmin,
-            tip
-        );
-
-        emit TipClaimed(tip, platformAdmin);
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 tip = s_tipPerToken[token];
+            
+            if (tip > 0) {
+                s_tipPerToken[token] = 0;
+                IERC20(token).safeTransfer(platformAdmin, tip);
+                emit TipClaimed(tip, platformAdmin);
+            }
+        }
     }
 
     /**
@@ -1053,16 +1121,19 @@ contract KeepWhatsRaised is
         }
 
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-        uint256 amountToClaim = s_availablePledgedAmount;
-        s_availablePledgedAmount = 0;
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
         s_fundClaimed = true;
 
-        TOKEN.safeTransfer(
-            platformAdmin,
-            amountToClaim
-        );
-
-        emit FundClaimed(amountToClaim, platformAdmin);
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amountToClaim = s_availablePerToken[token];
+            
+            if (amountToClaim > 0) {
+                s_availablePerToken[token] = 0;
+                IERC20(token).safeTransfer(platformAdmin, amountToClaim);
+                emit FundClaimed(amountToClaim, platformAdmin);
+            }
+        }
     }
 
     /**
@@ -1090,6 +1161,7 @@ contract KeepWhatsRaised is
     function _pledge(
         bytes32 pledgeId,
         address backer,
+        address pledgeToken,
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 tip,
@@ -1097,24 +1169,44 @@ contract KeepWhatsRaised is
         bytes32[] memory rewards,
         address tokenSource
     ) private {
-        uint256 totalAmount = pledgeAmount + tip;
+        // Validate token is accepted
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
+        }
+        
+        // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
+        // If not for a reward (pledgeWithoutAReward), pledgeAmount is already in token decimals
+        // Tip is always in the pledgeToken's decimals (same token used for payment)
+        uint256 pledgeAmountInTokenDecimals;
+        if (reward != ZERO_BYTES) {
+            // Reward pledge: denormalize from 18 decimals to token decimals
+            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+        } else {
+            // Non-reward pledge: already in token decimals
+            pledgeAmountInTokenDecimals = pledgeAmount;
+        }
+        
+        // Tip is already in token's decimals, no denormalization needed
+        uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
         
         // Transfer tokens from tokenSource (either admin or backer)
-        TOKEN.safeTransferFrom(tokenSource, address(this), totalAmount);
+        IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
         
         s_tokenIdCounter.increment();
-        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
+        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTippedAmount[tokenId] = tip;
-        s_pledgedAmount += pledgeAmount;
-        s_tip += tip;
+        s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_tipPerToken[pledgeToken] += tip;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
 
-        //Fee Calculation
-        pledgeAmount = _calculateNetAvailable(pledgeId, tokenId, pledgeAmount);
-        s_availablePledgedAmount += pledgeAmount;
+        //Fee Calculation (uses token decimals)
+        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
+        s_availablePerToken[pledgeToken] += netAvailable;
 
         _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         emit Receipt(
             backer,
+            pledgeToken,
             reward,
             pledgeAmount,
             tip,
@@ -1131,36 +1223,38 @@ contract KeepWhatsRaised is
      *      - Applies all configured gross percentage-based fees
      *      - Applies payment gateway fee for the given pledge
      *      - Applies protocol fee based on protocol configuration
-     *      - Accumulates total platform and protocol fees
+     *      - Accumulates total platform and protocol fees per token
      *      - Records the total deducted fee for the token
      *
      * @param pledgeId The unique identifier of the pledge
+     * @param pledgeToken The token used for the pledge
      * @param tokenId The token ID representing the pledge
      * @param pledgeAmount The original pledged amount before deductions
      *
      * @return The net available amount after all fees are deducted
      */
-    function _calculateNetAvailable(bytes32 pledgeId, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
+    function _calculateNetAvailable(bytes32 pledgeId, address pledgeToken, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
         uint256 totalFee = 0;
 
-        // Gross Percentage Fee Calculation
+        // Gross Percentage Fee Calculation (correct as-is)
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
             uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i]))
                         / PERCENT_DIVIDER;
-            s_platformFee += fee;
+            s_platformFeePerToken[pledgeToken] += fee;
             totalFee += fee;
         }
 
-        //Payment Gateway Fee Calculation
-        uint256 paymentGatewayFee = getPaymentGatewayFee(pledgeId);
-        s_platformFee += paymentGatewayFee;
+        // Payment Gateway Fee Calculation - MUST DENORMALIZE
+        uint256 paymentGatewayFeeNormalized = getPaymentGatewayFee(pledgeId);
+        uint256 paymentGatewayFee = _denormalizeAmount(pledgeToken, paymentGatewayFeeNormalized);
+        s_platformFeePerToken[pledgeToken] += paymentGatewayFee;
         totalFee += paymentGatewayFee;
 
-        //Protocol Fee Calculation
+        // Protocol Fee Calculation (correct as-is)
         uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) /
             PERCENT_DIVIDER;
-        s_protocolFee += protocolFee;
+        s_protocolFeePerToken[pledgeToken] += protocolFee;
         totalFee += protocolFee;
 
         s_tokenToPaymentFee[tokenId] = totalFee;

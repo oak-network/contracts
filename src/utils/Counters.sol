@@ -7,7 +7,7 @@
 
 // The updates in this version are to ensure compatibility with Solidity v0.8.20 and to be consistent in style of other contracts used in this repository.
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 library Counters {
     /**

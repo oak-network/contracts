@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /**
  * @title ICampaignInfo
@@ -61,16 +61,29 @@ interface ICampaignInfo {
     function getGoalAmount() external view returns (uint256);
 
     /**
-     * @notice Retrieves the address of the token used in the campaign.
-     * @return The address of the campaign's token.
-     */
-    function getTokenAddress() external view returns (address);
-
-    /**
      * @notice Retrieves the protocol fee percentage for the campaign.
      * @return The protocol fee percentage applied to the campaign.
      */
     function getProtocolFeePercent() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the campaign's currency identifier.
+     * @return The bytes32 currency identifier for the campaign.
+     */
+    function getCampaignCurrency() external view returns (bytes32);
+
+    /**
+     * @notice Retrieves the cached accepted tokens for the campaign.
+     * @return An array of token addresses accepted for the campaign.
+     */
+    function getAcceptedTokens() external view returns (address[] memory);
+
+    /**
+     * @notice Checks if a token is accepted for the campaign.
+     * @param token The token address to check.
+     * @return True if the token is accepted; otherwise, false.
+     */
+    function isTokenAccepted(address token) external view returns (bool);
 
     /**
      * @notice Retrieves the platform fee percentage for a specific platform.

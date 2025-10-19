@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
@@ -25,27 +26,31 @@ abstract contract BaseTreasury is
     bytes32 internal constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
     uint256 internal constant PERCENT_DIVIDER = 10000;
+    uint256 internal constant STANDARD_DECIMALS = 18;
 
     bytes32 internal PLATFORM_HASH;
     uint256 internal PLATFORM_FEE_PERCENT;
-    IERC20 internal TOKEN;
 
-    uint256 internal s_pledgedAmount;
     bool internal s_feesDisbursed;
+    
+    // Multi-token support
+    mapping(address => uint256) internal s_tokenRaisedAmounts;  // Amount raised per token
 
     /**
-     * @notice Emitted when fees are successfully disbursed.
+     * @notice Emitted when fees are successfully disbursed for a specific token.
+     * @param token The token address.
      * @param protocolShare The amount of fees sent to the protocol.
      * @param platformShare The amount of fees sent to the platform.
      */
-    event FeesDisbursed(uint256 protocolShare, uint256 platformShare);
+    event FeesDisbursed(address indexed token, uint256 protocolShare, uint256 platformShare);
 
     /**
-     * @notice Emitted when a withdrawal is successful.
+     * @notice Emitted when a withdrawal is successful for a specific token.
+     * @param token The token address.
      * @param to The recipient of the withdrawal.
      * @param amount The amount withdrawn.
      */
-    event WithdrawalSuccessful(address to, uint256 amount);
+    event WithdrawalSuccessful(address indexed token, address to, uint256 amount);
 
     /**
      * @notice Emitted when the success condition is not fulfilled during fee disbursement.
@@ -78,7 +83,6 @@ abstract contract BaseTreasury is
     ) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
-        TOKEN = IERC20(INFO.getTokenAddress());
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
     }
 
@@ -110,6 +114,52 @@ abstract contract BaseTreasury is
     }
 
     /**
+     * @dev Normalizes token amount to 18 decimals for consistent comparison.
+     * @param token The token address to normalize.
+     * @param amount The amount to normalize.
+     * @return The normalized amount in 18 decimals.
+     */
+    function _normalizeAmount(
+        address token,
+        uint256 amount
+    ) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(token).decimals();
+        
+        if (decimals == STANDARD_DECIMALS) {
+            return amount;
+        } else if (decimals < STANDARD_DECIMALS) {
+            // Scale up for tokens with fewer decimals
+            return amount * (10 ** (STANDARD_DECIMALS - decimals));
+        } else {
+            // Scale down for tokens with more decimals (rare but possible)
+            return amount / (10 ** (decimals - STANDARD_DECIMALS));
+        }
+    }
+
+    /**
+     * @dev Denormalizes an amount from 18 decimals to the token's actual decimals.
+     * @param token The token address to denormalize for.
+     * @param amount The amount in 18 decimals to denormalize.
+     * @return The denormalized amount in token's native decimals.
+     */
+    function _denormalizeAmount(
+        address token,
+        uint256 amount
+    ) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(token).decimals();
+        
+        if (decimals == STANDARD_DECIMALS) {
+            return amount;
+        } else if (decimals < STANDARD_DECIMALS) {
+            // Scale down for tokens with fewer decimals (e.g., USDC 6 decimals)
+            return amount / (10 ** (STANDARD_DECIMALS - decimals));
+        } else {
+            // Scale up for tokens with more decimals (rare but possible)
+            return amount * (10 ** (decimals - STANDARD_DECIMALS));
+        }
+    }
+
+    /**
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees()
@@ -122,20 +172,34 @@ abstract contract BaseTreasury is
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
-        uint256 balance = s_pledgedAmount;
-        uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) /
-            PERCENT_DIVIDER;
-        uint256 platformShare = (balance *
-            INFO.getPlatformFeePercent(PLATFORM_HASH)) / PERCENT_DIVIDER;
-        TOKEN.safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
-
-        TOKEN.safeTransfer(
-            INFO.getPlatformAdminAddress(PLATFORM_HASH),
-            platformShare
-        );
-
+        
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        
+        // Disburse fees for each token
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 balance = s_tokenRaisedAmounts[token];
+            
+            if (balance > 0) {
+                uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+                uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+                
+                if (protocolShare > 0) {
+                    IERC20(token).safeTransfer(INFO.getProtocolAdminAddress(), protocolShare);
+                }
+                
+                if (platformShare > 0) {
+                    IERC20(token).safeTransfer(
+                        INFO.getPlatformAdminAddress(PLATFORM_HASH),
+                        platformShare
+                    );
+                }
+                
+                emit FeesDisbursed(token, protocolShare, platformShare);
+            }
+        }
+        
         s_feesDisbursed = true;
-        emit FeesDisbursed(protocolShare, platformShare);
     }
 
     /**
@@ -151,11 +215,20 @@ abstract contract BaseTreasury is
         if (!s_feesDisbursed) {
             revert TreasuryFeeNotDisbursed();
         }
-        uint256 balance = TOKEN.balanceOf(address(this));
+        
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address recipient = INFO.owner();
-        TOKEN.safeTransfer(recipient, balance);
-
-        emit WithdrawalSuccessful(recipient, balance);
+        
+        // Withdraw remaining balance for each token
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 balance = IERC20(token).balanceOf(address(this));
+            
+            if (balance > 0) {
+                IERC20(token).safeTransfer(recipient, balance);
+                emit WithdrawalSuccessful(token, recipient, balance);
+            }
+        }
     }
 
     /**

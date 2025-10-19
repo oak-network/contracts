@@ -1,30 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {Counters} from "./utils/Counters.sol";
+import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
 
 /**
  * @title GlobalParams
  * @notice Manages global parameters and platform information.
+ * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
-contract GlobalParams is IGlobalParams, Ownable {
+contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSUpgradeable {
     using Counters for Counters.Counter;
 
     bytes32 private constant ZERO_BYTES =
         0x0000000000000000000000000000000000000000000000000000000000000000;
-    address private s_protocolAdminAddress;
-    address private s_tokenAddress;
-    uint256 private s_protocolFeePercent;
-    mapping(bytes32 => bool) private s_platformIsListed;
-    mapping(bytes32 => address) private s_platformAdminAddress;
-    mapping(bytes32 => uint256) private s_platformFeePercent;
-    mapping(bytes32 => bytes32) private s_platformDataOwner;
-    mapping(bytes32 => bool) private s_platformData;
-
-    Counters.Counter private s_numberOfListedPlatforms;
 
     /**
      * @dev Emitted when a platform is enlisted.
@@ -51,10 +45,18 @@ contract GlobalParams is IGlobalParams, Ownable {
     event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 
     /**
-     * @dev Emitted when the token address is updated.
-     * @param newTokenAddress The new token address.
+     * @dev Emitted when a token is added to a currency.
+     * @param currency The currency identifier.
+     * @param token The token address added.
      */
-    event TokenAddressUpdated(address indexed newTokenAddress);
+    event TokenAddedToCurrency(bytes32 indexed currency, address indexed token);
+
+    /**
+     * @dev Emitted when a token is removed from a currency.
+     * @param currency The currency identifier.
+     * @param token The token address removed.
+     */
+    event TokenRemovedFromCurrency(bytes32 indexed currency, address indexed token);
 
     /**
      * @dev Emitted when the protocol fee percent is updated.
@@ -91,6 +93,13 @@ contract GlobalParams is IGlobalParams, Ownable {
         bytes32 indexed platformHash,
         bytes32 platformDataKey
     );
+
+    /** 
+     * @dev Emitted when data is added to the registry.
+    * @param key The registry key.
+    * @param value The registry value.
+    */
+    event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
 
     /**
      * @dev Throws when the input address is zero.
@@ -142,6 +151,25 @@ contract GlobalParams is IGlobalParams, Ownable {
     error GlobalParamsUnauthorized();
 
     /**
+     * @dev Throws when currency and token arrays length mismatch.
+     */
+    error GlobalParamsCurrencyTokenLengthMismatch();
+
+
+    /**
+     * @dev Throws when a currency has no tokens registered.
+     * @param currency The currency identifier.
+     */
+    error GlobalParamsCurrencyHasNoTokens(bytes32 currency);
+
+    /**
+     * @dev Throws when a token is not found in a currency.
+     * @param currency The currency identifier.
+     * @param token The token address.
+     */
+    error GlobalParamsTokenNotInCurrency(bytes32 currency, address token);
+    
+    /**
      * @dev Reverts if the input address is zero.
      */
     modifier notAddressZero(address account) {
@@ -167,18 +195,88 @@ contract GlobalParams is IGlobalParams, Ownable {
     }
 
     /**
-     * @param protocolAdminAddress The address of the protocol admin.
-     * @param tokenAddress The address of the token contract.
-     * @param protocolFeePercent The protocol fee percentage.
+     * @dev Constructor that disables initializers to prevent implementation contract initialization
      */
-    constructor(
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Initializer function (replaces constructor)
+     * @param protocolAdminAddress The address of the protocol admin.
+     * @param protocolFeePercent The protocol fee percentage.
+     * @param currencies The array of currency identifiers.
+     * @param tokensPerCurrency The array of token arrays for each currency.
+     */
+    function initialize(
         address protocolAdminAddress,
-        address tokenAddress,
-        uint256 protocolFeePercent
-    ) Ownable(protocolAdminAddress) {
-        s_protocolAdminAddress = protocolAdminAddress;
-        s_tokenAddress = tokenAddress;
-        s_protocolFeePercent = protocolFeePercent;
+        uint256 protocolFeePercent,
+        bytes32[] memory currencies,
+        address[][] memory tokensPerCurrency
+    ) public initializer {
+        __Ownable_init(protocolAdminAddress);
+        __UUPSUpgradeable_init();
+
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.protocolAdminAddress = protocolAdminAddress;
+        $.protocolFeePercent = protocolFeePercent;
+        
+        uint256 currencyLength = currencies.length;
+
+        if(currencyLength != tokensPerCurrency.length) {
+            revert GlobalParamsCurrencyTokenLengthMismatch();
+        }
+        
+        for (uint256 i = 0; i < currencyLength; ) {
+            for (uint256 j = 0; j < tokensPerCurrency[i].length; ) {
+                address token = tokensPerCurrency[i][j];
+                if (token == address(0)) {
+                    revert GlobalParamsInvalidInput();
+                }
+                $.currencyToTokens[currencies[i]].push(token);
+                unchecked {
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @dev Function that authorizes an upgrade to a new implementation
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    /**
+    * @notice Adds a key-value pair to the data registry.
+    * @param key The registry key.
+    * @param value The registry value.
+    */
+    function addToRegistry(
+        bytes32 key,
+        bytes32 value
+    ) external onlyOwner {
+        if (key == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.dataRegistry[key] = value;
+        emit DataAddedToRegistry(key, value);
+    }
+
+    /**
+    * @notice Retrieves a value from the data registry.
+    * @param key The registry key.
+    * @return value The registry value.
+    */
+    function getFromRegistry(
+        bytes32 key
+    ) external view returns (bytes32 value) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        value = $.dataRegistry[key];
     }
 
     /**
@@ -193,7 +291,8 @@ contract GlobalParams is IGlobalParams, Ownable {
         platformIsListed(platformHash)
         returns (address account)
     {
-        account = s_platformAdminAddress[platformHash];
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        account = $.platformAdminAddress[platformHash];
         if (account == address(0)) {
             revert GlobalParamsPlatformAdminNotSet(platformHash);
         }
@@ -208,7 +307,8 @@ contract GlobalParams is IGlobalParams, Ownable {
         override
         returns (uint256)
     {
-        return s_numberOfListedPlatforms.current();
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.numberOfListedPlatforms.current();
     }
 
     /**
@@ -220,21 +320,16 @@ contract GlobalParams is IGlobalParams, Ownable {
         override
         returns (address)
     {
-        return s_protocolAdminAddress;
-    }
-
-    /**
-     * @inheritdoc IGlobalParams
-     */
-    function getTokenAddress() external view override returns (address) {
-        return s_tokenAddress;
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.protocolAdminAddress;
     }
 
     /**
      * @inheritdoc IGlobalParams
      */
     function getProtocolFeePercent() external view override returns (uint256) {
-        return s_protocolFeePercent;
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.protocolFeePercent;
     }
 
     /**
@@ -249,7 +344,8 @@ contract GlobalParams is IGlobalParams, Ownable {
         platformIsListed(platformHash)
         returns (uint256 platformFeePercent)
     {
-        platformFeePercent = s_platformFeePercent[platformHash];
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        platformFeePercent = $.platformFeePercent[platformHash];
     }
 
     /**
@@ -258,7 +354,8 @@ contract GlobalParams is IGlobalParams, Ownable {
     function getPlatformDataOwner(
         bytes32 platformDataKey
     ) external view override returns (bytes32 platformHash) {
-        platformHash = s_platformDataOwner[platformDataKey];
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        platformHash = $.platformDataOwner[platformDataKey];
     }
 
     /**
@@ -267,7 +364,8 @@ contract GlobalParams is IGlobalParams, Ownable {
     function checkIfPlatformIsListed(
         bytes32 platformHash
     ) public view override returns (bool) {
-        return s_platformIsListed[platformHash];
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.platformIsListed[platformHash];
     }
 
     /**
@@ -276,7 +374,8 @@ contract GlobalParams is IGlobalParams, Ownable {
     function checkIfPlatformDataKeyValid(
         bytes32 platformDataKey
     ) external view override returns (bool isValid) {
-        isValid = s_platformData[platformDataKey];
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        isValid = $.platformData[platformDataKey];
     }
 
     /**
@@ -294,13 +393,14 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformIsListed[platformHash]) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if ($.platformIsListed[platformHash]) {
             revert GlobalParamsPlatformAlreadyListed(platformHash);
         } else {
-            s_platformIsListed[platformHash] = true;
-            s_platformAdminAddress[platformHash] = platformAdminAddress;
-            s_platformFeePercent[platformHash] = platformFeePercent;
-            s_numberOfListedPlatforms.increment();
+            $.platformIsListed[platformHash] = true;
+            $.platformAdminAddress[platformHash] = platformAdminAddress;
+            $.platformFeePercent[platformHash] = platformFeePercent;
+            $.numberOfListedPlatforms.increment();
             emit PlatformEnlisted(
                 platformHash,
                 platformAdminAddress,
@@ -316,10 +416,11 @@ contract GlobalParams is IGlobalParams, Ownable {
     function delistPlatform(
         bytes32 platformHash
     ) external onlyOwner platformIsListed(platformHash) {
-        s_platformIsListed[platformHash] = false;
-        s_platformAdminAddress[platformHash] = address(0);
-        s_platformFeePercent[platformHash] = 0;
-        s_numberOfListedPlatforms.decrement();
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.platformIsListed[platformHash] = false;
+        $.platformAdminAddress[platformHash] = address(0);
+        $.platformFeePercent[platformHash] = 0;
+        $.numberOfListedPlatforms.decrement();
         emit PlatformDelisted(platformHash);
     }
 
@@ -335,11 +436,12 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey]) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if ($.platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataAlreadySet();
         }
-        s_platformData[platformDataKey] = true;
-        s_platformDataOwner[platformDataKey] = platformHash;
+        $.platformData[platformDataKey] = true;
+        $.platformDataOwner[platformDataKey] = platformHash;
         emit PlatformDataAdded(platformHash, platformDataKey);
     }
 
@@ -355,11 +457,12 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (!s_platformData[platformDataKey]) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if (!$.platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataNotSet();
         }
-        s_platformData[platformDataKey] = false;
-        s_platformDataOwner[platformDataKey] = ZERO_BYTES;
+        $.platformData[platformDataKey] = false;
+        $.platformDataOwner[platformDataKey] = ZERO_BYTES;
         emit PlatformDataRemoved(platformHash, platformDataKey);
     }
 
@@ -369,18 +472,9 @@ contract GlobalParams is IGlobalParams, Ownable {
     function updateProtocolAdminAddress(
         address protocolAdminAddress
     ) external override onlyOwner notAddressZero(protocolAdminAddress) {
-        s_protocolAdminAddress = protocolAdminAddress;
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.protocolAdminAddress = protocolAdminAddress;
         emit ProtocolAdminAddressUpdated(protocolAdminAddress);
-    }
-
-    /**
-     * @inheritdoc IGlobalParams
-     */
-    function updateTokenAddress(
-        address tokenAddress
-    ) external override onlyOwner notAddressZero(tokenAddress) {
-        s_tokenAddress = tokenAddress;
-        emit TokenAddressUpdated(tokenAddress);
     }
 
     /**
@@ -389,7 +483,8 @@ contract GlobalParams is IGlobalParams, Ownable {
     function updateProtocolFeePercent(
         uint256 protocolFeePercent
     ) external override onlyOwner {
-        s_protocolFeePercent = protocolFeePercent;
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.protocolFeePercent = protocolFeePercent;
         emit ProtocolFeePercentUpdated(protocolFeePercent);
     }
 
@@ -406,8 +501,62 @@ contract GlobalParams is IGlobalParams, Ownable {
         platformIsListed(platformHash)
         notAddressZero(platformAdminAddress)
     {
-        s_platformAdminAddress[platformHash] = platformAdminAddress;
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.platformAdminAddress[platformHash] = platformAdminAddress;
         emit PlatformAdminAddressUpdated(platformHash, platformAdminAddress);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function addTokenToCurrency(
+        bytes32 currency,
+        address token
+    ) external override onlyOwner notAddressZero(token) {
+        if (currency == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.currencyToTokens[currency].push(token);
+        emit TokenAddedToCurrency(currency, token);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function removeTokenFromCurrency(
+        bytes32 currency,
+        address token
+    ) external override onlyOwner notAddressZero(token) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        address[] storage tokens = $.currencyToTokens[currency];
+        uint256 length = tokens.length;
+        bool found = false;
+        
+        for (uint256 i = 0; i < length; ) {
+            if (tokens[i] == token) {
+                tokens[i] = tokens[length - 1];
+                tokens.pop();
+                found = true;
+                break;
+            }
+            unchecked { ++i; }
+        }
+        
+        if (!found) {
+            revert GlobalParamsTokenNotInCurrency(currency, token);
+        }
+        emit TokenRemovedFromCurrency(currency, token);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function getTokensForCurrency(
+        bytes32 currency
+    ) external view override returns (address[] memory) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.currencyToTokens[currency];
     }
 
     /**
@@ -425,7 +574,8 @@ contract GlobalParams is IGlobalParams, Ownable {
      * @param platformHash The unique identifier of the platform.
      */
     function _onlyPlatformAdmin(bytes32 platformHash) private view {
-        if (msg.sender != s_platformAdminAddress[platformHash]) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if (_msgSender() != $.platformAdminAddress[platformHash]) {
             revert GlobalParamsUnauthorized();
         }
     }

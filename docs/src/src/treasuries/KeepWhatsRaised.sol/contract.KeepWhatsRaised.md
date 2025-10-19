@@ -1,5 +1,5 @@
 # KeepWhatsRaised
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
 [IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable, [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -63,6 +63,41 @@ mapping(bytes32 => uint256) private s_feeValues;
 ```
 
 
+### s_tokenIdToPledgeToken
+
+```solidity
+mapping(uint256 => address) private s_tokenIdToPledgeToken;
+```
+
+
+### s_protocolFeePerToken
+
+```solidity
+mapping(address => uint256) private s_protocolFeePerToken;
+```
+
+
+### s_platformFeePerToken
+
+```solidity
+mapping(address => uint256) private s_platformFeePerToken;
+```
+
+
+### s_tipPerToken
+
+```solidity
+mapping(address => uint256) private s_tipPerToken;
+```
+
+
+### s_availablePerToken
+
+```solidity
+mapping(address => uint256) private s_availablePerToken;
+```
+
+
 ### s_tokenIdCounter
 
 ```solidity
@@ -88,34 +123,6 @@ string private s_name;
 
 ```solidity
 string private s_symbol;
-```
-
-
-### s_tip
-
-```solidity
-uint256 private s_tip;
-```
-
-
-### s_platformFee
-
-```solidity
-uint256 private s_platformFee;
-```
-
-
-### s_protocolFee
-
-```solidity
-uint256 private s_protocolFee;
-```
-
-
-### s_availablePledgedAmount
-
-```solidity
-uint256 private s_availablePledgedAmount;
 ```
 
 
@@ -169,28 +176,93 @@ CampaignData private s_campaignData;
 
 
 ## Functions
+### withdrawalEnabled
+
+*Ensures that withdrawals are currently enabled.
+Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.*
+
+
+```solidity
+modifier withdrawalEnabled();
+```
+
+### onlyBeforeConfigLock
+
+*Restricts execution to only occur before the configuration lock period.
+Reverts with `KeepWhatsRaisedConfigLocked` if called too close to or after the campaign deadline.
+The lock period is defined as the duration before the deadline during which configuration changes are not allowed.*
+
+
+```solidity
+modifier onlyBeforeConfigLock();
+```
+
+### onlyPlatformAdminOrCampaignOwner
+
+Restricts access to only the platform admin or the campaign owner.
+
+*Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
+or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.*
+
+
+```solidity
+modifier onlyPlatformAdminOrCampaignOwner();
+```
 
 ### constructor
 
-_Initializes the KeepWhatsRaised contract._
+*Constructor for the KeepWhatsRaised contract.*
+
 
 ```solidity
-constructor(bytes32 platformHash, address infoAddress) AllOrNothing(platformHash, infoAddress);
+constructor() ERC721("", "");
+```
+
+### initialize
+
+
+```solidity
+function initialize(bytes32 _platformHash, address _infoAddress, string calldata _name, string calldata _symbol)
+    external
+    initializer;
+```
+
+### name
+
+
+```solidity
+function name() public view override returns (string memory);
+```
+
+### symbol
+
+
+```solidity
+function symbol() public view override returns (string memory);
+```
+
+### getWithdrawalApprovalStatus
+
+Retrieves the withdrawal approval status.
+
+
+```solidity
+function getWithdrawalApprovalStatus() public view returns (bool);
+```
+
+### getReward
+
+Retrieves the details of a reward.
+
+
+```solidity
+function getReward(bytes32 rewardName) external view returns (Reward memory reward);
 ```
 **Parameters**
 
-| Name           | Type      | Description                                                  |
-| -------------- | --------- | ------------------------------------------------------------ |
-| `platformHash` | `bytes32` | The unique identifier of the platform.                       |
-| `infoAddress`  | `address` | The address of the associated campaign information contract. |
-
-### \_checkSuccessCondition
-
-_Internal function to check the success condition for fee disbursement._
-
-```solidity
-function _checkSuccessCondition() internal pure override returns (bool);
-```
+|Name|Type|Description|
+|----|----|-----------|
+|`rewardName`|`bytes32`|The name of the reward.|
 
 **Returns**
 
@@ -480,6 +552,7 @@ Sets the payment gateway fee and executes a pledge in a single transaction.
 function setFeeAndPledge(
     bytes32 pledgeId,
     address backer,
+    address pledgeToken,
     uint256 pledgeAmount,
     uint256 tip,
     uint256 fee,
@@ -499,6 +572,7 @@ function setFeeAndPledge(
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`||
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`fee`|`uint256`|The payment gateway fee to associate with this pledge.|
@@ -515,7 +589,7 @@ The non-reward tiers cannot be pledged for without a reward.*
 
 
 ```solidity
-function pledgeForAReward(bytes32 pledgeId, address backer, uint256 tip, bytes32[] calldata reward)
+function pledgeForAReward(bytes32 pledgeId, address backer, address pledgeToken, uint256 tip, bytes32[] calldata reward)
     public
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
@@ -529,6 +603,7 @@ function pledgeForAReward(bytes32 pledgeId, address backer, uint256 tip, bytes32
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token to use for the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`reward`|`bytes32[]`|An array of reward names.|
 
@@ -547,6 +622,7 @@ setFeeAndPledge (with admin as token source).*
 function _pledgeForAReward(
     bytes32 pledgeId,
     address backer,
+    address pledgeToken,
     uint256 tip,
     bytes32[] calldata reward,
     address tokenSource
@@ -564,6 +640,7 @@ function _pledgeForAReward(
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge (receives the NFT).|
+|`pledgeToken`|`address`|The token to use for the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`reward`|`bytes32[]`|An array of reward names.|
 |`tokenSource`|`address`|The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).|
@@ -575,7 +652,7 @@ Allows a backer to pledge without selecting a reward.
 
 
 ```solidity
-function pledgeWithoutAReward(bytes32 pledgeId, address backer, uint256 pledgeAmount, uint256 tip)
+function pledgeWithoutAReward(bytes32 pledgeId, address backer, address pledgeToken, uint256 pledgeAmount, uint256 tip)
     public
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
@@ -589,6 +666,7 @@ function pledgeWithoutAReward(bytes32 pledgeId, address backer, uint256 pledgeAm
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token to use for the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 
@@ -602,7 +680,14 @@ setFeeAndPledge (with admin as token source).*
 
 
 ```solidity
-function _pledgeWithoutAReward(bytes32 pledgeId, address backer, uint256 pledgeAmount, uint256 tip, address tokenSource)
+function _pledgeWithoutAReward(
+    bytes32 pledgeId,
+    address backer,
+    address pledgeToken,
+    uint256 pledgeAmount,
+    uint256 tip,
+    address tokenSource
+)
     internal
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
@@ -616,6 +701,7 @@ function _pledgeWithoutAReward(bytes32 pledgeId, address backer, uint256 pledgeA
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
 |`backer`|`address`|The address of the backer making the pledge (receives the NFT).|
+|`pledgeToken`|`address`|The token to use for the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`tokenSource`|`address`|The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).|
@@ -636,7 +722,7 @@ function withdraw() public view override whenNotPaused whenNotCancelled;
 
 
 ```solidity
-function withdraw(uint256 amount)
+function withdraw(address token, uint256 amount)
     public
     onlyPlatformAdminOrCampaignOwner
     currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
@@ -648,7 +734,8 @@ function withdraw(uint256 amount)
 
 |Name|Type|Description|
 |----|----|-----------|
-|`amount`|`uint256`|The withdrawal amount (ignored for final withdrawals). Requirements: - Caller must be authorized. - Withdrawals must be enabled, not paused, and within the allowed time. - For partial withdrawals: - `amount` > 0 and `amount + fees` ≤ available balance. - For final withdrawals: - Available balance > 0 and fees ≤ available balance. Effects: - Deducts fees (flat, cumulative, and Colombian tax if applicable). - Updates available balance. - Transfers net funds to the recipient. Reverts: - If insufficient funds or invalid input. Emits: - `WithdrawalWithFeeSuccessful`.|
+|`token`|`address`|The token to withdraw.|
+|`amount`|`uint256`|The withdrawal amount (ignored for final withdrawals). Requirements: - Caller must be authorized. - Withdrawals must be enabled, not paused, and within the allowed time. - Token must be accepted for the campaign. - For partial withdrawals: - `amount` > 0 and `amount + fees` ≤ available balance. - For final withdrawals: - Available balance > 0 and fees ≤ available balance. Effects: - Deducts fees (flat, cumulative, and Colombian tax if applicable). - Updates available balance per token. - Transfers net funds to the recipient. Reverts: - If insufficient funds or invalid input. Emits: - `WithdrawalWithFeeSuccessful`.|
 
 
 ### claimRefund
@@ -736,6 +823,7 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 function _pledge(
     bytes32 pledgeId,
     address backer,
+    address pledgeToken,
     bytes32 reward,
     uint256 pledgeAmount,
     uint256 tip,
@@ -754,18 +842,21 @@ all applicable fees.
 - Applies all configured gross percentage-based fees
 - Applies payment gateway fee for the given pledge
 - Applies protocol fee based on protocol configuration
-- Accumulates total platform and protocol fees
+- Accumulates total platform and protocol fees per token
 - Records the total deducted fee for the token*
 
 
 ```solidity
-function _calculateNetAvailable(bytes32 pledgeId, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256);
+function _calculateNetAvailable(bytes32 pledgeId, address pledgeToken, uint256 tokenId, uint256 pledgeAmount)
+    internal
+    returns (uint256);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge|
+|`pledgeToken`|`address`|The token used for the pledge|
 |`tokenId`|`uint256`|The token ID representing the pledge|
 |`pledgeAmount`|`uint256`|The original pledged amount before deductions|
 
@@ -819,7 +910,8 @@ function supportsInterface(bytes4 interfaceId) public view override returns (boo
 ```solidity
 event Receipt(
     address indexed backer,
-    bytes32 indexed reward,
+    address indexed pledgeToken,
+    bytes32 reward,
     uint256 pledgeAmount,
     uint256 tip,
     uint256 tokenId,
@@ -832,6 +924,7 @@ event Receipt(
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token used for the pledge.|
 |`reward`|`bytes32`|The name of the reward.|
 |`pledgeAmount`|`uint256`|The amount pledged.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
@@ -1012,6 +1105,14 @@ error KeepWhatsRaisedUnAuthorized();
 
 ```solidity
 error KeepWhatsRaisedInvalidInput();
+```
+
+### KeepWhatsRaisedTokenNotAccepted
+*Emitted when a token is not accepted for the campaign.*
+
+
+```solidity
+error KeepWhatsRaisedTokenNotAccepted(address token);
 ```
 
 ### KeepWhatsRaisedRewardExists

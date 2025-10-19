@@ -1,24 +1,54 @@
 # AdminAccessChecker
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/utils/AdminAccessChecker.sol)
+
+**Inherits:**
+Context
 
 *This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators and platform administrators.*
 
+*Updated to use ERC-7201 namespaced storage for upgradeable contracts*
+
 
 ## State Variables
-### GLOBAL_PARAMS
+### ADMIN_ACCESS_CHECKER_STORAGE_LOCATION
 
 ```solidity
-IGlobalParams internal GLOBAL_PARAMS;
+bytes32 private constant ADMIN_ACCESS_CHECKER_STORAGE_LOCATION =
+    0x7c2f08fa04c2c7c7ab255a45dbf913d4c236b91c59858917e818398e997f8800;
 ```
 
 
 ## Functions
+### _getAdminAccessCheckerStorage
+
+
+```solidity
+function _getAdminAccessCheckerStorage() private pure returns (AdminAccessCheckerStorage storage $);
+```
+
 ### __AccessChecker_init
+
+*Internal initializer function for AdminAccessChecker*
 
 
 ```solidity
 function __AccessChecker_init(IGlobalParams globalParams) internal;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`globalParams`|`IGlobalParams`|The IGlobalParams contract instance|
+
+
+### _getGlobalParams
+
+*Returns the stored GLOBAL_PARAMS for internal use*
+
+
+```solidity
+function _getGlobalParams() internal view returns (IGlobalParams);
 ```
 
 ### onlyProtocolAdmin
@@ -80,5 +110,17 @@ function _onlyPlatformAdmin(bytes32 platformHash) private view;
 
 ```solidity
 error AdminAccessCheckerUnauthorized();
+```
+
+## Structs
+### AdminAccessCheckerStorage
+**Note:**
+storage-location: erc7201:ccprotocol.storage.AdminAccessChecker
+
+
+```solidity
+struct AdminAccessCheckerStorage {
+    IGlobalParams globalParams;
+}
 ```
 

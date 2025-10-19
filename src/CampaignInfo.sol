@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -35,6 +35,10 @@ contract CampaignInfo is
     mapping(bytes32 => bytes32) private s_platformData;
 
     bytes32[] private s_approvedPlatformHashes;
+    
+    // Multi-token support
+    address[] private s_acceptedTokens;  // Accepted tokens for this campaign
+    mapping(address => bool) private s_isAcceptedToken;  // O(1) token validation
 
     function getApprovedPlatformHashes()
         external
@@ -114,7 +118,9 @@ contract CampaignInfo is
      */
     error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
 
-    constructor(address creator) Ownable(creator) {}
+    constructor() Ownable(_msgSender()) {
+        _disableInitializers();
+    }
 
     function initialize(
         address creator,
@@ -122,14 +128,24 @@ contract CampaignInfo is
         bytes32[] calldata selectedPlatformHash,
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
-        CampaignData calldata campaignData
+        CampaignData calldata campaignData,
+        address[] calldata acceptedTokens
     ) external initializer {
         __AccessChecker_init(globalParams);
         _transferOwnership(creator);
         s_campaignData = campaignData;
+        
+        // Store accepted tokens
+        uint256 tokenLen = acceptedTokens.length;
+        for (uint256 i = 0; i < tokenLen; ++i) {
+            address token = acceptedTokens[i];
+            s_acceptedTokens.push(token);
+            s_isAcceptedToken[token] = true;
+        }
+        
         uint256 len = selectedPlatformHash.length;
         for (uint256 i = 0; i < len; ++i) {
-            s_platformFeePercent[selectedPlatformHash[i]] = GLOBAL_PARAMS
+            s_platformFeePercent[selectedPlatformHash[i]] = _getGlobalParams()
                 .getPlatformFeePercent(selectedPlatformHash[i]);
             s_isSelectedPlatform[selectedPlatformHash[i]] = true;
         }
@@ -141,7 +157,6 @@ contract CampaignInfo is
 
     struct Config {
         address treasuryFactory;
-        address token;
         uint256 protocolFeePercent;
         bytes32 identifierHash;
     }
@@ -150,10 +165,9 @@ contract CampaignInfo is
         bytes memory args = Clones.fetchCloneArgs(address(this));
         (
             config.treasuryFactory,
-            config.token,
             config.protocolFeePercent,
             config.identifierHash
-        ) = abi.decode(args, (address, address, uint256, bytes32));
+        ) = abi.decode(args, (address, uint256, bytes32));
     }
 
     /**
@@ -192,7 +206,7 @@ contract CampaignInfo is
      * @inheritdoc ICampaignInfo
      */
     function getProtocolAdminAddress() public view override returns (address) {
-        return GLOBAL_PARAMS.getProtocolAdminAddress();
+        return _getGlobalParams().getProtocolAdminAddress();
     }
 
     /**
@@ -216,7 +230,7 @@ contract CampaignInfo is
     function getPlatformAdminAddress(
         bytes32 platformHash
     ) external view override returns (address) {
-        return GLOBAL_PARAMS.getPlatformAdminAddress(platformHash);
+        return _getGlobalParams().getPlatformAdminAddress(platformHash);
     }
 
     /**
@@ -243,17 +257,30 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTokenAddress() external view override returns (address) {
+    function getProtocolFeePercent() external view override returns (uint256) {
         Config memory config = getCampaignConfig();
-        return config.token;
+        return config.protocolFeePercent;
     }
 
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getProtocolFeePercent() external view override returns (uint256) {
-        Config memory config = getCampaignConfig();
-        return config.protocolFeePercent;
+    function getCampaignCurrency() external view override returns (bytes32) {
+        return s_campaignData.currency;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getAcceptedTokens() external view override returns (address[] memory) {
+        return s_acceptedTokens;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function isTokenAccepted(address token) external view override returns (bool) {
+        return s_isAcceptedToken[token];
     }
 
     /**
@@ -405,7 +432,7 @@ contract CampaignInfo is
         if (checkIfPlatformSelected(platformHash) == selection) {
             revert CampaignInfoInvalidInput();
         }
-        if (!GLOBAL_PARAMS.checkIfPlatformIsListed(platformHash)) {
+        if (!_getGlobalParams().checkIfPlatformIsListed(platformHash)) {
             revert CampaignInfoInvalidPlatformUpdate(platformHash, selection);
         }
 
@@ -420,7 +447,7 @@ contract CampaignInfo is
         if (selection) {
             bool isValid;
             for (uint256 i = 0; i < platformDataKey.length; i++) {
-                isValid = GLOBAL_PARAMS.checkIfPlatformDataKeyValid(
+                isValid = _getGlobalParams().checkIfPlatformDataKeyValid(
                     platformDataKey[i]
                 );
                 if (!isValid) {
@@ -436,7 +463,7 @@ contract CampaignInfo is
 
         s_isSelectedPlatform[platformHash] = selection;
         if (selection) {
-            s_platformFeePercent[platformHash] = GLOBAL_PARAMS
+            s_platformFeePercent[platformHash] = _getGlobalParams()
                 .getPlatformFeePercent(platformHash);
         } else {
             s_platformFeePercent[platformHash] = 0;
@@ -462,7 +489,7 @@ contract CampaignInfo is
      * @dev External function to cancel the campaign.
      */
     function _cancelCampaign(bytes32 message) external {
-        if (msg.sender != getProtocolAdminAddress() && msg.sender != owner()) {
+        if (_msgSender() != getProtocolAdminAddress() && _msgSender() != owner()) {
             revert CampaignInfoUnauthorized();
         }
         _cancel(message);
@@ -478,7 +505,7 @@ contract CampaignInfo is
         address platformTreasuryAddress
     ) external whenNotPaused {
         Config memory config = getCampaignConfig();
-        if (msg.sender != config.treasuryFactory) {
+        if (_msgSender() != config.treasuryFactory) {
             revert CampaignInfoUnauthorized();
         }
         bool selected = checkIfPlatformSelected(platformHash);

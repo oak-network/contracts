@@ -1,5 +1,5 @@
 # IGlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/56580a82da87af15808145e03ffc25bd15b6454b/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -75,21 +75,6 @@ function getProtocolAdminAddress() external view returns (address);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`address`|The admin address of the protocol.|
-
-
-### getTokenAddress
-
-Retrieves the address of the protocol's native token.
-
-
-```solidity
-function getTokenAddress() external view returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the native token.|
 
 
 ### getProtocolFeePercent
@@ -185,21 +170,6 @@ function updateProtocolAdminAddress(address _protocolAdminAddress) external;
 |`_protocolAdminAddress`|`address`|The new admin address of the protocol.|
 
 
-### updateTokenAddress
-
-Updates the address of the protocol's native token.
-
-
-```solidity
-function updateTokenAddress(address _tokenAddress) external;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_tokenAddress`|`address`|The new address of the native token.|
-
-
 ### updateProtocolFeePercent
 
 Updates the protocol fee percentage.
@@ -229,5 +199,58 @@ function updatePlatformAdminAddress(bytes32 _platformHash, address _platformAdmi
 |----|----|-----------|
 |`_platformHash`|`bytes32`|The unique identifier of the platform.|
 |`_platformAdminAddress`|`address`|The new admin address of the platform.|
+
+
+### addTokenToCurrency
+
+Adds a token to a currency.
+
+
+```solidity
+function addTokenToCurrency(bytes32 currency, address token) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to add.|
+
+
+### removeTokenFromCurrency
+
+Removes a token from a currency.
+
+
+```solidity
+function removeTokenFromCurrency(bytes32 currency, address token) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to remove.|
+
+
+### getTokensForCurrency
+
+Retrieves all tokens accepted for a specific currency.
+
+
+```solidity
+function getTokensForCurrency(bytes32 currency) external view returns (address[] memory);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the currency.|
 
 
