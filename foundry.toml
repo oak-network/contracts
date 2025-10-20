@@ -14,4 +14,4 @@ remappings = [
 
 [rpc_endpoints]
 mainnet = "https://forno.celo.org/"
-alfajores = "https://alfajores-forno.celo-testnet.org/"
+celo_sepolia = "https://forno.celo-sepolia.celo-testnet.org/"

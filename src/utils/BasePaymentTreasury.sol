@@ -104,6 +104,14 @@ abstract contract BasePaymentTreasury is
     );
 
     /**
+     * @dev Emitted when multiple payments are created in a single batch operation.
+     * @param paymentIds An array of unique identifiers for the created payments.
+     */
+    event PaymentBatchCreated(
+        bytes32[] paymentIds
+    );
+
+    /**
      * @notice Emitted when fees are successfully disbursed.
      * @param token The token in which fees were disbursed.
      * @param protocolShare The amount of fees sent to the protocol.
@@ -372,6 +380,92 @@ abstract contract BasePaymentTreasury is
             expiration,
             false
         );
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function createPaymentBatch(
+        bytes32[] calldata paymentIds,
+        bytes32[] calldata buyerIds,
+        bytes32[] calldata itemIds,
+        address[] calldata paymentTokens,
+        uint256[] calldata amounts,
+        uint256[] calldata expirations
+    ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
+        
+        // Validate array lengths are consistent
+        uint256 length = paymentIds.length;
+        if (length == 0 || 
+            length != buyerIds.length || 
+            length != itemIds.length || 
+            length != paymentTokens.length ||
+            length != amounts.length || 
+            length != expirations.length) {
+            revert PaymentTreasuryInvalidInput();
+        }
+
+        // Process each payment in the batch
+        for (uint256 i = 0; i < length;) {
+            bytes32 paymentId = paymentIds[i];
+            bytes32 buyerId = buyerIds[i];
+            bytes32 itemId = itemIds[i];
+            address paymentToken = paymentTokens[i];
+            uint256 amount = amounts[i];
+            uint256 expiration = expirations[i];
+
+            // Validate individual payment parameters
+            if(buyerId == ZERO_BYTES ||
+               amount == 0 || 
+               expiration <= block.timestamp ||
+               paymentId == ZERO_BYTES ||
+               itemId == ZERO_BYTES ||
+               paymentToken == address(0)
+            ){
+                revert PaymentTreasuryInvalidInput();
+            }
+
+            // Validate token is accepted
+            if (!INFO.isTokenAccepted(paymentToken)) {
+                revert PaymentTreasuryTokenNotAccepted(paymentToken);
+            }
+
+            // Check if payment already exists
+            if(s_payment[paymentId].buyerId != ZERO_BYTES || s_payment[paymentId].buyerAddress != address(0)){
+                revert PaymentTreasuryPaymentAlreadyExist(paymentId);
+            }
+
+            // Create the payment
+            s_payment[paymentId] = PaymentInfo({
+                buyerId: buyerId,
+                buyerAddress: address(0),
+                itemId: itemId,
+                amount: amount, // Amount in token's native decimals
+                expiration: expiration,
+                isConfirmed: false,
+                isCryptoPayment: false
+            });
+
+            s_paymentIdToToken[paymentId] = paymentToken;
+            s_pendingPaymentPerToken[paymentToken] += amount;
+
+            emit PaymentCreated(
+                address(0),
+                paymentId,
+                buyerId,
+                itemId,
+                paymentToken,
+                amount,
+                expiration,
+                false
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit PaymentBatchCreated(paymentIds);
     }
 
     /**

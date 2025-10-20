@@ -26,6 +26,24 @@ interface ICampaignPaymentTreasury {
     ) external;
 
     /**
+     * @notice Creates multiple payment entries in a single transaction to prevent nonce conflicts.
+     * @param paymentIds An array of unique identifiers for the payments.
+     * @param buyerIds An array of buyer IDs corresponding to each payment.
+     * @param itemIds An array of item identifiers corresponding to each payment.
+     * @param paymentTokens An array of tokens corresponding to each payment.
+     * @param amounts An array of amounts corresponding to each payment.
+     * @param expirations An array of expiration timestamps corresponding to each payment.
+     */
+    function createPaymentBatch(
+        bytes32[] calldata paymentIds,
+        bytes32[] calldata buyerIds,
+        bytes32[] calldata itemIds,
+        address[] calldata paymentTokens,
+        uint256[] calldata amounts,
+        uint256[] calldata expirations
+    ) external;
+
+    /**
      * @notice Allows a buyer to make a direct crypto payment for an item.
      * @dev This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
      * @param paymentId The unique identifier of the payment.

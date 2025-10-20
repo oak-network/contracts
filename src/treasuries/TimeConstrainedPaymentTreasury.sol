@@ -5,22 +5,27 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
+import {TimestampChecker} from "../utils/TimestampChecker.sol";
+import {DataRegistryHelper} from "../utils/DataRegistryHelper.sol";
 
-contract PaymentTreasury is
-    BasePaymentTreasury
+contract TimeConstrainedPaymentTreasury is
+    BasePaymentTreasury,
+    TimestampChecker,
+    DataRegistryHelper
 {
     using SafeERC20 for IERC20;
 
     string private s_name;
     string private s_symbol;
 
+
     /**
      * @dev Emitted when an unauthorized action is attempted.
      */
-    error PaymentTreasuryUnAuthorized();
+    error TimeConstrainedPaymentTreasuryUnAuthorized();
 
     /**
-     * @dev Constructor for the PaymentTreasury contract.
+     * @dev Constructor for the TimeConstrainedPaymentTreasury contract.
      */
     constructor() {}
 
@@ -43,6 +48,26 @@ contract PaymentTreasury is
         return s_symbol;
     }
 
+
+
+    /**
+     * @dev Internal function to check if current time is within the allowed range.
+     */
+    function _checkTimeWithinRange() internal view {
+        uint256 launchTime = INFO.getLaunchTime();
+        uint256 deadline = INFO.getDeadline();
+        uint256 bufferTime = _getBufferTime();
+        _revertIfCurrentTimeIsNotWithinRange(launchTime, deadline + bufferTime);
+    }
+
+    /**
+     * @dev Internal function to check if current time is greater than launch time.
+     */
+    function _checkTimeIsGreater() internal view {
+        uint256 launchTime = INFO.getLaunchTime();
+        _revertIfCurrentTimeIsNotGreater(launchTime);
+    }
+
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
@@ -53,7 +78,8 @@ contract PaymentTreasury is
         address paymentToken,
         uint256 amount,
         uint256 expiration
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration);
     }
 
@@ -67,7 +93,8 @@ contract PaymentTreasury is
         address[] calldata paymentTokens,
         uint256[] calldata amounts,
         uint256[] calldata expirations
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations);
     }
 
@@ -80,7 +107,8 @@ contract PaymentTreasury is
         address buyerAddress,
         address paymentToken,
         uint256 amount
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount);
     }
 
@@ -89,7 +117,8 @@ contract PaymentTreasury is
      */
     function cancelPayment(
         bytes32 paymentId
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.cancelPayment(paymentId);
     }
 
@@ -98,7 +127,8 @@ contract PaymentTreasury is
      */
     function confirmPayment(
         bytes32 paymentId
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.confirmPayment(paymentId);
     }
 
@@ -107,7 +137,8 @@ contract PaymentTreasury is
      */
     function confirmPaymentBatch(
         bytes32[] calldata paymentIds
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeWithinRange();
         super.confirmPaymentBatch(paymentIds);
     }
 
@@ -117,7 +148,8 @@ contract PaymentTreasury is
     function claimRefund(
         bytes32 paymentId, 
         address refundAddress
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeIsGreater();
         super.claimRefund(paymentId, refundAddress);
     }
 
@@ -126,7 +158,8 @@ contract PaymentTreasury is
      */
     function claimRefund(
         bytes32 paymentId
-    ) public override whenNotPaused whenNotCancelled {
+    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeIsGreater();
         super.claimRefund(paymentId);
     }
 
@@ -136,16 +169,18 @@ contract PaymentTreasury is
     function disburseFees()
         public
         override
-        whenNotPaused
-        whenNotCancelled
+        whenCampaignNotPaused
+        whenCampaignNotCancelled
     {
+        _checkTimeIsGreater();
         super.disburseFees();
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function withdraw() public override whenNotPaused whenNotCancelled {
+    function withdraw() public override whenCampaignNotPaused whenCampaignNotCancelled {
+        _checkTimeIsGreater();
         super.withdraw();
     }
 
@@ -158,7 +193,7 @@ contract PaymentTreasury is
             _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
             _msgSender() != INFO.owner()
         ) {
-            revert PaymentTreasuryUnAuthorized();
+            revert TimeConstrainedPaymentTreasuryUnAuthorized();
         }
         _cancel(message);
     }
