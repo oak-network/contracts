@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -14,22 +14,24 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
     CampaignInfoFactory internal factory;
     TreasuryFactory internal treasuryFactory;
     GlobalParams internal globalParams;
-    TestUSD internal testUSD;
+    TestToken internal testToken;
     CampaignInfo internal campaignInfoImplementation;
 
     address internal admin = address(0xA11CE);
 
     function setUp() public {
-
-        testUSD = new TestUSD();
+        testToken = new TestToken(tokenName, tokenSymbol);
         globalParams = new GlobalParams(
             admin,
-            address(testUSD),
+            address(testToken),
             PROTOCOL_FEE_PERCENT
         );
         campaignInfoImplementation = new CampaignInfo(address(this));
         treasuryFactory = new TreasuryFactory(globalParams);
-        factory = new CampaignInfoFactory(globalParams, address(campaignInfoImplementation));
+        factory = new CampaignInfoFactory(
+            globalParams,
+            address(campaignInfoImplementation)
+        );
         vm.startPrank(admin);
         globalParams.enlistPlatform(
             PLATFORM_1_HASH,
@@ -46,7 +48,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Success assumed if no revert
         // vm.stopPrank();
     }
-
 
     function testCreateCampaignDeploysSuccessfully() public {
         factory._initialize(address(treasuryFactory), address(globalParams));

@@ -1,7 +1,6 @@
 
 
 # Contents
-- [AddressCalculator](AddressCalculator.sol/library.AddressCalculator.md)
 - [AdminAccessChecker](AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
 - [BaseTreasury](BaseTreasury.sol/abstract.BaseTreasury.md)
 - [CampaignAccessChecker](CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md)

@@ -1,12 +1,5 @@
 # Counters
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/Counters.sol)
-
-**Author:**
-Matt Condon (@shrugs)
-
-*Provides counters that can only be incremented, decremented or reset. This can be used e.g. to track the number
-of elements in a mapping, issuing ERC721 ids, or counting request ids.
-Include with `using Counters for Counters.Counter;`*
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/Counters.sol)
 
 
 ## Functions
@@ -36,6 +29,15 @@ function decrement(Counter storage counter) internal;
 
 ```solidity
 function reset(Counter storage counter) internal;
+```
+
+## Errors
+### CounterDecrementOverflow
+*Error thrown when attempting to decrement a counter with value 0.*
+
+
+```solidity
+error CounterDecrementOverflow();
 ```
 
 ## Structs

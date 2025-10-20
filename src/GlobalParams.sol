@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/IGlobalParams.sol";
-import "./utils/Counters.sol";
+import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
+import {Counters} from "./utils/Counters.sol";
 
 /**
  * @title GlobalParams
@@ -257,17 +257,8 @@ contract GlobalParams is IGlobalParams, Ownable {
      */
     function getPlatformDataOwner(
         bytes32 platformDataKey
-    )
-        external
-        view
-        override
-        platformIsListed(platformHash)
-        returns (bytes32 platformHash)
-    {
+    ) external view override returns (bytes32 platformHash) {
         platformHash = s_platformDataOwner[platformDataKey];
-        if (platformHash == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
-        }
     }
 
     /**
@@ -300,7 +291,7 @@ contract GlobalParams is IGlobalParams, Ownable {
         address platformAdminAddress,
         uint256 platformFeePercent
     ) external onlyOwner notAddressZero(platformAdminAddress) {
-        if (platformHash == ZERO_BYTES || platformAdminAddress == address(0)) {
+        if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
         if (s_platformIsListed[platformHash]) {
@@ -344,11 +335,8 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] != false) {
+        if (s_platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataAlreadySet();
-        }
-        if (s_platformDataOwner[platformDataKey] == platformHash) {
-            revert GlobalParamsPlatformDataSlotTaken();
         }
         s_platformData[platformDataKey] = true;
         s_platformDataOwner[platformDataKey] = platformHash;
@@ -367,7 +355,7 @@ contract GlobalParams is IGlobalParams, Ownable {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        if (s_platformData[platformDataKey] == false) {
+        if (!s_platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataNotSet();
         }
         s_platformData[platformDataKey] = false;

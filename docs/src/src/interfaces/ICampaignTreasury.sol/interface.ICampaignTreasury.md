@@ -1,5 +1,5 @@
 # ICampaignTreasury
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ICampaignTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/ICampaignTreasury.sol)
 
 An interface for managing campaign treasury contracts.
 
@@ -38,13 +38,13 @@ function claimRefund(uint256 tokenId) external;
 |`tokenId`|`uint256`|The unique identifier of the refundable token.|
 
 
-### getplatformHash
+### getPlatformHash
 
 Retrieves the platform identifier associated with the treasury.
 
 
 ```solidity
-function getplatformHash() external view returns (bytes32);
+function getPlatformHash() external view returns (bytes32);
 ```
 **Returns**
 
@@ -53,13 +53,13 @@ function getplatformHash() external view returns (bytes32);
 |`<none>`|`bytes32`|The platform identifier as a bytes32 value.|
 
 
-### getplatformFeePercent
+### getPlatformFeePercent
 
 Retrieves the platform fee percentage for the treasury.
 
 
 ```solidity
-function getplatformFeePercent() external view returns (uint256);
+function getPlatformFeePercent() external view returns (uint256);
 ```
 **Returns**
 

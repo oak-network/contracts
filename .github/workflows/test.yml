@@ -20,34 +20,43 @@ jobs:
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Check-out the repo
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
 
+      - name: Debug Info
+        run: |
+          pwd
+          ls -la
+          cat foundry.toml
+
+      - name: Install dependencies
+        run: |
+          # Install OpenZeppelin contracts version 5.3.0
+          forge install OpenZeppelin/openzeppelin-contracts@v5.3.0
+          ls -la lib/
+          
       - name: Run Forge build
         run: |
-          forge --version
+          forge remappings
           forge build --sizes
         id: build
 
       - name: Run Forge tests
-        run: |
-          forge test -vvv
+        run: forge test -vvv
         id: test
 
       - name: Run gas report
-        run: |
-          forge test --gas-report > gas-report.txt
+        run: forge test --gas-report > gas-report.txt
         if: always()
         id: gas
 
       - name: Archive gas report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: gas-report

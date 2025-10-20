@@ -13,7 +13,6 @@
   - [❱ treasuries](src/treasuries/README.md)
     - [AllOrNothing](src/treasuries/AllOrNothing.sol/contract.AllOrNothing.md)
   - [❱ utils](src/utils/README.md)
-    - [AddressCalculator](src/utils/AddressCalculator.sol/library.AddressCalculator.md)
     - [AdminAccessChecker](src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
     - [BaseTreasury](src/utils/BaseTreasury.sol/abstract.BaseTreasury.md)
     - [CampaignAccessChecker](src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md)
@@ -25,5 +24,4 @@
   - [CampaignInfo](src/CampaignInfo.sol/contract.CampaignInfo.md)
   - [CampaignInfoFactory](src/CampaignInfoFactory.sol/contract.CampaignInfoFactory.md)
   - [GlobalParams](src/GlobalParams.sol/contract.GlobalParams.md)
-  - [TestUSD](src/TestUSD.sol/contract.TestUSD.md)
   - [TreasuryFactory](src/TreasuryFactory.sol/contract.TreasuryFactory.md)

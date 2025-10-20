@@ -1,8 +1,8 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/CampaignInfoFactory.sol)
 
 **Inherits:**
-[ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), Ownable
+Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), Ownable
 
 Factory contract for creating campaign information contracts.
 
@@ -71,7 +71,7 @@ constructor(IGlobalParams globalParams, address campaignImplementation) Ownable(
 
 
 ```solidity
-function _initialize(address treasuryFactoryAddress, address globalParams) external onlyOwner;
+function _initialize(address treasuryFactoryAddress, address globalParams) external onlyOwner initializer;
 ```
 **Parameters**
 
@@ -82,6 +82,8 @@ function _initialize(address treasuryFactoryAddress, address globalParams) exter
 
 
 ### createCampaign
+
+Creates a new campaign information contract.
 
 
 ```solidity
@@ -94,6 +96,32 @@ function createCampaign(
     CampaignData calldata campaignData
 ) external override;
 ```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`creator`|`address`|The address of the creator of the campaign.|
+|`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
+|`selectedPlatformHash`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
+|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
+|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
+|`campaignData`|`CampaignData`|The struct containing campaign launch details.|
+
+
+### updateImplementation
+
+Updates the campaign implementation address.
+
+
+```solidity
+function updateImplementation(address newImplementation) external override onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|The address of the camapaignInfo implementation contract.|
+
 
 ## Errors
 ### CampaignInfoFactoryAlreadyInitialized
@@ -112,12 +140,12 @@ error CampaignInfoFactoryAlreadyInitialized();
 error CampaignInfoFactoryInvalidInput();
 ```
 
-### CampaignInfoFactoryCampaignCreationFailed
+### CampaignInfoFactoryCampaignInitializationFailed
 *Emitted when campaign creation fails.*
 
 
 ```solidity
-error CampaignInfoFactoryCampaignCreationFailed();
+error CampaignInfoFactoryCampaignInitializationFailed();
 ```
 
 ### CampaignInfoFactoryPlatformNotListed

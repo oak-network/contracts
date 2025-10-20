@@ -1,17 +1,18 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
+import {Defaults} from "../Base.t.sol";
 
-contract TestUSD_UnitTest is Test {
-    TestUSD internal token;
+contract TestToken_UnitTest is Test, Defaults {
+    TestToken internal token;
 
     address internal user = address(0x1234);
     uint256 internal mintAmount = 1_000 * 1e18;
 
     function setUp() public {
-        token = new TestUSD();
+        token = new TestToken(tokenName, tokenSymbol);
     }
 
     function testMintIncreasesBalance() public {

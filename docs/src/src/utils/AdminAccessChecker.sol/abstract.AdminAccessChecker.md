@@ -1,5 +1,5 @@
 # AdminAccessChecker
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/AdminAccessChecker.sol)
 
 *This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators and platform administrators.*

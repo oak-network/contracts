@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import {Base_Test} from "../../Base.t.sol";
@@ -10,19 +10,35 @@ import {CampaignInfo} from "src/CampaignInfo.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 
-/// @notice Common testing logic needed by all AllOrNothing integration tests.
+/**
+ * @title AllOrNothing Integration Test Shared Contract
+ * @notice Common testing logic needed by all AllOrNothing integration tests.
+ * @dev Abstract contract that provides shared setup and helper functions for AllOrNothing treasury testing.
+ *      Handles platform enrollment, treasury implementation registration, campaign creation, and treasury deployment.
+ *      Also provides utility functions for pledging, refunding, fee disbursement, and withdrawals.
+ */
 abstract contract AllOrNothing_Integration_Shared_Test is
     IReward,
     LogDecoder,
     Base_Test
 {
+    /// @dev Address of the created campaign contract
     address campaignAddress;
+
+    /// @dev Address of the deployed treasury contract
     address treasuryAddress;
+
+    /// @dev Instance of the AllOrNothing treasury contract
     AllOrNothing internal allOrNothing;
 
+    /// @dev Token ID for pledges that include rewards
     uint256 pledgeForARewardTokenId;
 
-    /// @dev Initial dependent functions setup included for AllOrNothing Integration Tests.
+    /**
+     * @notice Initial setup for AllOrNothing integration tests
+     * @dev Performs the complete setup sequence: platform enrollment, treasury registration,
+     *      campaign creation, and treasury deployment. Called by inheriting test contracts.
+     */
     function setUp() public virtual override {
         super.setUp();
         console.log("setUp: enlistPlatform");
@@ -31,9 +47,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         enlistPlatform(PLATFORM_1_HASH);
         console.log("enlisted platform");
 
+        //Register Treasury Implementation
         registerTreasuryImplementation(PLATFORM_1_HASH);
         console.log("registered treasury");
 
+        //Approve Treasury Implementation
         approveTreasuryImplementation(PLATFORM_1_HASH);
         console.log("approved treasury");
 
@@ -47,8 +65,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements enlistPlatform helper function.
-     * @param platformHash The platform bytes.
+     * @notice Enlists a platform in the protocol
+     * @dev Called by protocol admin to register a new platform with specified fee structure
+     * @param platformHash The unique identifier hash for the platform
      */
     function enlistPlatform(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
@@ -60,6 +79,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Registers a treasury implementation for a platform
+     * @dev Called by platform admin to register AllOrNothing treasury implementation
+     * @param platformHash The platform identifier to register the treasury for
+     */
     function registerTreasuryImplementation(bytes32 platformHash) internal {
         vm.startPrank(users.platform1AdminAddress);
         treasuryFactory.registerTreasuryImplementation(
@@ -70,6 +94,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.stopPrank();
     }
 
+    /**
+     * @notice Approves a registered treasury implementation
+     * @dev Called by protocol admin to approve a platform's treasury implementation
+     * @param platformHash The platform identifier whose treasury implementation to approve
+     */
     function approveTreasuryImplementation(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
         treasuryFactory.approveTreasuryImplementation(platformHash, 0);
@@ -77,8 +106,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements createCampaign helper function. It creates new campaign info contract
-     * @param platformHash The platform bytes.
+     * @notice Creates a new campaign for testing
+     * @dev Creates a campaign info contract and extracts the campaign address from emitted events
+     * @param platformHash The platform identifier to create the campaign on
      */
     function createCampaign(bytes32 platformHash) internal {
         bytes32 identifierHash = keccak256(abi.encodePacked(platformHash));
@@ -114,7 +144,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements deploy helper function. It deploys treasury contract.
+     * @notice Deploys a treasury contract for the created campaign
+     * @dev Deploys AllOrNothing treasury and extracts the treasury address from emitted events
+     * @param platformHash The platform identifier to deploy the treasury for
      */
     function deploy(bytes32 platformHash) internal {
         vm.startPrank(users.platform1AdminAddress);
@@ -141,6 +173,14 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         allOrNothing = AllOrNothing(treasuryAddress);
     }
 
+    /**
+     * @notice Adds rewards to a treasury contract
+     * @dev Helper function to add reward tiers to an AllOrNothing treasury
+     * @param caller The address that will call the addRewards function
+     * @param treasury The treasury contract address
+     * @param rewardNames Array of reward names/identifiers
+     * @param rewards Array of reward structs containing reward details
+     */
     function addRewards(
         address caller,
         address treasury,
@@ -153,15 +193,24 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements pledgeForAReward helper function.
+     * @notice Simulates pledging for a specific reward
+     * @dev Creates a pledge with reward selection and captures the receipt event
+     * @param caller The address making the pledge
+     * @param warpTime The block timestamp to warp to
+     * @param allOrNothingAddress The treasury contract address
+     * @param pledgeAmount The amount to pledge (automatically calculated from reward)
+     * @param shippingFee The shipping fee for the reward
+     * @param rewardName The identifier of the reward being pledged for
+     * @return logs The transaction logs
+     * @return tokenId The NFT token ID representing the pledge
+     * @return rewards Array of reward names associated with the pledge
      */
     function pledgeForAReward(
         address caller,
-        address token,
+        uint256 warpTime,
         address allOrNothingAddress,
         uint256 pledgeAmount,
         uint256 shippingFee,
-        uint256 launchTime,
         bytes32 rewardName
     )
         internal
@@ -172,10 +221,10 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         )
     {
         vm.startPrank(caller);
+        vm.warp(warpTime);
         vm.recordLogs();
 
-        testUSD.approve(allOrNothingAddress, pledgeAmount + shippingFee);
-        vm.warp(launchTime);
+        testToken.approve(allOrNothingAddress, pledgeAmount + shippingFee);
 
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
@@ -194,7 +243,6 @@ abstract contract AllOrNothing_Integration_Shared_Test is
             allOrNothingAddress
         );
 
-        // (, tokenId, rewards) = abi.decode(data, (uint256, uint256, bytes32[]));
         (, , tokenId, rewards) = abi.decode(
             data,
             (uint256, uint256, uint256, bytes32[])
@@ -204,20 +252,26 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements pledgeWithoutAReward helper function.
+     * @notice Simulates pledging without selecting a reward
+     * @dev Creates a pledge without reward selection and captures the receipt event
+     * @param caller The address making the pledge
+     * @param warpTime The block timestamp to warp to
+     * @param allOrNothingAddress The treasury contract address
+     * @param pledgeAmount The amount to pledge
+     * @return logs The transaction logs
+     * @return tokenId The NFT token ID representing the pledge
      */
     function pledgeWithoutAReward(
         address caller,
-        address token,
+        uint256 warpTime,
         address allOrNothingAddress,
-        uint256 pledgeAmount,
-        uint256 launchTime
+        uint256 pledgeAmount
     ) internal returns (Vm.Log[] memory logs, uint256 tokenId) {
         vm.startPrank(caller);
+        vm.warp(warpTime);
         vm.recordLogs();
 
-        testUSD.approve(allOrNothingAddress, pledgeAmount);
-        vm.warp(launchTime);
+        testToken.approve(allOrNothingAddress, pledgeAmount);
 
         AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(
             caller,
@@ -241,10 +295,20 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements claimRefund helper function.
+     * @notice Simulates claiming a refund for a failed campaign
+     * @dev Claims refund for a pledge token and captures the refund event
+     * @param caller The address claiming the refund
+     * @param warpTime The block timestamp to warp to
+     * @param allOrNothingAddress The treasury contract address
+     * @param tokenId The pledge token ID to refund
+     * @return logs The transaction logs
+     * @return refundedTokenId The token ID that was refunded
+     * @return refundAmount The amount refunded
+     * @return claimer The address that claimed the refund
      */
     function claimRefund(
         address caller,
+        uint256 warpTime,
         address allOrNothingAddress,
         uint256 tokenId
     )
@@ -257,6 +321,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         )
     {
         vm.startPrank(caller);
+        vm.warp(warpTime);
         vm.recordLogs();
 
         AllOrNothing(allOrNothingAddress).claimRefund(tokenId);
@@ -278,7 +343,13 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements disburseFees helper function.
+     * @notice Simulates fee disbursement for a successful campaign
+     * @dev Disburses protocol and platform fees and captures the disbursement event
+     * @param allOrNothingAddress The treasury contract address
+     * @param warpTime The block timestamp to warp to
+     * @return logs The transaction logs
+     * @return protocolShare The amount allocated to protocol fees
+     * @return platformShare The amount allocated to platform fees
      */
     function disburseFees(
         address allOrNothingAddress,
@@ -308,7 +379,13 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     }
 
     /**
-     * @notice Implements withdraw helper function.
+     * @notice Simulates withdrawal of funds from a successful campaign
+     * @dev Withdraws remaining funds to campaign creator and captures the withdrawal event
+     * @param allOrNothingAddress The treasury contract address
+     * @param warpTime The block timestamp to warp to
+     * @return logs The transaction logs
+     * @return to The address that received the withdrawal
+     * @return amount The amount withdrawn
      */
     function withdraw(
         address allOrNothingAddress,
@@ -335,5 +412,93 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         (to, amount) = abi.decode(data, (address, uint256));
 
         return (logs, to, amount);
+    }
+
+    /**
+     * @notice Removes a reward from a treasury contract
+     * @dev Helper function to remove a reward from an AllOrNothing treasury
+     * @param caller The address that will call the removeReward function
+     * @param treasury The treasury contract address
+     * @param rewardName The name of the reward to remove
+     * @return logs The transaction logs
+     */
+    function removeReward(
+        address caller,
+        address treasury,
+        bytes32 rewardName
+    ) internal returns (Vm.Log[] memory logs) {
+        vm.startPrank(caller);
+        vm.recordLogs();
+
+        AllOrNothing(treasury).removeReward(rewardName);
+
+        logs = vm.getRecordedLogs();
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Pauses a treasury contract
+     * @dev Helper function to pause an AllOrNothing treasury
+     * @param caller The address that will call the pauseTreasury function
+     * @param treasury The treasury contract address
+     * @param reason The reason for pausing
+     * @return logs The transaction logs
+     */
+    function pauseTreasury(
+        address caller,
+        address treasury,
+        bytes32 reason
+    ) internal returns (Vm.Log[] memory logs) {
+        vm.startPrank(caller);
+        vm.recordLogs();
+
+        AllOrNothing(treasury).pauseTreasury(reason);
+
+        logs = vm.getRecordedLogs();
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Unpauses a treasury contract
+     * @dev Helper function to unpause an AllOrNothing treasury
+     * @param caller The address that will call the unpauseTreasury function
+     * @param treasury The treasury contract address
+     * @param reason The reason for unpausing
+     * @return logs The transaction logs
+     */
+    function unpauseTreasury(
+        address caller,
+        address treasury,
+        bytes32 reason
+    ) internal returns (Vm.Log[] memory logs) {
+        vm.startPrank(caller);
+        vm.recordLogs();
+
+        AllOrNothing(treasury).unpauseTreasury(reason);
+
+        logs = vm.getRecordedLogs();
+        vm.stopPrank();
+    }
+
+    /**
+     * @notice Cancels a treasury contract
+     * @dev Helper function to cancel an AllOrNothing treasury
+     * @param caller The address that will call the cancelTreasury function
+     * @param treasury The treasury contract address
+     * @param reason The reason for cancellation
+     * @return logs The transaction logs
+     */
+    function cancelTreasury(
+        address caller,
+        address treasury,
+        bytes32 reason
+    ) internal returns (Vm.Log[] memory logs) {
+        vm.startPrank(caller);
+        vm.recordLogs();
+
+        AllOrNothing(treasury).cancelTreasury(reason);
+
+        logs = vm.getRecordedLogs();
+        vm.stopPrank();
     }
 }

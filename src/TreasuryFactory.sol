@@ -1,15 +1,14 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import "./CampaignInfo.sol";
-import "./interfaces/ITreasuryFactory.sol";
-import "./utils/AdminAccessChecker.sol";
+import {ITreasuryFactory} from "./interfaces/ITreasuryFactory.sol";
+import {IGlobalParams, AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
 
 contract TreasuryFactory is ITreasuryFactory, AdminAccessChecker {
-    mapping(bytes32 => mapping(uint256 => address)) implementationMap;
-    mapping(address => bool) approvedImplementations;
+    mapping(bytes32 => mapping(uint256 => address)) private implementationMap;
+    mapping(address => bool) private approvedImplementations;
 
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();

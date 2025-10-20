@@ -15,7 +15,6 @@ CC Protocol is a decentralized crowdfunding protocol designed to help creators l
 
 - [Foundry](https://book.getfoundry.sh/)
 - Solidity ^0.8.20
-- Node.js (recommended)
 
 ## Installation
 
@@ -38,11 +37,7 @@ forge install
 cp .env.example .env
 ```
 
-4. Configure your `.env` file with:
-
-- Private key
-- RPC URL
-- (Optional) Contract addresses for reuse
+4. Configure your `.env` file following the template in `.env.example`
 
 ## Documentation
 
@@ -56,7 +51,6 @@ Comprehensive documentation is available in the `docs/` folder:
 To view the documentation:
 
 ```bash
-# Navigate to docs folder
 cd docs
 ```
 
@@ -93,18 +87,17 @@ anvil
 forge script script/DeployAll.s.sol:DeployAll --rpc-url http://localhost:8545 --private-key $PRIVATE_KEY --broadcast
 ```
 
-#### Testnet Deployment
+#### Network Deployment
 
 ```bash
-# Deploy to testnet
-forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvvv
+# Deploy to any configured network
+forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
 ## Contract Architecture
 
 ### Core Contracts
 
-- `TestUSD`: Mock ERC20 token for testing
 - `GlobalParams`: Protocol-wide parameter management
 - `CampaignInfoFactory`: Campaign creation and management
 - `TreasuryFactory`: Treasury contract deployment
@@ -113,28 +106,66 @@ forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $
 
 - `AllOrNothing`: Funds refunded if campaign goal not met
 
+### Notes on Mock Contracts
+
+- `TestToken` is a mock ERC20 token used **only for testing and development purposes**.
+- It is located in the `mocks/` directory and should **not be included in production deployments**.
+
 ## Deployment Workflow
 
-1. Deploy `TestUSD`
-2. Deploy `GlobalParams`
-3. Deploy `TreasuryFactory`
-4. Deploy `CampaignInfoFactory`
+1. Deploy `GlobalParams`
+2. Deploy `TreasuryFactory`
+3. Deploy `CampaignInfoFactory`
+
+> For local testing or development, the `TestToken` mock token needs to be deployed before interacting with contracts requiring an ERC20 token.
 
 ## Environment Variables
 
-Key environment variables in `.env`:
+Key environment variables to configure in `.env`:
 
 - `PRIVATE_KEY`: Deployment wallet private key
-- `RPC_URL`: Network RPC endpoint
+- `RPC_URL`: Network RPC endpoint (can be configured for any network)
 - `SIMULATE`: Toggle simulation mode
 - Contract address variables for reuse
 
-## Troubleshooting
+For a complete list of variables, refer to `.env.example`.
 
-- Ensure sufficient network gas tokens
-- Verify RPC URL connectivity
-- Check contract dependencies
+## Security
+
+### Audits
+
+Security audit reports can be found in the [`audits/`](./audits/) folder. We regularly conduct security audits to ensure the safety and reliability of the protocol.
+
+## Contributing
+
+We welcome all contributions to the Creative Crowdfunding Protocol. If you're interested in helping, here's how you can contribute:
+
+- **Report bugs** by opening issues
+- **Suggest enhancements** or new features
+- **Submit pull requests** to improve the codebase
+- **Improve documentation** to make the project more accessible
+
+Before contributing, please read our detailed [Contributing Guidelines](./CONTRIBUTING.md) for comprehensive information on:
+- Development workflow
+- Coding standards
+- Testing requirements
+- Pull request process
+- Smart contract security considerations
+
+### Community
+
+Join our community on [Discord](https://discord.gg/4tR9rWc3QE) for questions and discussions.
+
+Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectful.
+
+## Contributors
+
+<a href="https://github.com/ccprotocol/ccprotocol-contracts/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ccprotocol/ccprotocol-contracts" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
 
 ## License
 
-[SPDX-License-Identifier: UNLICENSED]
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).

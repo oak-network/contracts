@@ -1,16 +1,17 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestToken} from "../../mocks/TestToken.sol";
+import {Defaults} from "../Base.t.sol";
 import {AdminAccessChecker} from "src/utils/AdminAccessChecker.sol";
 
-contract TreasuryFactory_UpdatedUnitTest is Test {
+contract TreasuryFactory_UpdatedUnitTest is Test, Defaults {
     TreasuryFactory internal factory;
     GlobalParams internal globalParams;
-    TestUSD internal testUSD;
+    TestToken internal testToken;
 
     address internal protocolAdmin = address(0xA11CE);
     address internal platformAdmin = address(0xBEEF);
@@ -23,8 +24,8 @@ contract TreasuryFactory_UpdatedUnitTest is Test {
     uint256 internal platformFee = 300; // 3%
 
     function setUp() public {
-        testUSD = new TestUSD();
-        globalParams = new GlobalParams(protocolAdmin, address(testUSD), 300);
+        testToken = new TestToken(tokenName, tokenSymbol);
+        globalParams = new GlobalParams(protocolAdmin, address(testToken), 300);
         factory = new TreasuryFactory(globalParams);
 
         // Label addresses for clarity

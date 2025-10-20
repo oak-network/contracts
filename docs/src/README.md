@@ -1,67 +1,171 @@
-# CCP Contracts
-This repository contains the smart contracts source code and campaign configuration for Creative Crowdfunding Protocol - CCP. The repository uses Foundry as development environment for compilation, testing and deployment tasks.
+# Creative Crowdfunding Protocol (CC Protocol) Smart Contracts
 
-## What is CCP?
-CCP is a protocol for crowdfunding campaigns that allows creators to multilist campaigns across different crowdfunding platforms. It provides infrastructure tooling and support for platforms to create and manage campaigns in web3.
+## Overview
+
+CC Protocol is a decentralized crowdfunding protocol designed to help creators launch and manage campaigns across multiple platforms. By providing a standardized infrastructure, the protocol simplifies the process of creating, funding, and managing crowdfunding initiatives in web3 across different platforms.
+
+## Features
+
+- Cross-listable campaign creation
+- Multiple treasury models
+- Secure fund management
+- Customizable protocol parameters
+
+## Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/)
+- Solidity ^0.8.20
+
+## Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/ccprotocol/ccprotocol-contracts.git
+cd ccprotocol-contracts
+```
+
+2. Install dependencies:
+
+```bash
+forge install
+```
+
+3. Copy environment template:
+
+```bash
+cp .env.example .env
+```
+
+4. Configure your `.env` file following the template in `.env.example`
 
 ## Documentation
-The detailed technical documentation for the protocol can be found in the [docs](./docs/src/SUMMARY.md) folder.
 
-## Getting Started
-### Prerequisites
-The following tools are required to be installed in your system:
-- [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Node.js](https://nodejs.org/en/download/)
+Comprehensive documentation is available in the `docs/` folder:
 
-### Installation
+- Technical specifications
+- Contract interfaces
+- Deployment guides
+- Development setup instructions
 
-```shell
-$ npm install
+To view the documentation:
+
+```bash
+cd docs
 ```
 
-### Build
+## Development
 
-```shell
-$ forge build
+### Compile Contracts
+
+```bash
+forge build
 ```
 
-### Test
+### Run Tests
 
-```shell
-$ forge test
+```bash
+# Run all tests
+forge test
+
+# Run specific test
+forge test --match-test testFunctionName
+
+# Run tests with more verbose output
+forge test -vvv
 ```
 
-### Format
+### Deploy Contracts
 
-```shell
-$ forge fmt
+#### Local Deployment
+
+```bash
+# Start local blockchain
+anvil
+
+# Deploy to local network
+forge script script/DeployAll.s.sol:DeployAll --rpc-url http://localhost:8545 --private-key $PRIVATE_KEY --broadcast
 ```
 
-### Gas Snapshots
+#### Network Deployment
 
-```shell
-$ forge snapshot
+```bash
+# Deploy to any configured network
+forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
-## Deploy
-### Environment Variables
+## Contract Architecture
 
-Create an environment file named `.env`, fill the environment variables following the `.env.example` file and source the file using the following command:
+### Core Contracts
 
-```shell
-$ source .env
-```
+- `GlobalParams`: Protocol-wide parameter management
+- `CampaignInfoFactory`: Campaign creation and management
+- `TreasuryFactory`: Treasury contract deployment
 
-### Local Deployment
-To deploy the contracts locally, run the following command:
+### Treasury Models
 
-```shell
-$ forge script script/Setup.s.sol:SetupScript
-```
+- `AllOrNothing`: Funds refunded if campaign goal not met
 
-### Remote Deployment
-To deploy the contracts to a remote network, run the following command:
+### Notes on Mock Contracts
 
-```shell
-$ forge script script/Setup.s.sol:SetupScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY
-```
+- `TestToken` is a mock ERC20 token used **only for testing and development purposes**.
+- It is located in the `mocks/` directory and should **not be included in production deployments**.
+
+## Deployment Workflow
+
+1. Deploy `GlobalParams`
+2. Deploy `TreasuryFactory`
+3. Deploy `CampaignInfoFactory`
+
+> For local testing or development, the `TestToken` mock token needs to be deployed before interacting with contracts requiring an ERC20 token.
+
+## Environment Variables
+
+Key environment variables to configure in `.env`:
+
+- `PRIVATE_KEY`: Deployment wallet private key
+- `RPC_URL`: Network RPC endpoint (can be configured for any network)
+- `SIMULATE`: Toggle simulation mode
+- Contract address variables for reuse
+
+For a complete list of variables, refer to `.env.example`.
+
+## Security
+
+### Audits
+
+Security audit reports can be found in the [`audits/`](./audits/) folder. We regularly conduct security audits to ensure the safety and reliability of the protocol.
+
+## Contributing
+
+We welcome all contributions to the Creative Crowdfunding Protocol. If you're interested in helping, here's how you can contribute:
+
+- **Report bugs** by opening issues
+- **Suggest enhancements** or new features
+- **Submit pull requests** to improve the codebase
+- **Improve documentation** to make the project more accessible
+
+Before contributing, please read our detailed [Contributing Guidelines](./CONTRIBUTING.md) for comprehensive information on:
+- Development workflow
+- Coding standards
+- Testing requirements
+- Pull request process
+- Smart contract security considerations
+
+### Community
+
+Join our community on [Discord](https://discord.gg/4tR9rWc3QE) for questions and discussions.
+
+Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectful.
+
+## Contributors
+
+<a href="https://github.com/ccprotocol/ccprotocol-contracts/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ccprotocol/ccprotocol-contracts" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
+
+## License
+
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).

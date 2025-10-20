@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import {Constants} from "./Constants.sol";
@@ -29,6 +29,10 @@ contract Defaults is Constants, ICampaignData, IReward {
     //Immutable Variables
     uint256 public immutable LAUNCH_TIME;
     uint256 public immutable DEADLINE;
+
+    //Token details
+    string tokenName = "TestToken";
+    string tokenSymbol = "TST";
 
     //Variables
     CampaignData public CAMPAIGN_DATA;

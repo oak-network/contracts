@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {Users} from "./utils/Types.sol";
 import {Defaults} from "./utils/Defaults.sol";
-import {TestUSD} from "src/TestUSD.sol";
+import {TestToken} from "../mocks/TestToken.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -17,7 +17,7 @@ abstract contract Base_Test is Test, Defaults {
     Users internal users;
 
     //Test Contracts
-    TestUSD internal testUSD;
+    TestToken internal testToken;
     GlobalParams internal globalParams;
     CampaignInfoFactory internal campaignInfoFactory;
     TreasuryFactory internal treasuryFactory;
@@ -40,16 +40,19 @@ abstract contract Base_Test is Test, Defaults {
         vm.startPrank(users.contractOwner);
 
         // Deploy the base test contracts.
-        testUSD = new TestUSD();
+        testToken = new TestToken(tokenName, tokenSymbol);
         globalParams = new GlobalParams(
             users.protocolAdminAddress,
-            address(testUSD),
+            address(testToken),
             PROTOCOL_FEE_PERCENT
         );
 
         campaignInfo = new CampaignInfo(address(this));
         console.log("CampaignInfo address: ", address(campaignInfo));
-        campaignInfoFactory = new CampaignInfoFactory(globalParams, address(campaignInfo));
+        campaignInfoFactory = new CampaignInfoFactory(
+            globalParams,
+            address(campaignInfo)
+        );
         treasuryFactory = new TreasuryFactory(globalParams);
 
         //Initialize campaignInfoFactory
@@ -60,13 +63,13 @@ abstract contract Base_Test is Test, Defaults {
 
         allOrNothingImplementation = new AllOrNothing();
         //Mint token to the backer
-        testUSD.mint(users.backer1Address, TOKEN_MINT_AMOUNT);
-        testUSD.mint(users.backer2Address, TOKEN_MINT_AMOUNT);
+        testToken.mint(users.backer1Address, TOKEN_MINT_AMOUNT);
+        testToken.mint(users.backer2Address, TOKEN_MINT_AMOUNT);
 
         vm.stopPrank();
 
         // Label the base test contracts.
-        vm.label({account: address(testUSD), newLabel: "TestUSD"});
+        vm.label({account: address(testToken), newLabel: "TestToken"});
         vm.label({
             account: address(globalParams),
             newLabel: "Global Parameter"

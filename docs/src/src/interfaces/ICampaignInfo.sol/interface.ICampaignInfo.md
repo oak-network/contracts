@@ -1,5 +1,5 @@
 # ICampaignInfo
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/ICampaignInfo.sol)
 
 An interface for managing campaign information in a crowdfunding system.
 
@@ -287,6 +287,8 @@ function updateGoalAmount(uint256 goalAmount) external;
 ### updateSelectedPlatform
 
 Updates the selection status of a platform for the campaign.
+
+*It can only be called for a platform if its not approved i.e. the platform treasury is not deployed*
 
 
 ```solidity

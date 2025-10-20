@@ -1,5 +1,5 @@
 # FiatEnabled
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/FiatEnabled.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/FiatEnabled.sol)
 
 A contract that provides functionality for tracking and managing fiat transactions.
 This contract allows tracking the amount of fiat raised, individual fiat transactions, and the state of fiat fee disbursement.

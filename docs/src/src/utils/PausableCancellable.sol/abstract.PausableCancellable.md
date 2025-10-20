@@ -1,5 +1,5 @@
 # PausableCancellable
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/PausableCancellable.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/PausableCancellable.sol)
 
 Abstract contract providing pause and cancel state management with events and modifiers
 

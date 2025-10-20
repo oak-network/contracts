@@ -1,5 +1,5 @@
 # ICampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/interfaces/ICampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/ICampaignInfoFactory.sol)
 
 **Inherits:**
 [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
@@ -35,6 +35,21 @@ function createCampaign(
 |`campaignData`|`CampaignData`|The struct containing campaign launch details.|
 
 
+### updateImplementation
+
+Updates the campaign implementation address.
+
+
+```solidity
+function updateImplementation(address newImplementation) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|The address of the camapaignInfo implementation contract.|
+
+
 ## Events
 ### CampaignInfoFactoryCampaignCreated
 Emitted when a campaign is successfully created.
@@ -50,4 +65,12 @@ event CampaignInfoFactoryCampaignCreated(bytes32 indexed identifierHash, address
 |----|----|-----------|
 |`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
 |`campaignInfoAddress`|`address`|The address of the created campaign information contract.|
+
+### CampaignInfoFactoryCampaignInitialized
+Emitted when the campaign after creation is initialized.
+
+
+```solidity
+event CampaignInfoFactoryCampaignInitialized();
+```
 

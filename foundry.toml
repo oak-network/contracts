@@ -11,6 +11,6 @@ remappings = [
   "@openzeppelin/=lib/openzeppelin-contracts/"
 ]
 
-
 [rpc_endpoints]
-alfajores = "${ALFAJORES_RPC_URL}"
+mainnet = "https://forno.celo.org/"
+alfajores = "https://alfajores-forno.celo-testnet.org/"

@@ -1,5 +1,5 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/reference-client-sc/blob/13d9d746c7f79b76f03c178fe64b679ba803191a/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/BaseTreasury.sol)
 
 **Inherits:**
 Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
@@ -47,13 +47,6 @@ IERC20 internal TOKEN;
 ```
 
 
-### CAMPAIGN_INFO
-
-```solidity
-ICampaignInfo internal CAMPAIGN_INFO;
-```
-
-
 ### s_pledgedAmount
 
 ```solidity
@@ -92,13 +85,13 @@ modifier whenCampaignNotPaused();
 modifier whenCampaignNotCancelled();
 ```
 
-### getplatformHash
+### getPlatformHash
 
 Retrieves the platform identifier associated with the treasury.
 
 
 ```solidity
-function getplatformHash() external view override returns (bytes32);
+function getPlatformHash() external view override returns (bytes32);
 ```
 **Returns**
 
@@ -107,13 +100,13 @@ function getplatformHash() external view override returns (bytes32);
 |`<none>`|`bytes32`|The platform identifier as a bytes32 value.|
 
 
-### getplatformFeePercent
+### getPlatformFeePercent
 
 Retrieves the platform fee percentage for the treasury.
 
 
 ```solidity
-function getplatformFeePercent() external view override returns (uint256);
+function getPlatformFeePercent() external view override returns (uint256);
 ```
 **Returns**
 

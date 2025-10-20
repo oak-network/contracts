@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 /**
  * @title IReward
  * @notice An interface for managing rewards in a campaign.
  */
-interface IReward {
 
+interface IReward {
     struct Reward {
         uint256 rewardValue;
         bool isRewardTier;
