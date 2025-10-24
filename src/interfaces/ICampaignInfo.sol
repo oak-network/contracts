@@ -157,4 +157,17 @@ interface ICampaignInfo {
      * @dev Returns true if the campaign is cancelled, and false otherwise.
      */
     function cancelled() external view returns (bool);
+
+    /**
+     * @notice Retrieves a value from the GlobalParams data registry.
+     * @param key The registry key.
+     * @return value The registry value.
+     */
+    function getDataFromRegistry(bytes32 key) external view returns (bytes32 value);
+
+    /**
+     * @notice Retrieves the buffer time from the GlobalParams data registry.
+     * @return bufferTime The buffer time value.
+     */
+    function getBufferTime() external view returns (uint256 bufferTime);
 }

@@ -6,12 +6,10 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
-import {DataRegistryHelper} from "../utils/DataRegistryHelper.sol";
 
 contract TimeConstrainedPaymentTreasury is
     BasePaymentTreasury,
-    TimestampChecker,
-    DataRegistryHelper
+    TimestampChecker
 {
     using SafeERC20 for IERC20;
 
@@ -48,15 +46,13 @@ contract TimeConstrainedPaymentTreasury is
         return s_symbol;
     }
 
-
-
     /**
      * @dev Internal function to check if current time is within the allowed range.
      */
     function _checkTimeWithinRange() internal view {
         uint256 launchTime = INFO.getLaunchTime();
         uint256 deadline = INFO.getDeadline();
-        uint256 bufferTime = _getBufferTime();
+        uint256 bufferTime = INFO.getBufferTime();
         _revertIfCurrentTimeIsNotWithinRange(launchTime, deadline + bufferTime);
     }
 

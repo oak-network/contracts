@@ -12,6 +12,7 @@ import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {TimestampChecker} from "./utils/TimestampChecker.sol";
 import {AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
 import {PausableCancellable} from "./utils/PausableCancellable.sol";
+import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
 
 /**
  * @title CampaignInfo
@@ -208,7 +209,7 @@ contract CampaignInfo is
     function getProtocolAdminAddress() public view override returns (address) {
         return _getGlobalParams().getProtocolAdminAddress();
     }
-
+    
     /**
      * @inheritdoc ICampaignInfo
      */
@@ -335,6 +336,21 @@ contract CampaignInfo is
     function getIdentifierHash() external view override returns (bytes32) {
         Config memory config = getCampaignConfig();
         return config.identifierHash;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getDataFromRegistry(bytes32 key) external view override returns (bytes32 value) {
+        return _getGlobalParams().getFromRegistry(key);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getBufferTime() external view override returns (uint256 bufferTime) {
+        bytes32 valueBytes = _getGlobalParams().getFromRegistry(DataRegistryKeys.BUFFER_TIME);
+        bufferTime = uint256(valueBytes);
     }
 
     /**

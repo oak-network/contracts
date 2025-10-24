@@ -113,4 +113,11 @@ interface IGlobalParams {
     function getTokensForCurrency(
         bytes32 currency
     ) external view returns (address[] memory);
+
+    /**
+     * @notice Retrieves a value from the data registry.
+     * @param key The registry key.
+     * @return value The registry value.
+     */
+    function getFromRegistry(bytes32 key) external view returns (bytes32 value);
 }
