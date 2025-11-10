@@ -13,6 +13,7 @@ import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
 /// @notice Base test contract with common logic needed by all tests.
 abstract contract Base_Test is Test, Defaults {
@@ -116,6 +117,21 @@ abstract contract Base_Test is Test, Defaults {
         allOrNothingImplementation = new AllOrNothing();
         keepWhatsRaisedImplementation = new KeepWhatsRaised();
         
+        vm.stopPrank();
+        
+        // Set time constraints in dataRegistry (requires protocol admin)
+        vm.startPrank(users.protocolAdminAddress);
+        globalParams.addToRegistry(
+            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
+            bytes32(uint256(0)) // No buffer for most tests
+        );
+        globalParams.addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
+            bytes32(uint256(0)) // No minimum duration for most tests
+        );
+        vm.stopPrank();
+        
+        vm.startPrank(users.contractOwner);
         //Mint tokens to backers - all three token types
         usdtToken.mint(users.backer1Address, TOKEN_MINT_AMOUNT / 1e12); // Adjust for 6 decimals
         usdtToken.mint(users.backer2Address, TOKEN_MINT_AMOUNT / 1e12);

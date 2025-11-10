@@ -79,7 +79,7 @@ contract Defaults is Constants, ICampaignData, IReward {
     bytes32[] public GROSS_PERCENTAGE_FEE_VALUES;
 
     constructor() {
-        LAUNCH_TIME = OCTOBER_1_2023 + 300 seconds;
+        LAUNCH_TIME = OCTOBER_1_2023 + 2 hours; // 2 hours buffer to accommodate time constraints
         DEADLINE = LAUNCH_TIME + CAMPAIGN_DURATION;
 
         //Add Campaign Data

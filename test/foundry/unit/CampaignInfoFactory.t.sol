@@ -11,6 +11,7 @@ import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
+import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
 contract CampaignInfoFactory_UnitTest is Test, Defaults {
     CampaignInfoFactory internal factory;
@@ -82,6 +83,16 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             PLATFORM_1_HASH,
             admin,
             PLATFORM_FEE_PERCENT
+        );
+        
+        // Set time constraints in dataRegistry
+        globalParams.addToRegistry(
+            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
+            bytes32(uint256(1 hours))
+        );
+        globalParams.addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
+            bytes32(uint256(1 days))
         );
         vm.stopPrank();
     }
@@ -190,6 +201,64 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             IGlobalParams(address(globalParams)),
             address(campaignInfoImplementation),
             address(treasuryFactory)
+        );
+    }
+
+    function testCreateCampaignRevertsWithInsufficientLaunchBuffer() public {
+        bytes32[] memory platforms = new bytes32[](1);
+        platforms[0] = PLATFORM_1_HASH;
+
+        bytes32[] memory keys = new bytes32[](0);
+        bytes32[] memory values = new bytes32[](0);
+
+        address creator = address(0xBEEF);
+
+        // Create campaign data with launch time less than required buffer (1 hour)
+        ICampaignData.CampaignData memory campaignData = ICampaignData.CampaignData({
+            launchTime: block.timestamp + 30 minutes, // Only 30 minutes buffer
+            deadline: block.timestamp + 30 minutes + 7 days,
+            goalAmount: GOAL_AMOUNT,
+            currency: bytes32("USD")
+        });
+
+        vm.prank(admin);
+        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        factory.createCampaign(
+            creator,
+            CAMPAIGN_1_IDENTIFIER_HASH,
+            platforms,
+            keys,
+            values,
+            campaignData
+        );
+    }
+
+    function testCreateCampaignRevertsWithInsufficientDuration() public {
+        bytes32[] memory platforms = new bytes32[](1);
+        platforms[0] = PLATFORM_1_HASH;
+
+        bytes32[] memory keys = new bytes32[](0);
+        bytes32[] memory values = new bytes32[](0);
+
+        address creator = address(0xBEEF);
+
+        // Create campaign data with duration less than minimum (1 day)
+        ICampaignData.CampaignData memory campaignData = ICampaignData.CampaignData({
+            launchTime: block.timestamp + 2 hours, // Good buffer
+            deadline: block.timestamp + 2 hours + 12 hours, // Only 12 hours duration
+            goalAmount: GOAL_AMOUNT,
+            currency: bytes32("USD")
+        });
+
+        vm.prank(admin);
+        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        factory.createCampaign(
+            creator,
+            CAMPAIGN_1_IDENTIFIER_HASH,
+            platforms,
+            keys,
+            values,
+            campaignData
         );
     }
 }

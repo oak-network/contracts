@@ -9,6 +9,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
 import {CampaignInfoFactoryStorage} from "./storage/CampaignInfoFactoryStorage.sol";
+import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
 
 /**
  * @title CampaignInfoFactory
@@ -95,21 +96,30 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         if (creator == address(0)) {
             revert CampaignInfoFactoryInvalidInput();
         }
-        if (
-            campaignData.launchTime < block.timestamp ||
-            campaignData.deadline <= campaignData.launchTime
-        ) {
-            revert CampaignInfoFactoryInvalidInput();
-        }
         if (platformDataKey.length != platformDataValue.length) {
             revert CampaignInfoFactoryInvalidInput();
         }
 
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         
+        // Cache globalParams to save gas on repeated storage reads
+        IGlobalParams globalParams = $.globalParams;
+
+        // Retrieve time constraints from GlobalParams dataRegistry
+        uint256 campaignLaunchBuffer = uint256(globalParams.getFromRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER));
+        uint256 minimumCampaignDuration = uint256(globalParams.getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
+
+        // Validate campaign timing constraints
+        if (campaignData.launchTime < block.timestamp + campaignLaunchBuffer) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
+        if (campaignData.deadline < campaignData.launchTime + minimumCampaignDuration) {
+            revert CampaignInfoFactoryInvalidInput();
+        }
+        
         bool isValid;
         for (uint256 i = 0; i < platformDataKey.length; i++) {
-            isValid = $.globalParams.checkIfPlatformDataKeyValid(
+            isValid = globalParams.checkIfPlatformDataKeyValid(
                 platformDataKey[i]
             );
             if (!isValid) {
@@ -130,21 +140,21 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         bytes32 platformHash;
         for (uint256 i = 0; i < selectedPlatformHash.length; i++) {
             platformHash = selectedPlatformHash[i];
-            isListed = $.globalParams.checkIfPlatformIsListed(platformHash);
+            isListed = globalParams.checkIfPlatformIsListed(platformHash);
             if (!isListed) {
                 revert CampaignInfoFactoryPlatformNotListed(platformHash);
             }
         }
 
         // Get accepted tokens for the campaign currency
-        address[] memory acceptedTokens = $.globalParams.getTokensForCurrency(campaignData.currency);
+        address[] memory acceptedTokens = globalParams.getTokensForCurrency(campaignData.currency);
         if (acceptedTokens.length == 0) {
             revert CampaignInfoInvalidTokenList();
         }
 
         bytes memory args = abi.encode(
             $.treasuryFactoryAddress,
-            $.globalParams.getProtocolFeePercent(),
+            globalParams.getProtocolFeePercent(),
             identifierHash
         );
         address clone = Clones.cloneWithImmutableArgs($.implementation, args);
@@ -152,7 +162,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
             abi.encodeWithSignature(
                 "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256,bytes32),address[])",
                 creator,
-                address($.globalParams),
+                address(globalParams),
                 selectedPlatformHash,
                 platformDataKey,
                 platformDataValue,
