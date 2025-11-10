@@ -40,6 +40,9 @@ contract CampaignInfo is
     // Multi-token support
     address[] private s_acceptedTokens;  // Accepted tokens for this campaign
     mapping(address => bool) private s_isAcceptedToken;  // O(1) token validation
+    
+    // Lock mechanism - prevents certain operations after treasury deployment
+    bool private s_isLocked;
 
     function getApprovedPlatformHashes()
         external
@@ -47,6 +50,14 @@ contract CampaignInfo is
         returns (bytes32[] memory)
     {
         return s_approvedPlatformHashes;
+    }
+
+    /**
+     * @dev Returns whether the campaign is locked (after treasury deployment).
+     * @return True if the campaign is locked, false otherwise.
+     */
+    function isLocked() external view override returns (bool) {
+        return s_isLocked;
     }
 
     /**
@@ -119,8 +130,23 @@ contract CampaignInfo is
      */
     error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
 
+    /**
+     * @dev Emitted when an operation is attempted on a locked campaign.
+     */
+    error CampaignInfoIsLocked();
+
     constructor() Ownable(_msgSender()) {
         _disableInitializers();
+    }
+
+    /**
+     * @dev Modifier that checks if the campaign is not locked.
+     */
+    modifier whenNotLocked() {
+        if (s_isLocked) {
+            revert CampaignInfoIsLocked();
+        }
+        _;
     }
 
     function initialize(
@@ -377,9 +403,9 @@ contract CampaignInfo is
         external
         override
         onlyOwner
-        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
+        whenNotLocked
     {
         if (launchTime < block.timestamp || getDeadline() <= launchTime) {
             revert CampaignInfoInvalidInput();
@@ -397,9 +423,9 @@ contract CampaignInfo is
         external
         override
         onlyOwner
-        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
+        whenNotLocked
     {
         if (deadline <= getLaunchTime()) {
             revert CampaignInfoInvalidInput();
@@ -418,9 +444,9 @@ contract CampaignInfo is
         external
         override
         onlyOwner
-        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
+        whenNotLocked
     {
         if (goalAmount == 0) {
             revert CampaignInfoInvalidInput();
@@ -534,6 +560,11 @@ contract CampaignInfo is
         s_platformTreasuryAddress[platformHash] = platformTreasuryAddress;
         s_approvedPlatformHashes.push(platformHash);
         s_isApprovedPlatform[platformHash] = true;
+
+        // Lock the campaign after the first treasury deployment
+        if (!s_isLocked) {
+            s_isLocked = true;
+        }
 
         emit CampaignInfoPlatformInfoUpdated(
             platformHash,

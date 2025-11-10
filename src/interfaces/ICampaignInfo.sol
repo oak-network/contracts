@@ -170,4 +170,9 @@ interface ICampaignInfo {
      * @return bufferTime The buffer time value.
      */
     function getBufferTime() external view returns (uint256 bufferTime);
+
+    /**
+     * @dev Returns true if the campaign is locked (after treasury deployment), and false otherwise.
+     */
+    function isLocked() external view returns (bool);
 }
