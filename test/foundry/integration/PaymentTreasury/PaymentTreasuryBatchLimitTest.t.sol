@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
+import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.sol";
 
 contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Test {
     uint256 constant CELO_BLOCK_GAS_LIMIT = 30_000_000;
@@ -33,7 +34,9 @@ contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Te
             bytes32 buyerId = keccak256(abi.encodePacked("buyer", i));
             bytes32 itemId = keccak256(abi.encodePacked("item", i));
 
-            paymentTreasury.createPayment(paymentId, buyerId, itemId, address(testToken), paymentAmount, expiration);
+            ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+            ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
+            paymentTreasury.createPayment(paymentId, buyerId, itemId, address(testToken), paymentAmount, expiration, emptyLineItems, emptyExternalFees);
 
             paymentIds[i] = paymentId;
         }

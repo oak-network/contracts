@@ -102,6 +102,34 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
 
     /**
+     * @dev Emitted when a platform-specific line item type is set or updated.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @param label The label of the line item type.
+     * @param countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @param applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @param canRefund Whether this line item can be refunded.
+     * @param instantTransfer Whether this line item amount can be instantly transferred to platform admin after payment confirmation.
+     */
+    event PlatformLineItemTypeSet(
+        bytes32 indexed platformHash,
+        bytes32 indexed typeId,
+        string label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+    event PlatformClaimDelayUpdated(bytes32 indexed platformHash, uint256 claimDelay);
+
+    /**
+     * @dev Emitted when a platform-specific line item type is removed.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the removed line item type.
+     */
+    event PlatformLineItemTypeRemoved(bytes32 indexed platformHash, bytes32 indexed typeId);
+
+    /**
      * @dev Throws when the input address is zero.
      */
     error GlobalParamsInvalidInput();
@@ -168,6 +196,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param token The token address.
      */
     error GlobalParamsTokenNotInCurrency(bytes32 currency, address token);
+
+    /**
+     * @dev Throws when a platform-specific line item type is not found.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     */
+    error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typeId);
     
     /**
      * @dev Reverts if the input address is zero.
@@ -351,6 +386,22 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
+    function getPlatformClaimDelay(
+        bytes32 platformHash
+    )
+        external
+        view
+        override
+        platformIsListed(platformHash)
+        returns (uint256 claimDelay)
+    {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        claimDelay = $.platformClaimDelay[platformHash];
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
     function getPlatformDataOwner(
         bytes32 platformDataKey
     ) external view override returns (bytes32 platformHash) {
@@ -509,6 +560,23 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
+    function updatePlatformClaimDelay(
+        bytes32 platformHash,
+        uint256 claimDelay
+    )
+        external
+        override
+        platformIsListed(platformHash)
+        onlyPlatformAdmin(platformHash)
+    {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.platformClaimDelay[platformHash] = claimDelay;
+        emit PlatformClaimDelayUpdated(platformHash, claimDelay);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
     function addTokenToCurrency(
         bytes32 currency,
         address token
@@ -557,6 +625,131 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     ) external view override returns (address[] memory) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         return $.currencyToTokens[currency];
+    }
+
+    /**
+     * @notice Sets or updates a platform-specific line item type configuration.
+     * @dev Only callable by the platform admin.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @param label The label identifier for the line item type.
+     * @param countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @param applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @param canRefund Whether this line item can be refunded.
+     * @param instantTransfer Whether this line item amount can be instantly transferred.
+     * 
+     * Constraints:
+     * - If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false.
+     * - Non-goal instant transfer items cannot be refundable.
+     */
+    function setPlatformLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId,
+        string calldata label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
+        if (typeId == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        
+        // Validation constraint 1: If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false
+        if (countsTowardGoal) {
+            if (applyProtocolFee) {
+                revert GlobalParamsInvalidInput();
+            }
+            if (!canRefund) {
+                revert GlobalParamsInvalidInput();
+            }
+            if (instantTransfer) {
+                revert GlobalParamsInvalidInput();
+            }
+        }
+
+        // Validation constraint 2: Non-goal instant transfer items cannot be refundable
+        if (!countsTowardGoal && instantTransfer && canRefund) {
+            revert GlobalParamsInvalidInput();
+        }
+
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.platformLineItemTypes[platformHash][typeId] = GlobalParamsStorage.LineItemType({
+            exists: true,
+            label: label,
+            countsTowardGoal: countsTowardGoal,
+            applyProtocolFee: applyProtocolFee,
+            canRefund: canRefund,
+            instantTransfer: instantTransfer
+        });
+        emit PlatformLineItemTypeSet(
+            platformHash,
+            typeId,
+            label,
+            countsTowardGoal,
+            applyProtocolFee,
+            canRefund,
+            instantTransfer
+        );
+    }
+
+    /**
+     * @notice Removes a platform-specific line item type by setting its exists flag to false.
+     * @dev Only callable by the platform admin. This prevents the type from being used in new pledges.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type to remove.
+     */
+    function removePlatformLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId
+    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
+        if (typeId == ZERO_BYTES) {
+            revert GlobalParamsInvalidInput();
+        }
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if (!$.platformLineItemTypes[platformHash][typeId].exists) {
+            revert GlobalParamsPlatformLineItemTypeNotFound(platformHash, typeId);
+        }
+        $.platformLineItemTypes[platformHash][typeId].exists = false;
+        emit PlatformLineItemTypeRemoved(platformHash, typeId);
+    }
+
+    /**
+     * @notice Retrieves a platform-specific line item type configuration.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @return exists Whether this line item type exists and is active.
+     * @return label The label identifier for the line item type.
+     * @return countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @return applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @return canRefund Whether this line item can be refunded.
+     * @return instantTransfer Whether this line item amount can be instantly transferred to platform admin after payment confirmation.
+     */
+    function getPlatformLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId
+    )
+        external
+        view
+        returns (
+            bool exists,
+            string memory label,
+            bool countsTowardGoal,
+            bool applyProtocolFee,
+            bool canRefund,
+            bool instantTransfer
+        )
+    {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        GlobalParamsStorage.LineItemType storage lineItemType = $.platformLineItemTypes[platformHash][typeId];
+        return (
+            lineItemType.exists,
+            lineItemType.label,
+            lineItemType.countsTowardGoal,
+            lineItemType.applyProtocolFee,
+            lineItemType.canRefund,
+            lineItemType.instantTransfer
+        );
     }
 
     /**

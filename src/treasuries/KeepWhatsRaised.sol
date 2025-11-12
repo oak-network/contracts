@@ -1208,9 +1208,6 @@ contract KeepWhatsRaised is
         
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
         
-        s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        
         uint256 tokenId = INFO.mintNFTForPledge(
             backer,
             reward,

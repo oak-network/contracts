@@ -61,6 +61,15 @@ interface IGlobalParams {
     ) external view returns (uint256);
 
     /**
+     * @notice Retrieves the claim delay (in seconds) for a specific platform.
+     * @param platformHash The unique identifier of the platform.
+     * @return The claim delay in seconds.
+     */
+    function getPlatformClaimDelay(
+        bytes32 platformHash
+    ) external view returns (uint256);
+
+    /**
      * @notice Checks if a platform-specific data key is valid.
      * @param platformDataKey The key of the platform-specific data.
      * @return isValid True if the data key is valid; otherwise, false.
@@ -92,6 +101,16 @@ interface IGlobalParams {
     ) external;
 
     /**
+     * @notice Updates the claim delay for a specific platform.
+     * @param platformHash The unique identifier of the platform.
+     * @param claimDelay The claim delay in seconds.
+     */
+    function updatePlatformClaimDelay(
+        bytes32 platformHash,
+        uint256 claimDelay
+    ) external;
+
+    /**
      * @notice Adds a token to a currency.
      * @param currency The currency identifier.
      * @param token The token address to add.
@@ -120,4 +139,57 @@ interface IGlobalParams {
      * @return value The registry value.
      */
     function getFromRegistry(bytes32 key) external view returns (bytes32 value);
+
+    /**
+     * @notice Sets or updates a platform-specific line item type configuration.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @param label The label identifier for the line item type.
+     * @param countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @param applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @param canRefund Whether this line item can be refunded.
+     * @param instantTransfer Whether this line item amount can be instantly transferred.
+     */
+    function setPlatformLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId,
+        string calldata label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    ) external;
+
+    /**
+     * @notice Removes a platform-specific line item type by setting its exists flag to false.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type to remove.
+     */
+    function removePlatformLineItemType(bytes32 platformHash, bytes32 typeId) external;
+
+    /**
+     * @notice Retrieves a platform-specific line item type configuration.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @return exists Whether this line item type exists and is active.
+     * @return label The label identifier for the line item type.
+     * @return countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @return applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @return canRefund Whether this line item can be refunded.
+     * @return instantTransfer Whether this line item amount can be instantly transferred.
+     */
+    function getPlatformLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId
+    )
+        external
+        view
+        returns (
+            bool exists,
+            string memory label,
+            bool countsTowardGoal,
+            bool applyProtocolFee,
+            bool canRefund,
+            bool instantTransfer
+        );
 }

@@ -37,9 +37,11 @@ contract PaymentTreasury is
         bytes32 itemId,
         address paymentToken,
         uint256 amount,
-        uint256 expiration
+        uint256 expiration,
+        ICampaignPaymentTreasury.LineItem[] calldata lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public override whenNotPaused whenNotCancelled {
-        super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration);
+        super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees);
     }
 
     /**
@@ -51,9 +53,11 @@ contract PaymentTreasury is
         bytes32[] calldata itemIds,
         address[] calldata paymentTokens,
         uint256[] calldata amounts,
-        uint256[] calldata expirations
+        uint256[] calldata expirations,
+        ICampaignPaymentTreasury.LineItem[][] calldata lineItemsArray,
+        ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
     ) public override whenNotPaused whenNotCancelled {
-        super.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations);
+        super.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray);
     }
 
     /**
@@ -64,9 +68,11 @@ contract PaymentTreasury is
         bytes32 itemId,
         address buyerAddress,
         address paymentToken,
-        uint256 amount
+        uint256 amount,
+        ICampaignPaymentTreasury.LineItem[] calldata lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public override whenNotPaused whenNotCancelled {
-        super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount);
+        super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
     }
 
     /**
@@ -115,6 +121,13 @@ contract PaymentTreasury is
         bytes32 paymentId
     ) public override whenNotPaused whenNotCancelled {
         super.claimRefund(paymentId);
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function claimExpiredFunds() public override whenNotPaused whenNotCancelled {
+        super.claimExpiredFunds();
     }
 
     /**

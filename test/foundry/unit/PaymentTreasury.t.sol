@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import "../integration/PaymentTreasury/PaymentTreasury.t.sol";
 import "forge-std/Test.sol";
 import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
+import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 
@@ -84,13 +85,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCreatePayment() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken), // Added token parameter
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         // Payment created but not confirmed
         assertEq(paymentTreasury.getRaisedAmount(), 0);
@@ -101,19 +105,23 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
         vm.prank(users.backer1Address);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenZeroBuyerId() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -121,13 +129,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenZeroAmount() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -135,12 +146,15 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken),
             0,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenExpired() public {
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -148,13 +162,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            block.timestamp - 1
+            block.timestamp - 1,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenZeroPaymentId() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             bytes32(0),
@@ -162,13 +179,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenZeroItemId() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -176,13 +196,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             bytes32(0),
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenZeroTokenAddress() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -190,7 +213,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(0), // Zero token address
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
@@ -200,6 +225,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -207,21 +233,27 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(unacceptedToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
     function testCreatePaymentRevertWhenPaymentExists() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.startPrank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems2 = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -229,7 +261,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(testToken),
             PAYMENT_AMOUNT_2,
-            expiration
+            expiration,
+            emptyLineItems2,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         vm.stopPrank();
     }
@@ -243,13 +277,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // createPayment checks both treasury and campaign pause
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
@@ -262,13 +299,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
@@ -283,21 +323,58 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount);
         
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
         
         assertEq(paymentTreasury.getRaisedAmount(), amount);
         assertEq(paymentTreasury.getAvailableRaisedAmount(), amount);
         assertEq(testToken.balanceOf(treasuryAddress), amount);
     }
     
+    function testProcessCryptoPaymentStoresExternalFees() public {
+        uint256 amount = 1000e18;
+        deal(address(testToken), users.backer1Address, amount);
+
+        vm.prank(users.backer1Address);
+        testToken.approve(treasuryAddress, amount);
+
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        ICampaignPaymentTreasury.ExternalFees[] memory externalFees = new ICampaignPaymentTreasury.ExternalFees[](2);
+        externalFees[0] = ICampaignPaymentTreasury.ExternalFees({feeType: keccak256("feeType1"), feeAmount: 10});
+        externalFees[1] = ICampaignPaymentTreasury.ExternalFees({feeType: keccak256("feeType2"), feeAmount: 25});
+
+        bytes32 cryptoPaymentId = keccak256("cryptoPaymentWithFees");
+        processCryptoPayment(
+            users.backer1Address,
+            cryptoPaymentId,
+            ITEM_ID_1,
+            users.backer1Address,
+            address(testToken),
+            amount,
+            emptyLineItems,
+            externalFees
+        );
+
+        ICampaignPaymentTreasury.PaymentData memory paymentData = paymentTreasury.getPaymentData(cryptoPaymentId);
+        assertEq(paymentData.amount, amount);
+        assertTrue(paymentData.isConfirmed);
+        assertEq(paymentData.externalFees.length, 2);
+        assertEq(paymentData.externalFees[0].feeType, keccak256("feeType1"));
+        assertEq(paymentData.externalFees[0].feeAmount, 10);
+        assertEq(paymentData.externalFees[1].feeType, keccak256("feeType2"));
+        assertEq(paymentData.externalFees[1].feeAmount, 25);
+    }
+
     function testProcessCryptoPaymentRevertWhenZeroBuyerAddress() public {
         vm.expectRevert();
-        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, address(0), address(testToken), 1000e18);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, address(0), address(testToken), 1000e18, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
     }
     
     function testProcessCryptoPaymentRevertWhenZeroAmount() public {
         vm.expectRevert();
-        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), 0);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(users.platform1AdminAddress, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), 0, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
     }
     
     function testProcessCryptoPaymentRevertWhenPaymentExists() public {
@@ -307,10 +384,107 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount * 2);
         
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
         
         vm.expectRevert();
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
+    }
+
+    function testClaimExpiredFundsRevertsBeforeWindow() public {
+        uint256 claimDelay = 7 days;
+        vm.prank(users.platform1AdminAddress);
+        globalParams.updatePlatformClaimDelay(PLATFORM_1_HASH, claimDelay);
+
+        _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
+
+        uint256 claimableAt = CampaignInfo(campaignAddress).getDeadline() + claimDelay;
+        vm.warp(claimableAt - 1);
+
+        vm.prank(users.platform1AdminAddress);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BasePaymentTreasury.PaymentTreasuryClaimWindowNotReached.selector,
+                claimableAt
+            )
+        );
+        paymentTreasury.claimExpiredFunds();
+    }
+
+    function testClaimExpiredFundsTransfersAllBalances() public {
+        uint256 claimDelay = 7 days;
+        vm.prank(users.platform1AdminAddress);
+        globalParams.updatePlatformClaimDelay(PLATFORM_1_HASH, claimDelay);
+
+        bytes32 refundableTypeId = keccak256("refundable_non_goal_type");
+        vm.prank(users.platform1AdminAddress);
+        globalParams.setPlatformLineItemType(
+            PLATFORM_1_HASH,
+            refundableTypeId,
+            "Refundable Non Goal",
+            false,
+            false,
+            true,
+            false
+        );
+
+        uint256 lineItemAmount = 250e18;
+        ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: refundableTypeId, amount: lineItemAmount});
+
+        uint256 totalAmount = PAYMENT_AMOUNT_1 + lineItemAmount;
+        deal(address(testToken), users.backer1Address, totalAmount);
+
+        vm.prank(users.backer1Address);
+        testToken.approve(treasuryAddress, totalAmount);
+
+        vm.prank(users.backer1Address);
+        paymentTreasury.processCryptoPayment(
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_AMOUNT_1,
+            lineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
+
+        uint256 claimableAt = CampaignInfo(campaignAddress).getDeadline() + claimDelay;
+        vm.warp(claimableAt + 1);
+
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
+        uint256 protocolBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
+
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.claimExpiredFunds();
+
+        assertEq(
+            testToken.balanceOf(users.platform1AdminAddress),
+            platformBalanceBefore + totalAmount,
+            "Platform admin should receive all remaining funds"
+        );
+        assertEq(
+            testToken.balanceOf(users.protocolAdminAddress),
+            protocolBalanceBefore,
+            "Protocol admin should not receive funds when no protocol fees accrued"
+        );
+        assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Available raised amount should be zero");
+        assertEq(testToken.balanceOf(treasuryAddress), 0, "Treasury token balance should be zero");
+    }
+
+    function testClaimExpiredFundsRevertsWhenNoFunds() public {
+        uint256 claimDelay = 1 days;
+        vm.prank(users.platform1AdminAddress);
+        globalParams.updatePlatformClaimDelay(PLATFORM_1_HASH, claimDelay);
+
+        uint256 claimableAt = CampaignInfo(campaignAddress).getDeadline() + claimDelay;
+        vm.warp(claimableAt + 1);
+
+        vm.prank(users.platform1AdminAddress);
+        vm.expectRevert(
+            abi.encodeWithSelector(BasePaymentTreasury.PaymentTreasuryNoFundsToClaim.selector)
+        );
+        paymentTreasury.claimExpiredFunds();
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -321,13 +495,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Create payment first
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         // Cancel it
         vm.prank(users.platform1AdminAddress);
@@ -355,13 +532,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCancelPaymentRevertWhenExpired() public {
         uint256 expiration = block.timestamp + 1 hours;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         // Warp past expiration
         vm.warp(expiration + 1);
@@ -499,13 +679,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testClaimRefundRevertWhenNotConfirmed() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -672,6 +855,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
 
         // createPayment checks treasury pause as well
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -680,7 +864,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(testToken),
             PAYMENT_AMOUNT_2,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
@@ -694,13 +880,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Should be able to create payment
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -716,6 +905,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.disburseFees();
 
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -724,7 +914,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(testToken),
             PAYMENT_AMOUNT_2,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
     
@@ -741,6 +933,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         paymentTreasury.disburseFees();
 
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -749,7 +942,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(testToken),
             PAYMENT_AMOUNT_2,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -820,6 +1015,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         uint256 longExpiration = block.timestamp + 7 days;
         
         // Create payments with different expirations
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.startPrank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -827,7 +1023,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            shortExpiration
+            shortExpiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
@@ -835,7 +1033,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(testToken),
             PAYMENT_AMOUNT_2,
-            longExpiration
+            longExpiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         vm.stopPrank();
         
@@ -885,6 +1085,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     function testCannotCreatePhantomBalances() public {
         // Create payment for 1000 tokens with USDC specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -892,7 +1093,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_1,
             address(testToken), // Token specified during creation
             1000e18,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         
         // Try to confirm without any tokens - should revert
@@ -916,8 +1119,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Create two payments of 500 each, both with testToken
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration);
-        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
         vm.stopPrank();
         
         // Send only 500 tokens total
@@ -941,8 +1145,10 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Create two payments
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.startPrank(users.platform1AdminAddress);
-        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration);
-        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
+        paymentTreasury.createPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, address(testToken), 500e18, expiration, emptyLineItems, emptyExternalFees);
+        paymentTreasury.createPayment(PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, address(testToken), 500e18, expiration, emptyLineItems, emptyExternalFees);
         vm.stopPrank();
         
         // Send only 500 tokens
@@ -1007,14 +1213,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         deal(address(usdcToken), users.backer1Address, usdcAmount);
         vm.prank(users.backer1Address);
         usdcToken.approve(treasuryAddress, usdcAmount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         processCryptoPayment(
             users.backer1Address,
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(usdcToken),
-            usdcAmount
-        );
+            usdcAmount,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // cUSD payment
         deal(address(cUSDToken), users.backer2Address, cUSDAmount);
@@ -1026,8 +1234,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             users.backer2Address,
             address(cUSDToken),
-            cUSDAmount
-        );
+            cUSDAmount,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         uint256 expectedTotal = 800e18 + 1200e18;
         assertEq(paymentTreasury.getRaisedAmount(), expectedTotal);
@@ -1229,6 +1438,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Create two payments expecting USDT
         _createAndFundPaymentWithToken(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken));
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
             PAYMENT_ID_2,
@@ -1236,7 +1446,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             ITEM_ID_2,
             address(usdtToken), // Token specified
             usdtAmount,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         
         // Only funded first payment, second has no tokens
@@ -1348,8 +1560,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         expirations[2] = block.timestamp + 3 days;
 
         // Execute batch creation
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](3);
+        emptyLineItemsArray[0] = new ICampaignPaymentTreasury.LineItem[](0);
+        emptyLineItemsArray[1] = new ICampaignPaymentTreasury.LineItem[](0);
+        emptyLineItemsArray[2] = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(3, address(testToken)), amounts, expirations);
+        ICampaignPaymentTreasury.ExternalFees[][] memory emptyExternalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](3);
+        for (uint256 i = 0; i < 3; i++) {
+            emptyExternalFeesArray[i] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        }
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(3, address(testToken)), amounts, expirations, emptyLineItemsArray, emptyExternalFeesArray);
 
         // Verify that payments were created by checking raised amount is still 0 (not confirmed yet)
         assertEq(paymentTreasury.getRaisedAmount(), 0);
@@ -1363,9 +1583,17 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         uint256[] memory amounts = new uint256[](2);
         uint256[] memory expirations = new uint256[](2);
 
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyLineItemsArray[i] = new ICampaignPaymentTreasury.LineItem[](0);
+        }
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.ExternalFees[][] memory emptyExternalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyExternalFeesArray[i] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        }
         vm.expectRevert();
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations);
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations, emptyLineItemsArray, emptyExternalFeesArray);
     }
 
     function testCreatePaymentBatchRevertWhenEmptyArray() public {
@@ -1375,22 +1603,33 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         uint256[] memory amounts = new uint256[](0);
         uint256[] memory expirations = new uint256[](0);
 
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyLineItemsArray[i] = new ICampaignPaymentTreasury.LineItem[](0);
+        }
+        ICampaignPaymentTreasury.ExternalFees[][] memory emptyExternalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyExternalFeesArray[i] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        }
         vm.prank(users.platform1AdminAddress);
         vm.expectRevert();
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations);
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations, emptyLineItemsArray, emptyExternalFeesArray);
     }
 
     function testCreatePaymentBatchRevertWhenPaymentAlreadyExists() public {
         // First create a single payment
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
 
         // Now try to create a batch with the same payment ID
@@ -1406,9 +1645,17 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         amounts[0] = PAYMENT_AMOUNT_2;
         expirations[0] = block.timestamp + 2 days;
 
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyLineItemsArray[i] = new ICampaignPaymentTreasury.LineItem[](0);
+        }
+        ICampaignPaymentTreasury.ExternalFees[][] memory emptyExternalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyExternalFeesArray[i] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        }
         vm.prank(users.platform1AdminAddress);
         vm.expectRevert();
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations);
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations, emptyLineItemsArray, emptyExternalFeesArray);
     }
 
     function testCreatePaymentBatchRevertWhenNotPlatformAdmin() public {
@@ -1424,9 +1671,17 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         amounts[0] = PAYMENT_AMOUNT_1;
         expirations[0] = block.timestamp + 1 days;
 
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyLineItemsArray[i] = new ICampaignPaymentTreasury.LineItem[](0);
+        }
+        ICampaignPaymentTreasury.ExternalFees[][] memory emptyExternalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](paymentIds.length);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            emptyExternalFeesArray[i] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        }
         vm.prank(users.creator1Address); // Not platform admin
         vm.expectRevert();
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations);
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, _createPaymentTokensArray(paymentIds.length, address(testToken)), amounts, expirations, emptyLineItemsArray, emptyExternalFeesArray);
     }
 
     function testCreatePaymentBatchWithMultipleTokens() public {
@@ -1464,8 +1719,16 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         expirations[2] = block.timestamp + 3 days;
 
         // Execute batch creation with multiple tokens
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](3);
+        emptyLineItemsArray[0] = new ICampaignPaymentTreasury.LineItem[](0);
+        emptyLineItemsArray[1] = new ICampaignPaymentTreasury.LineItem[](0);
+        emptyLineItemsArray[2] = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
-        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations);
+        ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](3);
+        externalFeesArray[0] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        externalFeesArray[1] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        externalFeesArray[2] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        paymentTreasury.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, emptyLineItemsArray, externalFeesArray);
 
         // Verify that payments were created
         assertEq(paymentTreasury.getRaisedAmount(), 0);

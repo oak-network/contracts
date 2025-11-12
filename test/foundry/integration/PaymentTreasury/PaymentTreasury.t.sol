@@ -149,10 +149,12 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         bytes32 itemId,
         address paymentToken,
         uint256 amount,
-        uint256 expiration
+        uint256 expiration,
+        ICampaignPaymentTreasury.LineItem[] memory lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] memory externalFees
     ) internal {
         vm.prank(caller);
-        paymentTreasury.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration);
+        paymentTreasury.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees);
     }
 
     /**
@@ -164,10 +166,12 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         bytes32 itemId,
         address buyerAddress,
         address paymentToken,
-        uint256 amount
+        uint256 amount,
+        ICampaignPaymentTreasury.LineItem[] memory lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] memory externalFees
     ) internal {
         vm.prank(caller);
-        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount);
+        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
     }
 
     /**
@@ -330,7 +334,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         
         // Create payment with token specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, address(testToken), amount, expiration);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
+        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, address(testToken), amount, expiration, emptyLineItems, emptyExternalFees);
         
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
@@ -354,7 +360,8 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         testToken.approve(treasuryAddress, amount);
         
         // Process crypto payment
-        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, address(testToken), amount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
     }
 
     /**
@@ -385,7 +392,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         
         // Create payment with token specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, token, amount, expiration);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
+        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, token, amount, expiration, emptyLineItems, emptyExternalFees);
         
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
@@ -410,6 +419,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         TestToken(token).approve(treasuryAddress, amount);
         
         // Process crypto payment
-        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, token, amount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, token, amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
     }
 }

@@ -157,6 +157,129 @@ contract GlobalParams_UnitTest is Test, Defaults {
         globalParams.removeTokenFromCurrency(USD, address(nonExistentToken));
     }
 
+    function testUpdatePlatformClaimDelay() public {
+        bytes32 platformHash = keccak256("claimDelayPlatform");
+        address platformAdmin = address(0xB0B);
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 500);
+
+        uint256 claimDelay = 5 days;
+        vm.prank(platformAdmin);
+        globalParams.updatePlatformClaimDelay(platformHash, claimDelay);
+
+        assertEq(globalParams.getPlatformClaimDelay(platformHash), claimDelay);
+    }
+
+    function testUpdatePlatformClaimDelayRevertsForNonAdmin() public {
+        bytes32 platformHash = keccak256("claimDelayPlatformRevert");
+        address platformAdmin = address(0xC0DE);
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 600);
+
+        vm.expectRevert(abi.encodeWithSelector(GlobalParams.GlobalParamsUnauthorized.selector));
+        globalParams.updatePlatformClaimDelay(platformHash, 3 days);
+    }
+
+    function testSetPlatformLineItemTypeAllowsRefundableWithProtocolFee() public {
+        bytes32 platformHash = keccak256("lineItemPlatform");
+        address platformAdmin = address(0xCAFE);
+        bytes32 typeId = keccak256("refundable_fee_with_protocol");
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 500);
+
+        vm.prank(platformAdmin);
+        globalParams.setPlatformLineItemType(
+            platformHash,
+            typeId,
+            "refundable_fee_with_protocol",
+            false, // countsTowardGoal
+            true,  // applyProtocolFee
+            true,  // canRefund
+            false  // instantTransfer
+        );
+
+        (
+            bool exists,
+            ,
+            bool countsTowardGoal,
+            bool applyProtocolFee,
+            bool canRefund,
+            bool instantTransfer
+        ) = globalParams.getPlatformLineItemType(platformHash, typeId);
+
+        assertTrue(exists);
+        assertFalse(countsTowardGoal);
+        assertTrue(applyProtocolFee);
+        assertTrue(canRefund);
+        assertFalse(instantTransfer);
+    }
+
+    function testSetPlatformLineItemTypeRevertsWhenGoalAppliesProtocolFee() public {
+        bytes32 platformHash = keccak256("goalPlatform");
+        address platformAdmin = address(0xDEAD);
+        bytes32 typeId = keccak256("goal_type");
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 400);
+
+        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.prank(platformAdmin);
+        globalParams.setPlatformLineItemType(
+            platformHash,
+            typeId,
+            "goal_type",
+            true,  // countsTowardGoal
+            true,  // applyProtocolFee (should revert)
+            true,  // canRefund
+            false  // instantTransfer
+        );
+    }
+
+    function testSetPlatformLineItemTypeRevertsWhenGoalCannotRefund() public {
+        bytes32 platformHash = keccak256("goalRefundPlatform");
+        address platformAdmin = address(0xFEED);
+        bytes32 typeId = keccak256("goal_no_refund");
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 450);
+
+        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.prank(platformAdmin);
+        globalParams.setPlatformLineItemType(
+            platformHash,
+            typeId,
+            "goal_no_refund",
+            true,   // countsTowardGoal
+            false,  // applyProtocolFee
+            false,  // canRefund (should revert)
+            false   // instantTransfer
+        );
+    }
+
+    function testSetPlatformLineItemTypeRevertsWhenInstantTransferRefundable() public {
+        bytes32 platformHash = keccak256("instantPlatform");
+        address platformAdmin = address(0xABCD);
+        bytes32 typeId = keccak256("instant_refundable");
+
+        vm.prank(admin);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 300);
+
+        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.prank(platformAdmin);
+        globalParams.setPlatformLineItemType(
+            platformHash,
+            typeId,
+            "instant_refundable",
+            false, // countsTowardGoal (non-goal)
+            false, // applyProtocolFee
+            true,  // canRefund (should revert with instantTransfer)
+            true   // instantTransfer
+        );
+    }
+
     function testGetTokensForCurrency() public {
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);

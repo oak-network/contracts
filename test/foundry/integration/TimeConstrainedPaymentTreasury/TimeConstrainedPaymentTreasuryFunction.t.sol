@@ -27,6 +27,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         advanceToWithinRange();
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -34,9 +35,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Payment created successfully
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), 0);
         assertEq(timeConstrainedPaymentTreasury.getAvailableRaisedAmount(), 0);
@@ -69,14 +71,23 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         expirations[0] = block.timestamp + PAYMENT_EXPIRATION;
         expirations[1] = block.timestamp + PAYMENT_EXPIRATION;
         
+        ICampaignPaymentTreasury.LineItem[][] memory emptyLineItemsArray = new ICampaignPaymentTreasury.LineItem[][](2);
+        emptyLineItemsArray[0] = new ICampaignPaymentTreasury.LineItem[](0);
+        emptyLineItemsArray[1] = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
+                        ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](2);
+                        externalFeesArray[0] = new ICampaignPaymentTreasury.ExternalFees[](0);
+                        externalFeesArray[1] = new ICampaignPaymentTreasury.ExternalFees[](0);
         timeConstrainedPaymentTreasury.createPaymentBatch(
             paymentIds,
             buyerIds,
             itemIds,
             paymentTokens,
             amounts,
-            expirations
+            expirations,
+            emptyLineItemsArray,
+
+                        externalFeesArray
         );
         
         // Payments created successfully
@@ -90,14 +101,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Payment processed successfully
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1);
@@ -109,6 +122,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         
         // First create a payment
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -116,9 +130,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Then cancel it
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.cancelPayment(PAYMENT_ID_1);
@@ -137,14 +152,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Payment created and confirmed successfully by processCryptoPayment
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1);
@@ -162,26 +179,30 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId1,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         vm.prank(users.backer2Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_2);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems2 = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId2,
             ITEM_ID_2,
             users.backer2Address,
             address(testToken),
-            PAYMENT_AMOUNT_2
-        );
+            PAYMENT_AMOUNT_2,
+            emptyLineItems2
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Payments created and confirmed successfully by processCryptoPayment
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2);
@@ -199,14 +220,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Advance to after launch to be able to claim refund
         advanceToAfterLaunch();
@@ -235,14 +258,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Advance to after launch to be able to disburse fees
         advanceToAfterLaunch();
@@ -265,14 +290,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Advance to after launch to be able to withdraw
         advanceToAfterLaunch();
@@ -288,6 +315,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         advanceToBeforeLaunch();
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
@@ -296,7 +324,9 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -304,6 +334,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         advanceToAfterDeadline();
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
@@ -312,7 +343,9 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -348,6 +381,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.warp(campaignDeadline - 1); // Use deadline - 1 to be within range
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -355,9 +389,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Should succeed at deadline - 1
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), 0);
     }
@@ -367,6 +402,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.warp(campaignDeadline - 1); // Use deadline - 1 to be within range
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -374,9 +410,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Should succeed at deadline - 1
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), 0);
     }
@@ -386,6 +423,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         advanceToAfterDeadline();
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
@@ -394,7 +432,9 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -403,6 +443,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.warp(campaignLaunchTime);
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -410,9 +451,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Should succeed at the exact launch time
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), 0);
     }
@@ -422,6 +464,7 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.warp(campaignDeadline);
         
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.createPayment(
             PAYMENT_ID_1,
@@ -429,9 +472,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
             ITEM_ID_1,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
         // Should succeed at the exact deadline
         assertEq(timeConstrainedPaymentTreasury.getRaisedAmount(), 0);
     }
@@ -447,14 +491,16 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         vm.prank(users.backer1Address);
         testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
         
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
-            PAYMENT_AMOUNT_1
-        );
+            PAYMENT_AMOUNT_1,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
         
         // Advance to after launch time
         advanceToAfterLaunch();

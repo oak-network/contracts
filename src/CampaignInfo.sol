@@ -450,6 +450,15 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
+    function getPlatformClaimDelay(
+        bytes32 platformHash
+    ) external view override returns (uint256) {
+        return _getGlobalParams().getPlatformClaimDelay(platformHash);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
     function getPlatformData(
         bytes32 platformDataKey
     ) external view override returns (bytes32) {
@@ -481,6 +490,28 @@ contract CampaignInfo is
     function getBufferTime() external view override returns (uint256 bufferTime) {
         bytes32 valueBytes = _getGlobalParams().getFromRegistry(DataRegistryKeys.BUFFER_TIME);
         bufferTime = uint256(valueBytes);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId
+    )
+        external
+        view
+        override
+        returns (
+            bool exists,
+            string memory label,
+            bool countsTowardGoal,
+            bool applyProtocolFee,
+            bool canRefund,
+            bool instantTransfer
+        )
+    {
+        return _getGlobalParams().getPlatformLineItemType(platformHash, typeId);
     }
 
     /**

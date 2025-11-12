@@ -111,7 +111,8 @@ contract PaymentTreasuryFunction_Integration_Test is
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount);
         
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
         
         assertEq(paymentTreasury.getRaisedAmount(), amount, "Raised amount should match crypto payment");
         assertEq(paymentTreasury.getAvailableRaisedAmount(), amount, "Available amount should match crypto payment");
@@ -621,13 +622,16 @@ contract PaymentTreasuryFunction_Integration_Test is
         // Try to create payment with unaccepted token
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury.createPayment(
             PAYMENT_ID_1,
             BUYER_ID_1,
             ITEM_ID_1,
             address(rejectedToken),
             amount,
-            expiration
+            expiration,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
     }
 
@@ -642,14 +646,16 @@ contract PaymentTreasuryFunction_Integration_Test is
         
         // Try to process crypto payment with unaccepted token
         vm.expectRevert();
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         processCryptoPayment(
             users.backer1Address,
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(rejectedToken),
-            amount
-        );
+            amount,
+            emptyLineItems
+        , new ICampaignPaymentTreasury.ExternalFees[](0));
     }
 
     function test_balanceTrackingAcrossMultipleTokens() public {
@@ -798,13 +804,16 @@ contract PaymentTreasuryFunction_Integration_Test is
 
         // Treasury 1: Create, fund, and confirm payment
         vm.prank(users.platform1AdminAddress);
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         paymentTreasury1.createPayment(
             keccak256("payment-p1"),
             BUYER_ID_1,
             ITEM_ID_1,
             address(testToken),
             amount1,
-            block.timestamp + PAYMENT_EXPIRATION
+            block.timestamp + PAYMENT_EXPIRATION,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         
         // Fund backer and transfer to treasury
@@ -823,7 +832,9 @@ contract PaymentTreasuryFunction_Integration_Test is
             ITEM_ID_2,
             address(testToken),
             amount2,
-            block.timestamp + PAYMENT_EXPIRATION
+            block.timestamp + PAYMENT_EXPIRATION,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
         );
         
         // Fund backer and transfer to treasury

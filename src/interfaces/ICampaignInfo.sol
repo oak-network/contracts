@@ -143,6 +143,15 @@ interface ICampaignInfo is IERC721 {
     ) external view returns (uint256);
 
     /**
+     * @notice Retrieves the claim delay (in seconds) configured for the given platform.
+     * @param platformHash The identifier of the platform.
+     * @return The claim delay in seconds.
+     */
+    function getPlatformClaimDelay(
+        bytes32 platformHash
+    ) external view returns (uint256);
+
+    /**
      * @notice Retrieves platform-specific data for the campaign.
      * @param platformDataKey The bytes32 identifier of the platform-specific data.
      * @return The platform-specific data associated with the given key.
@@ -218,6 +227,32 @@ interface ICampaignInfo is IERC721 {
      * @return bufferTime The buffer time value.
      */
     function getBufferTime() external view returns (uint256 bufferTime);
+
+    /**
+     * @notice Retrieves a platform-specific line item type configuration from GlobalParams.
+     * @param platformHash The identifier of the platform.
+     * @param typeId The identifier of the line item type.
+     * @return exists Whether this line item type exists and is active.
+     * @return label The label identifier for the line item type.
+     * @return countsTowardGoal Whether this line item counts toward the campaign goal.
+     * @return applyProtocolFee Whether this line item is included in protocol fee calculation.
+     * @return canRefund Whether this line item can be refunded.
+     * @return instantTransfer Whether this line item amount can be instantly transferred.
+     */
+    function getLineItemType(
+        bytes32 platformHash,
+        bytes32 typeId
+    )
+        external
+        view
+        returns (
+            bool exists,
+            string memory label,
+            bool countsTowardGoal,
+            bool applyProtocolFee,
+            bool canRefund,
+            bool instantTransfer
+        );
 
     /**
      * @notice Mints a pledge NFT for a backer

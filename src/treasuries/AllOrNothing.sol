@@ -469,8 +469,6 @@ contract AllOrNothing is
         
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
         
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        
         uint256 tokenId = INFO.mintNFTForPledge(
             backer,
             reward,
