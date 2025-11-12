@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import {ICampaignInfo} from "./interfaces/ICampaignInfo.sol";
 import {ICampaignData} from "./interfaces/ICampaignData.sol";
@@ -12,6 +13,8 @@ import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {TimestampChecker} from "./utils/TimestampChecker.sol";
 import {AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
 import {PausableCancellable} from "./utils/PausableCancellable.sol";
+import {PledgeNFT} from "./utils/PledgeNFT.sol";
+import {Counters} from "./utils/Counters.sol";
 import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
 
 /**
@@ -25,8 +28,11 @@ contract CampaignInfo is
     PausableCancellable,
     TimestampChecker,
     AdminAccessChecker,
+    PledgeNFT,
     Initializable
 {
+    using Counters for Counters.Counter;
+
     CampaignData private s_campaignData;
 
     mapping(bytes32 => address) private s_platformTreasuryAddress;
@@ -135,9 +141,6 @@ contract CampaignInfo is
      */
     error CampaignInfoIsLocked();
 
-    constructor() Ownable(_msgSender()) {
-        _disableInitializers();
-    }
 
     /**
      * @dev Modifier that checks if the campaign is not locked.
@@ -148,6 +151,13 @@ contract CampaignInfo is
         }
         _;
     }
+    
+    /**
+     * @notice Constructor passes empty strings to ERC721
+     */
+    constructor() Ownable(_msgSender()) ERC721("", "") {
+        _disableInitializers();
+    }
 
     function initialize(
         address creator,
@@ -156,7 +166,11 @@ contract CampaignInfo is
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
         CampaignData calldata campaignData,
-        address[] calldata acceptedTokens
+        address[] calldata acceptedTokens,
+        string calldata nftName,
+        string calldata nftSymbol,
+        string calldata nftImageURI,
+        string calldata nftContractURI
     ) external initializer {
         __AccessChecker_init(globalParams);
         _transferOwnership(creator);
@@ -180,6 +194,9 @@ contract CampaignInfo is
         for (uint256 i = 0; i < len; ++i) {
             s_platformData[platformDataKey[i]] = platformDataValue[i];
         }
+        
+        // Initialize NFT metadata
+        _initializeNFT(nftName, nftSymbol, nftImageURI, nftContractURI);
     }
 
     struct Config {
@@ -246,7 +263,10 @@ contract CampaignInfo is
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
-            amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            // Skip cancelled treasuries
+            if (!ICampaignTreasury(tempTreasury).cancelled()) {
+                amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            }
         }
         return amount;
     }
@@ -538,7 +558,46 @@ contract CampaignInfo is
     }
 
     /**
-     * @dev Sets platform information for the campaign.
+     * @notice Sets the image URI for NFT metadata
+     * @dev Can only be updated before campaign launch
+     * @param newImageURI The new image URI
+     */
+    function setImageURI(
+        string calldata newImageURI
+    ) external override(ICampaignInfo, PledgeNFT) onlyOwner currentTimeIsLess(getLaunchTime()) {
+        s_imageURI = newImageURI;
+        emit ImageURIUpdated(newImageURI);
+    }
+
+    /**
+     * @notice Updates the contract-level metadata URI
+     * @dev Can only be updated before campaign launch
+     * @param newContractURI The new contract URI
+     */
+    function updateContractURI(
+        string calldata newContractURI
+    ) external override(ICampaignInfo, PledgeNFT) onlyOwner currentTimeIsLess(getLaunchTime()) {
+        s_contractURI = newContractURI;
+        emit ContractURIUpdated(newContractURI);
+    }
+
+    function mintNFTForPledge(
+        address backer,
+        bytes32 reward,
+        address tokenAddress,
+        uint256 amount,
+        uint256 shippingFee,
+        uint256 tipAmount
+    ) public override(ICampaignInfo, PledgeNFT) returns (uint256 tokenId) {
+        return super.mintNFTForPledge(backer, reward, tokenAddress, amount, shippingFee, tipAmount);
+    }
+
+    function burn(uint256 tokenId) public override(ICampaignInfo, PledgeNFT) {
+        super.burn(tokenId);
+    }
+
+    /**
+     * @dev Sets platform information for the campaign and grants treasury role.
      * @param platformHash The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
@@ -561,6 +620,8 @@ contract CampaignInfo is
         s_approvedPlatformHashes.push(platformHash);
         s_isApprovedPlatform[platformHash] = true;
 
+        // Grant MINTER_ROLE to allow treasury to mint pledge NFTs
+        _grantRole(MINTER_ROLE, platformTreasuryAddress);
         // Lock the campaign after the first treasury deployment
         if (!s_isLocked) {
             s_isLocked = true;
@@ -571,4 +632,5 @@ contract CampaignInfo is
             platformTreasuryAddress
         );
     }
+
 }

@@ -211,6 +211,10 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is TimeC
         // Advance to after launch to be able to claim refund
         advanceToAfterLaunch();
         
+        // Approve treasury to burn NFT
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(timeConstrainedPaymentTreasury), 1); // tokenId 1
+        
         // Then claim refund (use the overload without refundAddress since processCryptoPayment uses buyerAddress)
         vm.prank(users.backer1Address);
         timeConstrainedPaymentTreasury.claimRefund(uniquePaymentId);

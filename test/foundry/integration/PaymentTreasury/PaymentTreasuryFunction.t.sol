@@ -126,7 +126,7 @@ contract PaymentTreasuryFunction_Integration_Test is
         _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
         
         uint256 buyerBalanceBefore = testToken.balanceOf(users.backer1Address);
-        uint256 refundAmount = claimRefund(users.backer1Address, PAYMENT_ID_1);
+        uint256 refundAmount = claimRefund(users.backer1Address, PAYMENT_ID_1, 1); // tokenId 1
         
         assertEq(refundAmount, amount, "Refund amount should match payment");
         assertEq(
@@ -436,8 +436,8 @@ contract PaymentTreasuryFunction_Integration_Test is
         uint256 backer2CUSDBefore = cUSDToken.balanceOf(users.backer2Address);
         
         // Buyers claim their own refunds
-        uint256 refund1 = claimRefund(users.backer1Address, PAYMENT_ID_1);
-        uint256 refund2 = claimRefund(users.backer2Address, PAYMENT_ID_2);
+        uint256 refund1 = claimRefund(users.backer1Address, PAYMENT_ID_1, 1); // tokenId 1
+        uint256 refund2 = claimRefund(users.backer2Address, PAYMENT_ID_2, 2); // tokenId 2
         
         assertEq(refund1, usdcAmount, "Should refund USDC amount");
         assertEq(refund2, cUSDAmount, "Should refund cUSD amount");
@@ -711,5 +711,147 @@ contract PaymentTreasuryFunction_Integration_Test is
             cUSDAmount,
             "cUSD should be unchanged"
         );
+    }
+
+    /**
+     * @notice Tests that cancelled treasuries are excluded from getTotalRaisedAmount.
+     */
+    function test_getTotalRaisedAmountExcludesCancelledTreasuries() public {
+        // Setup: Create a campaign with 2 platforms
+        bytes32 identifierHash = keccak256(abi.encodePacked("multi-platform-campaign"));
+        bytes32[] memory selectedPlatforms = new bytes32[](2);
+        selectedPlatforms[0] = PLATFORM_1_HASH;
+        selectedPlatforms[1] = PLATFORM_2_HASH;
+
+        // Enlist second platform
+        vm.startPrank(users.protocolAdminAddress);
+        globalParams.enlistPlatform(PLATFORM_2_HASH, users.platform2AdminAddress, PLATFORM_FEE_PERCENT);
+        vm.stopPrank();
+
+        // Register and approve treasury for platform 2
+        PaymentTreasury platform2Implementation = new PaymentTreasury();
+        vm.startPrank(users.platform2AdminAddress);
+        treasuryFactory.registerTreasuryImplementation(PLATFORM_2_HASH, 2, address(platform2Implementation));
+        vm.stopPrank();
+
+        vm.startPrank(users.protocolAdminAddress);
+        treasuryFactory.approveTreasuryImplementation(PLATFORM_2_HASH, 2);
+        vm.stopPrank();
+
+        bytes32[] memory platformDataKey = new bytes32[](0);
+        bytes32[] memory platformDataValue = new bytes32[](0);
+
+        // Create multi-platform campaign
+        vm.startPrank(users.creator1Address);
+        vm.recordLogs();
+        campaignInfoFactory.createCampaign(
+            users.creator1Address,
+            identifierHash,
+            selectedPlatforms,
+            platformDataKey,
+            platformDataValue,
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
+        );
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        (bytes32[] memory topics,) = decodeTopicsAndData(
+            entries, "CampaignInfoFactoryCampaignCreated(bytes32,address)", address(campaignInfoFactory)
+        );
+        address multiPlatformCampaign = address(uint160(uint256(topics[2])));
+        CampaignInfo campaignInfo = CampaignInfo(multiPlatformCampaign);
+
+        // Deploy treasury for platform 1
+        vm.startPrank(users.platform1AdminAddress);
+        vm.recordLogs();
+        treasuryFactory.deploy(PLATFORM_1_HASH, multiPlatformCampaign, 2);
+        Vm.Log[] memory entries1 = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        (bytes32[] memory topics1, bytes memory data1) = decodeTopicsAndData(
+            entries1, "TreasuryFactoryTreasuryDeployed(bytes32,uint256,address,address)", address(treasuryFactory)
+        );
+        address treasury1 = abi.decode(data1, (address));
+
+        // Deploy treasury for platform 2
+        vm.startPrank(users.platform2AdminAddress);
+        vm.recordLogs();
+        treasuryFactory.deploy(PLATFORM_2_HASH, multiPlatformCampaign, 2);
+        Vm.Log[] memory entries2 = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        (bytes32[] memory topics2, bytes memory data2) = decodeTopicsAndData(
+            entries2, "TreasuryFactoryTreasuryDeployed(bytes32,uint256,address,address)", address(treasuryFactory)
+        );
+        address treasury2 = abi.decode(data2, (address));
+
+        PaymentTreasury paymentTreasury1 = PaymentTreasury(treasury1);
+        PaymentTreasury paymentTreasury2 = PaymentTreasury(treasury2);
+
+        // Add payments to both treasuries
+        uint256 amount1 = 1000e18;
+        uint256 amount2 = 2000e18;
+
+        // Treasury 1: Create, fund, and confirm payment
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury1.createPayment(
+            keccak256("payment-p1"),
+            BUYER_ID_1,
+            ITEM_ID_1,
+            address(testToken),
+            amount1,
+            block.timestamp + PAYMENT_EXPIRATION
+        );
+        
+        // Fund backer and transfer to treasury
+        deal(address(testToken), users.backer1Address, amount1);
+        vm.prank(users.backer1Address);
+        testToken.transfer(treasury1, amount1);
+        
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury1.confirmPayment(keccak256("payment-p1"), address(0));
+
+        // Treasury 2: Create, fund, and confirm payment
+        vm.prank(users.platform2AdminAddress);
+        paymentTreasury2.createPayment(
+            keccak256("payment-p2"),
+            BUYER_ID_2,
+            ITEM_ID_2,
+            address(testToken),
+            amount2,
+            block.timestamp + PAYMENT_EXPIRATION
+        );
+        
+        // Fund backer and transfer to treasury
+        deal(address(testToken), users.backer2Address, amount2);
+        vm.prank(users.backer2Address);
+        testToken.transfer(treasury2, amount2);
+        
+        vm.prank(users.platform2AdminAddress);
+        paymentTreasury2.confirmPayment(keccak256("payment-p2"), address(0));
+
+        // Verify both treasuries have raised amounts
+        assertEq(paymentTreasury1.getRaisedAmount(), amount1, "Treasury 1 should have raised amount");
+        assertEq(paymentTreasury2.getRaisedAmount(), amount2, "Treasury 2 should have raised amount");
+
+        // Verify total includes both treasuries
+        uint256 totalBefore = campaignInfo.getTotalRaisedAmount();
+        assertEq(totalBefore, amount1 + amount2, "Total should include both treasuries");
+
+        // Cancel treasury 1
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury1.cancelTreasury(keccak256("test-cancellation"));
+
+        // Verify treasury 1 is cancelled
+        assertTrue(paymentTreasury1.cancelled(), "Treasury 1 should be cancelled");
+        assertFalse(paymentTreasury2.cancelled(), "Treasury 2 should not be cancelled");
+
+        // Verify total now excludes cancelled treasury
+        uint256 totalAfter = campaignInfo.getTotalRaisedAmount();
+        assertEq(totalAfter, amount2, "Total should only include non-cancelled treasury");
     }
 }

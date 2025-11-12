@@ -570,7 +570,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
 
     /**
      * @dev Internal function to check if the sender is the platform administrator for a specific platform.
-     * If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.
+     * If the sender is not the platform admin, it reverts with GlobalParamsUnauthorized error.
      * @param platformHash The unique identifier of the platform.
      */
     function _onlyPlatformAdmin(bytes32 platformHash) private view {

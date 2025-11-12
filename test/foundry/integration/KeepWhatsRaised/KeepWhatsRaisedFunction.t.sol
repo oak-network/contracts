@@ -78,8 +78,8 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         uint256 backerBalance = testToken.balanceOf(users.backer1Address);
         uint256 treasuryBalance = testToken.balanceOf(address(keepWhatsRaised));
-        uint256 backerNftBalance = keepWhatsRaised.balanceOf(users.backer1Address);
-        address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
+        uint256 backerNftBalance = CampaignInfo(campaignAddress).balanceOf(users.backer1Address);
+        address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
 
         assertEq(users.backer1Address, nftOwnerAddress);
         assertEq(PLEDGE_AMOUNT + TIP_AMOUNT, treasuryBalance);
@@ -101,8 +101,8 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         );
 
         uint256 treasuryBalance = testToken.balanceOf(address(keepWhatsRaised));
-        uint256 backerNftBalance = keepWhatsRaised.balanceOf(users.backer1Address);
-        address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
+        uint256 backerNftBalance = CampaignInfo(campaignAddress).balanceOf(users.backer1Address);
+        address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
 
         assertEq(users.backer1Address, nftOwnerAddress);
         assertEq(PLEDGE_AMOUNT + TIP_AMOUNT, treasuryBalance);
@@ -137,7 +137,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
         
         // Verify pledge was made - tokens come from admin not backer
-        address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
+        address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
     }
 
@@ -162,7 +162,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
         
         // Verify pledge was made - tokens come from admin not backer
-        address nftOwnerAddress = keepWhatsRaised.ownerOf(tokenId);
+        address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
     }
 

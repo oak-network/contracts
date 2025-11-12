@@ -161,9 +161,7 @@ contract TreasuryFactory_UpdatedUnitTest is Test, Defaults {
         factory.deploy(
             platformHash,
             address(0x1234),
-            implementationId,
-            "Test",
-            "TST"
+            implementationId
         );
         vm.stopPrank();
     }

@@ -115,7 +115,11 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -179,7 +183,11 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
     }
 
@@ -229,7 +237,11 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             platforms,
             keys,
             values,
-            campaignData
+            campaignData,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
     }
 
@@ -258,7 +270,11 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             platforms,
             keys,
             values,
-            campaignData
+            campaignData,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
     }
 }

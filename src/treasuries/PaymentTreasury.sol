@@ -11,9 +11,6 @@ contract PaymentTreasury is
 {
     using SafeERC20 for IERC20;
 
-    string private s_name;
-    string private s_symbol;
-
     /**
      * @dev Emitted when an unauthorized action is attempted.
      */
@@ -26,21 +23,9 @@ contract PaymentTreasury is
 
     function initialize(
         bytes32 _platformHash,
-        address _infoAddress,
-        string calldata _name,
-        string calldata _symbol
+        address _infoAddress
     ) external initializer {
         __BaseContract_init(_platformHash, _infoAddress);
-        s_name = _name;
-        s_symbol = _symbol;
-    }
-
-    function name() public view returns (string memory) {
-        return s_name;
-    }
-
-    function symbol() public view returns (string memory) {
-        return s_symbol;
     }
 
     /**
@@ -97,18 +82,20 @@ contract PaymentTreasury is
      * @inheritdoc ICampaignPaymentTreasury
      */
     function confirmPayment(
-        bytes32 paymentId
+        bytes32 paymentId,
+        address buyerAddress
     ) public override whenNotPaused whenNotCancelled {
-        super.confirmPayment(paymentId);
+        super.confirmPayment(paymentId, buyerAddress);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
     function confirmPaymentBatch(
-        bytes32[] calldata paymentIds
+        bytes32[] calldata paymentIds,
+        address[] calldata buyerAddresses
     ) public override whenNotPaused whenNotCancelled {
-        super.confirmPaymentBatch(paymentIds);
+        super.confirmPaymentBatch(paymentIds, buyerAddresses);
     }
 
     /**

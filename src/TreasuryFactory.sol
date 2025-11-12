@@ -104,9 +104,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     function deploy(
         bytes32 platformHash,
         address infoAddress,
-        uint256 implementationId,
-        string calldata name,
-        string calldata symbol
+        uint256 implementationId
     )
         external
         override
@@ -123,11 +121,9 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
 
         (bool success, ) = clone.call(
             abi.encodeWithSignature(
-                "initialize(bytes32,address,string,string)",
+                "initialize(bytes32,address)",
                 platformHash,
-                infoAddress,
-                name,
-                symbol
+                infoAddress
             )
         );
         if (!success) {

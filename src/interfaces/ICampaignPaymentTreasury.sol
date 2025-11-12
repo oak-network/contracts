@@ -71,17 +71,21 @@ interface ICampaignPaymentTreasury {
     /**
      * @notice Confirms and finalizes the payment associated with the given payment ID.
      * @param paymentId The unique identifier of the payment to confirm.
+     * @param buyerAddress Optional buyer address to mint NFT to. Pass address(0) to skip NFT minting.
      */
     function confirmPayment(
-        bytes32 paymentId
+        bytes32 paymentId,
+        address buyerAddress
     ) external;
 
     /**
      * @notice Confirms and finalizes multiple payments in a single transaction.
      * @param paymentIds An array of unique payment identifiers to be confirmed.
+     * @param buyerAddresses Array of buyer addresses to mint NFTs to. Must match paymentIds length. Pass address(0) to skip NFT minting for specific payments.
      */
     function confirmPaymentBatch(
-        bytes32[] calldata paymentIds
+        bytes32[] calldata paymentIds,
+        address[] calldata buyerAddresses
     ) external;
 
     /**
@@ -95,15 +99,18 @@ interface ICampaignPaymentTreasury {
     function withdraw() external;
 
     /**
-     * @notice Claims a refund for a specific payment ID.
-     * @param paymentId The unique identifier of the refundable payment.
+     * @notice Claims a refund for non-NFT payments (payments without minted NFTs).
+     * @dev Only callable by platform admin. Used for payments confirmed without a buyer address.
+     * @param paymentId The unique identifier of the refundable payment (must NOT have an NFT).
      * @param refundAddress The address where the refunded amount should be sent.
      */
     function claimRefund(bytes32 paymentId, address refundAddress) external;
 
     /**
-     * @notice Allows buyers to claim refunds for crypto payments, or platform admin to process refunds on behalf of buyers.
-     * @param paymentId The unique identifier of the refundable payment.
+     * @notice Claims a refund for NFT payments (payments with minted NFTs).
+     * @dev Burns the NFT associated with the payment. Caller must have approved the treasury for the NFT.
+     * Used for processCryptoPayment and confirmPayment (with buyer address) transactions.
+     * @param paymentId The unique identifier of the refundable payment (must have an NFT).
      */
     function claimRefund(
         bytes32 paymentId
@@ -132,4 +139,10 @@ interface ICampaignPaymentTreasury {
      * @return The current available raised amount as a uint256 value.
      */
     function getAvailableRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Checks if the treasury has been cancelled.
+     * @return True if the treasury is cancelled, false otherwise.
+     */
+    function cancelled() external view returns (bool);
 }

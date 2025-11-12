@@ -115,7 +115,11 @@ abstract contract TimeConstrainedPaymentTreasury_Integration_Shared_Test is LogD
             selectedPlatformHash,
             platformDataKey,
             platformDataValue,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
 
         campaignAddress = campaignInfoFactory.identifierToCampaignInfo(identifierHash);
@@ -141,9 +145,7 @@ abstract contract TimeConstrainedPaymentTreasury_Integration_Shared_Test is LogD
         treasuryAddress = treasuryFactory.deploy(
             platformHash,
             campaignAddress,
-            3, // TimeConstrainedPaymentTreasury type
-            "TimeConstrainedPaymentTreasury",
-            "TCPT"
+            3 // TimeConstrainedPaymentTreasury type
         );
 
         timeConstrainedPaymentTreasury = TimeConstrainedPaymentTreasury(treasuryAddress);

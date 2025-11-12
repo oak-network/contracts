@@ -67,7 +67,7 @@ contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Te
             vm.prank(users.platform1AdminAddress);
             uint256 gasStart = gasleft();
 
-            try paymentTreasury.confirmPaymentBatch(paymentIds) {
+            try paymentTreasury.confirmPaymentBatch(paymentIds, _createZeroAddressArray(paymentIds.length)) {
                 uint256 gasUsed = gasStart - gasleft();
                 uint256 percentOfBlock = (gasUsed * 100) / CELO_BLOCK_GAS_LIMIT;
 

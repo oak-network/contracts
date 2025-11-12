@@ -2,12 +2,12 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
+import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
 
@@ -19,7 +19,7 @@ contract AllOrNothing is
     IReward,
     BaseTreasury,
     TimestampChecker,
-    ERC721Burnable
+    ReentrancyGuard
 {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
@@ -30,15 +30,11 @@ contract AllOrNothing is
     mapping(uint256 => uint256) private s_tokenToPledgedAmount;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
-    // Mapping to store the token used for each NFT
+    // Mapping to store the token used for each pledge
     mapping(uint256 => address) private s_tokenIdToPledgeToken; 
 
-    // Counters for token IDs and rewards
-    Counters.Counter private s_tokenIdCounter;
+    // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
-
-    string private s_name;
-    string private s_symbol;
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -128,25 +124,13 @@ contract AllOrNothing is
     /**
      * @dev Constructor for the AllOrNothing contract.
      */
-    constructor() ERC721("", "") {}
+    constructor() {}
 
     function initialize(
         bytes32 _platformHash,
-        address _infoAddress,
-        string calldata _name,
-        string calldata _symbol
+        address _infoAddress
     ) external initializer {
         __BaseContract_init(_platformHash, _infoAddress);
-        s_name = _name;
-        s_symbol = _symbol;
-    }
-
-    function name() public view override returns (string memory) {
-        return s_name;
-    }
-
-    function symbol() public view override returns (string memory) {
-        return s_symbol;
     }
 
     /**
@@ -271,13 +255,13 @@ contract AllOrNothing is
         bytes32[] calldata reward
     )
         external
+        nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
@@ -299,7 +283,7 @@ contract AllOrNothing is
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, tokenId, reward);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
     }
 
     /**
@@ -314,16 +298,16 @@ contract AllOrNothing is
         uint256 pledgeAmount
     )
         external
+        nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, tokenId, emptyByteArray);
+        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray);
     }
 
     /**
@@ -341,6 +325,10 @@ contract AllOrNothing is
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
             revert AllOrNothingNotClaimable(tokenId);
         }
+        
+        // Get NFT owner before burning
+        address nftOwner = INFO.ownerOf(tokenId);
+        
         uint256 amountToRefund = s_tokenToTotalCollectedAmount[tokenId];
         uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
@@ -354,9 +342,11 @@ contract AllOrNothing is
         s_tokenRaisedAmounts[pledgeToken] -= pledgedAmount;
         delete s_tokenIdToPledgeToken[tokenId];
         
-        burn(tokenId);
-        IERC20(pledgeToken).safeTransfer(_msgSender(), amountToRefund);
-        emit RefundClaimed(tokenId, amountToRefund, _msgSender());
+        // Burn the NFT (requires treasury approval from owner)
+        INFO.burn(tokenId);
+        
+        IERC20(pledgeToken).safeTransfer(nftOwner, amountToRefund);
+        emit RefundClaimed(tokenId, amountToRefund, nftOwner);
     }
 
     /**
@@ -415,7 +405,6 @@ contract AllOrNothing is
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 shippingFee,
-        uint256 tokenId,
         bytes32[] memory rewards
     ) private {
         // Validate token is accepted 
@@ -442,13 +431,21 @@ contract AllOrNothing is
         
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
         
-        s_tokenIdCounter.increment();
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        
+        uint256 tokenId = INFO.mintNFTForPledge(
+            backer,
+            reward,
+            pledgeToken,
+            pledgeAmountInTokenDecimals,
+            shippingFeeInTokenDecimals,
+            0
+        );
+        
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
         
-        _safeMint(backer, tokenId, abi.encodePacked(backer, reward, rewards));
         emit Receipt(
             backer,
             pledgeToken,
@@ -460,10 +457,4 @@ contract AllOrNothing is
         );
     }
 
-    // The following functions are overrides required by Solidity.
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
-    }
 }

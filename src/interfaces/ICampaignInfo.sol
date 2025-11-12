@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 /**
  * @title ICampaignInfo
  * @notice An interface for managing campaign information in a crowdfunding system.
+ * @dev Inherits from IERC721 as CampaignInfo is an ERC721 NFT collection
  */
-interface ICampaignInfo {
+interface ICampaignInfo is IERC721 {
     /**
      * @notice Returns the owner of the contract.
      * @return The address of the contract owner.
@@ -170,6 +173,44 @@ interface ICampaignInfo {
      * @return bufferTime The buffer time value.
      */
     function getBufferTime() external view returns (uint256 bufferTime);
+
+    /**
+     * @notice Mints a pledge NFT for a backer
+     * @dev Can only be called by treasuries with MINTER_ROLE
+     * @param backer The backer address
+     * @param reward The reward identifier
+     * @param tokenAddress The address of the token used for the pledge
+     * @param amount The pledge amount
+     * @param shippingFee The shipping fee
+     * @param tipAmount The tip amount
+     * @return tokenId The minted token ID (pledge ID)
+     */
+    function mintNFTForPledge(
+        address backer,
+        bytes32 reward,
+        address tokenAddress,
+        uint256 amount,
+        uint256 shippingFee,
+        uint256 tipAmount
+    ) external returns (uint256 tokenId);
+
+    /**
+     * @notice Sets the image URI for NFT metadata
+     * @param newImageURI The new image URI
+     */
+    function setImageURI(string calldata newImageURI) external;
+
+    /**
+     * @notice Updates the contract-level metadata URI
+     * @param newContractURI The new contract URI
+     */
+    function updateContractURI(string calldata newContractURI) external;
+
+    /**
+     * @notice Burns a pledge NFT
+     * @param tokenId The token ID to burn
+     */
+    function burn(uint256 tokenId) external;
 
     /**
      * @dev Returns true if the campaign is locked (after treasury deployment), and false otherwise.

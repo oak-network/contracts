@@ -189,4 +189,9 @@ abstract contract Base_Test is Test, Defaults {
         }
         return baseAmount; // 18 decimals (cUSD)
     }
+    
+    /// @dev Helper to create an array filled with address(0)
+    function _createZeroAddressArray(uint256 length) internal pure returns (address[] memory) {
+        return new address[](length);
+    }
 }

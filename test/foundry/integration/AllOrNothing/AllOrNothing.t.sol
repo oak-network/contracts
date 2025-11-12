@@ -96,7 +96,11 @@ abstract contract AllOrNothing_Integration_Shared_Test is
             selectedPlatformHash,
             platformDataKey,
             platformDataValue,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -121,7 +125,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         vm.recordLogs();
 
         // Deploy the treasury contract
-        treasuryFactory.deploy(platformHash, campaignAddress, 0, NAME, SYMBOL);
+        treasuryFactory.deploy(platformHash, campaignAddress, 0);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         vm.stopPrank();
@@ -264,6 +268,10 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     {
         vm.warp(warpTime);
         vm.startPrank(caller);
+        
+        // Approve treasury to burn NFT
+        CampaignInfo(campaignAddress).approve(allOrNothingAddress, tokenId);
+        
         vm.recordLogs();
 
         AllOrNothing(allOrNothingAddress).claimRefund(tokenId);

@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
@@ -13,7 +14,8 @@ abstract contract BasePaymentTreasury is
     Initializable,
     ICampaignPaymentTreasury,
     CampaignAccessChecker,
-    PausableCancellable
+    PausableCancellable,
+    ReentrancyGuard
 {
     using SafeERC20 for IERC20;
 
@@ -29,6 +31,7 @@ abstract contract BasePaymentTreasury is
     mapping(bytes32 => address) internal s_paymentIdToToken; // Track token used for each payment
     mapping(address => uint256) internal s_platformFeePerToken; // Platform fees per token
     mapping(address => uint256) internal s_protocolFeePerToken; // Protocol fees per token
+    mapping(bytes32 => uint256) internal s_paymentIdToTokenId; // Track NFT token ID for each payment (0 means no NFT)
     
     /**
      * @dev Stores information about a payment in the treasury.
@@ -235,23 +238,6 @@ abstract contract BasePaymentTreasury is
 
     modifier whenCampaignNotCancelled() {
         _revertIfCampaignCancelled();
-        _;
-    }
-
-    /**
-     * @notice Ensures that the caller is either the payment's buyer or the platform admin.
-     * @param paymentId The unique identifier of the payment to validate access for.
-     */
-    modifier onlyBuyerOrPlatformAdmin(bytes32 paymentId) {
-        PaymentInfo memory payment = s_payment[paymentId];
-        address buyerAddress = payment.buyerAddress;
-
-        if (
-            _msgSender() != buyerAddress &&
-            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH)
-        ) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId);
-        }
         _;
     }
 
@@ -477,7 +463,7 @@ abstract contract BasePaymentTreasury is
         address buyerAddress,
         address paymentToken,
         uint256 amount
-    ) public override virtual whenCampaignNotPaused whenCampaignNotCancelled {
+    ) public override virtual nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
         
         if(buyerAddress == address(0) ||
            amount == 0 || 
@@ -513,6 +499,17 @@ abstract contract BasePaymentTreasury is
         s_confirmedPaymentPerToken[paymentToken] += amount;
         s_availableConfirmedPerToken[paymentToken] += amount;
 
+        // Mint NFT for crypto payment
+        uint256 tokenId = INFO.mintNFTForPledge(
+            buyerAddress,
+            itemId, // Using itemId as the reward identifier
+            paymentToken,
+            amount,
+            0, // shippingFee (0 for payment treasuries)
+            0  // tipAmount (0 for payment treasuries)
+        );
+        s_paymentIdToTokenId[paymentId] = tokenId;
+
         emit PaymentCreated(
             buyerAddress,
             paymentId,
@@ -539,6 +536,7 @@ abstract contract BasePaymentTreasury is
 
         delete s_payment[paymentId];
         delete s_paymentIdToToken[paymentId];
+        delete s_paymentIdToTokenId[paymentId];
 
         s_pendingPaymentPerToken[paymentToken] -= amount;
 
@@ -549,8 +547,9 @@ abstract contract BasePaymentTreasury is
      * @inheritdoc ICampaignPaymentTreasury
      */
     function confirmPayment(
-        bytes32 paymentId
-    ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
+        bytes32 paymentId,
+        address buyerAddress
+    ) public override virtual nonReentrant onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
         _validatePaymentForAction(paymentId);
     
         address paymentToken = s_paymentIdToToken[paymentId];
@@ -575,6 +574,21 @@ abstract contract BasePaymentTreasury is
         s_confirmedPaymentPerToken[paymentToken] += paymentAmount;
         s_availableConfirmedPerToken[paymentToken] += paymentAmount;
         
+        // Mint NFT if buyerAddress is provided
+        if (buyerAddress != address(0)) {
+            s_payment[paymentId].buyerAddress = buyerAddress;
+            bytes32 itemId = s_payment[paymentId].itemId;
+            uint256 tokenId = INFO.mintNFTForPledge(
+                buyerAddress,
+                itemId, // Using itemId as the reward identifier
+                paymentToken,
+                paymentAmount,
+                0, // shippingFee (0 for payment treasuries)
+                0  // tipAmount (0 for payment treasuries)
+            );
+            s_paymentIdToTokenId[paymentId] = tokenId;
+        }
+        
         emit PaymentConfirmed(paymentId);
     }
 
@@ -582,8 +596,14 @@ abstract contract BasePaymentTreasury is
      * @inheritdoc ICampaignPaymentTreasury
      */
     function confirmPaymentBatch(
-        bytes32[] calldata paymentIds
-    ) public override virtual onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
+        bytes32[] calldata paymentIds,
+        address[] calldata buyerAddresses
+    ) public override virtual nonReentrant onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
+        
+        // Validate array lengths must match
+        if (buyerAddresses.length != paymentIds.length) {
+            revert PaymentTreasuryInvalidInput();
+        }
         
         bytes32 currentPaymentId;
         address currentToken;
@@ -614,6 +634,22 @@ abstract contract BasePaymentTreasury is
             s_confirmedPaymentPerToken[currentToken] += amount;
             s_availableConfirmedPerToken[currentToken] += amount;
 
+            // Mint NFT if buyer address provided for this payment
+            if (buyerAddresses[i] != address(0)) {
+                address buyerAddress = buyerAddresses[i];
+                s_payment[currentPaymentId].buyerAddress = buyerAddress;
+                bytes32 itemId = s_payment[currentPaymentId].itemId;
+                uint256 tokenId = INFO.mintNFTForPledge(
+                    buyerAddress,
+                    itemId, // Using itemId as the reward identifier
+                    currentToken,
+                    amount,
+                    0, // shippingFee (0 for payment treasuries)
+                    0  // tipAmount (0 for payment treasuries)
+                );
+                s_paymentIdToTokenId[currentPaymentId] = tokenId;
+            }
+
             unchecked {
                 ++i;
             }
@@ -624,6 +660,7 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev For non-NFT payments only. Verifies that no NFT exists for this payment.
      */
     function claimRefund(
         bytes32 paymentId, 
@@ -637,6 +674,7 @@ abstract contract BasePaymentTreasury is
         address paymentToken = s_paymentIdToToken[paymentId];
         uint256 amountToRefund = payment.amount;
         uint256 availablePaymentAmount = s_availableConfirmedPerToken[paymentToken];
+        uint256 tokenId = s_paymentIdToTokenId[paymentId];
 
         if (payment.buyerId == ZERO_BYTES) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
@@ -646,6 +684,10 @@ abstract contract BasePaymentTreasury is
         }
         if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId);
+        }
+        // This function is for non-NFT payments only
+        if (tokenId != 0) {
+            revert PaymentTreasuryCryptoPayment(paymentId);
         }
 
         delete s_payment[paymentId];
@@ -660,16 +702,18 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev For NFT payments only. Requires an NFT exists and burns it. Refund is sent to current NFT owner.
      */
     function claimRefund(
         bytes32 paymentId
-    ) public override virtual onlyBuyerOrPlatformAdmin(paymentId) whenCampaignNotPaused whenCampaignNotCancelled
+    ) public override virtual whenCampaignNotPaused whenCampaignNotCancelled
     {
         PaymentInfo memory payment = s_payment[paymentId];
         address paymentToken = s_paymentIdToToken[paymentId];
         address buyerAddress = payment.buyerAddress;
         uint256 amountToRefund = payment.amount;
         uint256 availablePaymentAmount = s_availableConfirmedPerToken[paymentToken];
+        uint256 tokenId = s_paymentIdToTokenId[paymentId];
 
         if (buyerAddress == address(0)) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
@@ -677,15 +721,26 @@ abstract contract BasePaymentTreasury is
         if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
+        // This function is for NFT payments only - NFT must exist
+        if (tokenId == 0) {
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
+        }
+
+        // Get NFT owner before burning
+        address nftOwner = INFO.ownerOf(tokenId);
 
         delete s_payment[paymentId];
         delete s_paymentIdToToken[paymentId];
+        delete s_paymentIdToTokenId[paymentId];
 
         s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
         s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
 
-        IERC20(paymentToken).safeTransfer(buyerAddress, amountToRefund);
-        emit RefundClaimed(paymentId, amountToRefund, buyerAddress);
+        // Burn NFT (requires treasury approval from owner)
+        INFO.burn(tokenId);
+
+        IERC20(paymentToken).safeTransfer(nftOwner, amountToRefund);
+        emit RefundClaimed(paymentId, amountToRefund, nftOwner);
     }
 
     /**
@@ -805,6 +860,14 @@ abstract contract BasePaymentTreasury is
         bytes32 message
     ) public virtual onlyPlatformAdmin(PLATFORM_HASH) {
         _cancel(message);
+    }
+
+    /**
+     * @notice Returns true if the treasury has been cancelled.
+     * @return True if cancelled, false otherwise.
+     */
+    function cancelled() public view virtual override(ICampaignPaymentTreasury, PausableCancellable) returns (bool) {
+        return super.cancelled();
     }
 
     /**

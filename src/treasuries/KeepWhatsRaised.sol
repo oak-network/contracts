@@ -3,13 +3,13 @@ pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
+import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
 
@@ -21,8 +21,8 @@ contract KeepWhatsRaised is
     IReward,
     BaseTreasury,
     TimestampChecker,
-    ERC721Burnable,
-    ICampaignData
+    ICampaignData,
+    ReentrancyGuard
 {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
@@ -43,14 +43,13 @@ contract KeepWhatsRaised is
     mapping(bytes32 => uint256) private s_feeValues;
     
     // Multi-token support
-    mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each NFT
+    mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each pledge
     mapping(address => uint256) private s_protocolFeePerToken; // Protocol fees per token
     mapping(address => uint256) private s_platformFeePerToken; // Platform fees per token
     mapping(address => uint256) private s_tipPerToken; // Tips per token
     mapping(address => uint256) private s_availablePerToken; // Available amount per token
 
-    // Counters for token IDs and rewards
-    Counters.Counter private s_tokenIdCounter;
+    // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
 
     /**
@@ -103,8 +102,6 @@ contract KeepWhatsRaised is
         bool isColombianCreator;
     }
 
-    string private s_name;
-    string private s_symbol;
     uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
@@ -334,25 +331,13 @@ contract KeepWhatsRaised is
     /**
      * @dev Constructor for the KeepWhatsRaised contract.
      */
-    constructor() ERC721("", "") {}
+    constructor() {}
 
     function initialize(
         bytes32 _platformHash,
-        address _infoAddress,
-        string calldata _name,
-        string calldata _symbol
+        address _infoAddress
     ) external initializer {
         __BaseContract_init(_platformHash, _infoAddress);
-        s_name = _name;
-        s_symbol = _symbol;
-    }
-
-    function name() public view override returns (string memory) {
-        return s_name;
-    }
-
-    function symbol() public view override returns (string memory) {
-        return s_symbol;
     }
 
     /**
@@ -693,6 +678,7 @@ contract KeepWhatsRaised is
         bool isPledgeForAReward
     ) 
         external 
+        nonReentrant
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
         whenNotPaused
@@ -727,6 +713,7 @@ contract KeepWhatsRaised is
         bytes32[] calldata reward
     )
         public
+        nonReentrant
         currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
@@ -758,11 +745,6 @@ contract KeepWhatsRaised is
         address tokenSource
     )
         internal
-        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
-        whenCampaignNotPaused
-        whenNotPaused
-        whenCampaignNotCancelled
-        whenNotCancelled
     {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
@@ -771,7 +753,6 @@ contract KeepWhatsRaised is
         }
         s_processedPledges[internalPledgeId] = true;
 
-        uint256 tokenId = s_tokenIdCounter.current();
         uint256 rewardLen = reward.length;
         Reward memory tempReward = s_reward[reward[0]];
         if (
@@ -793,7 +774,7 @@ contract KeepWhatsRaised is
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, tokenId, reward, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, reward, tokenSource);
     }
 
     /**
@@ -812,6 +793,7 @@ contract KeepWhatsRaised is
         uint256 tip
     )
         public
+        nonReentrant
         currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
@@ -841,11 +823,6 @@ contract KeepWhatsRaised is
         address tokenSource
     )
         internal
-        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
-        whenCampaignNotPaused
-        whenNotPaused
-        whenCampaignNotCancelled
-        whenNotCancelled
     {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
@@ -854,10 +831,9 @@ contract KeepWhatsRaised is
         }
         s_processedPledges[internalPledgeId] = true;
 
-        uint256 tokenId = s_tokenIdCounter.current();
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, tokenId, emptyByteArray, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, emptyByteArray, tokenSource);
     }
 
     /**
@@ -1001,6 +977,9 @@ contract KeepWhatsRaised is
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
 
+        // Get NFT owner before burning
+        address nftOwner = INFO.ownerOf(tokenId);
+
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
         uint256 amountToRefund = s_tokenToPledgedAmount[tokenId];
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
@@ -1015,9 +994,11 @@ contract KeepWhatsRaised is
         s_availablePerToken[pledgeToken] -= netRefundAmount;
         s_tokenToPaymentFee[tokenId] = 0;
 
-        burn(tokenId);
-        IERC20(pledgeToken).safeTransfer(_msgSender(), netRefundAmount);
-        emit RefundClaimed(tokenId, netRefundAmount, _msgSender());
+        // Burn the NFT (requires treasury approval from owner)
+        INFO.burn(tokenId);
+        
+        IERC20(pledgeToken).safeTransfer(nftOwner, netRefundAmount);
+        emit RefundClaimed(tokenId, netRefundAmount, nftOwner);
     }
 
     /**
@@ -1165,7 +1146,6 @@ contract KeepWhatsRaised is
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 tip,
-        uint256 tokenId,
         bytes32[] memory rewards,
         address tokenSource
     ) private {
@@ -1186,24 +1166,29 @@ contract KeepWhatsRaised is
             pledgeAmountInTokenDecimals = pledgeAmount;
         }
         
-        // Tip is already in token's decimals, no denormalization needed
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
         
-        // Transfer tokens from tokenSource (either admin or backer)
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
         
-        s_tokenIdCounter.increment();
+        s_tipPerToken[pledgeToken] += tip;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        
+        uint256 tokenId = INFO.mintNFTForPledge(
+            backer,
+            reward,
+            pledgeToken,
+            pledgeAmountInTokenDecimals,
+            0,
+            tip
+        );
+        
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
 
-        //Fee Calculation (uses token decimals)
         uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
         s_availablePerToken[pledgeToken] += netAvailable;
 
-        _safeMint(backer, tokenId, abi.encodePacked(backer, reward));
         emit Receipt(
             backer,
             pledgeToken,
@@ -1299,10 +1284,4 @@ contract KeepWhatsRaised is
         }
     }
 
-    // The following functions are overrides required by Solidity.
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
-    }
 }

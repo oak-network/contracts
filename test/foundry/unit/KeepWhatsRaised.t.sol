@@ -57,7 +57,11 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
             selectedPlatformHash,
             platformDataKey,        // Empty array
             platformDataValue,      // Empty array
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
         
         address newCampaignAddress = campaignInfoFactory.identifierToCampaignInfo(newIdentifierHash);
@@ -67,15 +71,15 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         address newTreasury = treasuryFactory.deploy(
             PLATFORM_2_HASH,
             newCampaignAddress,
-            1,
-            "NewCampaign",
-            "NC"
+            1
         );
         
         KeepWhatsRaised newContract = KeepWhatsRaised(newTreasury);
+        CampaignInfo newCampaignInfo = CampaignInfo(newCampaignAddress);
         
-        assertEq(newContract.name(), "NewCampaign");
-        assertEq(newContract.symbol(), "NC");
+        // NFT name and symbol are now on CampaignInfo, not treasury
+        assertEq(newCampaignInfo.name(), "Campaign Pledge NFT");
+        assertEq(newCampaignInfo.symbol(), "PLEDGE");
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -458,7 +462,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(testToken.balanceOf(users.backer1Address), balanceBefore - TEST_PLEDGE_AMOUNT - TEST_TIP_AMOUNT);
         assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT);
         assertTrue(keepWhatsRaised.getAvailableRaisedAmount() < TEST_PLEDGE_AMOUNT); // Less due to fees
-        assertEq(keepWhatsRaised.balanceOf(users.backer1Address), 1);
+        assertEq(CampaignInfo(campaignAddress).balanceOf(users.backer1Address), 1);
     }
     
     function testPledgeForARewardRevertWhenDuplicatePledgeId() public {
@@ -523,7 +527,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(testToken.balanceOf(users.backer1Address), balanceBefore - pledgeAmount - TEST_TIP_AMOUNT);
         assertEq(keepWhatsRaised.getRaisedAmount(), pledgeAmount);
         assertTrue(keepWhatsRaised.getAvailableRaisedAmount() < pledgeAmount); // Less due to fees
-        assertEq(keepWhatsRaised.balanceOf(users.backer1Address), 1);
+        assertEq(CampaignInfo(campaignAddress).balanceOf(users.backer1Address), 1);
     }
     
     function testPledgeWithoutARewardRevertWhenDuplicatePledgeId() public {
@@ -607,7 +611,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         
         // Verify pledge was made
         assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT);
-        assertEq(keepWhatsRaised.balanceOf(users.backer1Address), 1);
+        assertEq(CampaignInfo(campaignAddress).balanceOf(users.backer1Address), 1);
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -809,13 +813,18 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.startPrank(users.backer1Address);
         testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
         keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0);
-        uint256 tokenId = 0;
+        uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
         
         uint256 balanceBefore = testToken.balanceOf(users.backer1Address);
         
         // Claim refund within refund window
         vm.warp(DEADLINE + 1 days);
+        
+        // Approve treasury to burn NFT
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        
         vm.prank(users.backer1Address);
         keepWhatsRaised.claimRefund(tokenId);
         
@@ -828,7 +837,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Verify refund amount is pledge minus fees
         assertEq(testToken.balanceOf(users.backer1Address), balanceBefore + expectedRefund);
         vm.expectRevert();
-        keepWhatsRaised.ownerOf(tokenId); // Token should be burned
+        campaignInfo.ownerOf(tokenId); // Token should be burned
     }
     
     function testClaimRefundRevertWhenOutsideRefundWindow() public {
@@ -839,7 +848,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.startPrank(users.backer1Address);
         testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
         keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0);
-        uint256 tokenId = 0;
+        uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
         
         // Try to claim after refund window
@@ -857,7 +866,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.startPrank(users.backer1Address);
         testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
         keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0);
-        uint256 tokenId = 0;
+        uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
         
         // Cancel campaign
@@ -868,6 +877,11 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         
         // Claim refund
         vm.warp(block.timestamp + 1);
+        
+        // Approve treasury to burn NFT
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        
         vm.prank(users.backer1Address);
         keepWhatsRaised.claimRefund(tokenId);
         
@@ -1607,7 +1621,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.startPrank(users.backer1Address);
         usdcToken.approve(address(keepWhatsRaised), usdcAmount);
         keepWhatsRaised.pledgeWithoutAReward(keccak256("usdc_pledge"), users.backer1Address, address(usdcToken), usdcAmount, 0);
-        uint256 usdcTokenId = 0;
+        uint256 usdcTokenId = 1; // First pledge
         vm.stopPrank();
         
         // Backer2 pledges with cUSD
@@ -1616,7 +1630,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.startPrank(users.backer2Address);
         cUSDToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
         keepWhatsRaised.pledgeWithoutAReward(keccak256("cusd_pledge"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, 0);
-        uint256 cUSDTokenId = 1;
+        uint256 cUSDTokenId = 2; // Second pledge
         vm.stopPrank();
         
         uint256 backer1USDCBefore = usdcToken.balanceOf(users.backer1Address);
@@ -1625,8 +1639,15 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Claim refunds after deadline
         vm.warp(DEADLINE + 1);
         
+        // Approve treasury to burn NFTs
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), usdcTokenId);
+        
         vm.prank(users.backer1Address);
         keepWhatsRaised.claimRefund(usdcTokenId);
+        
+        vm.prank(users.backer2Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), cUSDTokenId);
         
         vm.prank(users.backer2Address);
         keepWhatsRaised.claimRefund(cUSDTokenId);

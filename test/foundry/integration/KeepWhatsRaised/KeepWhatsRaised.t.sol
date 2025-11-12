@@ -118,7 +118,11 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             selectedPlatformHash,
             platformDataKey,     
             platformDataValue,   
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -141,7 +145,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.recordLogs();
 
         // Deploy the treasury contract
-        treasuryFactory.deploy(platformHash, campaignAddress, 1, NAME, SYMBOL);
+        treasuryFactory.deploy(platformHash, campaignAddress, 1);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         vm.stopPrank();
@@ -389,6 +393,10 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         returns (Vm.Log[] memory logs, uint256 refundedTokenId, uint256 refundAmount, address claimer)
     {
         vm.startPrank(caller);
+        
+        // Approve treasury to burn NFT
+        CampaignInfo(campaignAddress).approve(keepWhatsRaisedAddress, tokenId);
+        
         vm.recordLogs();
 
         KeepWhatsRaised(keepWhatsRaisedAddress).claimRefund(tokenId);

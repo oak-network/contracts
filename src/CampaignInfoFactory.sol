@@ -84,6 +84,17 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
 
     /**
      * @inheritdoc ICampaignInfoFactory
+     * @notice Creates a new campaign with NFT
+     * @param creator The campaign creator address
+     * @param identifierHash The unique identifier hash for the campaign
+     * @param selectedPlatformHash Array of selected platform hashes
+     * @param platformDataKey Array of platform data keys
+     * @param platformDataValue Array of platform data values
+     * @param campaignData The campaign data
+     * @param nftName NFT collection name
+     * @param nftSymbol NFT collection symbol
+     * @param nftImageURI NFT image URI for individual tokens
+     * @param contractURI IPFS URI for contract-level metadata (constructed off-chain)
      */
     function createCampaign(
         address creator,
@@ -91,7 +102,11 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         bytes32[] calldata selectedPlatformHash,
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
-        CampaignData calldata campaignData
+        CampaignData calldata campaignData,
+        string calldata nftName,
+        string calldata nftSymbol,
+        string calldata nftImageURI,
+        string calldata contractURI
     ) external override {
         if (creator == address(0)) {
             revert CampaignInfoFactoryInvalidInput();
@@ -158,16 +173,22 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
             identifierHash
         );
         address clone = Clones.cloneWithImmutableArgs($.implementation, args);
+        
+        // Initialize with all parameters including NFT metadata
         (bool success, ) = clone.call(
             abi.encodeWithSignature(
-                "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256,bytes32),address[])",
+                "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256,bytes32),address[],string,string,string,string)",
                 creator,
                 address(globalParams),
                 selectedPlatformHash,
                 platformDataKey,
                 platformDataValue,
                 campaignData,
-                acceptedTokens
+                acceptedTokens,
+                nftName,
+                nftSymbol,
+                nftImageURI,
+                contractURI
             )
         );
         if (!success) {

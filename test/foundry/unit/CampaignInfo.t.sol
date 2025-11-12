@@ -123,7 +123,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
             selectedPlatformHashes,
             platformDataKeys,
             platformDataValues,
-            campaignData
+            campaignData,
+            "Test Campaign NFT",
+            "TCNFT",
+            "ipfs://QmTest123",
+            "ipfs://QmContractTest123"
         );
         vm.stopPrank();
         
@@ -643,9 +647,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         address treasury = treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
-            1, // implementationId
-            "Test Treasury",
-            "TT"
+            1 // implementationId
         );
         vm.stopPrank();
 
@@ -711,9 +713,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
-            1, // implementationId
-            "Test Treasury",
-            "TT"
+            1 // implementationId
         );
         vm.stopPrank();
 
@@ -876,9 +876,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
-            1, // implementationId
-            "Test Treasury",
-            "TT"
+            1 // implementationId
         );
         vm.stopPrank();
 
@@ -954,9 +952,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
-            1, // implementationId
-            "Test Treasury",
-            "TT"
+            1 // implementationId
         );
         vm.stopPrank();
     }

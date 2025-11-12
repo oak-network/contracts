@@ -74,8 +74,8 @@ contract AllOrNothingFunction_Integration_Shared_Test is
 
         uint256 backerBalance = testToken.balanceOf(users.backer1Address);
         uint256 treasuryBalance = testToken.balanceOf(address(allOrNothing));
-        uint256 backerNftBalance = allOrNothing.balanceOf(users.backer1Address);
-        address nftOwnerAddress = allOrNothing.ownerOf(pledgeForARewardTokenId);
+        uint256 backerNftBalance = CampaignInfo(campaignAddress).balanceOf(users.backer1Address);
+        address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
 
         assertEq(users.backer1Address, nftOwnerAddress);
         assertEq(PLEDGE_AMOUNT + SHIPPING_FEE, treasuryBalance);
@@ -459,7 +459,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             address(usdcToken),
             usdcAmount
         );
-        uint256 usdcTokenId = 0;
+        uint256 usdcTokenId = 1; // First pledge
         vm.stopPrank();
         
         // Backer2 pledges with cUSD
@@ -470,7 +470,7 @@ contract AllOrNothingFunction_Integration_Shared_Test is
             address(cUSDToken),
             PLEDGE_AMOUNT
         );
-        uint256 cUSDTokenId = 1;
+        uint256 cUSDTokenId = 2; // Second pledge
         vm.stopPrank();
         
         uint256 backer1USDCBefore = usdcToken.balanceOf(users.backer1Address);
@@ -479,8 +479,15 @@ contract AllOrNothingFunction_Integration_Shared_Test is
         // Claim refunds
         vm.warp(LAUNCH_TIME + 1 days);
         
+        // Approve treasury to burn NFTs
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(allOrNothing), usdcTokenId);
+        
         vm.prank(users.backer1Address);
         allOrNothing.claimRefund(usdcTokenId);
+        
+        vm.prank(users.backer2Address);
+        CampaignInfo(campaignAddress).approve(address(allOrNothing), cUSDTokenId);
         
         vm.prank(users.backer2Address);
         allOrNothing.claimRefund(cUSDTokenId);

@@ -97,7 +97,11 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
             selectedPlatformHash,
             platformDataKey,
             platformDataValue,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -120,7 +124,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         vm.recordLogs();
 
         // Deploy the treasury contract with implementation ID 2 for PaymentTreasury
-        treasuryFactory.deploy(platformHash, campaignAddress, 2, NAME, SYMBOL);
+        treasuryFactory.deploy(platformHash, campaignAddress, 2);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         vm.stopPrank();
@@ -179,7 +183,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      */
     function confirmPayment(address caller, bytes32 paymentId) internal {
         vm.prank(caller);
-        paymentTreasury.confirmPayment(paymentId);
+        paymentTreasury.confirmPayment(paymentId, address(0));
     }
 
     /**
@@ -187,7 +191,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      */
     function confirmPaymentBatch(address caller, bytes32[] memory paymentIds) internal {
         vm.prank(caller);
-        paymentTreasury.confirmPaymentBatch(paymentIds);
+        paymentTreasury.confirmPaymentBatch(paymentIds, _createZeroAddressArray(paymentIds.length));
     }
 
     /**
@@ -216,11 +220,15 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     /**
      * @notice Claims a refund (buyer-initiated)
      */
-    function claimRefund(address caller, bytes32 paymentId) 
+    function claimRefund(address caller, bytes32 paymentId, uint256 tokenId) 
         internal 
         returns (uint256 refundAmount) 
     {
         vm.startPrank(caller);
+        
+        // Approve treasury to burn NFT
+        CampaignInfo(campaignAddress).approve(treasuryAddress, tokenId);
+        
         vm.recordLogs();
         
         paymentTreasury.claimRefund(paymentId);

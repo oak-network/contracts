@@ -39,4 +39,10 @@ interface ICampaignTreasury {
      * @return The total raised amount as a uint256 value.
      */
     function getRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Checks if the treasury has been cancelled.
+     * @return True if the treasury is cancelled, false otherwise.
+     */
+    function cancelled() external view returns (bool);
 }

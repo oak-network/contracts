@@ -24,7 +24,7 @@ interface ICampaignInfoFactory is ICampaignData {
     event CampaignInfoFactoryCampaignInitialized();
 
     /**
-     * @notice Creates a new campaign information contract.
+     * @notice Creates a new campaign information contract with NFT.
      * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked 
      *      permanently in the campaign contract. Users should verify current fees before 
      *      calling this function or using intermediate contracts that check fees haven't 
@@ -36,6 +36,10 @@ interface ICampaignInfoFactory is ICampaignData {
      * @param platformDataKey An array of platform-specific data keys.
      * @param platformDataValue An array of platform-specific data values.
      * @param campaignData The struct containing campaign launch details (including currency).
+     * @param nftName NFT collection name
+     * @param nftSymbol NFT collection symbol
+     * @param nftImageURI NFT image URI for individual tokens
+     * @param contractURI IPFS URI for contract-level metadata
      */
     function createCampaign(
         address creator,
@@ -43,7 +47,11 @@ interface ICampaignInfoFactory is ICampaignData {
         bytes32[] calldata selectedPlatformHash,
         bytes32[] calldata platformDataKey,
         bytes32[] calldata platformDataValue,
-        CampaignData calldata campaignData
+        CampaignData calldata campaignData,
+        string calldata nftName,
+        string calldata nftSymbol,
+        string calldata nftImageURI,
+        string calldata contractURI
     ) external;
 
     /**

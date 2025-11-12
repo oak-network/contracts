@@ -220,7 +220,11 @@ contract Upgrades_Test is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
         
         address campaignBefore = campaignFactory.identifierToCampaignInfo(CAMPAIGN_1_IDENTIFIER_HASH);
@@ -265,7 +269,11 @@ contract Upgrades_Test is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
         
         campaignFactory.createCampaign(
@@ -274,7 +282,11 @@ contract Upgrades_Test is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
         vm.stopPrank();
         
@@ -337,7 +349,11 @@ contract Upgrades_Test is Test, Defaults {
             platforms,
             keys,
             values,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
     }
 

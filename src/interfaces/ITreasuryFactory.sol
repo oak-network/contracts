@@ -66,15 +66,11 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param infoAddress The address of the campaign info contract.
      * @param implementationId The ID of the implementation to use.
-     * @param name The name of the treasury token.
-     * @param symbol The symbol of the treasury token.
      * @return clone The address of the deployed treasury contract.
      */
     function deploy(
         bytes32 platformHash,
         address infoAddress,
-        uint256 implementationId,
-        string calldata name,
-        string calldata symbol
+        uint256 implementationId
     ) external returns (address clone);
 }

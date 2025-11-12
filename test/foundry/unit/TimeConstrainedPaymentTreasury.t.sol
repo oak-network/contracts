@@ -53,7 +53,11 @@ contract TimeConstrainedPaymentTreasury_UnitTest is Test, TimeConstrainedPayment
             selectedPlatformHash,
             platformDataKey,
             platformDataValue,
-            CAMPAIGN_DATA
+            CAMPAIGN_DATA,
+            "Campaign Pledge NFT",
+            "PLEDGE",
+            "ipfs://QmExampleImageURI",
+            "ipfs://QmExampleContractURI"
         );
         address newCampaignAddress = campaignInfoFactory.identifierToCampaignInfo(newIdentifierHash);
         
@@ -62,14 +66,14 @@ contract TimeConstrainedPaymentTreasury_UnitTest is Test, TimeConstrainedPayment
         address newTreasury = treasuryFactory.deploy(
             PLATFORM_1_HASH,
             newCampaignAddress,
-            3, // TimeConstrainedPaymentTreasury type
-            "NewTimeConstrainedPaymentTreasury",
-            "NTCPT"
+            3 // TimeConstrainedPaymentTreasury type
         );
         TimeConstrainedPaymentTreasury newContract = TimeConstrainedPaymentTreasury(newTreasury);
+        CampaignInfo newCampaignInfo = CampaignInfo(newCampaignAddress);
         
-        assertEq(newContract.name(), "NewTimeConstrainedPaymentTreasury");
-        assertEq(newContract.symbol(), "NTCPT");
+        // NFT name and symbol are now on CampaignInfo, not treasury
+        assertEq(newCampaignInfo.name(), "Campaign Pledge NFT");
+        assertEq(newCampaignInfo.symbol(), "PLEDGE");
         assertEq(newContract.getplatformHash(), PLATFORM_1_HASH);
         assertEq(newContract.getplatformFeePercent(), PLATFORM_FEE_PERCENT);
     }
@@ -290,7 +294,7 @@ contract TimeConstrainedPaymentTreasury_UnitTest is Test, TimeConstrainedPayment
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
-        timeConstrainedPaymentTreasury.confirmPayment(PAYMENT_ID_1);
+        timeConstrainedPaymentTreasury.confirmPayment(PAYMENT_ID_1, address(0));
     }
     
     function testConfirmPaymentBatchWithinTimeRange() public {
@@ -333,7 +337,7 @@ contract TimeConstrainedPaymentTreasury_UnitTest is Test, TimeConstrainedPayment
         
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
-        timeConstrainedPaymentTreasury.confirmPaymentBatch(paymentIds);
+        timeConstrainedPaymentTreasury.confirmPaymentBatch(paymentIds, _createZeroAddressArray(paymentIds.length));
     }
     
     /*//////////////////////////////////////////////////////////////
@@ -359,6 +363,10 @@ contract TimeConstrainedPaymentTreasury_UnitTest is Test, TimeConstrainedPayment
         
         // Advance to after launch to be able to claim refund
         advanceToAfterLaunch();
+        
+        // Approve treasury to burn NFT
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(timeConstrainedPaymentTreasury), 1); // tokenId 1
         
         // Then claim refund (use the overload without refundAddress since processCryptoPayment uses buyerAddress)
         vm.prank(users.backer1Address);
