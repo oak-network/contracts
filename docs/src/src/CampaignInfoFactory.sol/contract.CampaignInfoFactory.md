@@ -1,38 +1,22 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/CampaignInfoFactory.sol)
 
 **Inherits:**
-Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
+Initializable, [ICampaignInfoFactory](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
 
 Factory contract for creating campaign information contracts.
 
-*UUPS Upgradeable contract with ERC-7201 namespaced storage*
-
-
-## State Variables
-### CAMPAIGN_INFO_FACTORY_STORAGE_LOCATION
-
-```solidity
-bytes32 private constant CAMPAIGN_INFO_FACTORY_STORAGE_LOCATION =
-    0x2857858a392b093e1f8b3f368c2276ce911f27cef445605a2932ebe945968d00;
-```
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
-### _getCampaignInfoFactoryStorage
-
-
-```solidity
-function _getCampaignInfoFactoryStorage() private pure returns (CampaignInfoFactoryStorage storage $);
-```
-
 ### constructor
 
-*Constructor that disables initializers to prevent implementation contract initialization*
+Constructor that disables initializers to prevent implementation contract initialization
 
 
 ```solidity
-constructor();
+constructor() ;
 ```
 
 ### initialize
@@ -60,7 +44,7 @@ function initialize(
 
 ### _authorizeUpgrade
 
-*Function that authorizes an upgrade to a new implementation*
+Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
@@ -75,13 +59,13 @@ function _authorizeUpgrade(address newImplementation) internal override onlyOwne
 
 ### createCampaign
 
-Creates a new campaign information contract.
+Creates a new campaign with NFT
 
-*IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
 permanently in the campaign contract. Users should verify current fees before
 calling this function or using intermediate contracts that check fees haven't
 changed from expected values. The protocol fee is stored as immutable in the cloned
-contract and platform fees are stored during initialization.*
+contract and platform fees are stored during initialization.
 
 
 ```solidity
@@ -91,19 +75,27 @@ function createCampaign(
     bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
     bytes32[] calldata platformDataValue,
-    CampaignData calldata campaignData
+    CampaignData calldata campaignData,
+    string calldata nftName,
+    string calldata nftSymbol,
+    string calldata nftImageURI,
+    string calldata contractURI
 ) external override;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`creator`|`address`|The address of the creator of the campaign.|
-|`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
-|`selectedPlatformHash`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
-|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
-|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
-|`campaignData`|`CampaignData`|The struct containing campaign launch details (including currency).|
+|`creator`|`address`|The campaign creator address|
+|`identifierHash`|`bytes32`|The unique identifier hash for the campaign|
+|`selectedPlatformHash`|`bytes32[]`|Array of selected platform hashes|
+|`platformDataKey`|`bytes32[]`|Array of platform data keys|
+|`platformDataValue`|`bytes32[]`|Array of platform data values|
+|`campaignData`|`CampaignData`|The campaign data|
+|`nftName`|`string`|NFT collection name|
+|`nftSymbol`|`string`|NFT collection symbol|
+|`nftImageURI`|`string`|NFT image URI for individual tokens|
+|`contractURI`|`string`|IPFS URI for contract-level metadata (constructed off-chain)|
 
 
 ### updateImplementation
@@ -165,7 +157,7 @@ function identifierToCampaignInfo(bytes32 identifierHash) external view returns 
 
 ## Errors
 ### CampaignInfoFactoryInvalidInput
-*Emitted when invalid input is provided.*
+Emitted when invalid input is provided.
 
 
 ```solidity
@@ -173,7 +165,7 @@ error CampaignInfoFactoryInvalidInput();
 ```
 
 ### CampaignInfoFactoryCampaignInitializationFailed
-*Emitted when campaign creation fails.*
+Emitted when campaign creation fails.
 
 
 ```solidity
@@ -193,26 +185,10 @@ error CampaignInfoFactoryCampaignWithSameIdentifierExists(bytes32 identifierHash
 ```
 
 ### CampaignInfoInvalidTokenList
-*Emitted when the campaign currency has no tokens.*
+Emitted when the campaign currency has no tokens.
 
 
 ```solidity
 error CampaignInfoInvalidTokenList();
-```
-
-## Structs
-### CampaignInfoFactoryStorage
-**Note:**
-storage-location: erc7201:ccprotocol.storage.CampaignInfoFactory
-
-
-```solidity
-struct CampaignInfoFactoryStorage {
-    IGlobalParams globalParams;
-    address treasuryFactoryAddress;
-    address implementation;
-    mapping(address => bool) isValidCampaignInfo;
-    mapping(bytes32 => address) identifierToCampaignInfo;
-}
 ```
 

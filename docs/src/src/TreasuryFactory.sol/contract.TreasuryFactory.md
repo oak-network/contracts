@@ -1,38 +1,22 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/TreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/TreasuryFactory.sol)
 
 **Inherits:**
-Initializable, [ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
+Initializable, [ITreasuryFactory](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
 
 Factory contract for creating treasury contracts
 
-*UUPS Upgradeable contract with ERC-7201 namespaced storage*
-
-
-## State Variables
-### TREASURY_FACTORY_STORAGE_LOCATION
-
-```solidity
-bytes32 private constant TREASURY_FACTORY_STORAGE_LOCATION =
-    0x96b7de8c171ef460648aea35787d043e89feb6b6de2623a1e6f17a91b9c9e900;
-```
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
-### _getTreasuryFactoryStorage
-
-
-```solidity
-function _getTreasuryFactoryStorage() private pure returns (TreasuryFactoryStorage storage $);
-```
-
 ### constructor
 
-*Constructor that disables initializers to prevent implementation contract initialization*
+Constructor that disables initializers to prevent implementation contract initialization
 
 
 ```solidity
-constructor();
+constructor() ;
 ```
 
 ### initialize
@@ -52,7 +36,7 @@ function initialize(IGlobalParams globalParams) public initializer;
 
 ### _authorizeUpgrade
 
-*Function that authorizes an upgrade to a new implementation*
+Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
@@ -69,7 +53,7 @@ function _authorizeUpgrade(address newImplementation) internal override onlyProt
 
 Registers a treasury implementation for a given platform.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
@@ -91,7 +75,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-*Callable only by the protocol admin.*
+Callable only by the protocol admin.
 
 
 ```solidity
@@ -146,17 +130,15 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
-function deploy(
-    bytes32 platformHash,
-    address infoAddress,
-    uint256 implementationId,
-    string calldata name,
-    string calldata symbol
-) external override onlyPlatformAdmin(platformHash) returns (address clone);
+function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+    external
+    override
+    onlyPlatformAdmin(platformHash)
+    returns (address clone);
 ```
 **Parameters**
 
@@ -165,8 +147,6 @@ function deploy(
 |`platformHash`|`bytes32`|The platform identifier.|
 |`infoAddress`|`address`|The address of the campaign info contract.|
 |`implementationId`|`uint256`|The ID of the implementation to use.|
-|`name`|`string`|The name of the treasury token.|
-|`symbol`|`string`|The symbol of the treasury token.|
 
 **Returns**
 
@@ -222,18 +202,5 @@ error TreasuryFactoryTreasuryInitializationFailed();
 
 ```solidity
 error TreasuryFactorySettingPlatformInfoFailed();
-```
-
-## Structs
-### TreasuryFactoryStorage
-**Note:**
-storage-location: erc7201:ccprotocol.storage.TreasuryFactory
-
-
-```solidity
-struct TreasuryFactoryStorage {
-    mapping(bytes32 => mapping(uint256 => address)) implementationMap;
-    mapping(address => bool) approvedImplementations;
-}
 ```
 

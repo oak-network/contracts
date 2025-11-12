@@ -1,63 +1,70 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/utils/BaseTreasury.sol)
 
 **Inherits:**
-Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
+Initializable, [ICampaignTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
 
 A base contract for creating and managing treasuries in crowdfunding campaigns.
 
-*This contract defines common functionality and storage for campaign treasuries.*
+This contract defines common functionality and storage for campaign treasuries.
 
-*Contracts implementing this base contract should provide specific success conditions.*
+Contracts implementing this base contract should provide specific success conditions.
 
 
 ## State Variables
 ### ZERO_BYTES
 
 ```solidity
-bytes32 internal constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
+bytes32 internal constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 
 ### PERCENT_DIVIDER
 
 ```solidity
-uint256 internal constant PERCENT_DIVIDER = 10000;
+uint256 internal constant PERCENT_DIVIDER = 10000
 ```
 
 
 ### STANDARD_DECIMALS
 
 ```solidity
-uint256 internal constant STANDARD_DECIMALS = 18;
+uint256 internal constant STANDARD_DECIMALS = 18
 ```
 
 
 ### PLATFORM_HASH
 
 ```solidity
-bytes32 internal PLATFORM_HASH;
+bytes32 internal PLATFORM_HASH
 ```
 
 
 ### PLATFORM_FEE_PERCENT
 
 ```solidity
-uint256 internal PLATFORM_FEE_PERCENT;
+uint256 internal PLATFORM_FEE_PERCENT
 ```
 
 
 ### s_feesDisbursed
 
 ```solidity
-bool internal s_feesDisbursed;
+bool internal s_feesDisbursed
 ```
 
 
 ### s_tokenRaisedAmounts
 
 ```solidity
-mapping(address => uint256) internal s_tokenRaisedAmounts;
+mapping(address => uint256) internal s_tokenRaisedAmounts
+```
+
+
+### s_tokenLifetimeRaisedAmounts
+
+```solidity
+mapping(address => uint256) internal s_tokenLifetimeRaisedAmounts
 ```
 
 
@@ -71,18 +78,18 @@ function __BaseContract_init(bytes32 platformHash, address infoAddress) internal
 
 ### whenCampaignNotPaused
 
-*Modifier that checks if the campaign is not paused.*
+Modifier that checks if the campaign is not paused.
 
 
 ```solidity
-modifier whenCampaignNotPaused();
+modifier whenCampaignNotPaused() ;
 ```
 
 ### whenCampaignNotCancelled
 
 
 ```solidity
-modifier whenCampaignNotCancelled();
+modifier whenCampaignNotCancelled() ;
 ```
 
 ### getplatformHash
@@ -117,7 +124,7 @@ function getplatformFeePercent() external view override returns (uint256);
 
 ### _normalizeAmount
 
-*Normalizes token amount to 18 decimals for consistent comparison.*
+Normalizes token amount to 18 decimals for consistent comparison.
 
 
 ```solidity
@@ -139,7 +146,7 @@ function _normalizeAmount(address token, uint256 amount) internal view returns (
 
 ### _denormalizeAmount
 
-*Denormalizes an amount from 18 decimals to the token's actual decimals.*
+Denormalizes an amount from 18 decimals to the token's actual decimals.
 
 
 ```solidity
@@ -179,7 +186,7 @@ function withdraw() public virtual override whenCampaignNotPaused whenCampaignNo
 
 ### pauseTreasury
 
-*External function to pause the campaign.*
+External function to pause the campaign.
 
 
 ```solidity
@@ -188,7 +195,7 @@ function pauseTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFOR
 
 ### unpauseTreasury
 
-*External function to unpause the campaign.*
+External function to unpause the campaign.
 
 
 ```solidity
@@ -197,17 +204,32 @@ function unpauseTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATF
 
 ### cancelTreasury
 
-*External function to cancel the campaign.*
+External function to cancel the campaign.
 
 
 ```solidity
 function cancelTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
 ```
 
+### cancelled
+
+Returns true if the treasury has been cancelled.
+
+
+```solidity
+function cancelled() public view virtual override(ICampaignTreasury, PausableCancellable) returns (bool);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if cancelled, false otherwise.|
+
+
 ### _revertIfCampaignPaused
 
-*Internal function to check if the campaign is paused.
-If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.*
+Internal function to check if the campaign is paused.
+If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
 
 
 ```solidity
@@ -223,7 +245,7 @@ function _revertIfCampaignCancelled() internal view;
 
 ### _checkSuccessCondition
 
-*Internal function to check the success condition for fee disbursement.*
+Internal function to check the success condition for fee disbursement.
 
 
 ```solidity
@@ -279,7 +301,7 @@ event SuccessConditionNotFulfilled();
 
 ## Errors
 ### TreasuryTransferFailed
-*Throws an error indicating a failed treasury transfer.*
+Throws an error indicating a failed treasury transfer.
 
 
 ```solidity
@@ -287,7 +309,7 @@ error TreasuryTransferFailed();
 ```
 
 ### TreasurySuccessConditionNotFulfilled
-*Throws an error indicating that the success condition was not fulfilled.*
+Throws an error indicating that the success condition was not fulfilled.
 
 
 ```solidity
@@ -295,7 +317,7 @@ error TreasurySuccessConditionNotFulfilled();
 ```
 
 ### TreasuryFeeNotDisbursed
-*Throws an error indicating that fees have not been disbursed.*
+Throws an error indicating that fees have not been disbursed.
 
 
 ```solidity
@@ -303,7 +325,7 @@ error TreasuryFeeNotDisbursed();
 ```
 
 ### TreasuryCampaignInfoIsPaused
-*Throws an error indicating that the campaign is paused.*
+Throws an error indicating that the campaign is paused.
 
 
 ```solidity

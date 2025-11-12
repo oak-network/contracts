@@ -9,4 +9,5 @@
 - [FiatEnabled](FiatEnabled.sol/abstract.FiatEnabled.md)
 - [ItemRegistry](ItemRegistry.sol/contract.ItemRegistry.md)
 - [PausableCancellable](PausableCancellable.sol/abstract.PausableCancellable.md)
+- [PledgeNFT](PledgeNFT.sol/abstract.PledgeNFT.md)
 - [TimestampChecker](TimestampChecker.sol/abstract.TimestampChecker.md)

@@ -1,7 +1,7 @@
 # ITreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/interfaces/ITreasuryFactory.sol)
 
-*Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.*
+Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.
 
 
 ## Functions
@@ -9,7 +9,7 @@
 
 Registers a treasury implementation for a given platform.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
@@ -29,7 +29,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-*Callable only by the protocol admin.*
+Callable only by the protocol admin.
 
 
 ```solidity
@@ -78,17 +78,13 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
-function deploy(
-    bytes32 platformHash,
-    address infoAddress,
-    uint256 implementationId,
-    string calldata name,
-    string calldata symbol
-) external returns (address clone);
+function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+    external
+    returns (address clone);
 ```
 **Parameters**
 
@@ -97,8 +93,6 @@ function deploy(
 |`platformHash`|`bytes32`|The platform identifier.|
 |`infoAddress`|`address`|The address of the campaign info contract.|
 |`implementationId`|`uint256`|The ID of the implementation to use.|
-|`name`|`string`|The name of the treasury token.|
-|`symbol`|`string`|The symbol of the treasury token.|
 
 **Returns**
 
@@ -109,12 +103,15 @@ function deploy(
 
 ## Events
 ### TreasuryFactoryTreasuryDeployed
-*Emitted when a new treasury is deployed.*
+Emitted when a new treasury is deployed.
 
 
 ```solidity
 event TreasuryFactoryTreasuryDeployed(
-    bytes32 indexed platformHash, uint256 indexed implementationId, address indexed infoAddress, address treasuryAddress
+    bytes32 indexed platformHash,
+    uint256 indexed implementationId,
+    address indexed infoAddress,
+    address treasuryAddress
 );
 ```
 

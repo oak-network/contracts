@@ -1,14 +1,14 @@
-# PaymentTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/treasuries/PaymentTreasury.sol)
+# TimeConstrainedPaymentTreasury
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/treasuries/TimeConstrainedPaymentTreasury.sol)
 
 **Inherits:**
-[BasePaymentTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md)
+[BasePaymentTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md)
 
 
 ## Functions
 ### constructor
 
-Constructor for the PaymentTreasury contract.
+Constructor for the TimeConstrainedPaymentTreasury contract.
 
 
 ```solidity
@@ -20,6 +20,24 @@ constructor() ;
 
 ```solidity
 function initialize(bytes32 _platformHash, address _infoAddress) external initializer;
+```
+
+### _checkTimeWithinRange
+
+Internal function to check if current time is within the allowed range.
+
+
+```solidity
+function _checkTimeWithinRange() internal view;
+```
+
+### _checkTimeIsGreater
+
+Internal function to check if current time is greater than launch time.
+
+
+```solidity
+function _checkTimeIsGreater() internal view;
 ```
 
 ### createPayment
@@ -37,7 +55,7 @@ function createPayment(
     uint256 expiration,
     ICampaignPaymentTreasury.LineItem[] calldata lineItems,
     ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-) public override whenNotPaused whenNotCancelled;
+) public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -68,7 +86,7 @@ function createPaymentBatch(
     uint256[] calldata expirations,
     ICampaignPaymentTreasury.LineItem[][] calldata lineItemsArray,
     ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
-) public override whenNotPaused whenNotCancelled;
+) public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -100,7 +118,7 @@ function processCryptoPayment(
     uint256 amount,
     ICampaignPaymentTreasury.LineItem[] calldata lineItems,
     ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-) public override whenNotPaused whenNotCancelled;
+) public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -121,7 +139,7 @@ Cancels an existing payment with the given payment ID.
 
 
 ```solidity
-function cancelPayment(bytes32 paymentId) public override whenNotPaused whenNotCancelled;
+function cancelPayment(bytes32 paymentId) public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -136,7 +154,11 @@ Confirms and finalizes the payment associated with the given payment ID.
 
 
 ```solidity
-function confirmPayment(bytes32 paymentId, address buyerAddress) public override whenNotPaused whenNotCancelled;
+function confirmPayment(bytes32 paymentId, address buyerAddress)
+    public
+    override
+    whenCampaignNotPaused
+    whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -155,8 +177,8 @@ Confirms and finalizes multiple payments in a single transaction.
 function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
     public
     override
-    whenNotPaused
-    whenNotCancelled;
+    whenCampaignNotPaused
+    whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -174,7 +196,11 @@ Only callable by platform admin. Used for payments confirmed without a buyer add
 
 
 ```solidity
-function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled;
+function claimRefund(bytes32 paymentId, address refundAddress)
+    public
+    override
+    whenCampaignNotPaused
+    whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -192,7 +218,7 @@ Only callable by platform admin. Used for payments confirmed without a buyer add
 
 
 ```solidity
-function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled;
+function claimRefund(bytes32 paymentId) public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 **Parameters**
 
@@ -207,7 +233,7 @@ Allows platform admin to claim all remaining funds once the claim window has ope
 
 
 ```solidity
-function claimExpiredFunds() public override whenNotPaused whenNotCancelled;
+function claimExpiredFunds() public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
 ### disburseFees
@@ -216,7 +242,7 @@ Disburses fees collected by the treasury.
 
 
 ```solidity
-function disburseFees() public override whenNotPaused whenNotCancelled;
+function disburseFees() public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
 ### withdraw
@@ -225,7 +251,7 @@ Withdraws funds from the treasury.
 
 
 ```solidity
-function withdraw() public override whenNotPaused whenNotCancelled;
+function withdraw() public override whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
 ### cancelTreasury
@@ -253,11 +279,11 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 
 
 ## Errors
-### PaymentTreasuryUnAuthorized
+### TimeConstrainedPaymentTreasuryUnAuthorized
 Emitted when an unauthorized action is attempted.
 
 
 ```solidity
-error PaymentTreasuryUnAuthorized();
+error TimeConstrainedPaymentTreasuryUnAuthorized();
 ```
 

@@ -1,8 +1,8 @@
 # KeepWhatsRaised
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
-[IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable, [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
+[IReward](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [ICampaignData](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), ReentrancyGuard
 
 A contract that keeps all the funds raised, regardless of the success condition.
 
@@ -11,28 +11,28 @@ A contract that keeps all the funds raised, regardless of the success condition.
 ### s_tokenToPledgedAmount
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+mapping(uint256 => uint256) private s_tokenToPledgedAmount
 ```
 
 
 ### s_tokenToTippedAmount
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToTippedAmount;
+mapping(uint256 => uint256) private s_tokenToTippedAmount
 ```
 
 
 ### s_tokenToPaymentFee
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToPaymentFee;
+mapping(uint256 => uint256) private s_tokenToPaymentFee
 ```
 
 
 ### s_reward
 
 ```solidity
-mapping(bytes32 => Reward) private s_reward;
+mapping(bytes32 => Reward) private s_reward
 ```
 
 
@@ -41,7 +41,7 @@ Tracks whether a pledge with a specific ID has already been processed
 
 
 ```solidity
-mapping(bytes32 => bool) public s_processedPledges;
+mapping(bytes32 => bool) public s_processedPledges
 ```
 
 
@@ -50,7 +50,7 @@ Mapping to store payment gateway fees by unique pledge ID
 
 
 ```solidity
-mapping(bytes32 => uint256) public s_paymentGatewayFees;
+mapping(bytes32 => uint256) public s_paymentGatewayFees
 ```
 
 
@@ -59,186 +59,149 @@ Mapping that stores fee values indexed by their corresponding fee keys.
 
 
 ```solidity
-mapping(bytes32 => uint256) private s_feeValues;
+mapping(bytes32 => uint256) private s_feeValues
 ```
 
 
 ### s_tokenIdToPledgeToken
 
 ```solidity
-mapping(uint256 => address) private s_tokenIdToPledgeToken;
+mapping(uint256 => address) private s_tokenIdToPledgeToken
 ```
 
 
 ### s_protocolFeePerToken
 
 ```solidity
-mapping(address => uint256) private s_protocolFeePerToken;
+mapping(address => uint256) private s_protocolFeePerToken
 ```
 
 
 ### s_platformFeePerToken
 
 ```solidity
-mapping(address => uint256) private s_platformFeePerToken;
+mapping(address => uint256) private s_platformFeePerToken
 ```
 
 
 ### s_tipPerToken
 
 ```solidity
-mapping(address => uint256) private s_tipPerToken;
+mapping(address => uint256) private s_tipPerToken
 ```
 
 
 ### s_availablePerToken
 
 ```solidity
-mapping(address => uint256) private s_availablePerToken;
-```
-
-
-### s_tokenIdCounter
-
-```solidity
-Counters.Counter private s_tokenIdCounter;
+mapping(address => uint256) private s_availablePerToken
 ```
 
 
 ### s_rewardCounter
 
 ```solidity
-Counters.Counter private s_rewardCounter;
-```
-
-
-### s_name
-
-```solidity
-string private s_name;
-```
-
-
-### s_symbol
-
-```solidity
-string private s_symbol;
+Counters.Counter private s_rewardCounter
 ```
 
 
 ### s_cancellationTime
 
 ```solidity
-uint256 private s_cancellationTime;
+uint256 private s_cancellationTime
 ```
 
 
 ### s_isWithdrawalApproved
 
 ```solidity
-bool private s_isWithdrawalApproved;
+bool private s_isWithdrawalApproved
 ```
 
 
 ### s_tipClaimed
 
 ```solidity
-bool private s_tipClaimed;
+bool private s_tipClaimed
 ```
 
 
 ### s_fundClaimed
 
 ```solidity
-bool private s_fundClaimed;
+bool private s_fundClaimed
 ```
 
 
 ### s_feeKeys
 
 ```solidity
-FeeKeys private s_feeKeys;
+FeeKeys private s_feeKeys
 ```
 
 
 ### s_config
 
 ```solidity
-Config private s_config;
+Config private s_config
 ```
 
 
 ### s_campaignData
 
 ```solidity
-CampaignData private s_campaignData;
+CampaignData private s_campaignData
 ```
 
 
 ## Functions
 ### withdrawalEnabled
 
-*Ensures that withdrawals are currently enabled.
-Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.*
+Ensures that withdrawals are currently enabled.
+Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
 
 
 ```solidity
-modifier withdrawalEnabled();
+modifier withdrawalEnabled() ;
 ```
 
 ### onlyBeforeConfigLock
 
-*Restricts execution to only occur before the configuration lock period.
+Restricts execution to only occur before the configuration lock period.
 Reverts with `KeepWhatsRaisedConfigLocked` if called too close to or after the campaign deadline.
-The lock period is defined as the duration before the deadline during which configuration changes are not allowed.*
+The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
 
 
 ```solidity
-modifier onlyBeforeConfigLock();
+modifier onlyBeforeConfigLock() ;
 ```
 
 ### onlyPlatformAdminOrCampaignOwner
 
 Restricts access to only the platform admin or the campaign owner.
 
-*Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
-or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.*
+Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
+or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
 
 
 ```solidity
-modifier onlyPlatformAdminOrCampaignOwner();
+modifier onlyPlatformAdminOrCampaignOwner() ;
 ```
 
 ### constructor
 
-*Constructor for the KeepWhatsRaised contract.*
+Constructor for the KeepWhatsRaised contract.
 
 
 ```solidity
-constructor() ERC721("", "");
+constructor() ;
 ```
 
 ### initialize
 
 
 ```solidity
-function initialize(bytes32 _platformHash, address _infoAddress, string calldata _name, string calldata _symbol)
-    external
-    initializer;
-```
-
-### name
-
-
-```solidity
-function name() public view override returns (string memory);
-```
-
-### symbol
-
-
-```solidity
-function symbol() public view override returns (string memory);
+function initialize(bytes32 _platformHash, address _infoAddress) external initializer;
 ```
 
 ### getWithdrawalApprovalStatus
@@ -284,6 +247,36 @@ function getRaisedAmount() external view override returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total raised amount as a uint256 value.|
+
+
+### getLifetimeRaisedAmount
+
+Retrieves the lifetime raised amount in the treasury (never decreases with refunds).
+
+
+```solidity
+function getLifetimeRaisedAmount() external view override returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+
+
+### getRefundedAmount
+
+Retrieves the total refunded amount in the treasury.
+
+
+```solidity
+function getRefundedAmount() external view override returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
 
 
 ### getAvailableRaisedAmount
@@ -369,7 +362,7 @@ function getPaymentGatewayFee(bytes32 pledgeId) public view returns (uint256);
 
 ### getFeeValue
 
-*Retrieves the fee value associated with a specific fee key from storage.*
+Retrieves the fee value associated with a specific fee key from storage.
 
 
 ```solidity
@@ -427,8 +420,8 @@ function approveWithdrawal()
 
 ### configureTreasury
 
-*Configures the treasury for a campaign by setting the system parameters,
-campaign-specific data, and fee configuration keys.*
+Configures the treasury for a campaign by setting the system parameters,
+campaign-specific data, and fee configuration keys.
 
 
 ```solidity
@@ -457,7 +450,7 @@ function configureTreasury(
 
 ### updateDeadline
 
-*Updates the campaign's deadline.*
+Updates the campaign's deadline.
 
 
 ```solidity
@@ -477,7 +470,7 @@ function updateDeadline(uint256 deadline)
 
 ### updateGoalAmount
 
-*Updates the funding goal amount for the campaign.*
+Updates the funding goal amount for the campaign.
 
 
 ```solidity
@@ -499,10 +492,10 @@ function updateGoalAmount(uint256 goalAmount)
 
 Adds multiple rewards in a batch.
 
-*This function allows for both reward tiers and non-reward tiers.
+This function allows for both reward tiers and non-reward tiers.
 For both types, rewards must have non-zero value.
 If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
-Empty arrays are allowed for both reward tiers and non-reward tiers.*
+Empty arrays are allowed for both reward tiers and non-reward tiers.
 
 
 ```solidity
@@ -560,6 +553,7 @@ function setFeeAndPledge(
     bool isPledgeForAReward
 )
     external
+    nonReentrant
     onlyPlatformAdmin(PLATFORM_HASH)
     whenCampaignNotPaused
     whenNotPaused
@@ -584,13 +578,20 @@ function setFeeAndPledge(
 
 Allows a backer to pledge for a reward.
 
-*The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-The non-reward tiers cannot be pledged for without a reward.*
+The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+The non-reward tiers cannot be pledged for without a reward.
 
 
 ```solidity
-function pledgeForAReward(bytes32 pledgeId, address backer, address pledgeToken, uint256 tip, bytes32[] calldata reward)
+function pledgeForAReward(
+    bytes32 pledgeId,
+    address backer,
+    address pledgeToken,
+    uint256 tip,
+    bytes32[] calldata reward
+)
     public
+    nonReentrant
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -612,10 +613,10 @@ function pledgeForAReward(bytes32 pledgeId, address backer, address pledgeToken,
 
 Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
 
-*The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
 The non-reward tiers cannot be pledged for without a reward.
 This function is called internally by both public pledgeForAReward (with backer as token source) and
-setFeeAndPledge (with admin as token source).*
+setFeeAndPledge (with admin as token source).
 
 
 ```solidity
@@ -626,13 +627,7 @@ function _pledgeForAReward(
     uint256 tip,
     bytes32[] calldata reward,
     address tokenSource
-)
-    internal
-    currentTimeIsWithinRange(getLaunchTime(), getDeadline())
-    whenCampaignNotPaused
-    whenNotPaused
-    whenCampaignNotCancelled
-    whenNotCancelled;
+) internal;
 ```
 **Parameters**
 
@@ -652,8 +647,15 @@ Allows a backer to pledge without selecting a reward.
 
 
 ```solidity
-function pledgeWithoutAReward(bytes32 pledgeId, address backer, address pledgeToken, uint256 pledgeAmount, uint256 tip)
+function pledgeWithoutAReward(
+    bytes32 pledgeId,
+    address backer,
+    address pledgeToken,
+    uint256 pledgeAmount,
+    uint256 tip
+)
     public
+    nonReentrant
     currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -675,8 +677,8 @@ function pledgeWithoutAReward(bytes32 pledgeId, address backer, address pledgeTo
 
 Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
 
-*This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
-setFeeAndPledge (with admin as token source).*
+This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
+setFeeAndPledge (with admin as token source).
 
 
 ```solidity
@@ -687,13 +689,7 @@ function _pledgeWithoutAReward(
     uint256 pledgeAmount,
     uint256 tip,
     address tokenSource
-)
-    internal
-    currentTimeIsWithinRange(getLaunchTime(), getDeadline())
-    whenCampaignNotPaused
-    whenNotPaused
-    whenCampaignNotCancelled
-    whenNotCancelled;
+) internal;
 ```
 **Parameters**
 
@@ -718,7 +714,7 @@ function withdraw() public view override whenNotPaused whenNotCancelled;
 
 ### withdraw
 
-*Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.*
+Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
 
 
 ```solidity
@@ -740,7 +736,7 @@ function withdraw(address token, uint256 amount)
 
 ### claimRefund
 
-*Allows a backer to claim a refund associated with a specific pledge (token ID).*
+Allows a backer to claim a refund associated with a specific pledge (token ID).
 
 
 ```solidity
@@ -759,9 +755,9 @@ function claimRefund(uint256 tokenId)
 
 ### disburseFees
 
-*Disburses all accumulated fees to the appropriate fee collector or treasury.
+Disburses all accumulated fees to the appropriate fee collector or treasury.
 Requirements:
-- Only callable when fees are available.*
+- Only callable when fees are available.
 
 
 ```solidity
@@ -770,10 +766,10 @@ function disburseFees() public override whenNotPaused whenNotCancelled;
 
 ### claimTip
 
-*Allows an authorized claimer to collect tips contributed during the campaign.
+Allows an authorized claimer to collect tips contributed during the campaign.
 Requirements:
 - Caller must be authorized to claim tips.
-- Tip amount must be non-zero.*
+- Tip amount must be non-zero.
 
 
 ```solidity
@@ -782,10 +778,10 @@ function claimTip() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPau
 
 ### claimFund
 
-*Allows the platform admin to claim the remaining funds from a campaign.
+Allows the platform admin to claim the remaining funds from a campaign.
 Requirements:
 - Claim period must have started and funds must be available.
-- Cannot be previously claimed.*
+- Cannot be previously claimed.
 
 
 ```solidity
@@ -794,7 +790,7 @@ function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPa
 
 ### cancelTreasury
 
-*This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.*
+This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
 
 
 ```solidity
@@ -803,7 +799,7 @@ function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCamp
 
 ### _checkSuccessCondition
 
-*Internal function to check the success condition for fee disbursement.*
+Internal function to check the success condition for fee disbursement.
 
 
 ```solidity
@@ -827,7 +823,6 @@ function _pledge(
     bytes32 reward,
     uint256 pledgeAmount,
     uint256 tip,
-    uint256 tokenId,
     bytes32[] memory rewards,
     address tokenSource
 ) private;
@@ -838,12 +833,12 @@ function _pledge(
 Calculates the net amount available from a pledge after deducting
 all applicable fees.
 
-*The function performs the following:
+The function performs the following:
 - Applies all configured gross percentage-based fees
 - Applies payment gateway fee for the given pledge
 - Applies protocol fee based on protocol configuration
 - Accumulates total platform and protocol fees per token
-- Records the total deducted fee for the token*
+- Records the total deducted fee for the token
 
 
 ```solidity
@@ -874,9 +869,9 @@ Refund period logic:
 - If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
 - Before deadline (non-cancelled): not in refund period
 
-*Checks the refund period status based on campaign state*
+Checks the refund period status based on campaign state
 
-*This function handles both cancelled and non-cancelled campaign scenarios*
+This function handles both cancelled and non-cancelled campaign scenarios
 
 
 ```solidity
@@ -895,16 +890,9 @@ function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool)
 |`<none>`|`bool`|bool Status based on checkIfOver parameter|
 
 
-### supportsInterface
-
-
-```solidity
-function supportsInterface(bytes4 interfaceId) public view override returns (bool);
-```
-
 ## Events
 ### Receipt
-*Emitted when a backer makes a pledge.*
+Emitted when a backer makes a pledge.
 
 
 ```solidity
@@ -932,7 +920,7 @@ event Receipt(
 |`rewards`|`bytes32[]`|An array of reward names.|
 
 ### RewardsAdded
-*Emitted when rewards are added to the campaign.*
+Emitted when rewards are added to the campaign.
 
 
 ```solidity
@@ -947,7 +935,7 @@ event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 |`rewards`|`Reward[]`|The details of the rewards.|
 
 ### RewardRemoved
-*Emitted when a reward is removed from the campaign.*
+Emitted when a reward is removed from the campaign.
 
 
 ```solidity
@@ -961,7 +949,7 @@ event RewardRemoved(bytes32 indexed rewardName);
 |`rewardName`|`bytes32`|The name of the reward.|
 
 ### WithdrawalApproved
-*Emitted when withdrawal functionality has been approved by the platform admin.*
+Emitted when withdrawal functionality has been approved by the platform admin.
 
 
 ```solidity
@@ -969,7 +957,7 @@ event WithdrawalApproved();
 ```
 
 ### TreasuryConfigured
-*Emitted when the treasury configuration is updated.*
+Emitted when the treasury configuration is updated.
 
 
 ```solidity
@@ -986,7 +974,7 @@ event TreasuryConfigured(Config config, CampaignData campaignData, FeeKeys feeKe
 |`feeValues`|`FeeValues`|The fee values corresponding to the fee keys.|
 
 ### WithdrawalWithFeeSuccessful
-*Emitted when a withdrawal is successfully processed along with the applied fee.*
+Emitted when a withdrawal is successfully processed along with the applied fee.
 
 
 ```solidity
@@ -1002,7 +990,7 @@ event WithdrawalWithFeeSuccessful(address indexed to, uint256 amount, uint256 fe
 |`fee`|`uint256`|The fee amount deducted from the withdrawal.|
 
 ### TipClaimed
-*Emitted when a tip is claimed from the contract.*
+Emitted when a tip is claimed from the contract.
 
 
 ```solidity
@@ -1017,7 +1005,7 @@ event TipClaimed(uint256 amount, address indexed claimer);
 |`claimer`|`address`|The address that claimed the tip.|
 
 ### FundClaimed
-*Emitted when campaign or user's remaining funds are successfully claimed by the platform admin.*
+Emitted when campaign or user's remaining funds are successfully claimed by the platform admin.
 
 
 ```solidity
@@ -1032,7 +1020,7 @@ event FundClaimed(uint256 amount, address indexed claimer);
 |`claimer`|`address`|The address that claimed the funds.|
 
 ### RefundClaimed
-*Emitted when a refund is claimed.*
+Emitted when a refund is claimed.
 
 
 ```solidity
@@ -1048,7 +1036,7 @@ event RefundClaimed(uint256 indexed tokenId, uint256 refundAmount, address index
 |`claimer`|`address`|The address of the claimer.|
 
 ### KeepWhatsRaisedDeadlineUpdated
-*Emitted when the deadline of the campaign is updated.*
+Emitted when the deadline of the campaign is updated.
 
 
 ```solidity
@@ -1062,7 +1050,7 @@ event KeepWhatsRaisedDeadlineUpdated(uint256 newDeadline);
 |`newDeadline`|`uint256`|The new deadline.|
 
 ### KeepWhatsRaisedGoalAmountUpdated
-*Emitted when the goal amount for a campaign is updated.*
+Emitted when the goal amount for a campaign is updated.
 
 
 ```solidity
@@ -1076,7 +1064,7 @@ event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
 |`newGoalAmount`|`uint256`|The new goal amount set for the campaign.|
 
 ### KeepWhatsRaisedPaymentGatewayFeeSet
-*Emitted when a gateway fee is set for a specific pledge.*
+Emitted when a gateway fee is set for a specific pledge.
 
 
 ```solidity
@@ -1092,7 +1080,7 @@ event KeepWhatsRaisedPaymentGatewayFeeSet(bytes32 indexed pledgeId, uint256 fee)
 
 ## Errors
 ### KeepWhatsRaisedUnAuthorized
-*Emitted when an unauthorized action is attempted.*
+Emitted when an unauthorized action is attempted.
 
 
 ```solidity
@@ -1100,7 +1088,7 @@ error KeepWhatsRaisedUnAuthorized();
 ```
 
 ### KeepWhatsRaisedInvalidInput
-*Emitted when an invalid input is detected.*
+Emitted when an invalid input is detected.
 
 
 ```solidity
@@ -1108,7 +1096,7 @@ error KeepWhatsRaisedInvalidInput();
 ```
 
 ### KeepWhatsRaisedTokenNotAccepted
-*Emitted when a token is not accepted for the campaign.*
+Emitted when a token is not accepted for the campaign.
 
 
 ```solidity
@@ -1116,7 +1104,7 @@ error KeepWhatsRaisedTokenNotAccepted(address token);
 ```
 
 ### KeepWhatsRaisedRewardExists
-*Emitted when a `Reward` already exists for given input.*
+Emitted when a `Reward` already exists for given input.
 
 
 ```solidity
@@ -1124,7 +1112,7 @@ error KeepWhatsRaisedRewardExists();
 ```
 
 ### KeepWhatsRaisedDisabled
-*Emitted when anyone called a disabled function.*
+Emitted when anyone called a disabled function.
 
 
 ```solidity
@@ -1132,7 +1120,7 @@ error KeepWhatsRaisedDisabled();
 ```
 
 ### KeepWhatsRaisedAlreadyEnabled
-*Emitted when any functionality is already enabled and cannot be re-enabled.*
+Emitted when any functionality is already enabled and cannot be re-enabled.
 
 
 ```solidity
@@ -1140,7 +1128,7 @@ error KeepWhatsRaisedAlreadyEnabled();
 ```
 
 ### KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee
-*Emitted when a withdrawal attempt exceeds the available funds after accounting for the fee.*
+Emitted when a withdrawal attempt exceeds the available funds after accounting for the fee.
 
 
 ```solidity
@@ -1173,7 +1161,7 @@ error KeepWhatsRaisedInsufficientFundsForFee(uint256 withdrawalAmount, uint256 f
 |`fee`|`uint256`|The calculated fee, which is greater than the withdrawal amount.|
 
 ### KeepWhatsRaisedAlreadyWithdrawn
-*Emitted when a withdrawal has already been made and cannot be repeated.*
+Emitted when a withdrawal has already been made and cannot be repeated.
 
 
 ```solidity
@@ -1181,7 +1169,7 @@ error KeepWhatsRaisedAlreadyWithdrawn();
 ```
 
 ### KeepWhatsRaisedAlreadyClaimed
-*Emitted when funds or rewards have already been claimed for the given context.*
+Emitted when funds or rewards have already been claimed for the given context.
 
 
 ```solidity
@@ -1189,7 +1177,7 @@ error KeepWhatsRaisedAlreadyClaimed();
 ```
 
 ### KeepWhatsRaisedNotClaimable
-*Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).*
+Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
 
 
 ```solidity
@@ -1203,7 +1191,7 @@ error KeepWhatsRaisedNotClaimable(uint256 tokenId);
 |`tokenId`|`uint256`|The ID of the token that was attempted to be claimed.|
 
 ### KeepWhatsRaisedNotClaimableAdmin
-*Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.*
+Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
 
 
 ```solidity
@@ -1211,7 +1199,7 @@ error KeepWhatsRaisedNotClaimableAdmin();
 ```
 
 ### KeepWhatsRaisedConfigLocked
-*Emitted when a configuration change is attempted during the lock period.*
+Emitted when a configuration change is attempted during the lock period.
 
 
 ```solidity
@@ -1219,7 +1207,7 @@ error KeepWhatsRaisedConfigLocked();
 ```
 
 ### KeepWhatsRaisedDisbursementBlocked
-*Emitted when a disbursement is attempted before the refund period has ended.*
+Emitted when a disbursement is attempted before the refund period has ended.
 
 
 ```solidity
@@ -1227,7 +1215,7 @@ error KeepWhatsRaisedDisbursementBlocked();
 ```
 
 ### KeepWhatsRaisedPledgeAlreadyProcessed
-*Emitted when a pledge is submitted using a pledgeId that has already been processed.*
+Emitted when a pledge is submitted using a pledgeId that has already been processed.
 
 
 ```solidity
@@ -1242,42 +1230,61 @@ error KeepWhatsRaisedPledgeAlreadyProcessed(bytes32 pledgeId);
 
 ## Structs
 ### FeeKeys
-*Represents keys used to reference different fee configurations.
-These keys are typically used to look up fee values stored in `s_platformData`.*
+Represents keys used to reference different fee configurations.
+These keys are typically used to look up fee values stored in `s_platformData`.
 
 
 ```solidity
 struct FeeKeys {
+    /// @dev Key for a flat fee applied to an operation.
     bytes32 flatFeeKey;
+
+    /// @dev Key for a cumulative flat fee, potentially across multiple actions.
     bytes32 cumulativeFlatFeeKey;
+
+    /// @dev Keys for gross percentage-based fees (calculated before deductions).
     bytes32[] grossPercentageFeeKeys;
 }
 ```
 
 ### FeeValues
-*Represents the complete fee structure values for treasury operations.
+Represents the complete fee structure values for treasury operations.
 These values correspond to the fees that will be applied to transactions
-and are typically retrieved using keys from `FeeKeys` struct.*
+and are typically retrieved using keys from `FeeKeys` struct.
 
 
 ```solidity
 struct FeeValues {
+    /// @dev Value for a flat fee applied to an operation.
     uint256 flatFeeValue;
+
+    /// @dev Value for a cumulative flat fee, potentially across multiple actions.
     uint256 cumulativeFlatFeeValue;
+
+    /// @dev Values for gross percentage-based fees (calculated before deductions).
     uint256[] grossPercentageFeeValues;
 }
 ```
 
 ### Config
-*System configuration parameters related to withdrawal and refund behavior.*
+System configuration parameters related to withdrawal and refund behavior.
 
 
 ```solidity
 struct Config {
+    /// @dev The minimum withdrawal amount required to qualify for fee exemption.
     uint256 minimumWithdrawalForFeeExemption;
+
+    /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
     uint256 withdrawalDelay;
+
+    /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
     uint256 refundDelay;
+
+    /// @dev Duration (in timestamp) for which config changes are locked to prevent immediate updates.
     uint256 configLockPeriod;
+
+    /// @dev True if the creator is Colombian, false otherwise.
     bool isColombianCreator;
 }
 ```

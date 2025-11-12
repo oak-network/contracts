@@ -1,5 +1,5 @@
 # IGlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -134,6 +134,27 @@ function getPlatformFeePercent(bytes32 platformHash) external view returns (uint
 |`<none>`|`uint256`|The platform fee percentage as a uint256 value.|
 
 
+### getPlatformClaimDelay
+
+Retrieves the claim delay (in seconds) for a specific platform.
+
+
+```solidity
+function getPlatformClaimDelay(bytes32 platformHash) external view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The claim delay in seconds.|
+
+
 ### checkIfPlatformDataKeyValid
 
 Checks if a platform-specific data key is valid.
@@ -201,6 +222,22 @@ function updatePlatformAdminAddress(bytes32 _platformHash, address _platformAdmi
 |`_platformAdminAddress`|`address`|The new admin address of the platform.|
 
 
+### updatePlatformClaimDelay
+
+Updates the claim delay for a specific platform.
+
+
+```solidity
+function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`claimDelay`|`uint256`|The claim delay in seconds.|
+
+
 ### addTokenToCurrency
 
 Adds a token to a currency.
@@ -252,5 +289,108 @@ function getTokensForCurrency(bytes32 currency) external view returns (address[]
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`address[]`|An array of token addresses accepted for the currency.|
+
+
+### getFromRegistry
+
+Retrieves a value from the data registry.
+
+
+```solidity
+function getFromRegistry(bytes32 key) external view returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
+
+
+### setPlatformLineItemType
+
+Sets or updates a platform-specific line item type configuration.
+
+
+```solidity
+function setPlatformLineItemType(
+    bytes32 platformHash,
+    bytes32 typeId,
+    string calldata label,
+    bool countsTowardGoal,
+    bool applyProtocolFee,
+    bool canRefund,
+    bool instantTransfer
+) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
+
+
+### removePlatformLineItemType
+
+Removes a platform-specific line item type by setting its exists flag to false.
+
+
+```solidity
+function removePlatformLineItemType(bytes32 platformHash, bytes32 typeId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type to remove.|
+
+
+### getPlatformLineItemType
+
+Retrieves a platform-specific line item type configuration.
+
+
+```solidity
+function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    view
+    returns (
+        bool exists,
+        string memory label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`exists`|`bool`|Whether this line item type exists and is active.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
 
 

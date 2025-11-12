@@ -1,7 +1,12 @@
 # ICampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/08a57a0930f80d6f45ee44fa43ce6ad3e6c3c5c5/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/interfaces/ICampaignInfo.sol)
+
+**Inherits:**
+IERC721
 
 An interface for managing campaign information in a crowdfunding system.
+
+Inherits from IERC721 as CampaignInfo is an ERC721 NFT collection
 
 
 ## Functions
@@ -43,7 +48,9 @@ function checkIfPlatformSelected(bytes32 platformHash) external view returns (bo
 
 ### getTotalRaisedAmount
 
-Retrieves the total amount raised in the campaign.
+Retrieves the total amount raised across non-cancelled treasuries.
+
+This excludes cancelled treasuries and is affected by refunds.
 
 
 ```solidity
@@ -54,6 +61,100 @@ function getTotalRaisedAmount() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total amount raised in the campaign.|
+
+
+### getTotalLifetimeRaisedAmount
+
+Retrieves the total lifetime raised amount across all treasuries.
+
+This amount never decreases even when refunds are processed.
+It represents the sum of all pledges/payments ever made to the campaign,
+regardless of cancellations or refunds.
+
+
+```solidity
+function getTotalLifetimeRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total lifetime raised amount as a uint256 value.|
+
+
+### getTotalRefundedAmount
+
+Retrieves the total refunded amount across all treasuries.
+
+This is calculated as the difference between lifetime raised amount
+and current raised amount. It represents the sum of all refunds
+that have been processed across all treasuries.
+
+
+```solidity
+function getTotalRefundedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+
+
+### getTotalAvailableRaisedAmount
+
+Retrieves the total available raised amount across all treasuries.
+
+This includes funds from both active and cancelled treasuries,
+and is affected by refunds. It represents the actual current
+balance of funds across all treasuries.
+
+
+```solidity
+function getTotalAvailableRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total available raised amount as a uint256 value.|
+
+
+### getTotalCancelledAmount
+
+Retrieves the total raised amount from cancelled treasuries only.
+
+This is the opposite of getTotalRaisedAmount(), which only includes
+non-cancelled treasuries. This function only sums up raised amounts
+from treasuries that have been cancelled.
+
+
+```solidity
+function getTotalCancelledAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total raised amount from cancelled treasuries as a uint256 value.|
+
+
+### getTotalExpectedAmount
+
+Retrieves the total expected (pending) amount across payment treasuries.
+
+This only applies to payment treasuries and represents payments that
+have been created but not yet confirmed. Regular treasuries are skipped.
+
+
+```solidity
+function getTotalExpectedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total expected amount as a uint256 value.|
 
 
 ### getProtocolAdminAddress
@@ -224,6 +325,27 @@ function getPlatformFeePercent(bytes32 platformHash) external view returns (uint
 |`<none>`|`uint256`|The platform fee percentage applied to the campaign on the platform.|
 
 
+### getPlatformClaimDelay
+
+Retrieves the claim delay (in seconds) configured for the given platform.
+
+
+```solidity
+function getPlatformClaimDelay(bytes32 platformHash) external view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The claim delay in seconds.|
+
+
 ### getPlatformData
 
 Retrieves platform-specific data for the campaign.
@@ -324,7 +446,7 @@ function updateGoalAmount(uint256 goalAmount) external;
 
 Updates the selection status of a platform for the campaign.
 
-*It can only be called for a platform if its not approved i.e. the platform treasury is not deployed*
+It can only be called for a platform if its not approved i.e. the platform treasury is not deployed
 
 
 ```solidity
@@ -347,7 +469,7 @@ function updateSelectedPlatform(
 
 ### paused
 
-*Returns true if the campaign is paused, and false otherwise.*
+Returns true if the campaign is paused, and false otherwise.
 
 
 ```solidity
@@ -356,10 +478,172 @@ function paused() external view returns (bool);
 
 ### cancelled
 
-*Returns true if the campaign is cancelled, and false otherwise.*
+Returns true if the campaign is cancelled, and false otherwise.
 
 
 ```solidity
 function cancelled() external view returns (bool);
+```
+
+### getDataFromRegistry
+
+Retrieves a value from the GlobalParams data registry.
+
+
+```solidity
+function getDataFromRegistry(bytes32 key) external view returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
+
+
+### getBufferTime
+
+Retrieves the buffer time from the GlobalParams data registry.
+
+
+```solidity
+function getBufferTime() external view returns (uint256 bufferTime);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`bufferTime`|`uint256`|The buffer time value.|
+
+
+### getLineItemType
+
+Retrieves a platform-specific line item type configuration from GlobalParams.
+
+
+```solidity
+function getLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    view
+    returns (
+        bool exists,
+        string memory label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`exists`|`bool`|Whether this line item type exists and is active.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
+
+
+### mintNFTForPledge
+
+Mints a pledge NFT for a backer
+
+Can only be called by treasuries with MINTER_ROLE
+
+
+```solidity
+function mintNFTForPledge(
+    address backer,
+    bytes32 reward,
+    address tokenAddress,
+    uint256 amount,
+    uint256 shippingFee,
+    uint256 tipAmount
+) external returns (uint256 tokenId);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`backer`|`address`|The backer address|
+|`reward`|`bytes32`|The reward identifier|
+|`tokenAddress`|`address`|The address of the token used for the pledge|
+|`amount`|`uint256`|The pledge amount|
+|`shippingFee`|`uint256`|The shipping fee|
+|`tipAmount`|`uint256`|The tip amount|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The minted token ID (pledge ID)|
+
+
+### setImageURI
+
+Sets the image URI for NFT metadata
+
+
+```solidity
+function setImageURI(string calldata newImageURI) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImageURI`|`string`|The new image URI|
+
+
+### updateContractURI
+
+Updates the contract-level metadata URI
+
+
+```solidity
+function updateContractURI(string calldata newContractURI) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newContractURI`|`string`|The new contract URI|
+
+
+### burn
+
+Burns a pledge NFT
+
+
+```solidity
+function burn(uint256 tokenId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The token ID to burn|
+
+
+### isLocked
+
+Returns true if the campaign is locked (after treasury deployment), and false otherwise.
+
+
+```solidity
+function isLocked() external view returns (bool);
 ```
 
