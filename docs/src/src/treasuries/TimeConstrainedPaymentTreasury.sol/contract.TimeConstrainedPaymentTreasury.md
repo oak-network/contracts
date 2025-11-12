@@ -1,5 +1,5 @@
 # TimeConstrainedPaymentTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/treasuries/TimeConstrainedPaymentTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/treasuries/TimeConstrainedPaymentTreasury.sol)
 
 **Inherits:**
 [BasePaymentTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md)
@@ -68,7 +68,7 @@ function createPayment(
 |`amount`|`uint256`|The amount to be paid for the item.|
 |`expiration`|`uint256`|The timestamp after which the payment expires.|
 |`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fees associated with this payment.|
+|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
 
 
 ### createPaymentBatch
@@ -99,7 +99,7 @@ function createPaymentBatch(
 |`amounts`|`uint256[]`|An array of amounts corresponding to each payment.|
 |`expirations`|`uint256[]`|An array of expiration timestamps corresponding to each payment.|
 |`lineItemsArray`|`ICampaignPaymentTreasury.LineItem[][]`|An array of line item arrays, one for each payment.|
-|`externalFeesArray`|`ICampaignPaymentTreasury.ExternalFees[][]`|An array of external fees arrays, one for each payment.|
+|`externalFeesArray`|`ICampaignPaymentTreasury.ExternalFees[][]`|An array of external fee metadata arrays, one for each payment (informational only).|
 
 
 ### processCryptoPayment
@@ -130,7 +130,7 @@ function processCryptoPayment(
 |`paymentToken`|`address`|The token to use for the payment.|
 |`amount`|`uint256`|The amount to be paid for the item.|
 |`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fees associated with this payment.|
+|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
 
 
 ### cancelPayment

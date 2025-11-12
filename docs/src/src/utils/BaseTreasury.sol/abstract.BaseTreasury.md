@@ -1,5 +1,5 @@
 # BaseTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/BaseTreasury.sol)
 
 **Inherits:**
 Initializable, [ICampaignTreasury](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)

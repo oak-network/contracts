@@ -61,8 +61,8 @@ abstract contract BasePaymentTreasury is
     // Combined line items with their configuration snapshots per payment ID
     mapping (bytes32 => ICampaignPaymentTreasury.PaymentLineItem[]) internal s_paymentLineItems; // paymentId => array of stored line items
     
-    // External fees per payment ID
-    mapping (bytes32 => ICampaignPaymentTreasury.ExternalFees[]) internal s_paymentExternalFees; // paymentId => array of external fees
+    // External fee metadata per payment ID (information only, no financial impact)
+    mapping (bytes32 => ICampaignPaymentTreasury.ExternalFees[]) internal s_paymentExternalFeeMetadata; // paymentId => array of external fee metadata
     
     // Multi-token balances (all in token's native decimals)
     mapping(address => uint256) internal s_pendingPaymentPerToken; // Pending payment amounts per token
@@ -108,7 +108,7 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @dev Emitted when a payment is confirmed.
-     * @param paymentId The unique identifier of the cancelled payment.
+     * @param paymentId The unique identifier of the confirmed payment.
      */
     event PaymentConfirmed(
         bytes32 indexed paymentId
@@ -570,10 +570,10 @@ abstract contract BasePaymentTreasury is
         // Validate, store, and track line items
         _validateStoreAndTrackLineItems(paymentId, lineItems, paymentToken);
 
-        // Store external fees
-        ICampaignPaymentTreasury.ExternalFees[] storage storedExternalFees = s_paymentExternalFees[paymentId];
+        // Store external fee metadata for informational purposes only
+        ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata = s_paymentExternalFeeMetadata[paymentId];
         for (uint256 i = 0; i < externalFees.length; ) {
-            storedExternalFees.push(externalFees[i]);
+            externalFeeMetadata.push(externalFees[i]);
             unchecked {
                 ++i;
             }
@@ -679,11 +679,11 @@ abstract contract BasePaymentTreasury is
             // Validate, store, and track line items in a single loop
             _validateStoreAndTrackLineItems(paymentId, lineItems, paymentToken);
 
-            // Store external fees
+            // Store external fee metadata for informational purposes only
             ICampaignPaymentTreasury.ExternalFees[] calldata externalFees = externalFeesArray[i];
-            ICampaignPaymentTreasury.ExternalFees[] storage storedExternalFees = s_paymentExternalFees[paymentId];
+            ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata = s_paymentExternalFeeMetadata[paymentId];
             for (uint256 j = 0; j < externalFees.length; ) {
-                storedExternalFees.push(externalFees[j]);
+                externalFeeMetadata.push(externalFees[j]);
                 unchecked {
                     ++j;
                 }
@@ -816,10 +816,10 @@ abstract contract BasePaymentTreasury is
             }
         }
 
-        // Store external fees
-        ICampaignPaymentTreasury.ExternalFees[] storage storedExternalFees = s_paymentExternalFees[paymentId];
+        // Store external fee metadata for informational purposes only
+        ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata = s_paymentExternalFeeMetadata[paymentId];
         for (uint256 i = 0; i < externalFees.length; ) {
-            storedExternalFees.push(externalFees[i]);
+            externalFeeMetadata.push(externalFees[i]);
             unchecked {
                 ++i;
             }
@@ -897,7 +897,7 @@ abstract contract BasePaymentTreasury is
         delete s_payment[paymentId];
         delete s_paymentIdToToken[paymentId];
         delete s_paymentLineItems[paymentId];
-        delete s_paymentExternalFees[paymentId];
+        delete s_paymentExternalFeeMetadata[paymentId];
 
         s_pendingPaymentPerToken[paymentToken] -= amount;
 
@@ -1292,7 +1292,7 @@ abstract contract BasePaymentTreasury is
         delete s_payment[paymentId];
         delete s_paymentIdToToken[paymentId];
         delete s_paymentLineItems[paymentId];
-        delete s_paymentExternalFees[paymentId];
+        delete s_paymentExternalFeeMetadata[paymentId];
 
         s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
         s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
@@ -1435,7 +1435,7 @@ abstract contract BasePaymentTreasury is
         delete s_payment[paymentId];
         delete s_paymentIdToToken[paymentId];
         delete s_paymentLineItems[paymentId];
-        delete s_paymentExternalFees[paymentId];
+        delete s_paymentExternalFeeMetadata[paymentId];
         delete s_paymentIdToTokenId[paymentId];
 
         s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
@@ -1744,7 +1744,7 @@ abstract contract BasePaymentTreasury is
         PaymentInfo memory payment = s_payment[paymentId];
         address paymentToken = s_paymentIdToToken[paymentId];
         ICampaignPaymentTreasury.PaymentLineItem[] storage lineItemsStorage = s_paymentLineItems[paymentId];
-        ICampaignPaymentTreasury.ExternalFees[] storage externalFeesStorage = s_paymentExternalFees[paymentId];
+        ICampaignPaymentTreasury.ExternalFees[] storage externalFeesStorage = s_paymentExternalFeeMetadata[paymentId];
 
         // Copy line items from storage to memory (required: cannot directly assign storage array to memory array)
         ICampaignPaymentTreasury.PaymentLineItem[] memory lineItems = new ICampaignPaymentTreasury.PaymentLineItem[](lineItemsStorage.length);

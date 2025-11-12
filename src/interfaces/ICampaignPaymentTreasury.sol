@@ -39,7 +39,7 @@ interface ICampaignPaymentTreasury {
      * @param lineItemCount The number of line items associated with this payment.
      * @param paymentToken The token address used for this payment.
      * @param lineItems Array of stored line items with their configuration snapshots.
-     * @param externalFees Array of external fees associated with this payment.
+     * @param externalFees Array of external fee metadata associated with this payment (informational only).
      */
     struct PaymentData {
         address buyerAddress;
@@ -66,7 +66,8 @@ interface ICampaignPaymentTreasury {
     }
 
     /**
-     * @notice Represents external fees associated with a payment.
+     * @notice Represents metadata about external fees associated with a payment.
+     * @dev These values are informational only and do not affect treasury balances or transfers.
      * @param feeType The type identifier of the external fee.
      * @param feeAmount The amount of the external fee.
      */
@@ -84,7 +85,7 @@ interface ICampaignPaymentTreasury {
      * @param amount The amount to be paid for the item.
      * @param expiration The timestamp after which the payment expires.
      * @param lineItems Array of line items associated with this payment.
-     * @param externalFees Array of external fees associated with this payment.
+     * @param externalFees Array of external fee metadata captured for this payment (informational only).
      */
     function createPayment(
         bytes32 paymentId,
@@ -106,7 +107,7 @@ interface ICampaignPaymentTreasury {
      * @param amounts An array of amounts corresponding to each payment.
      * @param expirations An array of expiration timestamps corresponding to each payment.
      * @param lineItemsArray An array of line item arrays, one for each payment.
-     * @param externalFeesArray An array of external fees arrays, one for each payment.
+     * @param externalFeesArray An array of external fee metadata arrays, one for each payment (informational only).
      */
     function createPaymentBatch(
         bytes32[] calldata paymentIds,
@@ -128,7 +129,7 @@ interface ICampaignPaymentTreasury {
      * @param paymentToken The token to use for the payment.
      * @param amount The amount to be paid for the item.
      * @param lineItems Array of line items associated with this payment.
-     * @param externalFees Array of external fees associated with this payment.
+     * @param externalFees Array of external fee metadata captured for this payment (informational only).
      */
     function processCryptoPayment(
         bytes32 paymentId,

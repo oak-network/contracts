@@ -1,5 +1,5 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/TreasuryFactory.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/TreasuryFactory.sol)
 
 **Inherits:**
 Initializable, [ITreasuryFactory](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable

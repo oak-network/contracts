@@ -1,5 +1,5 @@
 # AdminAccessChecker
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/AdminAccessChecker.sol)
 
 **Inherits:**
 Context

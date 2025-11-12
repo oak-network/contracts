@@ -1,5 +1,5 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/CampaignInfo.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/CampaignInfo.sol)
 
 **Inherits:**
 [ICampaignData](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), [PledgeNFT](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/PledgeNFT.sol/abstract.PledgeNFT.md), Initializable

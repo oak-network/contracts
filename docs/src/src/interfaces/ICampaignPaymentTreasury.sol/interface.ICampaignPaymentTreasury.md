@@ -1,5 +1,5 @@
 # ICampaignPaymentTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/fbdbad195ebe6c636608bb8168723963b1f37dd9/src/interfaces/ICampaignPaymentTreasury.sol)
+[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/interfaces/ICampaignPaymentTreasury.sol)
 
 An interface for managing campaign payment treasury contracts.
 
@@ -33,7 +33,7 @@ function createPayment(
 |`amount`|`uint256`|The amount to be paid for the item.|
 |`expiration`|`uint256`|The timestamp after which the payment expires.|
 |`lineItems`|`LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ExternalFees[]`|Array of external fees associated with this payment.|
+|`externalFees`|`ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
 
 
 ### createPaymentBatch
@@ -64,7 +64,7 @@ function createPaymentBatch(
 |`amounts`|`uint256[]`|An array of amounts corresponding to each payment.|
 |`expirations`|`uint256[]`|An array of expiration timestamps corresponding to each payment.|
 |`lineItemsArray`|`LineItem[][]`|An array of line item arrays, one for each payment.|
-|`externalFeesArray`|`ExternalFees[][]`|An array of external fees arrays, one for each payment.|
+|`externalFeesArray`|`ExternalFees[][]`|An array of external fee metadata arrays, one for each payment (informational only).|
 
 
 ### processCryptoPayment
@@ -95,7 +95,7 @@ function processCryptoPayment(
 |`paymentToken`|`address`|The token to use for the payment.|
 |`amount`|`uint256`|The amount to be paid for the item.|
 |`lineItems`|`LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ExternalFees[]`|Array of external fees associated with this payment.|
+|`externalFees`|`ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
 
 
 ### cancelPayment
@@ -414,7 +414,7 @@ struct PaymentData {
 |`lineItemCount`|`uint256`|The number of line items associated with this payment.|
 |`paymentToken`|`address`|The token address used for this payment.|
 |`lineItems`|`PaymentLineItem[]`|Array of stored line items with their configuration snapshots.|
-|`externalFees`|`ExternalFees[]`|Array of external fees associated with this payment.|
+|`externalFees`|`ExternalFees[]`|Array of external fee metadata associated with this payment (informational only).|
 
 ### LineItem
 Represents a line item in a payment.
@@ -435,7 +435,9 @@ struct LineItem {
 |`amount`|`uint256`|The amount of the line item (denominated in pledge token).|
 
 ### ExternalFees
-Represents external fees associated with a payment.
+Represents metadata about external fees associated with a payment.
+
+These values are informational only and do not affect treasury balances or transfers.
 
 
 ```solidity
