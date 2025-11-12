@@ -9,6 +9,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ICampaignInfo} from "./interfaces/ICampaignInfo.sol";
 import {ICampaignData} from "./interfaces/ICampaignData.sol";
 import {ICampaignTreasury} from "./interfaces/ICampaignTreasury.sol";
+import {ICampaignPaymentTreasury} from "./interfaces/ICampaignPaymentTreasury.sol";
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {TimestampChecker} from "./utils/TimestampChecker.sol";
 import {AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
@@ -266,6 +267,89 @@ contract CampaignInfo is
             // Skip cancelled treasuries
             if (!ICampaignTreasury(tempTreasury).cancelled()) {
                 amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            }
+        }
+        return amount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getTotalLifetimeRaisedAmount() external view returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            amount += ICampaignTreasury(tempTreasury).getLifetimeRaisedAmount();
+        }
+        return amount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getTotalRefundedAmount() external view returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            amount += ICampaignTreasury(tempTreasury).getRefundedAmount();
+        }
+        return amount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getTotalAvailableRaisedAmount() external view returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+        }
+        return amount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getTotalCancelledAmount() external view returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            // Only include cancelled treasuries
+            if (ICampaignTreasury(tempTreasury).cancelled()) {
+                amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            }
+        }
+        return amount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getTotalExpectedAmount() external view returns (uint256) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        uint256 amount;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            // Try to call getExpectedAmount - will only work for payment treasuries
+            try ICampaignPaymentTreasury(tempTreasury).getExpectedAmount() returns (uint256 expectedAmount) {
+                amount += expectedAmount;
+            } catch {
+                // Not a payment treasury or call failed, skip
             }
         }
         return amount;

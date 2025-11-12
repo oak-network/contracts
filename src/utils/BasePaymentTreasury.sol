@@ -57,7 +57,8 @@ abstract contract BasePaymentTreasury is
     
     // Multi-token balances (all in token's native decimals)
     mapping(address => uint256) internal s_pendingPaymentPerToken; // Pending payment amounts per token
-    mapping(address => uint256) internal s_confirmedPaymentPerToken; // Confirmed payment amounts per token
+    mapping(address => uint256) internal s_confirmedPaymentPerToken; // Confirmed payment amounts per token (decreases on refunds)
+    mapping(address => uint256) internal s_lifetimeConfirmedPaymentPerToken; // Lifetime confirmed payment amounts per token (never decreases)
     mapping(address => uint256) internal s_availableConfirmedPerToken; // Available confirmed amounts per token
 
     /**
@@ -290,6 +291,62 @@ abstract contract BasePaymentTreasury is
         
         return totalNormalized;
     }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function getLifetimeRaisedAmount() external view returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_lifetimeConfirmedPaymentPerToken[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function getRefundedAmount() external view returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 lifetimeAmount = s_lifetimeConfirmedPaymentPerToken[token];
+            uint256 currentAmount = s_confirmedPaymentPerToken[token];
+            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            if (refundedAmount > 0) {
+                totalNormalized += _normalizeAmount(token, refundedAmount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
+     * @inheritdoc ICampaignPaymentTreasury
+     */
+    function getExpectedAmount() external view returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_pendingPaymentPerToken[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
+    }
     
     /**
      * @dev Normalizes token amounts to 18 decimals for consistent comparisons.
@@ -497,6 +554,7 @@ abstract contract BasePaymentTreasury is
 
         s_paymentIdToToken[paymentId] = paymentToken;
         s_confirmedPaymentPerToken[paymentToken] += amount;
+        s_lifetimeConfirmedPaymentPerToken[paymentToken] += amount;
         s_availableConfirmedPerToken[paymentToken] += amount;
 
         // Mint NFT for crypto payment
@@ -572,6 +630,7 @@ abstract contract BasePaymentTreasury is
  
         s_pendingPaymentPerToken[paymentToken] -= paymentAmount;
         s_confirmedPaymentPerToken[paymentToken] += paymentAmount;
+        s_lifetimeConfirmedPaymentPerToken[paymentToken] += paymentAmount;
         s_availableConfirmedPerToken[paymentToken] += paymentAmount;
         
         // Mint NFT if buyerAddress is provided
@@ -632,6 +691,7 @@ abstract contract BasePaymentTreasury is
             s_payment[currentPaymentId].isConfirmed = true;
             s_pendingPaymentPerToken[currentToken] -= amount;
             s_confirmedPaymentPerToken[currentToken] += amount;
+            s_lifetimeConfirmedPaymentPerToken[currentToken] += amount;
             s_availableConfirmedPerToken[currentToken] += amount;
 
             // Mint NFT if buyer address provided for this payment

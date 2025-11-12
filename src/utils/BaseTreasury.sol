@@ -34,7 +34,8 @@ abstract contract BaseTreasury is
     bool internal s_feesDisbursed;
     
     // Multi-token support
-    mapping(address => uint256) internal s_tokenRaisedAmounts;  // Amount raised per token
+    mapping(address => uint256) internal s_tokenRaisedAmounts;  // Amount raised per token (decreases on refunds)
+    mapping(address => uint256) internal s_tokenLifetimeRaisedAmounts;  // Lifetime raised amount per token (never decreases)
 
     /**
      * @notice Emitted when fees are successfully disbursed for a specific token.

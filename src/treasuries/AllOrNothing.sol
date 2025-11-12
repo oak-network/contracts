@@ -166,6 +166,44 @@ contract AllOrNothing is
     }
 
     /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function getLifetimeRaisedAmount() external view override returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function getRefundedAmount() external view override returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
+            uint256 currentAmount = s_tokenRaisedAmounts[token];
+            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            if (refundedAmount > 0) {
+                totalNormalized += _normalizeAmount(token, refundedAmount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
      * @notice Adds multiple rewards in a batch.
      * @dev This function allows for both reward tiers and non-reward tiers.
      *      For both types, rewards must have non-zero value.
@@ -445,6 +483,8 @@ contract AllOrNothing is
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
         
         emit Receipt(
             backer,

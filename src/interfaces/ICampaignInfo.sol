@@ -25,10 +25,55 @@ interface ICampaignInfo is IERC721 {
     ) external view returns (bool);
 
     /**
-     * @notice Retrieves the total amount raised in the campaign.
+     * @notice Retrieves the total amount raised across non-cancelled treasuries.
+     * @dev This excludes cancelled treasuries and is affected by refunds.
      * @return The total amount raised in the campaign.
      */
     function getTotalRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total lifetime raised amount across all treasuries.
+     * @dev This amount never decreases even when refunds are processed.
+     *      It represents the sum of all pledges/payments ever made to the campaign,
+     *      regardless of cancellations or refunds.
+     * @return The total lifetime raised amount as a uint256 value.
+     */
+    function getTotalLifetimeRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total refunded amount across all treasuries.
+     * @dev This is calculated as the difference between lifetime raised amount
+     *      and current raised amount. It represents the sum of all refunds
+     *      that have been processed across all treasuries.
+     * @return The total refunded amount as a uint256 value.
+     */
+    function getTotalRefundedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total available raised amount across all treasuries.
+     * @dev This includes funds from both active and cancelled treasuries,
+     *      and is affected by refunds. It represents the actual current
+     *      balance of funds across all treasuries.
+     * @return The total available raised amount as a uint256 value.
+     */
+    function getTotalAvailableRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total raised amount from cancelled treasuries only.
+     * @dev This is the opposite of getTotalRaisedAmount(), which only includes
+     *      non-cancelled treasuries. This function only sums up raised amounts
+     *      from treasuries that have been cancelled.
+     * @return The total raised amount from cancelled treasuries as a uint256 value.
+     */
+    function getTotalCancelledAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total expected (pending) amount across payment treasuries.
+     * @dev This only applies to payment treasuries and represents payments that
+     *      have been created but not yet confirmed. Regular treasuries are skipped.
+     * @return The total expected amount as a uint256 value.
+     */
+    function getTotalExpectedAmount() external view returns (uint256);
 
     /**
      * @notice Retrieves the address of the protocol administrator.

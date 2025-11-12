@@ -380,6 +380,44 @@ contract KeepWhatsRaised is
     }
 
     /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function getLifetimeRaisedAmount() external view override returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
+            if (amount > 0) {
+                totalNormalized += _normalizeAmount(token, amount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
+     * @inheritdoc ICampaignTreasury
+     */
+    function getRefundedAmount() external view override returns (uint256) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        uint256 totalNormalized = 0;
+        
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
+            uint256 currentAmount = s_tokenRaisedAmounts[token];
+            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            if (refundedAmount > 0) {
+                totalNormalized += _normalizeAmount(token, refundedAmount);
+            }
+        }
+        
+        return totalNormalized;
+    }
+
+    /**
      * @notice Retrieves the currently available raised amount in the treasury.
      * @return The current available raised amount as a uint256 value.
      */
@@ -1185,6 +1223,9 @@ contract KeepWhatsRaised is
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_tipPerToken[pledgeToken] += tip;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
 
         uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
         s_availablePerToken[pledgeToken] += netAvailable;
