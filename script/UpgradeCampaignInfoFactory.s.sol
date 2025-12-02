@@ -4,7 +4,6 @@ pragma solidity ^0.8.22;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {CampaignInfoFactory} from "../src/CampaignInfoFactory.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title UpgradeCampaignInfoFactory

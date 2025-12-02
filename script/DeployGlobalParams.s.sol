@@ -8,30 +8,19 @@ import {DeployBase} from "./lib/DeployBase.s.sol";
 contract DeployGlobalParams is DeployBase {
     function deployWithToken(address token) public returns (address) {
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        
-        // Setup currencies and tokens for multi-token support
-        bytes32[] memory currencies = new bytes32[](1);
-        address[][] memory tokensPerCurrency = new address[][](1);
-        
-        currencies[0] = keccak256(abi.encodePacked("USD"));
-        tokensPerCurrency[0] = new address[](1);
-        tokensPerCurrency[0][0] = token;
-        
+
+        (bytes32[] memory currencies, address[][] memory tokensPerCurrency) = loadCurrenciesAndTokens(token);
+
         // Deploy implementation
         GlobalParams implementation = new GlobalParams();
-        
+
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            deployer,
-            200,
-            currencies,
-            tokensPerCurrency
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(GlobalParams.initialize.selector, deployer, 200, currencies, tokensPerCurrency);
+
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        
+
         return address(proxy);
     }
 
@@ -43,30 +32,19 @@ contract DeployGlobalParams is DeployBase {
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
         address token = vm.envOr("TOKEN_ADDRESS", address(0));
         require(token != address(0), "TestToken address must be set");
-        
-        // Setup currencies and tokens for multi-token support
-        bytes32[] memory currencies = new bytes32[](1);
-        address[][] memory tokensPerCurrency = new address[][](1);
-        
-        currencies[0] = keccak256(abi.encodePacked("USD"));
-        tokensPerCurrency[0] = new address[](1);
-        tokensPerCurrency[0][0] = token;
-        
+
+        (bytes32[] memory currencies, address[][] memory tokensPerCurrency) = loadCurrenciesAndTokens(token);
+
         // Deploy implementation
         GlobalParams implementation = new GlobalParams();
-        
+
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            deployer,
-            200,
-            currencies,
-            tokensPerCurrency
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(GlobalParams.initialize.selector, deployer, 200, currencies, tokensPerCurrency);
+
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        
+
         return address(proxy);
     }
 

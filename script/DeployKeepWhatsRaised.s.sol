@@ -1,16 +1,19 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
+import {Script} from "forge-std/Script.sol";
+import {console2} from "forge-std/console2.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 
 contract DeployKeepWhatsRaisedImplementation is Script {
     function deploy() public returns (address) {
-        console.log("Deploying KeepWhatsRaisedImplementation...");
-        KeepWhatsRaised KeepWhatsRaisedImplementation = new KeepWhatsRaised();
-        console.log("KeepWhatsRaisedImplementation deployed at:", address(KeepWhatsRaisedImplementation));
-        return address(KeepWhatsRaisedImplementation);
+        console2.log("Deploying KeepWhatsRaisedImplementation...");
+        KeepWhatsRaised keepWhatsRaisedImplementation = new KeepWhatsRaised();
+        console2.log(
+            "KeepWhatsRaisedImplementation deployed at:",
+            address(keepWhatsRaisedImplementation)
+        );
+        return address(keepWhatsRaisedImplementation);
     }
 
     function run() external {
@@ -27,6 +30,9 @@ contract DeployKeepWhatsRaisedImplementation is Script {
             vm.stopBroadcast();
         }
 
-        console.log("KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS", implementationAddress);
+        console2.log(
+            "KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS",
+            implementationAddress
+        );
     }
 }
