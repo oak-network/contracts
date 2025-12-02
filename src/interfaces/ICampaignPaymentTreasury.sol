@@ -6,7 +6,6 @@ pragma solidity ^0.8.22;
  * @notice An interface for managing campaign payment treasury contracts.
  */
 interface ICampaignPaymentTreasury {
-
     /**
      * @notice Represents a stored line item with its configuration snapshot.
      * @param typeId The type identifier of the line item.
@@ -145,29 +144,21 @@ interface ICampaignPaymentTreasury {
      * @notice Cancels an existing payment with the given payment ID.
      * @param paymentId The unique identifier of the payment to cancel.
      */
-    function cancelPayment(
-        bytes32 paymentId
-    ) external;
+    function cancelPayment(bytes32 paymentId) external;
 
     /**
      * @notice Confirms and finalizes the payment associated with the given payment ID.
      * @param paymentId The unique identifier of the payment to confirm.
      * @param buyerAddress Optional buyer address to mint NFT to. Pass address(0) to skip NFT minting.
      */
-    function confirmPayment(
-        bytes32 paymentId,
-        address buyerAddress
-    ) external;
+    function confirmPayment(bytes32 paymentId, address buyerAddress) external;
 
     /**
      * @notice Confirms and finalizes multiple payments in a single transaction.
      * @param paymentIds An array of unique payment identifiers to be confirmed.
      * @param buyerAddresses Array of buyer addresses to mint NFTs to. Must match paymentIds length. Pass address(0) to skip NFT minting for specific payments.
      */
-    function confirmPaymentBatch(
-        bytes32[] calldata paymentIds,
-        address[] calldata buyerAddresses
-    ) external;
+    function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses) external;
 
     /**
      * @notice Disburses fees collected by the treasury.
@@ -193,9 +184,7 @@ interface ICampaignPaymentTreasury {
      * Used for processCryptoPayment and confirmPayment (with buyer address) transactions.
      * @param paymentId The unique identifier of the refundable payment (must have an NFT).
      */
-    function claimRefund(
-        bytes32 paymentId
-    ) external;
+    function claimRefund(bytes32 paymentId) external;
 
     /**
      * @notice Allows platform admin to claim all remaining funds once the claim window has opened.

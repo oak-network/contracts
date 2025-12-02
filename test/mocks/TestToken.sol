@@ -11,11 +11,10 @@ import {Ownable} from "../../lib/openzeppelin-contracts/contracts/access/Ownable
 contract TestToken is ERC20, Ownable {
     uint8 private _decimals;
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 decimals_
-    ) ERC20(_name, _symbol) Ownable(msg.sender) {
+    constructor(string memory _name, string memory _symbol, uint8 decimals_)
+        ERC20(_name, _symbol)
+        Ownable(msg.sender)
+    {
         _decimals = decimals_;
     }
 

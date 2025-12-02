@@ -38,7 +38,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
     string internal s_nftSymbol;
     string internal s_imageURI;
     string internal s_contractURI;
-    
+
     // Token ID counter (also serves as pledge ID counter)
     Counters.Counter internal s_tokenIdCounter;
 
@@ -64,17 +64,17 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
      * @param treasury The treasury address
      * @param reward The reward identifier
      */
-    event PledgeNFTMinted(
-        uint256 indexed tokenId,
-        address indexed backer,
-        address indexed treasury,
-        bytes32 reward
-    );
+    event PledgeNFTMinted(uint256 indexed tokenId, address indexed backer, address indexed treasury, bytes32 reward);
 
     /**
      * @dev Emitted when unauthorized access is attempted
      */
     error PledgeNFTUnAuthorized();
+
+    /**
+     * @dev Emitted when a string contains invalid characters for JSON
+     */
+    error PledgeNFTInvalidJsonString();
 
     /**
      * @notice Initialize NFT metadata
@@ -90,10 +90,27 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
         string calldata _imageURI,
         string calldata _contractURI
     ) internal {
+        _validateJsonString(_nftName);
         s_nftName = _nftName;
         s_nftSymbol = _nftSymbol;
         s_imageURI = _imageURI;
         s_contractURI = _contractURI;
+    }
+
+    /**
+     * @notice Validates that a string is safe for JSON embedding
+     * @dev Reverts if string contains quotes, backslashes, or control characters
+     * @param str The string to validate
+     */
+    function _validateJsonString(string calldata str) internal pure {
+        bytes memory b = bytes(str);
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 char = b[i];
+            // Reject: double quote ("), backslash (\), or control characters (0x00-0x1F)
+            if (char == 0x22 || char == 0x5C || char < 0x20) {
+                revert PledgeNFTInvalidJsonString();
+            }
+        }
     }
 
     /**
@@ -118,7 +135,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
         // Increment counter and get new token ID
         s_tokenIdCounter.increment();
         tokenId = s_tokenIdCounter.current();
-        
+
         // Set pledge data
         s_pledgeData[tokenId] = PledgeData({
             backer: backer,
@@ -129,12 +146,12 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
             shippingFee: shippingFee,
             tipAmount: tipAmount
         });
-        
+
+        emit PledgeNFTMinted(tokenId, backer, msg.sender, reward);
+
         // Mint NFT
         _safeMint(backer, tokenId);
-        
-        emit PledgeNFTMinted(tokenId, backer, msg.sender, reward);
-        
+
         return tokenId;
     }
 
@@ -198,26 +215,44 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
      * @param tokenId The token ID
      * @return The base64 encoded JSON metadata
      */
-    function tokenURI(
-        uint256 tokenId
-    ) public view virtual override returns (string memory) {
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         _requireOwned(tokenId);
 
         PledgeData memory data = s_pledgeData[tokenId];
-        
+
         string memory json = string(
             abi.encodePacked(
-                '{"name":"', name(), " #", tokenId.toString(),
-                '","image":"', s_imageURI,
+                '{"name":"',
+                name(),
+                " #",
+                tokenId.toString(),
+                '","image":"',
+                s_imageURI,
                 '","attributes":[',
-                '{"trait_type":"Backer","value":"', Strings.toHexString(uint160(data.backer), 20), '"},',
-                '{"trait_type":"Reward","value":"', Strings.toHexString(uint256(data.reward), 32), '"},',
-                '{"trait_type":"Treasury","value":"', Strings.toHexString(uint160(data.treasury), 20), '"},',
-                '{"trait_type":"Campaign","value":"', Strings.toHexString(uint160(address(this)), 20), '"},',
-                '{"trait_type":"PledgeToken","value":"', Strings.toHexString(uint160(data.tokenAddress), 20), '"},',
-                '{"trait_type":"PledgeAmount","value":"', data.amount.toString(), '"},',
-                '{"trait_type":"ShippingFee","value":"', data.shippingFee.toString(), '"},',
-                '{"trait_type":"TipAmount","value":"', data.tipAmount.toString(), '"}',
+                '{"trait_type":"Backer","value":"',
+                Strings.toHexString(uint160(data.backer), 20),
+                '"},',
+                '{"trait_type":"Reward","value":"',
+                Strings.toHexString(uint256(data.reward), 32),
+                '"},',
+                '{"trait_type":"Treasury","value":"',
+                Strings.toHexString(uint160(data.treasury), 20),
+                '"},',
+                '{"trait_type":"Campaign","value":"',
+                Strings.toHexString(uint160(address(this)), 20),
+                '"},',
+                '{"trait_type":"PledgeToken","value":"',
+                Strings.toHexString(uint160(data.tokenAddress), 20),
+                '"},',
+                '{"trait_type":"PledgeAmount","value":"',
+                data.amount.toString(),
+                '"},',
+                '{"trait_type":"ShippingFee","value":"',
+                data.shippingFee.toString(),
+                '"},',
+                '{"trait_type":"TipAmount","value":"',
+                data.tipAmount.toString(),
+                '"}',
                 "]}"
             )
         );
@@ -258,14 +293,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
      * @param interfaceId The interface ID
      * @return True if the interface is supported
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override(ERC721, AccessControl)
-        returns (bool)
-    {
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
-

@@ -10,7 +10,7 @@ import {IReward} from "src/interfaces/IReward.sol";
 /// @notice Contract with default values used throughout the tests.
 contract Defaults is Constants, ICampaignData, IReward {
     //Constant Variables
-    uint256 public constant PROTOCOL_FEE_PERCENT = 20 * 100; 
+    uint256 public constant PROTOCOL_FEE_PERCENT = 20 * 100;
     uint256 public constant TOKEN_MINT_AMOUNT = 1_000_000e18;
     uint256 public constant PLATFORM_FEE_PERCENT = 10 * 100; // 10%
     bytes32 public constant PLATFORM_1_HASH = keccak256(abi.encodePacked("KickStarter"));
@@ -49,7 +49,7 @@ contract Defaults is Constants, ICampaignData, IReward {
 
     // Fee Values
     bytes32 public constant FLAT_FEE_VALUE = bytes32(uint256(100e18)); // 100 token flat fee
-    bytes32 public constant CUMULATIVE_FLAT_FEE_VALUE = bytes32(uint256(200e18)); // 200 token cumulative fee  
+    bytes32 public constant CUMULATIVE_FLAT_FEE_VALUE = bytes32(uint256(200e18)); // 200 token cumulative fee
     bytes32 public constant PLATFORM_FEE_VALUE = bytes32(PLATFORM_FEE_PERCENT); // 10%
     bytes32 public constant VAKI_COMMISSION_VALUE = bytes32(uint256(6 * 100)); // 6% for regular campaigns
 

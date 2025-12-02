@@ -11,11 +11,7 @@ import {IReward} from "src/interfaces/IReward.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 
 /// @notice Common testing logic needed by all AllOrNothing integration tests.
-abstract contract AllOrNothing_Integration_Shared_Test is
-    IReward,
-    LogDecoder,
-    Base_Test
-{
+abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, Base_Test {
     address campaignAddress;
     address treasuryAddress;
     AllOrNothing internal allOrNothing;
@@ -55,18 +51,15 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         globalParams.enlistPlatform(
             platformHash,
             users.platform1AdminAddress,
-            PLATFORM_FEE_PERCENT
+            PLATFORM_FEE_PERCENT,
+            address(0) // Platform adapter - can be set later with setPlatformAdapter
         );
         vm.stopPrank();
     }
 
     function registerTreasuryImplementation(bytes32 platformHash) internal {
         vm.startPrank(users.platform1AdminAddress);
-        treasuryFactory.registerTreasuryImplementation(
-            platformHash,
-            0,
-            address(allOrNothingImplementation)
-        );
+        treasuryFactory.registerTreasuryImplementation(platformHash, 0, address(allOrNothingImplementation));
         vm.stopPrank();
     }
 
@@ -106,10 +99,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         Vm.Log[] memory entries = vm.getRecordedLogs();
         vm.stopPrank();
 
-        (bytes32[] memory topics, ) = decodeTopicsAndData(
-            entries,
-            "CampaignInfoFactoryCampaignCreated(bytes32,address)",
-            address(campaignInfoFactory)
+        (bytes32[] memory topics,) = decodeTopicsAndData(
+            entries, "CampaignInfoFactoryCampaignCreated(bytes32,address)", address(campaignInfoFactory)
         );
 
         require(topics.length == 3, "Unexpected topic length for event");
@@ -132,9 +123,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
         // Decode the TreasuryDeployed event
         (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            entries,
-            "TreasuryFactoryTreasuryDeployed(bytes32,uint256,address,address)",
-            address(treasuryFactory)
+            entries, "TreasuryFactoryTreasuryDeployed(bytes32,uint256,address,address)", address(treasuryFactory)
         );
 
         require(topics.length >= 3, "Expected indexed params missing");
@@ -145,12 +134,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         allOrNothing = AllOrNothing(treasuryAddress);
     }
 
-    function addRewards(
-        address caller,
-        address treasury,
-        bytes32[] memory rewardNames,
-        Reward[] memory rewards
-    ) internal {
+    function addRewards(address caller, address treasury, bytes32[] memory rewardNames, Reward[] memory rewards)
+        internal
+    {
         vm.startPrank(caller);
         AllOrNothing(treasury).addRewards(rewardNames, rewards);
         vm.stopPrank();
@@ -167,14 +153,7 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         uint256 shippingFee,
         uint256 launchTime,
         bytes32 rewardName
-    )
-        internal
-        returns (
-            Vm.Log[] memory logs,
-            uint256 tokenId,
-            bytes32[] memory rewards
-        )
-    {
+    ) internal returns (Vm.Log[] memory logs, uint256 tokenId, bytes32[] memory rewards) {
         vm.startPrank(caller);
         vm.recordLogs();
 
@@ -184,27 +163,17 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        AllOrNothing(allOrNothingAddress).pledgeForAReward(
-            caller,
-            address(token),
-            shippingFee,
-            reward
-        );
+        AllOrNothing(allOrNothingAddress).pledgeForAReward(caller, address(token), shippingFee, reward);
 
         logs = vm.getRecordedLogs();
 
         (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs,
-            "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])",
-            allOrNothingAddress
+            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", allOrNothingAddress
         );
 
         // Indexed params: backer (topics[1]), pledgeToken (topics[2])
         // Data params: reward, pledgeAmount, shippingFee, tokenId, rewards
-        (, , , tokenId, rewards) = abi.decode(
-            data,
-            (bytes32, uint256, uint256, uint256, bytes32[])
-        );
+        (,,, tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
 
         vm.stopPrank();
     }
@@ -225,69 +194,43 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         testToken.approve(allOrNothingAddress, pledgeAmount);
         vm.warp(launchTime);
 
-        AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(
-            caller,
-            address(token),
-            pledgeAmount
-        );
+        AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(caller, address(token), pledgeAmount);
 
         logs = vm.getRecordedLogs();
 
         // Decode receipt event if available
         (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs,
-            "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])",
-            allOrNothingAddress
+            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", allOrNothingAddress
         );
 
         // Indexed params: backer (topics[1]), pledgeToken (topics[2])
         // Data params: reward, pledgeAmount, shippingFee, tokenId, rewards
-        (, , , tokenId, ) = abi.decode(
-            data,
-            (bytes32, uint256, uint256, uint256, bytes32[])
-        );
+        (,,, tokenId,) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
         vm.stopPrank();
     }
 
     /**
      * @notice Implements claimRefund helper function.
      */
-    function claimRefund(
-        address caller,
-        address allOrNothingAddress,
-        uint256 tokenId,
-        uint256 warpTime
-    )
+    function claimRefund(address caller, address allOrNothingAddress, uint256 tokenId, uint256 warpTime)
         internal
-        returns (
-            Vm.Log[] memory logs,
-            uint256 refundedTokenId,
-            uint256 refundAmount,
-            address claimer
-        )
+        returns (Vm.Log[] memory logs, uint256 refundedTokenId, uint256 refundAmount, address claimer)
     {
         vm.warp(warpTime);
         vm.startPrank(caller);
-        
+
         // Approve treasury to burn NFT
         CampaignInfo(campaignAddress).approve(allOrNothingAddress, tokenId);
-        
+
         vm.recordLogs();
 
         AllOrNothing(allOrNothingAddress).claimRefund(tokenId);
 
         logs = vm.getRecordedLogs();
 
-        bytes memory data = decodeEventFromLogs(
-            logs,
-            "RefundClaimed(uint256,uint256,address)",
-            allOrNothingAddress
-        );
+        bytes memory data = decodeEventFromLogs(logs, "RefundClaimed(uint256,uint256,address)", allOrNothingAddress);
 
-        (refundedTokenId, refundAmount, claimer) = abi.decode(
-            data,
-            (uint256, uint256, address)
-        );
+        (refundedTokenId, refundAmount, claimer) = abi.decode(data, (uint256, uint256, address));
 
         vm.stopPrank();
     }
@@ -295,16 +238,9 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     /**
      * @notice Implements disburseFees helper function.
      */
-    function disburseFees(
-        address allOrNothingAddress,
-        uint256 warpTime
-    )
+    function disburseFees(address allOrNothingAddress, uint256 warpTime)
         internal
-        returns (
-            Vm.Log[] memory logs,
-            uint256 protocolShare,
-            uint256 platformShare
-        )
+        returns (Vm.Log[] memory logs, uint256 protocolShare, uint256 platformShare)
     {
         vm.warp(warpTime);
         vm.recordLogs();
@@ -313,11 +249,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is
 
         logs = vm.getRecordedLogs();
 
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs,
-            "FeesDisbursed(address,uint256,uint256)",
-            allOrNothingAddress
-        );
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", allOrNothingAddress);
 
         // topics[1] is the indexed token
         (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
@@ -326,10 +259,10 @@ abstract contract AllOrNothing_Integration_Shared_Test is
     /**
      * @notice Implements withdraw helper function.
      */
-    function withdraw(
-        address allOrNothingAddress,
-        uint256 warpTime
-    ) internal returns (Vm.Log[] memory logs, address to, uint256 amount) {
+    function withdraw(address allOrNothingAddress, uint256 warpTime)
+        internal
+        returns (Vm.Log[] memory logs, address to, uint256 amount)
+    {
         vm.warp(warpTime);
         // Start recording logs and simulate the withdrawal process
         vm.recordLogs();
@@ -341,11 +274,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is
         logs = vm.getRecordedLogs();
 
         // Decode the data from the logs
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs,
-            "WithdrawalSuccessful(address,address,uint256)",
-            allOrNothingAddress
-        );
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "WithdrawalSuccessful(address,address,uint256)", allOrNothingAddress);
 
         // topics[1] is the indexed token
         // Decode the amount and the address of the receiver

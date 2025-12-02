@@ -77,7 +77,7 @@ abstract contract TimeConstrainedPaymentTreasury_Integration_Shared_Test is LogD
      */
     function enlistPlatform(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
-        globalParams.enlistPlatform(platformHash, users.platform1AdminAddress, PLATFORM_FEE_PERCENT);
+        globalParams.enlistPlatform(platformHash, users.platform1AdminAddress, PLATFORM_FEE_PERCENT, address(0));
         vm.stopPrank();
     }
 

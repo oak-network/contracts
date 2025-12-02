@@ -1,7 +1,7 @@
 # ITreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/ITreasuryFactory.sol)
 
-Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.
+*Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.*
 
 
 ## Functions
@@ -9,7 +9,7 @@ Interface for the TreasuryFactory contract, which registers, approves, and deplo
 
 Registers a treasury implementation for a given platform.
 
-Callable only by the platform admin.
+*Callable only by the platform admin.*
 
 
 ```solidity
@@ -29,7 +29,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-Callable only by the protocol admin.
+*Callable only by the protocol admin.*
 
 
 ```solidity
@@ -78,13 +78,11 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-Callable only by the platform admin.
+*Callable only by the platform admin.*
 
 
 ```solidity
-function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
-    external
-    returns (address clone);
+function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId) external returns (address clone);
 ```
 **Parameters**
 
@@ -103,15 +101,12 @@ function deploy(bytes32 platformHash, address infoAddress, uint256 implementatio
 
 ## Events
 ### TreasuryFactoryTreasuryDeployed
-Emitted when a new treasury is deployed.
+*Emitted when a new treasury is deployed.*
 
 
 ```solidity
 event TreasuryFactoryTreasuryDeployed(
-    bytes32 indexed platformHash,
-    uint256 indexed implementationId,
-    address indexed infoAddress,
-    address treasuryAddress
+    bytes32 indexed platformHash, uint256 indexed implementationId, address indexed infoAddress, address treasuryAddress
 );
 ```
 

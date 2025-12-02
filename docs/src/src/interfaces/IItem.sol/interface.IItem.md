@@ -1,5 +1,5 @@
 # IItem
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/interfaces/IItem.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/IItem.sol)
 
 An interface for managing items and their attributes.
 
@@ -50,12 +50,12 @@ Represents the attributes of an item.
 
 ```solidity
 struct Item {
-    uint256 actualWeight; // The actual weight of the item.
-    uint256 height; // The height of the item.
-    uint256 width; // The width of the item.
-    uint256 length; // The length of the item.
-    bytes32 category; // The category of the item.
-    bytes32 declaredCurrency; // The declared currency of the item.
+    uint256 actualWeight;
+    uint256 height;
+    uint256 width;
+    uint256 length;
+    bytes32 category;
+    bytes32 declaredCurrency;
 }
 ```
 

@@ -1,22 +1,22 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/TreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/TreasuryFactory.sol)
 
 **Inherits:**
-Initializable, [ITreasuryFactory](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
+Initializable, [ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
 
 Factory contract for creating treasury contracts
 
-UUPS Upgradeable contract with ERC-7201 namespaced storage
+*UUPS Upgradeable contract with ERC-7201 namespaced storage*
 
 
 ## Functions
 ### constructor
 
-Constructor that disables initializers to prevent implementation contract initialization
+*Constructor that disables initializers to prevent implementation contract initialization*
 
 
 ```solidity
-constructor() ;
+constructor();
 ```
 
 ### initialize
@@ -36,7 +36,7 @@ function initialize(IGlobalParams globalParams) public initializer;
 
 ### _authorizeUpgrade
 
-Function that authorizes an upgrade to a new implementation
+*Function that authorizes an upgrade to a new implementation*
 
 
 ```solidity
@@ -53,7 +53,7 @@ function _authorizeUpgrade(address newImplementation) internal override onlyProt
 
 Registers a treasury implementation for a given platform.
 
-Callable only by the platform admin.
+*Callable only by the platform admin.*
 
 
 ```solidity
@@ -75,7 +75,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-Callable only by the protocol admin.
+*Callable only by the protocol admin.*
 
 
 ```solidity
@@ -130,7 +130,7 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-Callable only by the platform admin.
+*Callable only by the platform admin.*
 
 
 ```solidity

@@ -24,45 +24,33 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
 
     function setUp() public {
         testToken = new TestToken(tokenName, tokenSymbol, 18);
-        
+
         // Setup currencies and tokens for multi-token support
         bytes32[] memory currencies = new bytes32[](1);
         currencies[0] = bytes32("USD");
-        
+
         address[][] memory tokensPerCurrency = new address[][](1);
         tokensPerCurrency[0] = new address[](1);
         tokensPerCurrency[0][0] = address(testToken);
-        
+
         // Deploy GlobalParams with proxy
         GlobalParams globalParamsImpl = new GlobalParams();
         bytes memory globalParamsInitData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            admin,
-            PROTOCOL_FEE_PERCENT,
-            currencies,
-            tokensPerCurrency
+            GlobalParams.initialize.selector, admin, PROTOCOL_FEE_PERCENT, currencies, tokensPerCurrency
         );
-        ERC1967Proxy globalParamsProxy = new ERC1967Proxy(
-            address(globalParamsImpl),
-            globalParamsInitData
-        );
+        ERC1967Proxy globalParamsProxy = new ERC1967Proxy(address(globalParamsImpl), globalParamsInitData);
         globalParams = GlobalParams(address(globalParamsProxy));
-        
+
         // Deploy CampaignInfo implementation
         campaignInfoImplementation = new CampaignInfo();
-        
+
         // Deploy TreasuryFactory with proxy
         TreasuryFactory treasuryFactoryImpl = new TreasuryFactory();
-        bytes memory treasuryFactoryInitData = abi.encodeWithSelector(
-            TreasuryFactory.initialize.selector,
-            IGlobalParams(address(globalParams))
-        );
-        ERC1967Proxy treasuryFactoryProxy = new ERC1967Proxy(
-            address(treasuryFactoryImpl),
-            treasuryFactoryInitData
-        );
+        bytes memory treasuryFactoryInitData =
+            abi.encodeWithSelector(TreasuryFactory.initialize.selector, IGlobalParams(address(globalParams)));
+        ERC1967Proxy treasuryFactoryProxy = new ERC1967Proxy(address(treasuryFactoryImpl), treasuryFactoryInitData);
         treasuryFactory = TreasuryFactory(address(treasuryFactoryProxy));
-        
+
         // Deploy CampaignInfoFactory with proxy
         CampaignInfoFactory factoryImpl = new CampaignInfoFactory();
         bytes memory factoryInitData = abi.encodeWithSelector(
@@ -72,28 +60,20 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
             address(campaignInfoImplementation),
             address(treasuryFactory)
         );
-        ERC1967Proxy factoryProxy = new ERC1967Proxy(
-            address(factoryImpl),
-            factoryInitData
-        );
+        ERC1967Proxy factoryProxy = new ERC1967Proxy(address(factoryImpl), factoryInitData);
         factory = CampaignInfoFactory(address(factoryProxy));
-        
+
         vm.startPrank(admin);
         globalParams.enlistPlatform(
             PLATFORM_1_HASH,
             admin,
-            PLATFORM_FEE_PERCENT
+            PLATFORM_FEE_PERCENT,
+            address(0) // Platform adapter - can be set later with setPlatformAdapter
         );
-        
+
         // Set time constraints in dataRegistry
-        globalParams.addToRegistry(
-            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
-            bytes32(uint256(1 hours))
-        );
-        globalParams.addToRegistry(
-            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
-            bytes32(uint256(1 days))
-        );
+        globalParams.addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(uint256(1 hours)));
+        globalParams.addToRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(uint256(1 days)));
         vm.stopPrank();
     }
 
@@ -129,9 +109,7 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         assertGt(logs.length, 0, "Expected at least one log");
 
         // Decode expected event
-        bytes32 eventSig = keccak256(
-            "CampaignInfoFactoryCampaignCreated(bytes32,address)"
-        );
+        bytes32 eventSig = keccak256("CampaignInfoFactoryCampaignCreated(bytes32,address)");
         bool found = false;
         address campaignAddr;
 
@@ -148,34 +126,29 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         assertTrue(campaignAddr != address(0), "Invalid campaign address");
 
         // Check that campaign was stored in mapping
-        address storedCampaign = factory.identifierToCampaignInfo(
-            CAMPAIGN_1_IDENTIFIER_HASH
-        );
+        address storedCampaign = factory.identifierToCampaignInfo(CAMPAIGN_1_IDENTIFIER_HASH);
         assertEq(storedCampaign, campaignAddr, "Stored campaign doesn't match");
 
         // Check that it's valid
-        assertTrue(
-            factory.isValidCampaignInfo(campaignAddr),
-            "Campaign not marked valid"
-        );
+        assertTrue(factory.isValidCampaignInfo(campaignAddr), "Campaign not marked valid");
     }
 
     function testUpgrade() public {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
-        
+
         // Upgrade as owner (address(this))
         factory.upgradeToAndCall(address(newImplementation), "");
-        
+
         // Factory should still work after upgrade
         bytes32[] memory platforms = new bytes32[](1);
         platforms[0] = PLATFORM_1_HASH;
-        
+
         bytes32[] memory keys = new bytes32[](0);
         bytes32[] memory values = new bytes32[](0);
-        
+
         address creator = address(0xBEEF);
-        
+
         vm.prank(admin);
         factory.createCampaign(
             creator,
@@ -194,7 +167,7 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
     function testUpgradeUnauthorizedReverts() public {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
-        
+
         // Try to upgrade as non-owner (should revert)
         vm.prank(admin);
         vm.expectRevert();

@@ -12,7 +12,6 @@ import {AdminAccessCheckerStorage} from "../storage/AdminAccessCheckerStorage.so
  * @dev Updated to use ERC-7201 namespaced storage for upgradeable contracts
  */
 abstract contract AdminAccessChecker is Context {
-
     /**
      * @dev Throws when the caller is not authorized.
      */

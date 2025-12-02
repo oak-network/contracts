@@ -14,17 +14,17 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function setUp() public override {
         super.setUp();
-        
+
         // Register line item types
         vm.prank(users.platform1AdminAddress);
         globalParams.setPlatformLineItemType(
             PLATFORM_1_HASH,
             SHIPPING_FEE_TYPE_ID,
             "shipping_fee",
-            true,  // countsTowardGoal
+            true, // countsTowardGoal
             false, // applyProtocolFee
-            true,  // canRefund
-            false  // instantTransfer
+            true, // canRefund
+            false // instantTransfer
         );
 
         vm.prank(users.platform1AdminAddress);
@@ -35,7 +35,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             false, // countsTowardGoal
             false, // applyProtocolFee
             false, // canRefund
-            true   // instantTransfer
+            true // instantTransfer
         );
 
         vm.prank(users.platform1AdminAddress);
@@ -44,9 +44,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             INTEREST_TYPE_ID,
             "interest",
             false, // countsTowardGoal
-            true,  // applyProtocolFee
+            true, // applyProtocolFee
             false, // canRefund
-            false  // instantTransfer
+            false // instantTransfer
         );
 
         vm.prank(users.platform1AdminAddress);
@@ -55,9 +55,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             REFUNDABLE_FEE_WITH_PROTOCOL_TYPE_ID,
             "refundable_fee_with_protocol",
             false, // countsTowardGoal
-            true,  // applyProtocolFee
-            true,  // canRefund
-            false  // instantTransfer
+            true, // applyProtocolFee
+            true, // canRefund
+            false // instantTransfer
         );
     }
 
@@ -68,12 +68,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_createPaymentWithShippingFee() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         uint256 shippingFeeAmount = 50e18;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: shippingFeeAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
 
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -94,12 +91,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_createPaymentWithTip() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         uint256 tipAmount = 25e18;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: tipAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
 
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -119,12 +113,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_createPaymentWithInterest() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         uint256 interestAmount = 100e18;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: INTEREST_TYPE_ID,
-            amount: interestAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: INTEREST_TYPE_ID, amount: interestAmount});
 
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -146,20 +137,11 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         uint256 shippingFeeAmount = 50e18;
         uint256 tipAmount = 25e18;
         uint256 interestAmount = 100e18;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](3);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: shippingFeeAmount
-        });
-        lineItems[1] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: tipAmount
-        });
-        lineItems[2] = ICampaignPaymentTreasury.LineItem({
-            typeId: INTEREST_TYPE_ID,
-            amount: interestAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
+        lineItems[1] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
+        lineItems[2] = ICampaignPaymentTreasury.LineItem({typeId: INTEREST_TYPE_ID, amount: interestAmount});
 
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -178,12 +160,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_createPaymentRevertWhenLineItemTypeDoesNotExist() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         bytes32 nonExistentTypeId = keccak256("non_existent");
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: nonExistentTypeId,
-            amount: 50e18
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: nonExistentTypeId, amount: 50e18});
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -201,12 +180,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentRevertWhenLineItemHasZeroTypeId() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: bytes32(0),
-            amount: 50e18
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: bytes32(0), amount: 50e18});
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -224,12 +200,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentRevertWhenLineItemHasZeroAmount() public {
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: 0
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: 0});
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -252,16 +225,13 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_processCryptoPaymentWithShippingFee() public {
         uint256 shippingFeeAmount = 50e18;
         uint256 totalAmount = PAYMENT_AMOUNT_1 + shippingFeeAmount;
-        
+
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, totalAmount);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: shippingFeeAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
 
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
@@ -270,8 +240,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             users.backer1Address,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            lineItems
-        , new ICampaignPaymentTreasury.ExternalFees[](0));
+            lineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
 
         // Payment should be confirmed immediately for crypto payments
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1 + shippingFeeAmount);
@@ -281,7 +252,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
     function test_processCryptoPaymentWithTip() public {
         uint256 tipAmount = 25e18;
         uint256 totalAmount = PAYMENT_AMOUNT_1 + tipAmount;
-        
+
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, totalAmount);
@@ -289,10 +260,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: tipAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
 
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
@@ -301,8 +269,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             users.backer1Address,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            lineItems
-        , new ICampaignPaymentTreasury.ExternalFees[](0));
+            lineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
 
         // Tip doesn't count toward goal, but payment amount does
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1);
@@ -317,7 +286,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         uint256 tipAmount = 25e18;
         uint256 interestAmount = 100e18;
         uint256 totalAmount = PAYMENT_AMOUNT_1 + shippingFeeAmount + tipAmount + interestAmount;
-        
+
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, totalAmount);
@@ -326,18 +295,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         uint256 tipNetAmount = tipAmount; // No protocol fee on tip
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](3);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: shippingFeeAmount
-        });
-        lineItems[1] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: tipAmount
-        });
-        lineItems[2] = ICampaignPaymentTreasury.LineItem({
-            typeId: INTEREST_TYPE_ID,
-            amount: interestAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
+        lineItems[1] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
+        lineItems[2] = ICampaignPaymentTreasury.LineItem({typeId: INTEREST_TYPE_ID, amount: interestAmount});
 
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
@@ -346,8 +306,9 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             users.backer1Address,
             address(testToken),
             PAYMENT_AMOUNT_1,
-            lineItems
-        , new ICampaignPaymentTreasury.ExternalFees[](0));
+            lineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
 
         // Only payment amount + shipping fee count toward goal
         assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1 + shippingFeeAmount);
@@ -364,7 +325,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentWithValidExpiration() public {
         uint256 expiration = block.timestamp + 1 days;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -382,7 +343,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentRevertWhenExpirationInPast() public {
         uint256 expiration = block.timestamp - 1;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -400,7 +361,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentRevertWhenExpirationIsCurrentTime() public {
         uint256 expiration = block.timestamp;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -418,7 +379,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_createPaymentWithLongExpiration() public {
         uint256 expiration = block.timestamp + 365 days;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -436,7 +397,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_cancelPaymentRevertWhenExpired() public {
         uint256 expiration = block.timestamp + 1 hours;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -460,7 +421,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
     function test_confirmPaymentBeforeExpiration() public {
         uint256 expiration = block.timestamp + 1 days;
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPayment(
@@ -491,14 +452,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         uint256 tipAmount = 25e18;
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](2);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: shippingFeeAmount
-        });
-        lineItems[1] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: tipAmount
-        });
+        lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
+        lineItems[1] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
 
         ICampaignPaymentTreasury.ExternalFees[] memory externalFees = new ICampaignPaymentTreasury.ExternalFees[](2);
         externalFees[0] = ICampaignPaymentTreasury.ExternalFees({
@@ -568,10 +523,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         testToken.approve(treasuryAddress, totalAmount);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItems[0] = ICampaignPaymentTreasury.LineItem({
-            typeId: REFUNDABLE_FEE_WITH_PROTOCOL_TYPE_ID,
-            amount: lineItemAmount
-        });
+        lineItems[0] =
+            ICampaignPaymentTreasury.LineItem({typeId: REFUNDABLE_FEE_WITH_PROTOCOL_TYPE_ID, amount: lineItemAmount});
 
         bytes32 paymentId = keccak256("refundableFeePayment");
 
@@ -597,10 +550,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         CampaignInfo(campaignAddress).approve(address(paymentTreasury), 1);
         paymentTreasury.claimRefund(paymentId);
 
-        assertEq(
-            testToken.balanceOf(users.backer1Address),
-            buyerBalanceAfterPayment + expectedRefund
-        );
+        assertEq(testToken.balanceOf(users.backer1Address), buyerBalanceAfterPayment + expectedRefund);
         assertEq(testToken.balanceOf(treasuryAddress), expectedFee);
     }
 
@@ -612,56 +562,44 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         bytes32[] memory paymentIds = new bytes32[](2);
         paymentIds[0] = PAYMENT_ID_1;
         paymentIds[1] = PAYMENT_ID_2;
-        
+
         bytes32[] memory buyerIds = new bytes32[](2);
         buyerIds[0] = BUYER_ID_1;
         buyerIds[1] = BUYER_ID_2;
-        
+
         bytes32[] memory itemIds = new bytes32[](2);
         itemIds[0] = ITEM_ID_1;
         itemIds[1] = ITEM_ID_2;
-        
+
         address[] memory paymentTokens = new address[](2);
         paymentTokens[0] = address(testToken);
         paymentTokens[1] = address(testToken);
-        
+
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = PAYMENT_AMOUNT_1;
         amounts[1] = PAYMENT_AMOUNT_2;
-        
+
         uint256[] memory expirations = new uint256[](2);
         expirations[0] = block.timestamp + PAYMENT_EXPIRATION;
         expirations[1] = block.timestamp + PAYMENT_EXPIRATION;
-        
+
         ICampaignPaymentTreasury.LineItem[][] memory lineItemsArray = new ICampaignPaymentTreasury.LineItem[][](2);
-        
+
         // First payment with shipping fee
         lineItemsArray[0] = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItemsArray[0][0] = ICampaignPaymentTreasury.LineItem({
-            typeId: SHIPPING_FEE_TYPE_ID,
-            amount: 50e18
-        });
-        
+        lineItemsArray[0][0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: 50e18});
+
         // Second payment with tip
         lineItemsArray[1] = new ICampaignPaymentTreasury.LineItem[](1);
-        lineItemsArray[1][0] = ICampaignPaymentTreasury.LineItem({
-            typeId: TIP_TYPE_ID,
-            amount: 25e18
-        });
+        lineItemsArray[1][0] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: 25e18});
 
         vm.prank(users.platform1AdminAddress);
-            ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](2);
-            externalFeesArray[0] = new ICampaignPaymentTreasury.ExternalFees[](0);
-            externalFeesArray[1] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray =
+            new ICampaignPaymentTreasury.ExternalFees[][](2);
+        externalFeesArray[0] = new ICampaignPaymentTreasury.ExternalFees[](0);
+        externalFeesArray[1] = new ICampaignPaymentTreasury.ExternalFees[](0);
         paymentTreasury.createPaymentBatch(
-            paymentIds,
-            buyerIds,
-            itemIds,
-            paymentTokens,
-            amounts,
-            expirations,
-            lineItemsArray,
-            externalFeesArray
+            paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray
         );
 
         assertEq(paymentTreasury.getRaisedAmount(), 0);
@@ -671,46 +609,39 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         bytes32[] memory paymentIds = new bytes32[](2);
         paymentIds[0] = PAYMENT_ID_1;
         paymentIds[1] = PAYMENT_ID_2;
-        
+
         bytes32[] memory buyerIds = new bytes32[](2);
         buyerIds[0] = BUYER_ID_1;
         buyerIds[1] = BUYER_ID_2;
-        
+
         bytes32[] memory itemIds = new bytes32[](2);
         itemIds[0] = ITEM_ID_1;
         itemIds[1] = ITEM_ID_2;
-        
+
         address[] memory paymentTokens = new address[](2);
         paymentTokens[0] = address(testToken);
         paymentTokens[1] = address(testToken);
-        
+
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = PAYMENT_AMOUNT_1;
         amounts[1] = PAYMENT_AMOUNT_2;
-        
+
         uint256[] memory expirations = new uint256[](2);
         expirations[0] = block.timestamp + PAYMENT_EXPIRATION;
         expirations[1] = block.timestamp + PAYMENT_EXPIRATION;
-        
+
         // Wrong length - only 1 item instead of 2
         ICampaignPaymentTreasury.LineItem[][] memory lineItemsArray = new ICampaignPaymentTreasury.LineItem[][](1);
         lineItemsArray[0] = new ICampaignPaymentTreasury.LineItem[](0);
         // Also wrong length for externalFeesArray to match the test intent
-        ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray = new ICampaignPaymentTreasury.ExternalFees[][](1);
+        ICampaignPaymentTreasury.ExternalFees[][] memory externalFeesArray =
+            new ICampaignPaymentTreasury.ExternalFees[][](1);
         externalFeesArray[0] = new ICampaignPaymentTreasury.ExternalFees[](0);
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.createPaymentBatch(
-            paymentIds,
-            buyerIds,
-            itemIds,
-            paymentTokens,
-            amounts,
-            expirations,
-            lineItemsArray,
-            externalFeesArray
+            paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray
         );
     }
 }
-

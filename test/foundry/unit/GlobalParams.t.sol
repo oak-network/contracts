@@ -25,32 +25,27 @@ contract GlobalParams_UnitTest is Test, Defaults {
         token1 = new TestToken("Token1", "TK1", 18);
         token2 = new TestToken("Token2", "TK2", 18);
         token3 = new TestToken("Token3", "TK3", 18);
-        
+
         // Setup initial currencies and tokens
         bytes32[] memory currencies = new bytes32[](2);
         currencies[0] = USD;
         currencies[1] = EUR;
-        
+
         address[][] memory tokensPerCurrency = new address[][](2);
         tokensPerCurrency[0] = new address[](2);
         tokensPerCurrency[0][0] = address(token1);
         tokensPerCurrency[0][1] = address(token2);
-        
+
         tokensPerCurrency[1] = new address[](1);
         tokensPerCurrency[1][0] = address(token3);
-        
+
         // Deploy implementation
         implementation = new GlobalParams();
-        
+
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            admin,
-            protocolFee,
-            currencies,
-            tokensPerCurrency
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(GlobalParams.initialize.selector, admin, protocolFee, currencies, tokensPerCurrency);
+
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
         globalParams = GlobalParams(address(proxy));
@@ -59,18 +54,18 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testInitialValues() public {
         assertEq(globalParams.getProtocolAdminAddress(), admin);
         assertEq(globalParams.getProtocolFeePercent(), protocolFee);
-        
+
         // Test USD tokens
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);
         assertEq(usdTokens[0], address(token1));
         assertEq(usdTokens[1], address(token2));
-        
+
         // Test EUR tokens
         address[] memory eurTokens = globalParams.getTokensForCurrency(EUR);
         assertEq(eurTokens.length, 1);
         assertEq(eurTokens[0], address(token3));
-        
+
         // Token validation is done by checking if token is in the returned array
         // This is handled by the getTokensForCurrency function above
     }
@@ -90,10 +85,10 @@ contract GlobalParams_UnitTest is Test, Defaults {
 
     function testAddTokenToCurrency() public {
         TestToken newToken = new TestToken("NewToken", "NEW", 18);
-        
+
         vm.prank(admin);
         globalParams.addTokenToCurrency(USD, address(newToken));
-        
+
         // Verify token was added
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 3);
@@ -102,10 +97,10 @@ contract GlobalParams_UnitTest is Test, Defaults {
 
     function testAddTokenToNewCurrency() public {
         TestToken newToken = new TestToken("BRLToken", "BRL", 18);
-        
+
         vm.prank(admin);
         globalParams.addTokenToCurrency(BRL, address(newToken));
-        
+
         // Verify token was added to new currency
         address[] memory brlTokens = globalParams.getTokensForCurrency(BRL);
         assertEq(brlTokens.length, 1);
@@ -114,7 +109,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
 
     function testAddTokenRevertWhenNotOwner() public {
         TestToken newToken = new TestToken("NewToken", "NEW", 18);
-        
+
         vm.expectRevert();
         globalParams.addTokenToCurrency(USD, address(newToken));
     }
@@ -123,11 +118,11 @@ contract GlobalParams_UnitTest is Test, Defaults {
         // A token can be assigned to multiple currencies
         vm.prank(admin);
         globalParams.addTokenToCurrency(EUR, address(token1));
-        
+
         // Verify token is now in both USD and EUR
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         address[] memory eurTokens = globalParams.getTokensForCurrency(EUR);
-        
+
         assertEq(usdTokens.length, 2);
         assertEq(eurTokens.length, 2);
         assertEq(eurTokens[1], address(token1));
@@ -136,7 +131,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testRemoveTokenFromCurrency() public {
         vm.prank(admin);
         globalParams.removeTokenFromCurrency(USD, address(token1));
-        
+
         // Verify token was removed
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 1);
@@ -149,10 +144,10 @@ contract GlobalParams_UnitTest is Test, Defaults {
     }
 
     function testRemoveTokenThatDoesNotExist() public {
-        // Removing a non-existent token 
+        // Removing a non-existent token
         TestToken nonExistentToken = new TestToken("NonExistent", "NE", 18);
-        
-        vm.expectRevert(); 
+
+        vm.expectRevert();
         vm.prank(admin);
         globalParams.removeTokenFromCurrency(USD, address(nonExistentToken));
     }
@@ -162,7 +157,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         address platformAdmin = address(0xB0B);
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 500);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 500, address(0));
 
         uint256 claimDelay = 5 days;
         vm.prank(platformAdmin);
@@ -176,7 +171,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         address platformAdmin = address(0xC0DE);
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 600);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 600, address(0));
 
         vm.expectRevert(abi.encodeWithSelector(GlobalParams.GlobalParamsUnauthorized.selector));
         globalParams.updatePlatformClaimDelay(platformHash, 3 days);
@@ -188,7 +183,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         bytes32 typeId = keccak256("refundable_fee_with_protocol");
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 500);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 500, address(0));
 
         vm.prank(platformAdmin);
         globalParams.setPlatformLineItemType(
@@ -196,19 +191,13 @@ contract GlobalParams_UnitTest is Test, Defaults {
             typeId,
             "refundable_fee_with_protocol",
             false, // countsTowardGoal
-            true,  // applyProtocolFee
-            true,  // canRefund
-            false  // instantTransfer
+            true, // applyProtocolFee
+            true, // canRefund
+            false // instantTransfer
         );
 
-        (
-            bool exists,
-            ,
-            bool countsTowardGoal,
-            bool applyProtocolFee,
-            bool canRefund,
-            bool instantTransfer
-        ) = globalParams.getPlatformLineItemType(platformHash, typeId);
+        (bool exists,, bool countsTowardGoal, bool applyProtocolFee, bool canRefund, bool instantTransfer) =
+            globalParams.getPlatformLineItemType(platformHash, typeId);
 
         assertTrue(exists);
         assertFalse(countsTowardGoal);
@@ -223,7 +212,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         bytes32 typeId = keccak256("goal_type");
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 400);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 400, address(0));
 
         vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
         vm.prank(platformAdmin);
@@ -231,10 +220,10 @@ contract GlobalParams_UnitTest is Test, Defaults {
             platformHash,
             typeId,
             "goal_type",
-            true,  // countsTowardGoal
-            true,  // applyProtocolFee (should revert)
-            true,  // canRefund
-            false  // instantTransfer
+            true, // countsTowardGoal
+            true, // applyProtocolFee (should revert)
+            true, // canRefund
+            false // instantTransfer
         );
     }
 
@@ -244,7 +233,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         bytes32 typeId = keccak256("goal_no_refund");
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 450);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 450, address(0));
 
         vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
         vm.prank(platformAdmin);
@@ -252,10 +241,10 @@ contract GlobalParams_UnitTest is Test, Defaults {
             platformHash,
             typeId,
             "goal_no_refund",
-            true,   // countsTowardGoal
-            false,  // applyProtocolFee
-            false,  // canRefund (should revert)
-            false   // instantTransfer
+            true, // countsTowardGoal
+            false, // applyProtocolFee
+            false, // canRefund (should revert)
+            false // instantTransfer
         );
     }
 
@@ -265,7 +254,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         bytes32 typeId = keccak256("instant_refundable");
 
         vm.prank(admin);
-        globalParams.enlistPlatform(platformHash, platformAdmin, 300);
+        globalParams.enlistPlatform(platformHash, platformAdmin, 300, address(0));
 
         vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
         vm.prank(platformAdmin);
@@ -275,18 +264,18 @@ contract GlobalParams_UnitTest is Test, Defaults {
             "instant_refundable",
             false, // countsTowardGoal (non-goal)
             false, // applyProtocolFee
-            true,  // canRefund (should revert with instantTransfer)
-            true   // instantTransfer
+            true, // canRefund (should revert with instantTransfer)
+            true // instantTransfer
         );
     }
 
     function testGetTokensForCurrency() public {
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);
-        
+
         address[] memory eurTokens = globalParams.getTokensForCurrency(EUR);
         assertEq(eurTokens.length, 1);
-        
+
         // Non-existent currency returns empty array
         address[] memory nonExistentTokens = globalParams.getTokensForCurrency(BRL);
         assertEq(nonExistentTokens.length, 0);
@@ -303,19 +292,14 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testInitializerWithEmptyArrays() public {
         bytes32[] memory currencies = new bytes32[](0);
         address[][] memory tokensPerCurrency = new address[][](0);
-        
+
         GlobalParams emptyImpl = new GlobalParams();
-        bytes memory initData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            admin,
-            protocolFee,
-            currencies,
-            tokensPerCurrency
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(GlobalParams.initialize.selector, admin, protocolFee, currencies, tokensPerCurrency);
+
         ERC1967Proxy emptyProxy = new ERC1967Proxy(address(emptyImpl), initData);
         GlobalParams emptyGlobalParams = GlobalParams(address(emptyProxy));
-        
+
         address[] memory tokens = emptyGlobalParams.getTokensForCurrency(USD);
         assertEq(tokens.length, 0);
     }
@@ -324,20 +308,15 @@ contract GlobalParams_UnitTest is Test, Defaults {
         bytes32[] memory currencies = new bytes32[](2);
         currencies[0] = USD;
         currencies[1] = EUR;
-        
+
         address[][] memory tokensPerCurrency = new address[][](1);
         tokensPerCurrency[0] = new address[](1);
         tokensPerCurrency[0][0] = address(token1);
-        
+
         GlobalParams mismatchImpl = new GlobalParams();
-        bytes memory initData = abi.encodeWithSelector(
-            GlobalParams.initialize.selector,
-            admin,
-            protocolFee,
-            currencies,
-            tokensPerCurrency
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(GlobalParams.initialize.selector, admin, protocolFee, currencies, tokensPerCurrency);
+
         vm.expectRevert();
         new ERC1967Proxy(address(mismatchImpl), initData);
     }
@@ -346,12 +325,12 @@ contract GlobalParams_UnitTest is Test, Defaults {
         // USD should have 2 tokens
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);
-        
+
         // Add a third token to USD
         TestToken token4 = new TestToken("Token4", "TK4", 18);
         vm.prank(admin);
         globalParams.addTokenToCurrency(USD, address(token4));
-        
+
         // Verify USD now has 3 tokens
         usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 3);
@@ -364,7 +343,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
         // Remove token1 (first token) from USD
         vm.prank(admin);
         globalParams.removeTokenFromCurrency(USD, address(token1));
-        
+
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 1);
         assertEq(usdTokens[0], address(token2));
@@ -373,22 +352,22 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testAddRemoveMultipleTokens() public {
         TestToken token4 = new TestToken("Token4", "TK4", 18);
         TestToken token5 = new TestToken("Token5", "TK5", 18);
-        
+
         // Add two new tokens
         vm.startPrank(admin);
         globalParams.addTokenToCurrency(USD, address(token4));
         globalParams.addTokenToCurrency(USD, address(token5));
         vm.stopPrank();
-        
+
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 4);
-        
+
         // Remove original tokens
         vm.startPrank(admin);
         globalParams.removeTokenFromCurrency(USD, address(token1));
         globalParams.removeTokenFromCurrency(USD, address(token2));
         vm.stopPrank();
-        
+
         usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);
         assertEq(usdTokens[0], address(token5)); // token5 moved to index 0
@@ -398,15 +377,15 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testUpgrade() public {
         // Deploy new implementation
         GlobalParams newImplementation = new GlobalParams();
-        
+
         // Upgrade as admin
         vm.prank(admin);
         globalParams.upgradeToAndCall(address(newImplementation), "");
-        
+
         // Verify state is preserved after upgrade
         assertEq(globalParams.getProtocolAdminAddress(), admin);
         assertEq(globalParams.getProtocolFeePercent(), protocolFee);
-        
+
         address[] memory usdTokens = globalParams.getTokensForCurrency(USD);
         assertEq(usdTokens.length, 2);
     }
@@ -414,7 +393,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testUpgradeUnauthorizedReverts() public {
         // Deploy new implementation
         GlobalParams newImplementation = new GlobalParams();
-        
+
         // Try to upgrade as non-admin (should revert)
         vm.expectRevert();
         globalParams.upgradeToAndCall(address(newImplementation), "");
@@ -423,7 +402,7 @@ contract GlobalParams_UnitTest is Test, Defaults {
     function testCannotInitializeTwice() public {
         bytes32[] memory currencies = new bytes32[](0);
         address[][] memory tokensPerCurrency = new address[][](0);
-        
+
         // Try to initialize again (should revert)
         vm.expectRevert();
         globalParams.initialize(admin, protocolFee, currencies, tokensPerCurrency);

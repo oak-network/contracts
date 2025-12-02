@@ -9,10 +9,7 @@ contract DeployAllOrNothingImplementation is Script {
     function deploy() public returns (address) {
         console2.log("Deploying AllOrNothingImplementation...");
         AllOrNothing allOrNothingImplementation = new AllOrNothing();
-        console2.log(
-            "AllOrNothingImplementation deployed at:",
-            address(allOrNothingImplementation)
-        );
+        console2.log("AllOrNothingImplementation deployed at:", address(allOrNothingImplementation));
         return address(allOrNothingImplementation);
     }
 
@@ -30,9 +27,6 @@ contract DeployAllOrNothingImplementation is Script {
             vm.stopBroadcast();
         }
 
-        console2.log(
-            "ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS",
-            implementationAddress
-        );
+        console2.log("ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS", implementationAddress);
     }
 }

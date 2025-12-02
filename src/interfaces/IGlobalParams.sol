@@ -11,18 +11,14 @@ interface IGlobalParams {
      * @param _platformHash The unique identifier of the platform.
      * @return True if the platform is listed; otherwise, false.
      */
-    function checkIfPlatformIsListed(
-        bytes32 _platformHash
-    ) external view returns (bool);
+    function checkIfPlatformIsListed(bytes32 _platformHash) external view returns (bool);
 
     /**
      * @notice Retrieves the admin address of a platform.
      * @param _platformHash The unique identifier of the platform.
      * @return The admin address of the platform.
      */
-    function getPlatformAdminAddress(
-        bytes32 _platformHash
-    ) external view returns (address);
+    function getPlatformAdminAddress(bytes32 _platformHash) external view returns (address);
 
     /**
      * @notice Retrieves the number of listed platforms in the protocol.
@@ -47,36 +43,28 @@ interface IGlobalParams {
      * @param platformDataKey The key of the platform-specific data.
      * @return platformHash The platform identifier associated with the data.
      */
-    function getPlatformDataOwner(
-        bytes32 platformDataKey
-    ) external view returns (bytes32 platformHash);
+    function getPlatformDataOwner(bytes32 platformDataKey) external view returns (bytes32 platformHash);
 
     /**
      * @notice Retrieves the platform fee percentage for a specific platform.
      * @param platformHash The unique identifier of the platform.
      * @return The platform fee percentage as a uint256 value.
      */
-    function getPlatformFeePercent(
-        bytes32 platformHash
-    ) external view returns (uint256);
+    function getPlatformFeePercent(bytes32 platformHash) external view returns (uint256);
 
     /**
      * @notice Retrieves the claim delay (in seconds) for a specific platform.
      * @param platformHash The unique identifier of the platform.
      * @return The claim delay in seconds.
      */
-    function getPlatformClaimDelay(
-        bytes32 platformHash
-    ) external view returns (uint256);
+    function getPlatformClaimDelay(bytes32 platformHash) external view returns (uint256);
 
     /**
      * @notice Checks if a platform-specific data key is valid.
      * @param platformDataKey The key of the platform-specific data.
      * @return isValid True if the data key is valid; otherwise, false.
      */
-    function checkIfPlatformDataKeyValid(
-        bytes32 platformDataKey
-    ) external view returns (bool isValid);
+    function checkIfPlatformDataKeyValid(bytes32 platformDataKey) external view returns (bool isValid);
 
     /**
      * @notice Updates the admin address of the protocol.
@@ -95,20 +83,29 @@ interface IGlobalParams {
      * @param _platformHash The unique identifier of the platform.
      * @param _platformAdminAddress The new admin address of the platform.
      */
-    function updatePlatformAdminAddress(
-        bytes32 _platformHash,
-        address _platformAdminAddress
-    ) external;
+    function updatePlatformAdminAddress(bytes32 _platformHash, address _platformAdminAddress) external;
 
     /**
      * @notice Updates the claim delay for a specific platform.
      * @param platformHash The unique identifier of the platform.
      * @param claimDelay The claim delay in seconds.
      */
-    function updatePlatformClaimDelay(
-        bytes32 platformHash,
-        uint256 claimDelay
-    ) external;
+    function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay) external;
+
+    /**
+     * @notice Retrieves the adapter (trusted forwarder) address for a platform.
+     * @param platformHash The unique identifier of the platform.
+     * @return The adapter address for ERC-2771 meta-transactions.
+     */
+    function getPlatformAdapter(bytes32 platformHash) external view returns (address);
+
+    /**
+     * @notice Sets the adapter (trusted forwarder) address for a platform.
+     * @dev Only callable by the protocol admin (owner).
+     * @param platformHash The unique identifier of the platform.
+     * @param adapter The address of the adapter contract.
+     */
+    function setPlatformAdapter(bytes32 platformHash, address adapter) external;
 
     /**
      * @notice Adds a token to a currency.
@@ -129,9 +126,7 @@ interface IGlobalParams {
      * @param currency The currency identifier.
      * @return An array of token addresses accepted for the currency.
      */
-    function getTokensForCurrency(
-        bytes32 currency
-    ) external view returns (address[] memory);
+    function getTokensForCurrency(bytes32 currency) external view returns (address[] memory);
 
     /**
      * @notice Retrieves a value from the data registry.
@@ -178,10 +173,7 @@ interface IGlobalParams {
      * @return canRefund Whether this line item can be refunded.
      * @return instantTransfer Whether this line item amount can be instantly transferred.
      */
-    function getPlatformLineItemType(
-        bytes32 platformHash,
-        bytes32 typeId
-    )
+    function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
         external
         view
         returns (

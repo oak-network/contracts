@@ -14,29 +14,17 @@ import {TestToken} from "../../../mocks/TestToken.sol";
  * @notice This contract contains integration tests for the happy-path functionality
  * of the PaymentTreasury contract. Each test focuses on a single core function.
  */
-contract PaymentTreasuryFunction_Integration_Test is
-    PaymentTreasury_Integration_Shared_Test
-{
+contract PaymentTreasuryFunction_Integration_Test is PaymentTreasury_Integration_Shared_Test {
     /**
      * @notice Tests the successful confirmation of a single payment.
      */
     function test_confirmPayment() public {
-        _createAndFundPayment(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            PAYMENT_AMOUNT_1,
-            users.backer1Address
-        );
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         assertEq(testToken.balanceOf(treasuryAddress), PAYMENT_AMOUNT_1);
 
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1); // Removed token parameter
 
-        assertEq(
-            paymentTreasury.getRaisedAmount(),
-            PAYMENT_AMOUNT_1,
-            "Raised amount should match the payment amount"
-        );
+        assertEq(paymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1, "Raised amount should match the payment amount");
         assertEq(
             paymentTreasury.getAvailableRaisedAmount(),
             PAYMENT_AMOUNT_1,
@@ -58,9 +46,7 @@ contract PaymentTreasuryFunction_Integration_Test is
         confirmPaymentBatch(users.platform1AdminAddress, paymentIds); // Removed token array
 
         assertEq(
-            paymentTreasury.getRaisedAmount(),
-            totalAmount,
-            "Raised amount should match the total of batched payments"
+            paymentTreasury.getRaisedAmount(), totalAmount, "Raised amount should match the total of batched payments"
         );
         assertEq(
             paymentTreasury.getAvailableRaisedAmount(),
@@ -73,21 +59,11 @@ contract PaymentTreasuryFunction_Integration_Test is
      * @notice Tests that a confirmed payment can be successfully refunded.
      */
     function test_claimRefund() public {
-        _createAndFundPayment(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            PAYMENT_AMOUNT_1,
-            users.backer1Address
-        );
+        _createAndFundPayment(PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, users.backer1Address);
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
         uint256 backerBalanceBefore = testToken.balanceOf(users.backer1Address);
 
-        uint256 refundAmount = claimRefund(
-            users.platform1AdminAddress,
-            PAYMENT_ID_1,
-            users.backer1Address
-        );
+        uint256 refundAmount = claimRefund(users.platform1AdminAddress, PAYMENT_ID_1, users.backer1Address);
 
         // Verify the refund amount is correct and all balances are updated as expected.
         assertEq(refundAmount, PAYMENT_AMOUNT_1, "Refunded amount is incorrect");
@@ -107,13 +83,22 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_processCryptoPayment() public {
         uint256 amount = 1500e18;
         deal(address(testToken), users.backer1Address, amount);
-        
+
         vm.prank(users.backer1Address);
         testToken.approve(treasuryAddress, amount);
-        
+
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(users.backer1Address, PAYMENT_ID_1, ITEM_ID_1, users.backer1Address, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
-        
+        processCryptoPayment(
+            users.backer1Address,
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            users.backer1Address,
+            address(testToken),
+            amount,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
+
         assertEq(paymentTreasury.getRaisedAmount(), amount, "Raised amount should match crypto payment");
         assertEq(paymentTreasury.getAvailableRaisedAmount(), amount, "Available amount should match crypto payment");
         assertEq(testToken.balanceOf(treasuryAddress), amount, "Treasury should hold the tokens");
@@ -125,19 +110,15 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_claimRefundBuyerInitiated() public {
         uint256 amount = 1500e18;
         _createAndProcessCryptoPayment(PAYMENT_ID_1, ITEM_ID_1, amount, users.backer1Address);
-        
+
         uint256 buyerBalanceBefore = testToken.balanceOf(users.backer1Address);
         uint256 refundAmount = claimRefund(users.backer1Address, PAYMENT_ID_1, 1); // tokenId 1
-        
+
         assertEq(refundAmount, amount, "Refund amount should match payment");
-        assertEq(
-            testToken.balanceOf(users.backer1Address),
-            buyerBalanceBefore + amount,
-            "Buyer should receive refund"
-        );
+        assertEq(testToken.balanceOf(users.backer1Address), buyerBalanceBefore + amount, "Buyer should receive refund");
         assertEq(paymentTreasury.getRaisedAmount(), 0, "Raised amount should be zero after refund");
     }
-    
+
     /**
      * @notice Tests the final withdrawal of funds by the campaign owner after fees have been calculated.
      */
@@ -165,8 +146,8 @@ contract PaymentTreasuryFunction_Integration_Test is
         assertEq(withdrawnAmount, expectedWithdrawalAmount, "Incorrect amount withdrawn");
         assertEq(fee, expectedTotalFee, "Incorrect fee amount");
         assertEq(
-            ownerBalanceAfter - ownerBalanceBefore, 
-            expectedWithdrawalAmount, 
+            ownerBalanceAfter - ownerBalanceBefore,
+            expectedWithdrawalAmount,
             "Campaign owner did not receive correct withdrawn amount"
         );
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Available amount should be zero after withdrawal");
@@ -182,7 +163,7 @@ contract PaymentTreasuryFunction_Integration_Test is
         paymentIds[0] = PAYMENT_ID_1;
         paymentIds[1] = PAYMENT_ID_2;
         confirmPaymentBatch(users.platform1AdminAddress, paymentIds);
-        
+
         // Withdraw first to calculate fees
         withdraw(treasuryAddress);
 
@@ -208,7 +189,7 @@ contract PaymentTreasuryFunction_Integration_Test is
             platformAdminBalanceBefore + expectedPlatformShare,
             "Platform admin did not receive correct fee amount"
         );
-        
+
         assertEq(testToken.balanceOf(treasuryAddress), 0, "Treasury should have zero balance after disbursing fees");
     }
 
@@ -220,69 +201,45 @@ contract PaymentTreasuryFunction_Integration_Test is
         // Create payments with different tokens
         uint256 usdtAmount = getTokenAmount(address(usdtToken), PAYMENT_AMOUNT_1);
         uint256 usdcAmount = getTokenAmount(address(usdcToken), PAYMENT_AMOUNT_2);
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            usdcAmount,
-            users.backer2Address,
-            address(usdcToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, usdcAmount, users.backer2Address, address(usdcToken)
         );
-        
+
         // Confirm without specifying token (already set during creation)
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2);
-        
+
         // Verify normalized raised amount
         uint256 expectedNormalized = PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2;
-        assertEq(
-            paymentTreasury.getRaisedAmount(),
-            expectedNormalized,
-            "Raised amount should be normalized sum"
-        );
+        assertEq(paymentTreasury.getRaisedAmount(), expectedNormalized, "Raised amount should be normalized sum");
     }
 
     function test_getRaisedAmountNormalizesCorrectly() public {
         // Create payments with same base amount in different tokens
         uint256 baseAmount = 1000e18;
         uint256 usdtAmount = baseAmount / 1e12; // 6 decimals
-        uint256 cUSDAmount = baseAmount;        // 18 decimals
-        
+        uint256 cUSDAmount = baseAmount; // 18 decimals
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
-        
+
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
-        
+
         uint256 raisedAfterUSDT = paymentTreasury.getRaisedAmount();
         assertEq(raisedAfterUSDT, baseAmount, "USDT should normalize to base amount");
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            cUSDAmount,
-            users.backer2Address,
-            address(cUSDToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, cUSDAmount, users.backer2Address, address(cUSDToken)
         );
-        
+
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2);
-        
+
         uint256 raisedAfterCUSD = paymentTreasury.getRaisedAmount();
         assertEq(raisedAfterCUSD, baseAmount * 2, "Total should be sum of normalized amounts");
     }
@@ -292,42 +249,27 @@ contract PaymentTreasuryFunction_Integration_Test is
         uint256 usdtAmount = getTokenAmount(address(usdtToken), 500e18);
         uint256 usdcAmount = getTokenAmount(address(usdcToken), 700e18);
         uint256 cUSDAmount = 900e18;
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            usdcAmount,
-            users.backer2Address,
-            address(usdcToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, usdcAmount, users.backer2Address, address(usdcToken)
         );
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_3,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            cUSDAmount,
-            users.backer1Address,
-            address(cUSDToken)
+            PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, cUSDAmount, users.backer1Address, address(cUSDToken)
         );
-        
+
         bytes32[] memory paymentIds = new bytes32[](3);
         paymentIds[0] = PAYMENT_ID_1;
         paymentIds[1] = PAYMENT_ID_2;
         paymentIds[2] = PAYMENT_ID_3;
-        
+
         // Batch confirm without token array (tokens already set during creation)
         confirmPaymentBatch(users.platform1AdminAddress, paymentIds);
-        
+
         uint256 expectedTotal = 500e18 + 700e18 + 900e18;
         assertEq(paymentTreasury.getRaisedAmount(), expectedTotal, "Should sum all normalized amounts");
     }
@@ -335,25 +277,17 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_processCryptoPaymentWithMultipleTokens() public {
         uint256 usdtAmount = getTokenAmount(address(usdtToken), 800e18);
         uint256 cUSDAmount = 1200e18;
-        
+
         // Process USDT payment
         _createAndProcessCryptoPaymentWithToken(
-            PAYMENT_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
-        
+
         // Process cUSD payment
         _createAndProcessCryptoPaymentWithToken(
-            PAYMENT_ID_2,
-            ITEM_ID_2,
-            cUSDAmount,
-            users.backer2Address,
-            address(cUSDToken)
+            PAYMENT_ID_2, ITEM_ID_2, cUSDAmount, users.backer2Address, address(cUSDToken)
         );
-        
+
         uint256 expectedTotal = 800e18 + 1200e18;
         assertEq(paymentTreasury.getRaisedAmount(), expectedTotal, "Should track both crypto payments");
         assertEq(usdtToken.balanceOf(treasuryAddress), usdtAmount, "Should hold USDT");
@@ -363,83 +297,59 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_refundReturnsCorrectToken() public {
         uint256 usdtAmount = getTokenAmount(address(usdtToken), PAYMENT_AMOUNT_1);
         uint256 cUSDAmount = PAYMENT_AMOUNT_2;
-        
+
         // Create and confirm USDT payment
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1); // No token parameter
-        
+
         // Create and confirm cUSD payment
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            cUSDAmount,
-            users.backer2Address,
-            address(cUSDToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, cUSDAmount, users.backer2Address, address(cUSDToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2); // No token parameter
-        
+
         uint256 backer1USDTBefore = usdtToken.balanceOf(users.backer1Address);
         uint256 backer2CUSDBefore = cUSDToken.balanceOf(users.backer2Address);
-        
+
         // Claim refunds
         uint256 refund1 = claimRefund(users.platform1AdminAddress, PAYMENT_ID_1, users.backer1Address);
         uint256 refund2 = claimRefund(users.platform1AdminAddress, PAYMENT_ID_2, users.backer2Address);
-        
+
         // Verify correct tokens refunded
         assertEq(refund1, usdtAmount, "Should refund USDT amount");
         assertEq(refund2, cUSDAmount, "Should refund cUSD amount");
-        assertEq(
-            usdtToken.balanceOf(users.backer1Address) - backer1USDTBefore,
-            usdtAmount,
-            "Should receive USDT"
-        );
-        assertEq(
-            cUSDToken.balanceOf(users.backer2Address) - backer2CUSDBefore,
-            cUSDAmount,
-            "Should receive cUSD"
-        );
-        
+        assertEq(usdtToken.balanceOf(users.backer1Address) - backer1USDTBefore, usdtAmount, "Should receive USDT");
+        assertEq(cUSDToken.balanceOf(users.backer2Address) - backer2CUSDBefore, cUSDAmount, "Should receive cUSD");
+
         // Verify no cross-token contamination
         assertEq(cUSDToken.balanceOf(users.backer1Address), TOKEN_MINT_AMOUNT, "Backer1 shouldn't have cUSD changes");
-        assertEq(usdtToken.balanceOf(users.backer2Address), TOKEN_MINT_AMOUNT / 1e12, "Backer2 shouldn't have USDT changes");
+        assertEq(
+            usdtToken.balanceOf(users.backer2Address), TOKEN_MINT_AMOUNT / 1e12, "Backer2 shouldn't have USDT changes"
+        );
     }
 
     function test_cryptoPaymentRefundWithMultipleTokens() public {
         uint256 usdcAmount = getTokenAmount(address(usdcToken), 1500e18);
         uint256 cUSDAmount = 2000e18;
-        
+
         // Process crypto payments
         _createAndProcessCryptoPaymentWithToken(
-            PAYMENT_ID_1,
-            ITEM_ID_1,
-            usdcAmount,
-            users.backer1Address,
-            address(usdcToken)
+            PAYMENT_ID_1, ITEM_ID_1, usdcAmount, users.backer1Address, address(usdcToken)
         );
-        
+
         _createAndProcessCryptoPaymentWithToken(
-            PAYMENT_ID_2,
-            ITEM_ID_2,
-            cUSDAmount,
-            users.backer2Address,
-            address(cUSDToken)
+            PAYMENT_ID_2, ITEM_ID_2, cUSDAmount, users.backer2Address, address(cUSDToken)
         );
-        
+
         uint256 backer1USDCBefore = usdcToken.balanceOf(users.backer1Address);
         uint256 backer2CUSDBefore = cUSDToken.balanceOf(users.backer2Address);
-        
+
         // Buyers claim their own refunds
         uint256 refund1 = claimRefund(users.backer1Address, PAYMENT_ID_1, 1); // tokenId 1
         uint256 refund2 = claimRefund(users.backer2Address, PAYMENT_ID_2, 2); // tokenId 2
-        
+
         assertEq(refund1, usdcAmount, "Should refund USDC amount");
         assertEq(refund2, cUSDAmount, "Should refund cUSD amount");
         assertEq(usdcToken.balanceOf(users.backer1Address) - backer1USDCBefore, usdcAmount);
@@ -450,51 +360,36 @@ contract PaymentTreasuryFunction_Integration_Test is
         uint256 usdtAmount = getTokenAmount(address(usdtToken), 1000e18);
         uint256 usdcAmount = getTokenAmount(address(usdcToken), 1500e18);
         uint256 cUSDAmount = 2000e18;
-        
+
         // Create and confirm payments with different tokens
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            usdcAmount,
-            users.backer2Address,
-            address(usdcToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, usdcAmount, users.backer2Address, address(usdcToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2);
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_3,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            cUSDAmount,
-            users.backer1Address,
-            address(cUSDToken)
+            PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, cUSDAmount, users.backer1Address, address(cUSDToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_3);
-        
+
         address campaignOwner = CampaignInfo(campaignAddress).owner();
         uint256 ownerUSDTBefore = usdtToken.balanceOf(campaignOwner);
         uint256 ownerUSDCBefore = usdcToken.balanceOf(campaignOwner);
         uint256 ownerCUSDBefore = cUSDToken.balanceOf(campaignOwner);
-        
+
         // Withdraw all tokens
         withdraw(treasuryAddress);
-        
+
         // Verify owner received all tokens (minus fees)
         assertTrue(usdtToken.balanceOf(campaignOwner) > ownerUSDTBefore, "Should receive USDT");
         assertTrue(usdcToken.balanceOf(campaignOwner) > ownerUSDCBefore, "Should receive USDC");
         assertTrue(cUSDToken.balanceOf(campaignOwner) > ownerCUSDBefore, "Should receive cUSD");
-        
+
         // Verify available amount is zero
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0, "Should have zero available after withdrawal");
     }
@@ -502,45 +397,35 @@ contract PaymentTreasuryFunction_Integration_Test is
     function test_disburseFeesWithMultipleTokens() public {
         uint256 usdtAmount = getTokenAmount(address(usdtToken), PAYMENT_AMOUNT_1);
         uint256 cUSDAmount = PAYMENT_AMOUNT_2;
-        
+
         // Create and confirm payments
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            cUSDAmount,
-            users.backer2Address,
-            address(cUSDToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, cUSDAmount, users.backer2Address, address(cUSDToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2);
-        
+
         // Withdraw to calculate fees
         withdraw(treasuryAddress);
-        
+
         uint256 protocolUSDTBefore = usdtToken.balanceOf(users.protocolAdminAddress);
         uint256 protocolCUSDBefore = cUSDToken.balanceOf(users.protocolAdminAddress);
         uint256 platformUSDTBefore = usdtToken.balanceOf(users.platform1AdminAddress);
         uint256 platformCUSDBefore = cUSDToken.balanceOf(users.platform1AdminAddress);
-        
+
         // Disburse fees
         disburseFees(treasuryAddress);
-        
+
         // Verify fees distributed for both tokens
         uint256 expectedUSDTProtocolFee = (usdtAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 expectedUSDTPlatformFee = (usdtAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 expectedCUSDProtocolFee = (cUSDAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 expectedCUSDPlatformFee = (cUSDAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
-        
+
         assertEq(
             usdtToken.balanceOf(users.protocolAdminAddress) - protocolUSDTBefore,
             expectedUSDTProtocolFee,
@@ -561,7 +446,7 @@ contract PaymentTreasuryFunction_Integration_Test is
             expectedCUSDPlatformFee,
             "cUSD platform fee incorrect"
         );
-        
+
         // Treasury should be empty
         assertEq(usdtToken.balanceOf(treasuryAddress), 0, "USDT should be fully disbursed");
         assertEq(cUSDToken.balanceOf(treasuryAddress), 0, "cUSD should be fully disbursed");
@@ -571,45 +456,31 @@ contract PaymentTreasuryFunction_Integration_Test is
         // Regular payment with USDT
         uint256 usdtAmount = getTokenAmount(address(usdtToken), 1000e18);
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount, users.backer1Address, address(usdtToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
-        
+
         // Crypto payment with USDC
         uint256 usdcAmount = getTokenAmount(address(usdcToken), 1500e18);
         _createAndProcessCryptoPaymentWithToken(
-            PAYMENT_ID_2,
-            ITEM_ID_2,
-            usdcAmount,
-            users.backer2Address,
-            address(usdcToken)
+            PAYMENT_ID_2, ITEM_ID_2, usdcAmount, users.backer2Address, address(usdcToken)
         );
-        
+
         // Regular payment with cUSD
         uint256 cUSDAmount = 2000e18;
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_3,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            cUSDAmount,
-            users.backer1Address,
-            address(cUSDToken)
+            PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, cUSDAmount, users.backer1Address, address(cUSDToken)
         );
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_3);
-        
+
         // Verify all contribute to raised amount
         uint256 expectedTotal = 1000e18 + 1500e18 + 2000e18;
         assertEq(paymentTreasury.getRaisedAmount(), expectedTotal, "Should sum all payment types");
-        
+
         // Withdraw and disburse
         withdraw(treasuryAddress);
         disburseFees(treasuryAddress);
-        
+
         assertEq(paymentTreasury.getAvailableRaisedAmount(), 0);
     }
 
@@ -618,7 +489,7 @@ contract PaymentTreasuryFunction_Integration_Test is
         TestToken rejectedToken = new TestToken("Rejected", "REJ", 18);
         uint256 amount = 1000e18;
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        
+
         // Try to create payment with unaccepted token
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -640,10 +511,10 @@ contract PaymentTreasuryFunction_Integration_Test is
         TestToken rejectedToken = new TestToken("Rejected", "REJ", 18);
         uint256 amount = 1000e18;
         rejectedToken.mint(users.backer1Address, amount);
-        
+
         vm.prank(users.backer1Address);
         rejectedToken.approve(treasuryAddress, amount);
-        
+
         // Try to process crypto payment with unaccepted token
         vm.expectRevert();
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
@@ -654,8 +525,9 @@ contract PaymentTreasuryFunction_Integration_Test is
             users.backer1Address,
             address(rejectedToken),
             amount,
-            emptyLineItems
-        , new ICampaignPaymentTreasury.ExternalFees[](0));
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
     }
 
     function test_balanceTrackingAcrossMultipleTokens() public {
@@ -663,60 +535,37 @@ contract PaymentTreasuryFunction_Integration_Test is
         uint256 usdtAmount1 = getTokenAmount(address(usdtToken), 500e18);
         uint256 usdtAmount2 = getTokenAmount(address(usdtToken), 300e18);
         uint256 cUSDAmount = 1000e18;
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_1,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            usdtAmount1,
-            users.backer1Address,
-            address(usdtToken)
+            PAYMENT_ID_1, BUYER_ID_1, ITEM_ID_1, usdtAmount1, users.backer1Address, address(usdtToken)
         );
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            usdtAmount2,
-            users.backer2Address,
-            address(usdtToken)
+            PAYMENT_ID_2, BUYER_ID_2, ITEM_ID_2, usdtAmount2, users.backer2Address, address(usdtToken)
         );
-        
+
         _createAndFundPaymentWithToken(
-            PAYMENT_ID_3,
-            BUYER_ID_1,
-            ITEM_ID_1,
-            cUSDAmount,
-            users.backer1Address,
-            address(cUSDToken)
+            PAYMENT_ID_3, BUYER_ID_1, ITEM_ID_1, cUSDAmount, users.backer1Address, address(cUSDToken)
         );
-        
+
         // Confirm all payments
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_1);
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_2);
         confirmPayment(users.platform1AdminAddress, PAYMENT_ID_3);
-        
+
         // Verify raised amounts
         uint256 expectedTotal = 500e18 + 300e18 + 1000e18;
         assertEq(paymentTreasury.getRaisedAmount(), expectedTotal, "Should track total correctly");
-        
+
         // Refund one USDT payment
         claimRefund(users.platform1AdminAddress, PAYMENT_ID_1, users.backer1Address);
-        
+
         uint256 afterRefund = 300e18 + 1000e18;
         assertEq(paymentTreasury.getRaisedAmount(), afterRefund, "Should update after refund");
-        
+
         // Verify token balances
-        assertEq(
-            usdtToken.balanceOf(treasuryAddress),
-            usdtAmount2,
-            "Should only have remaining USDT"
-        );
-        assertEq(
-            cUSDToken.balanceOf(treasuryAddress),
-            cUSDAmount,
-            "cUSD should be unchanged"
-        );
+        assertEq(usdtToken.balanceOf(treasuryAddress), usdtAmount2, "Should only have remaining USDT");
+        assertEq(cUSDToken.balanceOf(treasuryAddress), cUSDAmount, "cUSD should be unchanged");
     }
 
     /**
@@ -731,7 +580,7 @@ contract PaymentTreasuryFunction_Integration_Test is
 
         // Enlist second platform
         vm.startPrank(users.protocolAdminAddress);
-        globalParams.enlistPlatform(PLATFORM_2_HASH, users.platform2AdminAddress, PLATFORM_FEE_PERCENT);
+        globalParams.enlistPlatform(PLATFORM_2_HASH, users.platform2AdminAddress, PLATFORM_FEE_PERCENT, address(0));
         vm.stopPrank();
 
         // Register and approve treasury for platform 2
@@ -815,12 +664,12 @@ contract PaymentTreasuryFunction_Integration_Test is
             emptyLineItems,
             new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
+
         // Fund backer and transfer to treasury
         deal(address(testToken), users.backer1Address, amount1);
         vm.prank(users.backer1Address);
         testToken.transfer(treasury1, amount1);
-        
+
         vm.prank(users.platform1AdminAddress);
         paymentTreasury1.confirmPayment(keccak256("payment-p1"), address(0));
 
@@ -836,12 +685,12 @@ contract PaymentTreasuryFunction_Integration_Test is
             emptyLineItems,
             new ICampaignPaymentTreasury.ExternalFees[](0)
         );
-        
+
         // Fund backer and transfer to treasury
         deal(address(testToken), users.backer2Address, amount2);
         vm.prank(users.backer2Address);
         testToken.transfer(treasury2, amount2);
-        
+
         vm.prank(users.platform2AdminAddress);
         paymentTreasury2.confirmPayment(keccak256("payment-p2"), address(0));
 

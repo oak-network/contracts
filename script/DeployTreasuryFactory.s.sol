@@ -10,19 +10,17 @@ import {DeployBase} from "./lib/DeployBase.s.sol";
 contract DeployTreasuryFactory is DeployBase {
     function deploy(address _globalParams) public returns (address) {
         require(_globalParams != address(0), "GlobalParams not set");
-        
+
         // Deploy implementation
         TreasuryFactory implementation = new TreasuryFactory();
-        
+
         // Prepare initialization data
-        bytes memory initData = abi.encodeWithSelector(
-            TreasuryFactory.initialize.selector,
-            IGlobalParams(_globalParams)
-        );
-        
+        bytes memory initData =
+            abi.encodeWithSelector(TreasuryFactory.initialize.selector, IGlobalParams(_globalParams));
+
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
-        
+
         return address(proxy);
     }
 

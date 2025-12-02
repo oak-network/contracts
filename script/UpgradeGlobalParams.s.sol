@@ -14,7 +14,7 @@ contract UpgradeGlobalParams is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("GLOBAL_PARAMS_ADDRESS");
-        
+
         require(proxyAddress != address(0), "Proxy address must be set");
 
         vm.startBroadcast(deployerKey);
@@ -26,7 +26,7 @@ contract UpgradeGlobalParams is Script {
         // Upgrade the proxy to point to the new implementation
         GlobalParams proxy = GlobalParams(proxyAddress);
         proxy.upgradeToAndCall(address(newImplementation), "");
-        
+
         console2.log("GlobalParams proxy upgraded successfully");
         console2.log("Proxy address:", proxyAddress);
         console2.log("New implementation address:", address(newImplementation));
@@ -34,4 +34,3 @@ contract UpgradeGlobalParams is Script {
         vm.stopBroadcast();
     }
 }
-

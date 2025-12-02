@@ -24,7 +24,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
     function test_addRewards() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
-        
+
         // First reward
         Reward memory resultReward1 = keepWhatsRaised.getReward(REWARD_NAMES[0]);
         assertEq(REWARDS[0].rewardValue, resultReward1.rewardValue);
@@ -53,17 +53,21 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
     }
 
     function test_setPaymentGatewayFee() external {
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
-        
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
+
         uint256 fee = keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1);
         assertEq(fee, PAYMENT_GATEWAY_FEE);
     }
 
     function test_pledgeForARewardWithGatewayFee() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
-        
+
         // Set gateway fee first
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
 
         (Vm.Log[] memory logs, uint256 tokenId, bytes32[] memory rewards) = pledgeForAReward(
             users.backer1Address,
@@ -92,12 +96,20 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
     function test_pledgeWithoutARewardWithGatewayFee() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
-        
+
         // Set gateway fee first
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
 
         (, uint256 tokenId) = pledgeWithoutAReward(
-            users.backer1Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_1, PLEDGE_AMOUNT, TIP_AMOUNT, LAUNCH_TIME
+            users.backer1Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_1,
+            PLEDGE_AMOUNT,
+            TIP_AMOUNT,
+            LAUNCH_TIME
         );
 
         uint256 treasuryBalance = testToken.balanceOf(address(keepWhatsRaised));
@@ -115,12 +127,12 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
     function test_setFeeAndPledgeForReward() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
-        
+
         vm.warp(LAUNCH_TIME);
-        
+
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = REWARD_NAME_1_HASH;
-        
+
         (Vm.Log[] memory logs, uint256 tokenId, bytes32[] memory rewards) = setFeeAndPledge(
             users.platform2AdminAddress,
             address(keepWhatsRaised),
@@ -132,10 +144,10 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             reward,
             true
         );
-        
+
         // Verify fee was set
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
-        
+
         // Verify pledge was made - tokens come from admin not backer
         address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
@@ -143,9 +155,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
     function test_setFeeAndPledgeWithoutReward() external {
         vm.warp(LAUNCH_TIME);
-        
+
         bytes32[] memory emptyReward = new bytes32[](0);
-        
+
         (Vm.Log[] memory logs, uint256 tokenId, bytes32[] memory rewards) = setFeeAndPledge(
             users.platform2AdminAddress,
             address(keepWhatsRaised),
@@ -157,10 +169,10 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             emptyReward,
             false
         );
-        
+
         // Verify fee was set
         assertEq(keepWhatsRaised.getPaymentGatewayFee(TEST_PLEDGE_ID_1), PAYMENT_GATEWAY_FEE);
-        
+
         // Verify pledge was made - tokens come from admin not backer
         address nftOwnerAddress = CampaignInfo(campaignAddress).ownerOf(tokenId);
         assertEq(users.backer1Address, nftOwnerAddress);
@@ -169,12 +181,16 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
     function test_withdrawWithColombianCreatorTax() external {
         // Configure with Colombian creator
         KeepWhatsRaised.FeeValues memory feeValues = createFeeValues();
-        configureTreasury(users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
-        
+        configureTreasury(
+            users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues
+        );
+
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledges with gateway fees
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -185,10 +201,18 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             LAUNCH_TIME,
             REWARD_NAME_1_HASH
         );
-        
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE);
+
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE
+        );
         pledgeWithoutAReward(
-            users.backer2Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_2, GOAL_AMOUNT, TIP_AMOUNT, LAUNCH_TIME
+            users.backer2Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_2,
+            GOAL_AMOUNT,
+            TIP_AMOUNT,
+            LAUNCH_TIME
         );
 
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
@@ -212,7 +236,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledge with gateway fee
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         (, uint256 tokenId,) = pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -233,7 +259,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 backerBalanceAfter = testToken.balanceOf(users.backer1Address);
 
         assertEq(refundedTokenId, tokenId);
-   
+
         // Account for all fees including protocol fee
         uint256 platformFee = (PLEDGE_AMOUNT * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 vakiCommission = (PLEDGE_AMOUNT * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
@@ -249,7 +275,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledges with gateway fees
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -260,15 +288,23 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             LAUNCH_TIME,
             REWARD_NAME_1_HASH
         );
-        
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE);
+
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE
+        );
         pledgeWithoutAReward(
-            users.backer2Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_2, PLEDGE_AMOUNT, 0, LAUNCH_TIME
+            users.backer2Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_2,
+            PLEDGE_AMOUNT,
+            0,
+            LAUNCH_TIME
         );
 
         // Approve and withdraw (as platform admin)
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
-        
+
         vm.warp(DEADLINE - 1 days);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), PLEDGE_AMOUNT);
@@ -308,7 +344,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         uint256 originalDeadline = keepWhatsRaised.getDeadline();
         uint256 newDeadline = originalDeadline + 14 days;
-        
+
         address campaignOwner = CampaignInfo(campaignAddress).owner();
         updateDeadline(campaignOwner, address(keepWhatsRaised), newDeadline);
 
@@ -331,7 +367,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         uint256 originalGoal = keepWhatsRaised.getGoalAmount();
         uint256 newGoal = originalGoal * 3;
-        
+
         address campaignOwner = CampaignInfo(campaignAddress).owner();
         updateGoalAmount(campaignOwner, address(keepWhatsRaised), newGoal);
 
@@ -350,7 +386,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledges
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -361,10 +399,18 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             LAUNCH_TIME,
             REWARD_NAME_1_HASH
         );
-        
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE);
+
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE
+        );
         pledgeWithoutAReward(
-            users.backer2Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_2, GOAL_AMOUNT, TIP_AMOUNT, LAUNCH_TIME
+            users.backer2Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_2,
+            GOAL_AMOUNT,
+            TIP_AMOUNT,
+            LAUNCH_TIME
         );
 
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
@@ -387,16 +433,24 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
     function test_withdrawPartial() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeWithoutAReward(
-            users.backer1Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_1, PLEDGE_AMOUNT, 0, LAUNCH_TIME
+            users.backer1Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_1,
+            PLEDGE_AMOUNT,
+            0,
+            LAUNCH_TIME
         );
 
         // Approve withdrawal
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
 
         uint256 availableBefore = keepWhatsRaised.getAvailableRaisedAmount();
-        
+
         // Calculate safe withdrawal amount that accounts for cumulative fee
         // For small withdrawals, cumulative fee (200e18) is applied
         // So we need available >= withdrawalAmount + cumulativeFee
@@ -410,14 +464,18 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // For partial withdrawals, the full amount requested is transferred
         assertEq(withdrawalAmount, partialAmount, "Incorrect partial withdrawal");
         // Available amount is reduced by withdrawal amount plus fees
-        assertEq(availableBefore - availableAfter, partialAmount + fee, "Available should be reduced by withdrawal plus fee");
+        assertEq(
+            availableBefore - availableAfter, partialAmount + fee, "Available should be reduced by withdrawal plus fee"
+        );
     }
 
     function test_claimTip() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledges with tips
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -428,10 +486,18 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
             LAUNCH_TIME,
             REWARD_NAME_1_HASH
         );
-        
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE);
+
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_2, PAYMENT_GATEWAY_FEE
+        );
         pledgeWithoutAReward(
-            users.backer2Address, address(testToken), address(keepWhatsRaised), TEST_PLEDGE_ID_2, GOAL_AMOUNT, TIP_AMOUNT * 2, LAUNCH_TIME
+            users.backer2Address,
+            address(testToken),
+            address(keepWhatsRaised),
+            TEST_PLEDGE_ID_2,
+            GOAL_AMOUNT,
+            TIP_AMOUNT * 2,
+            LAUNCH_TIME
         );
 
         uint256 totalTips = TIP_AMOUNT + (TIP_AMOUNT * 2);
@@ -452,7 +518,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make a pledge
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -498,7 +566,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make a pledge
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -519,7 +589,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         vm.startPrank(users.backer2Address);
         testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
         vm.expectRevert();
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0);
+        keepWhatsRaised.pledgeWithoutAReward(
+            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0
+        );
         vm.stopPrank();
     }
 
@@ -527,7 +599,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make a pledge
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -549,7 +623,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         vm.startPrank(users.backer2Address);
         testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
         vm.expectRevert();
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0);
+        keepWhatsRaised.pledgeWithoutAReward(
+            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0
+        );
         vm.stopPrank();
     }
 
@@ -557,7 +633,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         // Make pledge with gateway fee
-        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE);
+        setPaymentGatewayFee(
+            users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID_1, PAYMENT_GATEWAY_FEE
+        );
         (, uint256 tokenId,) = pledgeForAReward(
             users.backer1Address,
             address(testToken),
@@ -588,7 +666,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 vakiCommission = (PLEDGE_AMOUNT * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
         uint256 protocolFee = (PLEDGE_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 expectedRefund = PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission - protocolFee;
-        
+
         assertEq(refundAmount, expectedRefund, "Refund amount should be pledge minus fees");
         assertEq(claimer, users.backer1Address);
         assertEq(backerBalanceAfter - backerBalanceBefore, refundAmount);

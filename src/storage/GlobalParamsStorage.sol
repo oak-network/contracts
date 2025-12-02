@@ -43,11 +43,13 @@ library GlobalParamsStorage {
         // Platform-specific line item types: mapping(platformHash => mapping(typeId => LineItemType))
         mapping(bytes32 => mapping(bytes32 => LineItemType)) platformLineItemTypes;
         mapping(bytes32 => uint256) platformClaimDelay;
+        // Platform adapter (trusted forwarder) for ERC-2771 meta-transactions: mapping(platformHash => adapterAddress)
+        mapping(bytes32 => address) platformAdapter;
         Counters.Counter numberOfListedPlatforms;
     }
 
     // keccak256(abi.encode(uint256(keccak256("ccprotocol.storage.GlobalParams")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION = 
+    bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION =
         0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00;
 
     function _getGlobalParamsStorage() internal pure returns (Storage storage $) {

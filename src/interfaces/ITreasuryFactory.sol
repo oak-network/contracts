@@ -27,11 +27,8 @@ interface ITreasuryFactory {
      * @param implementationId The ID to assign to the implementation.
      * @param implementation The contract address of the implementation.
      */
-    function registerTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId,
-        address implementation
-    ) external;
+    function registerTreasuryImplementation(bytes32 platformHash, uint256 implementationId, address implementation)
+        external;
 
     /**
      * @notice Approves a previously registered implementation.
@@ -39,10 +36,7 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param implementationId The ID of the implementation to approve.
      */
-    function approveTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external;
+    function approveTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
 
     /**
      * @notice Disapproves a previously approved treasury implementation.
@@ -55,10 +49,7 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param implementationId The implementation ID to remove.
      */
-    function removeTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external;
+    function removeTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
 
     /**
      * @notice Deploys a treasury clone using an approved implementation.
@@ -68,9 +59,7 @@ interface ITreasuryFactory {
      * @param implementationId The ID of the implementation to use.
      * @return clone The address of the deployed treasury contract.
      */
-    function deploy(
-        bytes32 platformHash,
-        address infoAddress,
-        uint256 implementationId
-    ) external returns (address clone);
+    function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+        external
+        returns (address clone);
 }

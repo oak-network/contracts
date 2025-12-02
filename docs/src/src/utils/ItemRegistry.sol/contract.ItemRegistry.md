@@ -1,17 +1,17 @@
 # ItemRegistry
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/ItemRegistry.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/ItemRegistry.sol)
 
 **Inherits:**
-[IItem](/Users/mahabubalahi/Documents/ccp/ccprotocol-contracts-internal/docs/src/src/interfaces/IItem.sol/interface.IItem.md), Context
+[IItem](/src/interfaces/IItem.sol/interface.IItem.md), Context
 
-A contract that manages the registration and retrieval of items.
+*A contract that manages the registration and retrieval of items.*
 
 
 ## State Variables
 ### Items
 
 ```solidity
-mapping(address => mapping(bytes32 => Item)) private Items
+mapping(address => mapping(bytes32 => Item)) private Items;
 ```
 
 
@@ -72,7 +72,7 @@ function addItemsBatch(bytes32[] calldata itemIds, Item[] calldata items) extern
 
 ## Events
 ### ItemAdded
-Emitted when a new item is added to the registry.
+*Emitted when a new item is added to the registry.*
 
 
 ```solidity
@@ -89,7 +89,7 @@ event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
 
 ## Errors
 ### ItemRegistryMismatchedArraysLength
-Thrown when the input arrays have mismatched lengths.
+*Thrown when the input arrays have mismatched lengths.*
 
 
 ```solidity

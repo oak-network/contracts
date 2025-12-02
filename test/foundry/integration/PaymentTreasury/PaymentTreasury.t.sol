@@ -59,7 +59,7 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
      */
     function enlistPlatform(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
-        globalParams.enlistPlatform(platformHash, users.platform1AdminAddress, PLATFORM_FEE_PERCENT);
+        globalParams.enlistPlatform(platformHash, users.platform1AdminAddress, PLATFORM_FEE_PERCENT, address(0));
         vm.stopPrank();
     }
 
@@ -154,7 +154,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         ICampaignPaymentTreasury.ExternalFees[] memory externalFees
     ) internal {
         vm.prank(caller);
-        paymentTreasury.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees);
+        paymentTreasury.createPayment(
+            paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees
+        );
     }
 
     /**
@@ -171,7 +173,9 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         ICampaignPaymentTreasury.ExternalFees[] memory externalFees
     ) internal {
         vm.prank(caller);
-        paymentTreasury.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
+        paymentTreasury.processCryptoPayment(
+            paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees
+        );
     }
 
     /**
@@ -201,67 +205,60 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     /**
      * @notice Claims a refund
      */
-    function claimRefund(address caller, bytes32 paymentId, address refundAddress) 
-        internal 
-        returns (uint256 refundAmount) 
+    function claimRefund(address caller, bytes32 paymentId, address refundAddress)
+        internal
+        returns (uint256 refundAmount)
     {
         vm.startPrank(caller);
         vm.recordLogs();
-        
+
         paymentTreasury.claimRefund(paymentId, refundAddress);
-        
+
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs, "RefundClaimed(bytes32,uint256,address)", treasuryAddress
-        );
-        
+
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "RefundClaimed(bytes32,uint256,address)", treasuryAddress);
+
         refundAmount = abi.decode(data, (uint256));
-        
+
         vm.stopPrank();
     }
 
     /**
      * @notice Claims a refund (buyer-initiated)
      */
-    function claimRefund(address caller, bytes32 paymentId, uint256 tokenId) 
-        internal 
-        returns (uint256 refundAmount) 
-    {
+    function claimRefund(address caller, bytes32 paymentId, uint256 tokenId) internal returns (uint256 refundAmount) {
         vm.startPrank(caller);
-        
+
         // Approve treasury to burn NFT
         CampaignInfo(campaignAddress).approve(treasuryAddress, tokenId);
-        
+
         vm.recordLogs();
-        
+
         paymentTreasury.claimRefund(paymentId);
-        
+
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs, "RefundClaimed(bytes32,uint256,address)", treasuryAddress
-        );
-        
+
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "RefundClaimed(bytes32,uint256,address)", treasuryAddress);
+
         refundAmount = abi.decode(data, (uint256));
-        
+
         vm.stopPrank();
     }
 
     /**
      * @notice Disburses fees
      */
-    function disburseFees(address treasury)
-        internal
-        returns (uint256 protocolShare, uint256 platformShare)
-    {
+    function disburseFees(address treasury) internal returns (uint256 protocolShare, uint256 platformShare) {
         vm.recordLogs();
 
         PaymentTreasury(treasury).disburseFees();
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", treasury);
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", treasury);
 
         // topics[1] is the indexed token
         // Data contains protocolShare and platformShare
@@ -271,12 +268,12 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     /**
      * @notice Withdraws funds
      */
-    function withdraw(address treasury)
-        internal
-        returns (address to, uint256 amount, uint256 fee)
-    {
+    function withdraw(address treasury) internal returns (address to, uint256 amount, uint256 fee) {
         vm.recordLogs();
 
+        // Use campaign owner as the authorized caller for withdraw
+        address campaignOwner = CampaignInfo(campaignAddress).owner();
+        vm.prank(campaignOwner);
         PaymentTreasury(treasury).withdraw();
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -327,17 +324,28 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     ) internal {
         // Fund buyer
         deal(address(testToken), buyerAddress, amount);
-        
+
         // Buyer approves treasury
         vm.prank(buyerAddress);
         testToken.approve(treasuryAddress, amount);
-        
+
         // Create payment with token specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
-        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, address(testToken), amount, expiration, emptyLineItems, emptyExternalFees);
-        
+        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees =
+            new ICampaignPaymentTreasury.ExternalFees[](0);
+        createPayment(
+            users.platform1AdminAddress,
+            paymentId,
+            buyerId,
+            itemId,
+            address(testToken),
+            amount,
+            expiration,
+            emptyLineItems,
+            emptyExternalFees
+        );
+
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
         testToken.transfer(treasuryAddress, amount);
@@ -346,22 +354,28 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     /**
      * @notice Helper to create and process a crypto payment
      */
-    function _createAndProcessCryptoPayment(
-        bytes32 paymentId,
-        bytes32 itemId,
-        uint256 amount,
-        address buyerAddress
-    ) internal {
+    function _createAndProcessCryptoPayment(bytes32 paymentId, bytes32 itemId, uint256 amount, address buyerAddress)
+        internal
+    {
         // Fund buyer
         deal(address(testToken), buyerAddress, amount);
-        
+
         // Buyer approves treasury
         vm.prank(buyerAddress);
         testToken.approve(treasuryAddress, amount);
-        
+
         // Process crypto payment
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, address(testToken), amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
+        processCryptoPayment(
+            buyerAddress,
+            paymentId,
+            itemId,
+            buyerAddress,
+            address(testToken),
+            amount,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
     }
 
     /**
@@ -373,8 +387,8 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     }
 
     /**
-    * @notice Helper to create and fund a payment from buyer with specific token
-    */
+     * @notice Helper to create and fund a payment from buyer with specific token
+     */
     function _createAndFundPaymentWithToken(
         bytes32 paymentId,
         bytes32 buyerId,
@@ -385,25 +399,36 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     ) internal {
         // Fund buyer
         deal(token, buyerAddress, amount);
-        
+
         // Buyer approves treasury
         vm.prank(buyerAddress);
         TestToken(token).approve(treasuryAddress, amount);
-        
+
         // Create payment with token specified
         uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
-        createPayment(users.platform1AdminAddress, paymentId, buyerId, itemId, token, amount, expiration, emptyLineItems, emptyExternalFees);
-        
+        ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees =
+            new ICampaignPaymentTreasury.ExternalFees[](0);
+        createPayment(
+            users.platform1AdminAddress,
+            paymentId,
+            buyerId,
+            itemId,
+            token,
+            amount,
+            expiration,
+            emptyLineItems,
+            emptyExternalFees
+        );
+
         // Transfer tokens from buyer to treasury
         vm.prank(buyerAddress);
         TestToken(token).transfer(treasuryAddress, amount);
     }
 
     /**
-    * @notice Helper to create and process a crypto payment with specific token
-    */
+     * @notice Helper to create and process a crypto payment with specific token
+     */
     function _createAndProcessCryptoPaymentWithToken(
         bytes32 paymentId,
         bytes32 itemId,
@@ -413,13 +438,22 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
     ) internal {
         // Fund buyer
         deal(token, buyerAddress, amount);
-        
+
         // Buyer approves treasury
         vm.prank(buyerAddress);
         TestToken(token).approve(treasuryAddress, amount);
-        
+
         // Process crypto payment
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(buyerAddress, paymentId, itemId, buyerAddress, token, amount, emptyLineItems, new ICampaignPaymentTreasury.ExternalFees[](0));
+        processCryptoPayment(
+            buyerAddress,
+            paymentId,
+            itemId,
+            buyerAddress,
+            token,
+            amount,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0)
+        );
     }
 }

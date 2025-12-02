@@ -15,12 +15,7 @@ import {IReward} from "../interfaces/IReward.sol";
  * @title AllOrNothing
  * @notice A contract for handling crowdfunding campaigns with rewards.
  */
-contract AllOrNothing is
-    IReward,
-    BaseTreasury,
-    TimestampChecker,
-    ReentrancyGuard
-{
+contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -31,7 +26,7 @@ contract AllOrNothing is
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
     // Mapping to store the token used for each pledge
-    mapping(uint256 => address) private s_tokenIdToPledgeToken; 
+    mapping(uint256 => address) private s_tokenIdToPledgeToken;
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
@@ -126,11 +121,8 @@ contract AllOrNothing is
      */
     constructor() {}
 
-    function initialize(
-        bytes32 _platformHash,
-        address _infoAddress
-    ) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress);
+    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
     }
 
     /**
@@ -138,9 +130,7 @@ contract AllOrNothing is
      * @param rewardName The name of the reward.
      * @return reward The details of the reward as a `Reward` struct.
      */
-    function getReward(
-        bytes32 rewardName
-    ) external view returns (Reward memory reward) {
+    function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
             revert AllOrNothingInvalidInput();
         }
@@ -153,7 +143,7 @@ contract AllOrNothing is
     function getRaisedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amount = s_tokenRaisedAmounts[token];
@@ -161,7 +151,7 @@ contract AllOrNothing is
                 totalNormalized += _normalizeAmount(token, amount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -171,7 +161,7 @@ contract AllOrNothing is
     function getLifetimeRaisedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amount = s_tokenLifetimeRaisedAmounts[token];
@@ -179,7 +169,7 @@ contract AllOrNothing is
                 totalNormalized += _normalizeAmount(token, amount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -189,7 +179,7 @@ contract AllOrNothing is
     function getRefundedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
@@ -199,7 +189,7 @@ contract AllOrNothing is
                 totalNormalized += _normalizeAmount(token, refundedAmount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -212,10 +202,7 @@ contract AllOrNothing is
      * @param rewardNames An array of reward names.
      * @param rewards An array of `Reward` structs containing reward details.
      */
-    function addRewards(
-        bytes32[] calldata rewardNames,
-        Reward[] calldata rewards
-    )
+    function addRewards(bytes32[] calldata rewardNames, Reward[] calldata rewards)
         external
         onlyCampaignOwner
         whenCampaignNotPaused
@@ -238,8 +225,8 @@ contract AllOrNothing is
 
             // If there are any items, their arrays must match in length
             if (
-                (reward.itemId.length != reward.itemValue.length) ||
-                (reward.itemId.length != reward.itemQuantity.length)
+                (reward.itemId.length != reward.itemValue.length)
+                    || (reward.itemId.length != reward.itemQuantity.length)
             ) {
                 revert AllOrNothingInvalidInput();
             }
@@ -259,9 +246,7 @@ contract AllOrNothing is
      * @notice Removes a reward from the campaign.
      * @param rewardName The name of the reward.
      */
-    function removeReward(
-        bytes32 rewardName
-    )
+    function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
         whenCampaignNotPaused
@@ -286,12 +271,7 @@ contract AllOrNothing is
      * @param shippingFee The shipping fee amount.
      * @param reward An array of reward names.
      */
-    function pledgeForAReward(
-        address backer,
-        address pledgeToken,
-        uint256 shippingFee,
-        bytes32[] calldata reward
-    )
+    function pledgeForAReward(address backer, address pledgeToken, uint256 shippingFee, bytes32[] calldata reward)
         external
         nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -303,10 +283,8 @@ contract AllOrNothing is
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
-            backer == address(0) ||
-            rewardLen > s_rewardCounter.current() ||
-            reward[0] == ZERO_BYTES ||
-            !tempReward.isRewardTier
+            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
+                || !tempReward.isRewardTier
         ) {
             revert AllOrNothingInvalidInput();
         }
@@ -330,11 +308,7 @@ contract AllOrNothing is
      * @param pledgeToken The token address to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
      */
-    function pledgeWithoutAReward(
-        address backer,
-        address pledgeToken,
-        uint256 pledgeAmount
-    )
+    function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledgeAmount)
         external
         nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -352,9 +326,7 @@ contract AllOrNothing is
      * @notice Allows a backer to claim a refund.
      * @param tokenId The ID of the token representing the pledge.
      */
-    function claimRefund(
-        uint256 tokenId
-    )
+    function claimRefund(uint256 tokenId)
         external
         currentTimeIsGreater(INFO.getLaunchTime())
         whenCampaignNotPaused
@@ -363,26 +335,26 @@ contract AllOrNothing is
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
             revert AllOrNothingNotClaimable(tokenId);
         }
-        
+
         // Get NFT owner before burning
         address nftOwner = INFO.ownerOf(tokenId);
-        
+
         uint256 amountToRefund = s_tokenToTotalCollectedAmount[tokenId];
         uint256 pledgedAmount = s_tokenToPledgedAmount[tokenId];
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
-        
+
         if (amountToRefund == 0) {
             revert AllOrNothingNotClaimable(tokenId);
         }
-        
+
         s_tokenToTotalCollectedAmount[tokenId] = 0;
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenRaisedAmounts[pledgeToken] -= pledgedAmount;
         delete s_tokenIdToPledgeToken[tokenId];
-        
+
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
-        
+
         IERC20(pledgeToken).safeTransfer(nftOwner, amountToRefund);
         emit RefundClaimed(tokenId, amountToRefund, nftOwner);
     }
@@ -390,13 +362,7 @@ contract AllOrNothing is
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees()
-        public
-        override
-        currentTimeIsGreater(INFO.getDeadline())
-        whenNotPaused
-        whenNotCancelled
-    {
+    function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) whenNotPaused whenNotCancelled {
         if (s_feesDisbursed) {
             revert AllOrNothingFeeAlreadyDisbursed();
         }
@@ -415,10 +381,7 @@ contract AllOrNothing is
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
     function cancelTreasury(bytes32 message) public override {
-        if (
-            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            _msgSender() != INFO.owner()
-        ) {
+        if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert AllOrNothingUnAuthorized();
         }
         _cancel(message);
@@ -427,13 +390,7 @@ contract AllOrNothing is
     /**
      * @inheritdoc BaseTreasury
      */
-    function _checkSuccessCondition()
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function _checkSuccessCondition() internal view virtual override returns (bool) {
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
@@ -445,16 +402,16 @@ contract AllOrNothing is
         uint256 shippingFee,
         bytes32[] memory rewards
     ) private {
-        // Validate token is accepted 
+        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
-        
+
         // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
         // If not for a reward, amounts are already in token decimals
         uint256 pledgeAmountInTokenDecimals;
         uint256 shippingFeeInTokenDecimals;
-        
+
         if (reward != ZERO_BYTES) {
             // Reward pledge: denormalize from 18 decimals to token decimals
             pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
@@ -464,35 +421,21 @@ contract AllOrNothing is
             pledgeAmountInTokenDecimals = pledgeAmount;
             shippingFeeInTokenDecimals = shippingFee;
         }
-        
+
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
-        
+
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
-        
+
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer,
-            reward,
-            pledgeToken,
-            pledgeAmountInTokenDecimals,
-            shippingFeeInTokenDecimals,
-            0
+            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
         );
-        
+
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
         s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
         s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        
-        emit Receipt(
-            backer,
-            pledgeToken,
-            reward,
-            pledgeAmount,
-            shippingFee,
-            tokenId,
-            rewards
-        );
-    }
 
+        emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
+    }
 }

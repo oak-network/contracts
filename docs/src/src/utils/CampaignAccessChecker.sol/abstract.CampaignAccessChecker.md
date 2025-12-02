@@ -1,25 +1,34 @@
 # CampaignAccessChecker
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/CampaignAccessChecker.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/CampaignAccessChecker.sol)
 
 **Inherits:**
 Context
 
-This abstract contract provides access control mechanisms to restrict the execution of specific functions
-to authorized protocol administrators, platform administrators, and campaign owners.
+*This abstract contract provides access control mechanisms to restrict the execution of specific functions
+to authorized protocol administrators, platform administrators, and campaign owners.*
 
 
 ## State Variables
 ### INFO
 
 ```solidity
-ICampaignInfo internal INFO
+ICampaignInfo internal INFO;
+```
+
+
+### _trustedForwarder
+*Trusted forwarder address for ERC-2771 meta-transactions (set by derived contracts)*
+
+
+```solidity
+address internal _trustedForwarder;
 ```
 
 
 ## Functions
 ### __CampaignAccessChecker_init
 
-Constructor to initialize the contract with the address of the campaign information contract.
+*Constructor to initialize the contract with the address of the campaign information contract.*
 
 
 ```solidity
@@ -34,22 +43,22 @@ function __CampaignAccessChecker_init(address campaignInfo) internal;
 
 ### onlyProtocolAdmin
 
-Modifier that restricts function access to protocol administrators only.
-Users attempting to execute functions with this modifier must be the protocol admin.
+*Modifier that restricts function access to protocol administrators only.
+Users attempting to execute functions with this modifier must be the protocol admin.*
 
 
 ```solidity
-modifier onlyProtocolAdmin() ;
+modifier onlyProtocolAdmin();
 ```
 
 ### onlyPlatformAdmin
 
-Modifier that restricts function access to platform administrators of a specific platform.
-Users attempting to execute functions with this modifier must be the platform admin for the given platform.
+*Modifier that restricts function access to platform administrators of a specific platform.
+Users attempting to execute functions with this modifier must be the platform admin for the given platform.*
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformHash) ;
+modifier onlyPlatformAdmin(bytes32 platformHash);
 ```
 **Parameters**
 
@@ -60,18 +69,18 @@ modifier onlyPlatformAdmin(bytes32 platformHash) ;
 
 ### onlyCampaignOwner
 
-Modifier that restricts function access to the owner of the campaign.
-Users attempting to execute functions with this modifier must be the owner of the campaign.
+*Modifier that restricts function access to the owner of the campaign.
+Users attempting to execute functions with this modifier must be the owner of the campaign.*
 
 
 ```solidity
-modifier onlyCampaignOwner() ;
+modifier onlyCampaignOwner();
 ```
 
 ### _onlyProtocolAdmin
 
-Internal function to check if the sender is the protocol administrator.
-If the sender is not the protocol admin, it reverts with AccessCheckerUnauthorized error.
+*Internal function to check if the sender is the protocol administrator.
+If the sender is not the protocol admin, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
@@ -80,8 +89,8 @@ function _onlyProtocolAdmin() private view;
 
 ### _onlyPlatformAdmin
 
-Internal function to check if the sender is the platform administrator for a specific platform.
-If the sender is not the platform admin, it reverts with AccessCheckerUnauthorized error.
+*Internal function to check if the sender is the platform administrator for a specific platform.
+If the sender is not the platform admin, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
@@ -96,8 +105,8 @@ function _onlyPlatformAdmin(bytes32 platformHash) private view;
 
 ### _onlyCampaignOwner
 
-Internal function to check if the sender is the owner of the campaign.
-If the sender is not the owner, it reverts with AccessCheckerUnauthorized error.
+*Internal function to check if the sender is the owner of the campaign.
+If the sender is not the owner, it reverts with AccessCheckerUnauthorized error.*
 
 
 ```solidity
@@ -106,7 +115,7 @@ function _onlyCampaignOwner() private view;
 
 ## Errors
 ### AccessCheckerUnauthorized
-Throws when the caller is not authorized.
+*Throws when the caller is not authorized.*
 
 
 ```solidity

@@ -7,10 +7,7 @@ import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 
-contract TimeConstrainedPaymentTreasury is
-    BasePaymentTreasury,
-    TimestampChecker
-{
+contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     using SafeERC20 for IERC20;
 
     /**
@@ -23,11 +20,8 @@ contract TimeConstrainedPaymentTreasury is
      */
     constructor() {}
 
-    function initialize(
-        bytes32 _platformHash,
-        address _infoAddress
-    ) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress);
+    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
     }
 
     /**
@@ -60,7 +54,7 @@ contract TimeConstrainedPaymentTreasury is
         uint256 expiration,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    ) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinRange();
         super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees);
     }
@@ -77,9 +71,11 @@ contract TimeConstrainedPaymentTreasury is
         uint256[] calldata expirations,
         ICampaignPaymentTreasury.LineItem[][] calldata lineItemsArray,
         ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    ) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinRange();
-        super.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray);
+        super.createPaymentBatch(
+            paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray
+        );
     }
 
     /**
@@ -93,7 +89,7 @@ contract TimeConstrainedPaymentTreasury is
         uint256 amount,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    ) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinRange();
         super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
     }
@@ -101,9 +97,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function cancelPayment(
-        bytes32 paymentId
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function cancelPayment(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinRange();
         super.cancelPayment(paymentId);
     }
@@ -111,10 +105,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function confirmPayment(
-        bytes32 paymentId,
-        address buyerAddress
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function confirmPayment(bytes32 paymentId, address buyerAddress) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinRange();
         super.confirmPayment(paymentId, buyerAddress);
     }
@@ -122,10 +113,12 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function confirmPaymentBatch(
-        bytes32[] calldata paymentIds,
-        address[] calldata buyerAddresses
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
+        public
+        override
+        whenNotPaused
+        whenNotCancelled
+    {
         _checkTimeWithinRange();
         super.confirmPaymentBatch(paymentIds, buyerAddresses);
     }
@@ -133,10 +126,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(
-        bytes32 paymentId, 
-        address refundAddress
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled {
         _checkTimeIsGreater();
         super.claimRefund(paymentId, refundAddress);
     }
@@ -144,9 +134,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(
-        bytes32 paymentId
-    ) public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
         _checkTimeIsGreater();
         super.claimRefund(paymentId);
     }
@@ -154,7 +142,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimExpiredFunds() public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function claimExpiredFunds() public override whenNotPaused {
         _checkTimeIsGreater();
         super.claimExpiredFunds();
     }
@@ -162,20 +150,23 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function disburseFees()
-        public
-        override
-        whenCampaignNotPaused
-        whenCampaignNotCancelled
-    {
+    function disburseFees() public override whenNotPaused {
         _checkTimeIsGreater();
         super.disburseFees();
     }
 
     /**
+     * @inheritdoc BasePaymentTreasury
+     */
+    function claimNonGoalLineItems(address token) public override whenNotPaused {
+        _checkTimeIsGreater();
+        super.claimNonGoalLineItems(token);
+    }
+
+    /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function withdraw() public override whenCampaignNotPaused whenCampaignNotCancelled {
+    function withdraw() public override whenNotPaused whenNotCancelled {
         _checkTimeIsGreater();
         super.withdraw();
     }
@@ -185,10 +176,7 @@ contract TimeConstrainedPaymentTreasury is
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
     function cancelTreasury(bytes32 message) public override {
-        if (
-            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            _msgSender() != INFO.owner()
-        ) {
+        if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert TimeConstrainedPaymentTreasuryUnAuthorized();
         }
         _cancel(message);
@@ -197,13 +185,7 @@ contract TimeConstrainedPaymentTreasury is
     /**
      * @inheritdoc BasePaymentTreasury
      */
-    function _checkSuccessCondition()
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function _checkSuccessCondition() internal view virtual override returns (bool) {
         return true;
     }
 }

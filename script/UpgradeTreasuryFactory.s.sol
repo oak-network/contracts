@@ -14,7 +14,7 @@ contract UpgradeTreasuryFactory is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("TREASURY_FACTORY_ADDRESS");
-        
+
         require(proxyAddress != address(0), "Proxy address must be set");
 
         vm.startBroadcast(deployerKey);
@@ -26,7 +26,7 @@ contract UpgradeTreasuryFactory is Script {
         // Upgrade the proxy to point to the new implementation
         TreasuryFactory proxy = TreasuryFactory(proxyAddress);
         proxy.upgradeToAndCall(address(newImplementation), "");
-        
+
         console2.log("TreasuryFactory proxy upgraded successfully");
         console2.log("Proxy address:", proxyAddress);
         console2.log("New implementation address:", address(newImplementation));
@@ -34,4 +34,3 @@ contract UpgradeTreasuryFactory is Script {
         vm.stopBroadcast();
     }
 }
-

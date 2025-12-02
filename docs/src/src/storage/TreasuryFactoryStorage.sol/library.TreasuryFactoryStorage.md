@@ -1,9 +1,9 @@
 # TreasuryFactoryStorage
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/storage/TreasuryFactoryStorage.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/storage/TreasuryFactoryStorage.sol)
 
 Storage contract for TreasuryFactory using ERC-7201 namespaced storage
 
-This contract contains the storage layout and accessor functions for TreasuryFactory
+*This contract contains the storage layout and accessor functions for TreasuryFactory*
 
 
 ## State Variables
@@ -11,7 +11,7 @@ This contract contains the storage layout and accessor functions for TreasuryFac
 
 ```solidity
 bytes32 private constant TREASURY_FACTORY_STORAGE_LOCATION =
-    0x96b7de8c171ef460648aea35787d043e89feb6b6de2623a1e6f17a91b9c9e900
+    0x96b7de8c171ef460648aea35787d043e89feb6b6de2623a1e6f17a91b9c9e900;
 ```
 
 

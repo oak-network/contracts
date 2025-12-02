@@ -1,5 +1,5 @@
 # IGlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -236,6 +236,45 @@ function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay) exte
 |----|----|-----------|
 |`platformHash`|`bytes32`|The unique identifier of the platform.|
 |`claimDelay`|`uint256`|The claim delay in seconds.|
+
+
+### getPlatformAdapter
+
+Retrieves the adapter (trusted forwarder) address for a platform.
+
+
+```solidity
+function getPlatformAdapter(bytes32 platformHash) external view returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The adapter address for ERC-2771 meta-transactions.|
+
+
+### setPlatformAdapter
+
+Sets the adapter (trusted forwarder) address for a platform.
+
+*Only callable by the protocol admin (owner).*
+
+
+```solidity
+function setPlatformAdapter(bytes32 platformHash, address adapter) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`adapter`|`address`|The address of the adapter contract.|
 
 
 ### addTokenToCurrency

@@ -17,8 +17,7 @@ import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
 contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSUpgradeable {
     using Counters for Counters.Counter;
 
-    bytes32 private constant ZERO_BYTES =
-        0x0000000000000000000000000000000000000000000000000000000000000000;
+    bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
 
     /**
      * @dev Emitted when a platform is enlisted.
@@ -27,9 +26,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param platformFeePercent The fee percentage of the enlisted platform.
      */
     event PlatformEnlisted(
-        bytes32 indexed platformHash,
-        address indexed platformAdminAddress,
-        uint256 platformFeePercent
+        bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent
     );
 
     /**
@@ -69,36 +66,27 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param platformHash The identifier of the platform.
      * @param newAdminAddress The new admin address of the platform.
      */
-    event PlatformAdminAddressUpdated(
-        bytes32 indexed platformHash,
-        address indexed newAdminAddress
-    );
+    event PlatformAdminAddressUpdated(bytes32 indexed platformHash, address indexed newAdminAddress);
 
     /**
      * @dev Emitted when platform data is added.
      * @param platformHash The identifier of the platform.
      * @param platformDataKey The data key added to the platform.
      */
-    event PlatformDataAdded(
-        bytes32 indexed platformHash,
-        bytes32 indexed platformDataKey
-    );
+    event PlatformDataAdded(bytes32 indexed platformHash, bytes32 indexed platformDataKey);
 
     /**
      * @dev Emitted when platform data is removed.
      * @param platformHash The identifier of the platform.
      * @param platformDataKey The data key removed from the platform.
      */
-    event PlatformDataRemoved(
-        bytes32 indexed platformHash,
-        bytes32 platformDataKey
-    );
+    event PlatformDataRemoved(bytes32 indexed platformHash, bytes32 platformDataKey);
 
-    /** 
+    /**
      * @dev Emitted when data is added to the registry.
-    * @param key The registry key.
-    * @param value The registry value.
-    */
+     * @param key The registry key.
+     * @param value The registry value.
+     */
     event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
 
     /**
@@ -121,6 +109,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         bool instantTransfer
     );
     event PlatformClaimDelayUpdated(bytes32 indexed platformHash, uint256 claimDelay);
+
+    /**
+     * @dev Emitted when a platform adapter (trusted forwarder) is set.
+     * @param platformHash The identifier of the platform.
+     * @param adapter The address of the adapter contract.
+     */
+    event PlatformAdapterSet(bytes32 indexed platformHash, address indexed adapter);
 
     /**
      * @dev Emitted when a platform-specific line item type is removed.
@@ -183,7 +178,6 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      */
     error GlobalParamsCurrencyTokenLengthMismatch();
 
-
     /**
      * @dev Throws when a currency has no tokens registered.
      * @param currency The currency identifier.
@@ -203,7 +197,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param typeId The identifier of the line item type.
      */
     error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typeId);
-    
+
     /**
      * @dev Reverts if the input address is zero.
      */
@@ -255,15 +249,15 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolAdminAddress = protocolAdminAddress;
         $.protocolFeePercent = protocolFeePercent;
-        
+
         uint256 currencyLength = currencies.length;
 
-        if(currencyLength != tokensPerCurrency.length) {
+        if (currencyLength != tokensPerCurrency.length) {
             revert GlobalParamsCurrencyTokenLengthMismatch();
         }
-        
-        for (uint256 i = 0; i < currencyLength; ) {
-            for (uint256 j = 0; j < tokensPerCurrency[i].length; ) {
+
+        for (uint256 i = 0; i < currencyLength;) {
+            for (uint256 j = 0; j < tokensPerCurrency[i].length;) {
                 address token = tokensPerCurrency[i][j];
                 if (token == address(0)) {
                     revert GlobalParamsInvalidInput();
@@ -286,14 +280,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /**
-    * @notice Adds a key-value pair to the data registry.
-    * @param key The registry key.
-    * @param value The registry value.
-    */
-    function addToRegistry(
-        bytes32 key,
-        bytes32 value
-    ) external onlyOwner {
+     * @notice Adds a key-value pair to the data registry.
+     * @param key The registry key.
+     * @param value The registry value.
+     */
+    function addToRegistry(bytes32 key, bytes32 value) external onlyOwner {
         if (key == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -303,13 +294,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     }
 
     /**
-    * @notice Retrieves a value from the data registry.
-    * @param key The registry key.
-    * @return value The registry value.
-    */
-    function getFromRegistry(
-        bytes32 key
-    ) external view returns (bytes32 value) {
+     * @notice Retrieves a value from the data registry.
+     * @param key The registry key.
+     * @return value The registry value.
+     */
+    function getFromRegistry(bytes32 key) external view returns (bytes32 value) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         value = $.dataRegistry[key];
     }
@@ -317,9 +306,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getPlatformAdminAddress(
-        bytes32 platformHash
-    )
+    function getPlatformAdminAddress(bytes32 platformHash)
         external
         view
         override
@@ -336,12 +323,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getNumberOfListedPlatforms()
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function getNumberOfListedPlatforms() external view override returns (uint256) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         return $.numberOfListedPlatforms.current();
     }
@@ -349,12 +331,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getProtocolAdminAddress()
-        external
-        view
-        override
-        returns (address)
-    {
+    function getProtocolAdminAddress() external view override returns (address) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         return $.protocolAdminAddress;
     }
@@ -370,9 +347,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getPlatformFeePercent(
-        bytes32 platformHash
-    )
+    function getPlatformFeePercent(bytes32 platformHash)
         external
         view
         override
@@ -386,9 +361,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getPlatformClaimDelay(
-        bytes32 platformHash
-    )
+    function getPlatformClaimDelay(bytes32 platformHash)
         external
         view
         override
@@ -402,9 +375,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getPlatformDataOwner(
-        bytes32 platformDataKey
-    ) external view override returns (bytes32 platformHash) {
+    function getPlatformDataOwner(bytes32 platformDataKey) external view override returns (bytes32 platformHash) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         platformHash = $.platformDataOwner[platformDataKey];
     }
@@ -412,9 +383,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function checkIfPlatformIsListed(
-        bytes32 platformHash
-    ) public view override returns (bool) {
+    function checkIfPlatformIsListed(bytes32 platformHash) public view override returns (bool) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         return $.platformIsListed[platformHash];
     }
@@ -422,24 +391,24 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function checkIfPlatformDataKeyValid(
-        bytes32 platformDataKey
-    ) external view override returns (bool isValid) {
+    function checkIfPlatformDataKeyValid(bytes32 platformDataKey) external view override returns (bool isValid) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         isValid = $.platformData[platformDataKey];
     }
 
     /**
-     * @notice Enlists a platform with its admin address and fee percentage.
+     * @notice Enlists a platform with its admin address, fee percentage, and optional adapter.
      * @dev The platformFeePercent can be any value including zero.
      * @param platformHash The platform's identifier.
      * @param platformAdminAddress The platform's admin address.
      * @param platformFeePercent The platform's fee percentage.
+     * @param platformAdapter The platform's adapter (trusted forwarder) address for ERC-2771 meta-transactions. Can be address(0) if not needed.
      */
     function enlistPlatform(
         bytes32 platformHash,
         address platformAdminAddress,
-        uint256 platformFeePercent
+        uint256 platformFeePercent,
+        address platformAdapter
     ) external onlyOwner notAddressZero(platformAdminAddress) {
         if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
@@ -451,12 +420,12 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
             $.platformIsListed[platformHash] = true;
             $.platformAdminAddress[platformHash] = platformAdminAddress;
             $.platformFeePercent[platformHash] = platformFeePercent;
+            $.platformAdapter[platformHash] = platformAdapter;
             $.numberOfListedPlatforms.increment();
-            emit PlatformEnlisted(
-                platformHash,
-                platformAdminAddress,
-                platformFeePercent
-            );
+            emit PlatformEnlisted(platformHash, platformAdminAddress, platformFeePercent);
+            if (platformAdapter != address(0)) {
+                emit PlatformAdapterSet(platformHash, platformAdapter);
+            }
         }
     }
 
@@ -464,9 +433,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @notice Delists a platform.
      * @param platformHash The platform's identifier.
      */
-    function delistPlatform(
-        bytes32 platformHash
-    ) external onlyOwner platformIsListed(platformHash) {
+    function delistPlatform(bytes32 platformHash) external onlyOwner platformIsListed(platformHash) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.platformIsListed[platformHash] = false;
         $.platformAdminAddress[platformHash] = address(0);
@@ -480,10 +447,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param platformHash The platform's identifier.
      * @param platformDataKey The platform data key.
      */
-    function addPlatformData(
-        bytes32 platformHash,
-        bytes32 platformDataKey
-    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
+    function addPlatformData(bytes32 platformHash, bytes32 platformDataKey)
+        external
+        platformIsListed(platformHash)
+        onlyPlatformAdmin(platformHash)
+    {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -501,10 +469,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param platformHash The platform's identifier.
      * @param platformDataKey The platform data key.
      */
-    function removePlatformData(
-        bytes32 platformHash,
-        bytes32 platformDataKey
-    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
+    function removePlatformData(bytes32 platformHash, bytes32 platformDataKey)
+        external
+        platformIsListed(platformHash)
+        onlyPlatformAdmin(platformHash)
+    {
         if (platformDataKey == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -520,9 +489,12 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function updateProtocolAdminAddress(
-        address protocolAdminAddress
-    ) external override onlyOwner notAddressZero(protocolAdminAddress) {
+    function updateProtocolAdminAddress(address protocolAdminAddress)
+        external
+        override
+        onlyOwner
+        notAddressZero(protocolAdminAddress)
+    {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolAdminAddress = protocolAdminAddress;
         emit ProtocolAdminAddressUpdated(protocolAdminAddress);
@@ -531,9 +503,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function updateProtocolFeePercent(
-        uint256 protocolFeePercent
-    ) external override onlyOwner {
+    function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyOwner {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolFeePercent = protocolFeePercent;
         emit ProtocolFeePercentUpdated(protocolFeePercent);
@@ -542,10 +512,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function updatePlatformAdminAddress(
-        bytes32 platformHash,
-        address platformAdminAddress
-    )
+    function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminAddress)
         external
         override
         onlyOwner
@@ -560,10 +527,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function updatePlatformClaimDelay(
-        bytes32 platformHash,
-        uint256 claimDelay
-    )
+    function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay)
         external
         override
         platformIsListed(platformHash)
@@ -577,10 +541,35 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function addTokenToCurrency(
-        bytes32 currency,
-        address token
-    ) external override onlyOwner notAddressZero(token) {
+    function getPlatformAdapter(bytes32 platformHash)
+        external
+        view
+        override
+        platformIsListed(platformHash)
+        returns (address)
+    {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        return $.platformAdapter[platformHash];
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function setPlatformAdapter(bytes32 platformHash, address adapter)
+        external
+        override
+        onlyOwner
+        platformIsListed(platformHash)
+    {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        $.platformAdapter[platformHash] = adapter;
+        emit PlatformAdapterSet(platformHash, adapter);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function addTokenToCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token) {
         if (currency == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -592,25 +581,29 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function removeTokenFromCurrency(
-        bytes32 currency,
-        address token
-    ) external override onlyOwner notAddressZero(token) {
+    function removeTokenFromCurrency(bytes32 currency, address token)
+        external
+        override
+        onlyOwner
+        notAddressZero(token)
+    {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         address[] storage tokens = $.currencyToTokens[currency];
         uint256 length = tokens.length;
         bool found = false;
-        
-        for (uint256 i = 0; i < length; ) {
+
+        for (uint256 i = 0; i < length;) {
             if (tokens[i] == token) {
                 tokens[i] = tokens[length - 1];
                 tokens.pop();
                 found = true;
                 break;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
-        
+
         if (!found) {
             revert GlobalParamsTokenNotInCurrency(currency, token);
         }
@@ -620,9 +613,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function getTokensForCurrency(
-        bytes32 currency
-    ) external view override returns (address[] memory) {
+    function getTokensForCurrency(bytes32 currency) external view override returns (address[] memory) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         return $.currencyToTokens[currency];
     }
@@ -637,7 +628,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param applyProtocolFee Whether this line item is included in protocol fee calculation.
      * @param canRefund Whether this line item can be refunded.
      * @param instantTransfer Whether this line item amount can be instantly transferred.
-     * 
+     *
      * Constraints:
      * - If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false.
      * - Non-goal instant transfer items cannot be refundable.
@@ -654,7 +645,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         if (typeId == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
-        
+
         // Validation constraint 1: If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false
         if (countsTowardGoal) {
             if (applyProtocolFee) {
@@ -683,13 +674,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
             instantTransfer: instantTransfer
         });
         emit PlatformLineItemTypeSet(
-            platformHash,
-            typeId,
-            label,
-            countsTowardGoal,
-            applyProtocolFee,
-            canRefund,
-            instantTransfer
+            platformHash, typeId, label, countsTowardGoal, applyProtocolFee, canRefund, instantTransfer
         );
     }
 
@@ -699,10 +684,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @param platformHash The identifier of the platform.
      * @param typeId The identifier of the line item type to remove.
      */
-    function removePlatformLineItemType(
-        bytes32 platformHash,
-        bytes32 typeId
-    ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
+    function removePlatformLineItemType(bytes32 platformHash, bytes32 typeId)
+        external
+        platformIsListed(platformHash)
+        onlyPlatformAdmin(platformHash)
+    {
         if (typeId == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -725,10 +711,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @return canRefund Whether this line item can be refunded.
      * @return instantTransfer Whether this line item amount can be instantly transferred to platform admin after payment confirmation.
      */
-    function getPlatformLineItemType(
-        bytes32 platformHash,
-        bytes32 typeId
-    )
+    function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
         external
         view
         returns (

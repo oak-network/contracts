@@ -11,10 +11,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {DeployBase} from "./lib/DeployBase.s.sol";
 
 contract DeployCampaignInfoFactory is DeployBase {
-    function deploy(
-        address globalParams,
-        address treasuryFactory
-    ) public returns (address) {
+    function deploy(address globalParams, address treasuryFactory) public returns (address) {
         console2.log("Deploying CampaignInfoFactory...");
 
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
@@ -40,10 +37,7 @@ contract DeployCampaignInfoFactory is DeployBase {
         // Deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(factoryImplementation), initData);
 
-        console2.log(
-            "CampaignInfoFactory proxy deployed and initialized at:",
-            address(proxy)
-        );
+        console2.log("CampaignInfoFactory proxy deployed and initialized at:", address(proxy));
         return address(proxy);
     }
 

@@ -1,5 +1,5 @@
 # FiatEnabled
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/FiatEnabled.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/FiatEnabled.sol)
 
 A contract that provides functionality for tracking and managing fiat transactions.
 This contract allows tracking the amount of fiat raised, individual fiat transactions, and the state of fiat fee disbursement.
@@ -9,21 +9,21 @@ This contract allows tracking the amount of fiat raised, individual fiat transac
 ### s_fiatRaisedAmount
 
 ```solidity
-uint256 internal s_fiatRaisedAmount
+uint256 internal s_fiatRaisedAmount;
 ```
 
 
 ### s_fiatFeeIsDisbursed
 
 ```solidity
-bool internal s_fiatFeeIsDisbursed
+bool internal s_fiatFeeIsDisbursed;
 ```
 
 
 ### s_fiatAmountById
 
 ```solidity
-mapping(bytes32 => uint256) internal s_fiatAmountById
+mapping(bytes32 => uint256) internal s_fiatAmountById;
 ```
 
 
@@ -97,7 +97,7 @@ function _updateFiatTransaction(bytes32 fiatTransactionId, uint256 fiatTransacti
 
 ### _updateFiatFeeDisbursementState
 
-Update the state of fiat fee disbursement.
+*Update the state of fiat fee disbursement.*
 
 
 ```solidity
@@ -147,7 +147,7 @@ event FiatFeeDisbusementStateUpdated(bool isDisbursed, uint256 protocolFeeAmount
 
 ## Errors
 ### FiatEnabledAlreadySet
-Throws an error indicating that the fiat enabled functionality is already set.
+*Throws an error indicating that the fiat enabled functionality is already set.*
 
 
 ```solidity
@@ -155,7 +155,7 @@ error FiatEnabledAlreadySet();
 ```
 
 ### FiatEnabledDisallowedState
-Throws an error indicating that the fiat enabled functionality is in an invalid state.
+*Throws an error indicating that the fiat enabled functionality is in an invalid state.*
 
 
 ```solidity
@@ -163,7 +163,7 @@ error FiatEnabledDisallowedState();
 ```
 
 ### FiatEnabledInvalidTransaction
-Throws an error indicating that the fiat transaction is invalid.
+*Throws an error indicating that the fiat transaction is invalid.*
 
 
 ```solidity

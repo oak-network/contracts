@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title CampaignAccessChecker
@@ -13,6 +12,9 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 abstract contract CampaignAccessChecker is Context {
     // Immutable reference to the ICampaignInfo contract, which provides campaign-related information and admin addresses.
     ICampaignInfo internal INFO;
+
+    /// @dev Trusted forwarder address for ERC-2771 meta-transactions (set by derived contracts)
+    address internal _trustedForwarder;
 
     /**
      * @dev Throws when the caller is not authorized.

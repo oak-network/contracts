@@ -20,9 +20,7 @@ interface ICampaignInfo is IERC721 {
      * @param platformHash The bytes32 identifier of the platform to check.
      * @return True if the platform is selected, false otherwise.
      */
-    function checkIfPlatformSelected(
-        bytes32 platformHash
-    ) external view returns (bool);
+    function checkIfPlatformSelected(bytes32 platformHash) external view returns (bool);
 
     /**
      * @notice Retrieves the total amount raised across non-cancelled treasuries.
@@ -86,9 +84,7 @@ interface ICampaignInfo is IERC721 {
      * @param platformHash The bytes32 identifier of the platform.
      * @return The address of the platform administrator.
      */
-    function getPlatformAdminAddress(
-        bytes32 platformHash
-    ) external view returns (address);
+    function getPlatformAdminAddress(bytes32 platformHash) external view returns (address);
 
     /**
      * @notice Retrieves the campaign's launch time.
@@ -138,27 +134,21 @@ interface ICampaignInfo is IERC721 {
      * @param platformHash The bytes32 identifier of the platform.
      * @return The platform fee percentage applied to the campaign on the platform.
      */
-    function getPlatformFeePercent(
-        bytes32 platformHash
-    ) external view returns (uint256);
+    function getPlatformFeePercent(bytes32 platformHash) external view returns (uint256);
 
     /**
      * @notice Retrieves the claim delay (in seconds) configured for the given platform.
      * @param platformHash The identifier of the platform.
      * @return The claim delay in seconds.
      */
-    function getPlatformClaimDelay(
-        bytes32 platformHash
-    ) external view returns (uint256);
+    function getPlatformClaimDelay(bytes32 platformHash) external view returns (uint256);
 
     /**
      * @notice Retrieves platform-specific data for the campaign.
      * @param platformDataKey The bytes32 identifier of the platform-specific data.
      * @return The platform-specific data associated with the given key.
      */
-    function getPlatformData(
-        bytes32 platformDataKey
-    ) external view returns (bytes32);
+    function getPlatformData(bytes32 platformDataKey) external view returns (bytes32);
 
     /**
      * @notice Retrieves the unique identifier hash of the campaign.
@@ -239,10 +229,7 @@ interface ICampaignInfo is IERC721 {
      * @return canRefund Whether this line item can be refunded.
      * @return instantTransfer Whether this line item amount can be instantly transferred.
      */
-    function getLineItemType(
-        bytes32 platformHash,
-        bytes32 typeId
-    )
+    function getLineItemType(bytes32 platformHash, bytes32 typeId)
         external
         view
         returns (

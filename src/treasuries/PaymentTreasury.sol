@@ -6,9 +6,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
 
-contract PaymentTreasury is
-    BasePaymentTreasury
-{
+contract PaymentTreasury is BasePaymentTreasury {
     using SafeERC20 for IERC20;
 
     /**
@@ -21,11 +19,8 @@ contract PaymentTreasury is
      */
     constructor() {}
 
-    function initialize(
-        bytes32 _platformHash,
-        address _infoAddress
-    ) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress);
+    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
     }
 
     /**
@@ -57,7 +52,9 @@ contract PaymentTreasury is
         ICampaignPaymentTreasury.LineItem[][] calldata lineItemsArray,
         ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
     ) public override whenNotPaused whenNotCancelled {
-        super.createPaymentBatch(paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray);
+        super.createPaymentBatch(
+            paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray
+        );
     }
 
     /**
@@ -78,68 +75,62 @@ contract PaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function cancelPayment(
-        bytes32 paymentId
-    ) public override whenNotPaused whenNotCancelled {
+    function cancelPayment(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
         super.cancelPayment(paymentId);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function confirmPayment(
-        bytes32 paymentId,
-        address buyerAddress
-    ) public override whenNotPaused whenNotCancelled {
+    function confirmPayment(bytes32 paymentId, address buyerAddress) public override whenNotPaused whenNotCancelled {
         super.confirmPayment(paymentId, buyerAddress);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function confirmPaymentBatch(
-        bytes32[] calldata paymentIds,
-        address[] calldata buyerAddresses
-    ) public override whenNotPaused whenNotCancelled {
+    function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
+        public
+        override
+        whenNotPaused
+        whenNotCancelled
+    {
         super.confirmPaymentBatch(paymentIds, buyerAddresses);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(
-        bytes32 paymentId, 
-        address refundAddress
-    ) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled {
         super.claimRefund(paymentId, refundAddress);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(
-        bytes32 paymentId
-    ) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
         super.claimRefund(paymentId);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimExpiredFunds() public override whenNotPaused whenNotCancelled {
+    function claimExpiredFunds() public override whenNotPaused {
         super.claimExpiredFunds();
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function disburseFees()
-        public
-        override
-        whenNotPaused
-        whenNotCancelled
-    {
+    function disburseFees() public override whenNotPaused {
         super.disburseFees();
+    }
+
+    /**
+     * @inheritdoc BasePaymentTreasury
+     */
+    function claimNonGoalLineItems(address token) public override whenNotPaused {
+        super.claimNonGoalLineItems(token);
     }
 
     /**
@@ -154,10 +145,7 @@ contract PaymentTreasury is
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
     function cancelTreasury(bytes32 message) public override {
-        if (
-            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            _msgSender() != INFO.owner()
-        ) {
+        if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert PaymentTreasuryUnAuthorized();
         }
         _cancel(message);
@@ -166,13 +154,7 @@ contract PaymentTreasury is
     /**
      * @inheritdoc BasePaymentTreasury
      */
-    function _checkSuccessCondition()
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function _checkSuccessCondition() internal view virtual override returns (bool) {
         return true;
     }
 }

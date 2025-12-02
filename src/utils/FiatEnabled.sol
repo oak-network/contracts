@@ -16,10 +16,7 @@ abstract contract FiatEnabled {
      * @param fiatTransactionId The unique identifier of the fiat transaction.
      * @param fiatTransactionAmount The updated amount of the fiat transaction.
      */
-    event FiatTransactionUpdated(
-        bytes32 indexed fiatTransactionId,
-        uint256 fiatTransactionAmount
-    );
+    event FiatTransactionUpdated(bytes32 indexed fiatTransactionId, uint256 fiatTransactionAmount);
 
     /**
      * @notice Emitted when the state of fiat fee disbursement is updated.
@@ -27,11 +24,7 @@ abstract contract FiatEnabled {
      * @param protocolFeeAmount The protocol fee amount.
      * @param platformFeeAmount The platform fee amount.
      */
-    event FiatFeeDisbusementStateUpdated(
-        bool isDisbursed,
-        uint256 protocolFeeAmount,
-        uint256 platformFeeAmount
-    );
+    event FiatFeeDisbusementStateUpdated(bool isDisbursed, uint256 protocolFeeAmount, uint256 platformFeeAmount);
 
     /**
      * @dev Throws an error indicating that the fiat enabled functionality is already set.
@@ -59,9 +52,7 @@ abstract contract FiatEnabled {
      * @param fiatTransactionId The unique identifier of the fiat transaction.
      * @return amount The amount of the specified fiat transaction.
      */
-    function getFiatTransactionAmount(
-        bytes32 fiatTransactionId
-    ) external view returns (uint256 amount) {
+    function getFiatTransactionAmount(bytes32 fiatTransactionId) external view returns (uint256 amount) {
         amount = s_fiatAmountById[fiatTransactionId];
         if (amount == 0) {
             revert FiatEnabledInvalidTransaction();
@@ -81,10 +72,7 @@ abstract contract FiatEnabled {
      * @param fiatTransactionId The unique identifier of the fiat transaction.
      * @param fiatTransactionAmount The amount of the fiat transaction.
      */
-    function _updateFiatTransaction(
-        bytes32 fiatTransactionId,
-        uint256 fiatTransactionAmount
-    ) internal {
+    function _updateFiatTransaction(bytes32 fiatTransactionId, uint256 fiatTransactionAmount) internal {
         s_fiatAmountById[fiatTransactionId] = fiatTransactionAmount;
         s_fiatRaisedAmount += fiatTransactionAmount;
         emit FiatTransactionUpdated(fiatTransactionId, fiatTransactionAmount);
@@ -96,11 +84,9 @@ abstract contract FiatEnabled {
      * @param protocolFeeAmount The protocol fee amount.
      * @param platformFeeAmount The platform fee amount.
      */
-    function _updateFiatFeeDisbursementState(
-        bool isDisbursed,
-        uint256 protocolFeeAmount,
-        uint256 platformFeeAmount
-    ) internal {
+    function _updateFiatFeeDisbursementState(bool isDisbursed, uint256 protocolFeeAmount, uint256 platformFeeAmount)
+        internal
+    {
         if (s_fiatFeeIsDisbursed == true) {
             revert FiatEnabledAlreadySet();
         }
@@ -108,10 +94,6 @@ abstract contract FiatEnabled {
             revert FiatEnabledDisallowedState();
         }
         s_fiatFeeIsDisbursed = true;
-        emit FiatFeeDisbusementStateUpdated(
-            isDisbursed,
-            protocolFeeAmount,
-            platformFeeAmount
-        );
+        emit FiatFeeDisbusementStateUpdated(isDisbursed, protocolFeeAmount, platformFeeAmount);
     }
 }

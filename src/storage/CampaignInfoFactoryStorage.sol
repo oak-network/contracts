@@ -19,7 +19,7 @@ library CampaignInfoFactoryStorage {
     }
 
     // keccak256(abi.encode(uint256(keccak256("ccprotocol.storage.CampaignInfoFactory")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant CAMPAIGN_INFO_FACTORY_STORAGE_LOCATION = 
+    bytes32 private constant CAMPAIGN_INFO_FACTORY_STORAGE_LOCATION =
         0x2857858a392b093e1f8b3f368c2276ce911f27cef445605a2932ebe945968d00;
 
     function _getCampaignInfoFactoryStorage() internal pure returns (Storage storage $) {

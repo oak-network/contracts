@@ -25,7 +25,7 @@ contract DeployAll is DeployBase {
         // Deploy TestToken only if needed
         address testTokenAddress;
         bool testTokenDeployed = false;
-        
+
         if (shouldDeployTestToken()) {
             string memory tokenName = vm.envOr("TOKEN_NAME", string("TestToken"));
             string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
@@ -42,8 +42,7 @@ contract DeployAll is DeployBase {
         // Deploy GlobalParams with UUPS proxy
         uint256 protocolFeePercent = vm.envOr("PROTOCOL_FEE_PERCENT", uint256(100));
 
-        (bytes32[] memory currencies, address[][] memory tokensPerCurrency) =
-            loadCurrenciesAndTokens(testTokenAddress);
+        (bytes32[] memory currencies, address[][] memory tokensPerCurrency) = loadCurrenciesAndTokens(testTokenAddress);
 
         // Deploy GlobalParams implementation
         GlobalParams globalParamsImpl = new GlobalParams();
@@ -97,10 +96,12 @@ contract DeployAll is DeployBase {
         uint256 minimumCampaignDuration = vm.envOr("MINIMUM_CAMPAIGN_DURATION", uint256(0));
 
         GlobalParams(address(globalParamsProxy)).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
-        GlobalParams(address(globalParamsProxy))
-            .addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
-        GlobalParams(address(globalParamsProxy))
-            .addToRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration));
+        GlobalParams(address(globalParamsProxy)).addToRegistry(
+            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer)
+        );
+        GlobalParams(address(globalParamsProxy)).addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
+        );
 
         if (!simulate) {
             vm.stopBroadcast();
@@ -110,7 +111,7 @@ contract DeployAll is DeployBase {
         console2.log("\n===========================================");
         console2.log("    Deployment Summary");
         console2.log("===========================================");
-        
+
         console2.log("\n--- Core Protocol Contracts (UUPS Proxies) ---");
         console2.log("GLOBAL_PARAMS_PROXY:", address(globalParamsProxy));
         console2.log("  Implementation:", address(globalParamsImpl));
@@ -118,21 +119,21 @@ contract DeployAll is DeployBase {
         console2.log("  Implementation:", address(treasuryFactoryImpl));
         console2.log("CAMPAIGN_INFO_FACTORY_PROXY:", address(campaignFactoryProxy));
         console2.log("  Implementation:", address(campaignFactoryImpl));
-        
+
         console2.log("\n--- Implementation Contracts ---");
         console2.log("CAMPAIGN_INFO_IMPLEMENTATION:", address(campaignInfoImplementation));
-        
+
         console2.log("\n--- Supported Currencies & Tokens ---");
         string memory currenciesConfig = vm.envOr("CURRENCIES", string(""));
         if (bytes(currenciesConfig).length > 0) {
             string[] memory currencyStrings = _split(currenciesConfig, ",");
             string memory tokensConfig = vm.envOr("TOKENS_PER_CURRENCY", string(""));
             string[] memory perCurrencyConfigs = _split(tokensConfig, ";");
-            
+
             for (uint256 i = 0; i < currencyStrings.length; i++) {
                 string memory currency = _trimWhitespace(currencyStrings[i]);
                 console2.log(string(abi.encodePacked("Currency: ", currency)));
-                
+
                 string[] memory tokenStrings = _split(perCurrencyConfigs[i], ",");
                 for (uint256 j = 0; j < tokenStrings.length; j++) {
                     console2.log("  Token:", _trimWhitespace(tokenStrings[j]));
@@ -145,7 +146,7 @@ contract DeployAll is DeployBase {
                 console2.log("  (TestToken deployed for testing)");
             }
         }
-        
+
         console2.log("\n===========================================");
         console2.log("Deployment completed successfully!");
         console2.log("===========================================");

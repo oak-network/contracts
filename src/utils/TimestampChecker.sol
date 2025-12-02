@@ -59,9 +59,7 @@ abstract contract TimestampChecker {
      * @dev Internal function to revert if the current timestamp is less than or equal a specified time.
      * @param inputTime The timestamp being checked against.
      */
-    function _revertIfCurrentTimeIsNotLess(
-        uint256 inputTime
-    ) internal view virtual {
+    function _revertIfCurrentTimeIsNotLess(uint256 inputTime) internal view virtual {
         uint256 currentTime = block.timestamp;
         if (currentTime >= inputTime) {
             revert CurrentTimeIsGreater(inputTime, currentTime);
@@ -72,9 +70,7 @@ abstract contract TimestampChecker {
      * @dev Internal function to revert if the current timestamp is not greater than or equal a specified time.
      * @param inputTime The timestamp being checked against.
      */
-    function _revertIfCurrentTimeIsNotGreater(
-        uint256 inputTime
-    ) internal view virtual {
+    function _revertIfCurrentTimeIsNotGreater(uint256 inputTime) internal view virtual {
         uint256 currentTime = block.timestamp;
         if (currentTime <= inputTime) {
             revert CurrentTimeIsLess(inputTime, currentTime);
@@ -86,10 +82,7 @@ abstract contract TimestampChecker {
      * @param initialTime The initial timestamp of the range.
      * @param finalTime The final timestamp of the range.
      */
-    function _revertIfCurrentTimeIsNotWithinRange(
-        uint256 initialTime,
-        uint256 finalTime
-    ) internal view virtual {
+    function _revertIfCurrentTimeIsNotWithinRange(uint256 initialTime, uint256 finalTime) internal view virtual {
         uint256 currentTime = block.timestamp;
         if (currentTime < initialTime || currentTime > finalTime) {
             revert CurrentTimeIsNotWithinRange(initialTime, finalTime);

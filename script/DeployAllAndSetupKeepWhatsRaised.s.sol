@@ -43,6 +43,7 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
     address deployerAddress;
     address finalProtocolAdmin;
     address finalPlatformAdmin;
+    address platformAdapter;
     address backer1;
     address backer2;
 
@@ -79,6 +80,7 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         // These are the final admin addresses that will receive control
         finalProtocolAdmin = vm.envOr("PROTOCOL_ADMIN_ADDRESS", deployerAddress);
         finalPlatformAdmin = vm.envOr("PLATFORM_ADMIN_ADDRESS", deployerAddress);
+        platformAdapter = vm.envOr("PLATFORM_ADAPTER_ADDRESS", address(0));
         backer1 = vm.envOr("BACKER1_ADDRESS", address(0));
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
 
@@ -96,6 +98,7 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         console2.log("Deployer address:", deployerAddress);
         console2.log("Final protocol admin:", finalProtocolAdmin);
         console2.log("Final platform admin:", finalPlatformAdmin);
+        console2.log("Platform adapter (trusted forwarder):", platformAdapter);
         console2.log("Buffer time (seconds):", bufferTime);
         console2.log("Campaign launch buffer (seconds):", campaignLaunchBuffer);
         console2.log("Minimum campaign duration (seconds):", minimumCampaignDuration);
@@ -110,8 +113,9 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         console2.log("Setting registry values on GlobalParams");
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
-        GlobalParams(globalParams)
-            .addToRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration));
+        GlobalParams(globalParams).addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
+        );
     }
 
     // Deploy or reuse contracts
@@ -224,12 +228,12 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        GlobalParams(globalParams)
-            .enlistPlatform(
-                platformHash,
-                deployerAddress, // Initially deployer is platform admin
-                platformFeePercent
-            );
+        GlobalParams(globalParams).enlistPlatform(
+            platformHash,
+            deployerAddress, // Initially deployer is platform admin
+            platformFeePercent,
+            platformAdapter // Platform adapter (trusted forwarder) - can be set later with setPlatformAdapter
+        );
 
         if (simulate) {
             vm.stopPrank();
@@ -252,12 +256,11 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        TreasuryFactory(treasuryFactory)
-            .registerTreasuryImplementation(
-                platformHash,
-                0, // Implementation ID
-                keepWhatsRaisedImplementation
-            );
+        TreasuryFactory(treasuryFactory).registerTreasuryImplementation(
+            platformHash,
+            0, // Implementation ID
+            keepWhatsRaisedImplementation
+        );
 
         if (simulate) {
             vm.stopPrank();
@@ -280,11 +283,10 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        TreasuryFactory(treasuryFactory)
-            .approveTreasuryImplementation(
-                platformHash,
-                0 // Implementation ID
-            );
+        TreasuryFactory(treasuryFactory).approveTreasuryImplementation(
+            platformHash,
+            0 // Implementation ID
+        );
 
         if (simulate) {
             vm.stopPrank();
@@ -387,17 +389,20 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         if (campaignInfoFactoryImplementation != address(0)) {
             console2.log("  Implementation:", campaignInfoFactoryImplementation);
         }
-        
+
         console2.log("\n--- Treasury Implementation Contracts ---");
         if (campaignInfo != address(0)) {
             console2.log("CAMPAIGN_INFO_IMPLEMENTATION:", campaignInfo);
         }
         console2.log("KEEP_WHATS_RAISED_IMPLEMENTATION:", keepWhatsRaisedImplementation);
-        
+
         console2.log("\n--- Platform Configuration ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
+        console2.log("Platform Adapter (Trusted Forwarder):", platformAdapter);
+        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
+        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
 
         console2.log("\n--- Supported Currencies & Tokens ---");
         string memory currenciesConfig = vm.envOr("CURRENCIES", string(""));
@@ -405,11 +410,11 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             string[] memory currencyStrings = _split(currenciesConfig, ",");
             string memory tokensConfig = vm.envOr("TOKENS_PER_CURRENCY", string(""));
             string[] memory perCurrencyConfigs = _split(tokensConfig, ";");
-            
+
             for (uint256 i = 0; i < currencyStrings.length; i++) {
                 string memory currency = _trimWhitespace(currencyStrings[i]);
                 console2.log(string(abi.encodePacked("Currency: ", currency)));
-                
+
                 string[] memory tokenStrings = _split(perCurrencyConfigs[i], ",");
                 for (uint256 j = 0; j < tokenStrings.length; j++) {
                     console2.log("  Token:", _trimWhitespace(tokenStrings[j]));

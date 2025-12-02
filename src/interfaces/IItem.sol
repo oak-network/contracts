@@ -24,10 +24,7 @@ interface IItem {
      * @param itemId The unique identifier of the item.
      * @return item The attributes of the item as an `Item` struct.
      */
-    function getItem(
-        address owner,
-        bytes32 itemId
-    ) external view returns (Item memory item);
+    function getItem(address owner, bytes32 itemId) external view returns (Item memory item);
 
     /**
      * @notice Adds a new item with the given attributes.

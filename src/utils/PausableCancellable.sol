@@ -100,9 +100,7 @@ abstract contract PausableCancellable is Context {
      * @param reason A short reason for pausing
      * @dev Can only pause if not already paused or cancelled
      */
-    function _pause(
-        bytes32 reason
-    ) internal virtual whenNotPaused whenNotCancelled {
+    function _pause(bytes32 reason) internal virtual whenNotPaused whenNotCancelled {
         _paused = true;
         emit Paused(_msgSender(), reason);
     }
@@ -126,9 +124,7 @@ abstract contract PausableCancellable is Context {
         if (_cancelled) revert CannotCancel();
         /// @dev keccak256 Hash of `Auto-unpaused during cancellation` is passed as a reason
         if (_paused) {
-            _unpause(
-                0x231da0eace2a459b43889b78bbd1fc88a89e3192ee6cbcda7015c539d577e2cd
-            );
+            _unpause(0x231da0eace2a459b43889b78bbd1fc88a89e3192ee6cbcda7015c539d577e2cd);
         }
         _cancelled = true;
         emit Cancelled(_msgSender(), reason);

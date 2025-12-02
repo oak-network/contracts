@@ -11,10 +11,7 @@ contract DeployCampaignInfoImplementation is Script {
         // Implementation will use the script address as admin, but this will be replaced
         // when the factory creates new instances
         CampaignInfo campaignInfo = new CampaignInfo();
-        console2.log(
-            "CampaignInfo implementation deployed at:",
-            address(campaignInfo)
-        );
+        console2.log("CampaignInfo implementation deployed at:", address(campaignInfo));
         return address(campaignInfo);
     }
 

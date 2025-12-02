@@ -17,13 +17,7 @@ import {ICampaignData} from "../interfaces/ICampaignData.sol";
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is
-    IReward,
-    BaseTreasury,
-    TimestampChecker,
-    ICampaignData,
-    ReentrancyGuard
-{
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, ReentrancyGuard {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -41,7 +35,7 @@ contract KeepWhatsRaised is
     mapping(bytes32 => uint256) public s_paymentGatewayFees;
     /// Mapping that stores fee values indexed by their corresponding fee keys.
     mapping(bytes32 => uint256) private s_feeValues;
-    
+
     // Multi-token support
     mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each pledge
     mapping(address => uint256) private s_protocolFeePerToken; // Protocol fees per token
@@ -59,10 +53,8 @@ contract KeepWhatsRaised is
     struct FeeKeys {
         /// @dev Key for a flat fee applied to an operation.
         bytes32 flatFeeKey;
-
         /// @dev Key for a cumulative flat fee, potentially across multiple actions.
         bytes32 cumulativeFlatFeeKey;
-
         /// @dev Keys for gross percentage-based fees (calculated before deductions).
         bytes32[] grossPercentageFeeKeys;
     }
@@ -75,29 +67,24 @@ contract KeepWhatsRaised is
     struct FeeValues {
         /// @dev Value for a flat fee applied to an operation.
         uint256 flatFeeValue;
-        
         /// @dev Value for a cumulative flat fee, potentially across multiple actions.
         uint256 cumulativeFlatFeeValue;
-        
         /// @dev Values for gross percentage-based fees (calculated before deductions).
         uint256[] grossPercentageFeeValues;
     }
     /**
      * @dev System configuration parameters related to withdrawal and refund behavior.
      */
+
     struct Config {
         /// @dev The minimum withdrawal amount required to qualify for fee exemption.
         uint256 minimumWithdrawalForFeeExemption;
-
         /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
         uint256 withdrawalDelay;
-
         /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
         uint256 refundDelay;
-
         /// @dev Duration (in timestamp) for which config changes are locked to prevent immediate updates.
         uint256 configLockPeriod;
-
         /// @dev True if the creator is Colombian, false otherwise.
         bool isColombianCreator;
     }
@@ -153,12 +140,7 @@ contract KeepWhatsRaised is
      * @param feeKeys The set of keys used to determine applicable fees.
      * @param feeValues The fee values corresponding to the fee keys.
      */
-    event TreasuryConfigured(
-        Config config,
-        CampaignData campaignData,
-        FeeKeys feeKeys,
-        FeeValues feeValues
-    );
+    event TreasuryConfigured(Config config, CampaignData campaignData, FeeKeys feeKeys, FeeValues feeValues);
 
     /**
      * @dev Emitted when a withdrawal is successfully processed along with the applied fee.
@@ -236,7 +218,7 @@ contract KeepWhatsRaised is
 
     /**
      * @dev Emitted when any functionality is already enabled and cannot be re-enabled.
-    */ 
+     */
     error KeepWhatsRaisedAlreadyEnabled();
 
     /**
@@ -244,8 +226,10 @@ contract KeepWhatsRaised is
      * @param availableAmount The maximum amount that can be withdrawn.
      * @param withdrawalAmount The attempted withdrawal amount.
      * @param fee The fee that would be applied to the withdrawal.
-    */
-    error KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(uint256 availableAmount, uint256 withdrawalAmount, uint256 fee);
+     */
+    error KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
+        uint256 availableAmount, uint256 withdrawalAmount, uint256 fee
+    );
 
     /**
      * @notice Emitted when the fee exceeds the requested withdrawal amount.
@@ -275,7 +259,7 @@ contract KeepWhatsRaised is
      * @dev Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
      */
     error KeepWhatsRaisedNotClaimableAdmin();
-    
+
     /**
      * @dev Emitted when a configuration change is attempted during the lock period.
      */
@@ -297,7 +281,7 @@ contract KeepWhatsRaised is
      * Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
      */
     modifier withdrawalEnabled() {
-        if(!s_isWithdrawalApproved){
+        if (!s_isWithdrawalApproved) {
             revert KeepWhatsRaisedDisabled();
         }
         _;
@@ -309,7 +293,7 @@ contract KeepWhatsRaised is
      * The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
      */
     modifier onlyBeforeConfigLock() {
-        if(block.timestamp > s_campaignData.deadline - s_config.configLockPeriod){
+        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
             revert KeepWhatsRaisedConfigLocked();
         }
         _;
@@ -319,10 +303,7 @@ contract KeepWhatsRaised is
     /// @dev Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
     ///      or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
     modifier onlyPlatformAdminOrCampaignOwner() {
-        if (
-            _msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) &&
-            _msgSender() != INFO.owner()
-        ) {
+        if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert KeepWhatsRaisedUnAuthorized();
         }
         _;
@@ -333,11 +314,8 @@ contract KeepWhatsRaised is
      */
     constructor() {}
 
-    function initialize(
-        bytes32 _platformHash,
-        address _infoAddress
-    ) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress);
+    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
     }
 
     /**
@@ -352,9 +330,7 @@ contract KeepWhatsRaised is
      * @param rewardName The name of the reward.
      * @return reward The details of the reward as a `Reward` struct.
      */
-    function getReward(
-        bytes32 rewardName
-    ) external view returns (Reward memory reward) {
+    function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
             revert KeepWhatsRaisedInvalidInput();
         }
@@ -367,7 +343,7 @@ contract KeepWhatsRaised is
     function getRaisedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amount = s_tokenRaisedAmounts[token];
@@ -375,7 +351,7 @@ contract KeepWhatsRaised is
                 totalNormalized += _normalizeAmount(token, amount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -385,7 +361,7 @@ contract KeepWhatsRaised is
     function getLifetimeRaisedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amount = s_tokenLifetimeRaisedAmounts[token];
@@ -393,7 +369,7 @@ contract KeepWhatsRaised is
                 totalNormalized += _normalizeAmount(token, amount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -403,7 +379,7 @@ contract KeepWhatsRaised is
     function getRefundedAmount() external view override returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
@@ -413,7 +389,7 @@ contract KeepWhatsRaised is
                 totalNormalized += _normalizeAmount(token, refundedAmount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -424,7 +400,7 @@ contract KeepWhatsRaised is
     function getAvailableRaisedAmount() external view returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amount = s_availablePerToken[token];
@@ -432,7 +408,7 @@ contract KeepWhatsRaised is
                 totalNormalized += _normalizeAmount(token, amount);
             }
         }
-        
+
         return totalNormalized;
     }
 
@@ -469,11 +445,11 @@ contract KeepWhatsRaised is
         return s_paymentGatewayFees[pledgeId];
     }
 
-     /**
+    /**
      * @dev Retrieves the fee value associated with a specific fee key from storage.
      * @param {bytes32} feeKey - The unique identifier key used to reference a specific fee type.
-     * 
-     * @return {uint256} The fee value corresponding to the provided fee key. 
+     *
+     * @return {uint256} The fee value corresponding to the provided fee key.
      */
     function getFeeValue(bytes32 feeKey) public view returns (uint256) {
         return s_feeValues[feeKey];
@@ -484,8 +460,8 @@ contract KeepWhatsRaised is
      * @param pledgeId The unique identifier of the pledge.
      * @param fee The gateway fee amount to be associated with the given pledge ID.
      */
-    function setPaymentGatewayFee(bytes32 pledgeId, uint256 fee) 
-        public 
+    function setPaymentGatewayFee(bytes32 pledgeId, uint256 fee)
+        public
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
         whenNotPaused
@@ -500,18 +476,18 @@ contract KeepWhatsRaised is
     /**
      * @notice Approves the withdrawal of the treasury by the platform admin.
      */
-    function approveWithdrawal() 
-        external 
+    function approveWithdrawal()
+        external
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if(s_isWithdrawalApproved){
+        if (s_isWithdrawalApproved) {
             revert KeepWhatsRaisedAlreadyEnabled();
         }
-        
+
         s_isWithdrawalApproved = true;
 
         emit WithdrawalApproved();
@@ -520,69 +496,57 @@ contract KeepWhatsRaised is
     /**
      * @dev Configures the treasury for a campaign by setting the system parameters,
      *      campaign-specific data, and fee configuration keys.
-     * 
-     * @param config The configuration settings including withdrawal delay, refund delay, 
+     *
+     * @param config The configuration settings including withdrawal delay, refund delay,
      *               fee exemption threshold, and configuration lock period.
      * @param campaignData The campaign-related metadata such as deadlines and funding goals.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
      * @param feeValues The fee values corresponding to the fee keys.
-    */
+     */
     function configureTreasury(
         Config memory config,
         CampaignData memory campaignData,
         FeeKeys memory feeKeys,
         FeeValues memory feeValues
-    ) 
-        external 
+    )
+        external
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if (
-            campaignData.launchTime < block.timestamp ||
-            campaignData.deadline <= campaignData.launchTime
-        ) {
+        if (campaignData.launchTime < block.timestamp || campaignData.deadline <= campaignData.launchTime) {
             revert KeepWhatsRaisedInvalidInput();
         }
-        if(
-            feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length
-        ) {
+        if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
             revert KeepWhatsRaisedInvalidInput();
         }
-        
+
         s_config = config;
         s_feeKeys = feeKeys;
         s_campaignData = campaignData;
 
         s_feeValues[feeKeys.flatFeeKey] = feeValues.flatFeeValue;
         s_feeValues[feeKeys.cumulativeFlatFeeKey] = feeValues.cumulativeFlatFeeValue;
-        
+
         for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
             s_feeValues[feeKeys.grossPercentageFeeKeys[i]] = feeValues.grossPercentageFeeValues[i];
         }
 
-        emit TreasuryConfigured(
-            config,
-            campaignData,
-            feeKeys,
-            feeValues
-        );
+        emit TreasuryConfigured(config, campaignData, feeKeys, feeValues);
     }
 
     /**
      * @dev Updates the campaign's deadline.
-     * 
+     *
      * @param deadline The new deadline timestamp for the campaign.
-     * 
+     *
      * Requirements:
      * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
      * - The new deadline must be a future timestamp.
      */
-    function updateDeadline(
-        uint256 deadline
-    )
+    function updateDeadline(uint256 deadline)
         external
         onlyPlatformAdminOrCampaignOwner
         onlyBeforeConfigLock
@@ -599,15 +563,13 @@ contract KeepWhatsRaised is
 
     /**
      * @dev Updates the funding goal amount for the campaign.
-     * 
+     *
      * @param goalAmount The new goal amount.
-     * 
+     *
      * Requirements:
      * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
      */
-    function updateGoalAmount(
-        uint256 goalAmount
-    )
+    function updateGoalAmount(uint256 goalAmount)
         external
         onlyPlatformAdminOrCampaignOwner
         onlyBeforeConfigLock
@@ -630,10 +592,7 @@ contract KeepWhatsRaised is
      * @param rewardNames An array of reward names.
      * @param rewards An array of `Reward` structs containing reward details.
      */
-    function addRewards(
-        bytes32[] calldata rewardNames,
-        Reward[] calldata rewards
-    )
+    function addRewards(bytes32[] calldata rewardNames, Reward[] calldata rewards)
         external
         onlyCampaignOwner
         whenCampaignNotPaused
@@ -656,8 +615,8 @@ contract KeepWhatsRaised is
 
             // If there are any items, their arrays must match in length
             if (
-                (reward.itemId.length != reward.itemValue.length) ||
-                (reward.itemId.length != reward.itemQuantity.length)
+                (reward.itemId.length != reward.itemValue.length)
+                    || (reward.itemId.length != reward.itemQuantity.length)
             ) {
                 revert KeepWhatsRaisedInvalidInput();
             }
@@ -677,9 +636,7 @@ contract KeepWhatsRaised is
      * @notice Removes a reward from the campaign.
      * @param rewardName The name of the reward.
      */
-    function removeReward(
-        bytes32 rewardName
-    )
+    function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
         whenCampaignNotPaused
@@ -714,8 +671,8 @@ contract KeepWhatsRaised is
         uint256 fee,
         bytes32[] calldata reward,
         bool isPledgeForAReward
-    ) 
-        external 
+    )
+        external
         nonReentrant
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
@@ -726,9 +683,9 @@ contract KeepWhatsRaised is
         //Set Payment Gateway Fee
         setPaymentGatewayFee(pledgeId, fee);
 
-        if(isPledgeForAReward){
+        if (isPledgeForAReward) {
             _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender()); // Pass admin as token source
-        }else {
+        } else {
             _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender()); // Pass admin as token source
         }
     }
@@ -765,7 +722,7 @@ contract KeepWhatsRaised is
      * @notice Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
      * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
      *      The non-reward tiers cannot be pledged for without a reward.
-     *      This function is called internally by both public pledgeForAReward (with backer as token source) and 
+     *      This function is called internally by both public pledgeForAReward (with backer as token source) and
      *      setFeeAndPledge (with admin as token source).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
@@ -781,12 +738,10 @@ contract KeepWhatsRaised is
         uint256 tip,
         bytes32[] calldata reward,
         address tokenSource
-    )
-        internal
-    {
+    ) internal {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
-        if(s_processedPledges[internalPledgeId]){
+        if (s_processedPledges[internalPledgeId]) {
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
         }
         s_processedPledges[internalPledgeId] = true;
@@ -794,10 +749,8 @@ contract KeepWhatsRaised is
         uint256 rewardLen = reward.length;
         Reward memory tempReward = s_reward[reward[0]];
         if (
-            backer == address(0) ||
-            rewardLen > s_rewardCounter.current() ||
-            reward[0] == ZERO_BYTES ||
-            !tempReward.isRewardTier
+            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
+                || !tempReward.isRewardTier
         ) {
             revert KeepWhatsRaisedInvalidInput();
         }
@@ -843,7 +796,7 @@ contract KeepWhatsRaised is
 
     /**
      * @notice Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
-     * @dev This function is called internally by both public pledgeWithoutAReward (with backer as token source) and 
+     * @dev This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
      *      setFeeAndPledge (with admin as token source).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
@@ -859,12 +812,10 @@ contract KeepWhatsRaised is
         uint256 pledgeAmount,
         uint256 tip,
         address tokenSource
-    )
-        internal
-    {
+    ) internal {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
-        if(s_processedPledges[internalPledgeId]){
+        if (s_processedPledges[internalPledgeId]) {
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
         }
         s_processedPledges[internalPledgeId] = true;
@@ -907,10 +858,7 @@ contract KeepWhatsRaised is
      * Emits:
      * - `WithdrawalWithFeeSuccessful`.
      */
-    function withdraw(
-        address token,
-        uint256 amount
-    ) 
+    function withdraw(address token, uint256 amount)
         public
         onlyPlatformAdminOrCampaignOwner
         currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
@@ -926,7 +874,7 @@ contract KeepWhatsRaised is
         uint256 flatFee = _denormalizeAmount(token, getFeeValue(s_feeKeys.flatFeeKey));
         uint256 cumulativeFee = _denormalizeAmount(token, getFeeValue(s_feeKeys.cumulativeFlatFeeKey));
         uint256 minimumWithdrawalForFeeExemption = _denormalizeAmount(token, s_config.minimumWithdrawalForFeeExemption);
-        
+
         uint256 currentTime = block.timestamp;
         uint256 withdrawalAmount = s_availablePerToken[token];
         uint256 totalFee = 0;
@@ -934,28 +882,29 @@ contract KeepWhatsRaised is
         bool isFinalWithdrawal = (currentTime > getDeadline());
 
         //Main Fees
-        if(isFinalWithdrawal){
-            if(withdrawalAmount == 0){
+        if (isFinalWithdrawal) {
+            if (withdrawalAmount == 0) {
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
-            if(withdrawalAmount < minimumWithdrawalForFeeExemption){
-                 s_platformFeePerToken[token] += flatFee;
-                 totalFee += flatFee;
+            if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
+                s_platformFeePerToken[token] += flatFee;
+                totalFee += flatFee;
             }
-
-        }else {
+        } else {
             withdrawalAmount = amount;
-            if(withdrawalAmount == 0){
+            if (withdrawalAmount == 0) {
                 revert KeepWhatsRaisedInvalidInput();
             }
-            if(withdrawalAmount > s_availablePerToken[token]){
-                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePerToken[token], withdrawalAmount, totalFee); 
+            if (withdrawalAmount > s_availablePerToken[token]) {
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
+                    s_availablePerToken[token], withdrawalAmount, totalFee
+                );
             }
 
-            if(withdrawalAmount < minimumWithdrawalForFeeExemption){
-                 s_platformFeePerToken[token] += cumulativeFee;
-                 totalFee += cumulativeFee;
-            }else {
+            if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
+                s_platformFeePerToken[token] += cumulativeFee;
+                totalFee += cumulativeFee;
+            } else {
                 s_platformFeePerToken[token] += flatFee;
                 totalFee += flatFee;
             }
@@ -975,37 +924,39 @@ contract KeepWhatsRaised is
             totalFee += columbianCreatorTax;
         }
 
-        if(isFinalWithdrawal) {
-            if(withdrawalAmount < totalFee) {
+        if (isFinalWithdrawal) {
+            if (withdrawalAmount < totalFee) {
                 revert KeepWhatsRaisedInsufficientFundsForFee(withdrawalAmount, totalFee);
             }
-            
+
             s_availablePerToken[token] = 0;
             IERC20(token).safeTransfer(recipient, withdrawalAmount - totalFee);
         } else {
-            if(s_availablePerToken[token] < (withdrawalAmount + totalFee)) {
-                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(s_availablePerToken[token], withdrawalAmount, totalFee);
+            if (s_availablePerToken[token] < (withdrawalAmount + totalFee)) {
+                revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
+                    s_availablePerToken[token], withdrawalAmount, totalFee
+                );
             }
-            
+
             s_availablePerToken[token] -= (withdrawalAmount + totalFee);
             IERC20(token).safeTransfer(recipient, withdrawalAmount);
         }
 
-        emit WithdrawalWithFeeSuccessful(recipient, isFinalWithdrawal ? withdrawalAmount - totalFee : withdrawalAmount, totalFee);
+        emit WithdrawalWithFeeSuccessful(
+            recipient, isFinalWithdrawal ? withdrawalAmount - totalFee : withdrawalAmount, totalFee
+        );
     }
 
     /**
      * @dev Allows a backer to claim a refund associated with a specific pledge (token ID).
-     * 
+     *
      * @param tokenId The ID of the token representing the backer's pledge.
-     * 
+     *
      * Requirements:
      * - Refund delay must have passed.
      * - The token must be eligible for a refund and not previously claimed.
      */
-    function claimRefund(
-        uint256 tokenId
-    )
+    function claimRefund(uint256 tokenId)
         external
         currentTimeIsGreater(getLaunchTime())
         whenCampaignNotPaused
@@ -1026,7 +977,7 @@ contract KeepWhatsRaised is
         if (netRefundAmount == 0 || s_availablePerToken[pledgeToken] < netRefundAmount) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
-        
+
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
         s_availablePerToken[pledgeToken] -= netRefundAmount;
@@ -1034,44 +985,39 @@ contract KeepWhatsRaised is
 
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
-        
+
         IERC20(pledgeToken).safeTransfer(nftOwner, netRefundAmount);
         emit RefundClaimed(tokenId, netRefundAmount, nftOwner);
     }
 
     /**
      * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
-     * 
+     *
      * Requirements:
      * - Only callable when fees are available.
      */
-    function disburseFees()
-        public
-        override
-        whenNotPaused
-        whenNotCancelled
-    {
+    function disburseFees() public override whenNotPaused whenNotCancelled {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-        
+
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 protocolShare = s_protocolFeePerToken[token];
             uint256 platformShare = s_platformFeePerToken[token];
-            
+
             if (protocolShare > 0 || platformShare > 0) {
                 s_protocolFeePerToken[token] = 0;
                 s_platformFeePerToken[token] = 0;
-                
+
                 if (protocolShare > 0) {
                     IERC20(token).safeTransfer(protocolAdmin, protocolShare);
                 }
-                
+
                 if (platformShare > 0) {
                     IERC20(token).safeTransfer(platformAdmin, platformShare);
                 }
-                
+
                 emit FeesDisbursed(token, protocolShare, platformShare);
             }
         }
@@ -1079,22 +1025,17 @@ contract KeepWhatsRaised is
 
     /**
      * @dev Allows an authorized claimer to collect tips contributed during the campaign.
-     * 
+     *
      * Requirements:
      * - Caller must be authorized to claim tips.
      * - Tip amount must be non-zero.
      */
-    function claimTip()
-        external
-        onlyPlatformAdmin(PLATFORM_HASH)
-        whenCampaignNotPaused
-        whenNotPaused
-    {
-        if(s_cancellationTime == 0 && block.timestamp <= getDeadline()){
+    function claimTip() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
+        if (s_cancellationTime == 0 && block.timestamp <= getDeadline()) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
-        if(s_tipClaimed){
+        if (s_tipClaimed) {
             revert KeepWhatsRaisedAlreadyClaimed();
         }
 
@@ -1105,7 +1046,7 @@ contract KeepWhatsRaised is
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tip = s_tipPerToken[token];
-            
+
             if (tip > 0) {
                 s_tipPerToken[token] = 0;
                 IERC20(token).safeTransfer(platformAdmin, tip);
@@ -1115,18 +1056,13 @@ contract KeepWhatsRaised is
     }
 
     /**
-    * @dev Allows the platform admin to claim the remaining funds from a campaign.
-    *
-    * Requirements:
-    * - Claim period must have started and funds must be available.
-    * - Cannot be previously claimed.
-    */
-    function claimFund()
-        external
-        onlyPlatformAdmin(PLATFORM_HASH)
-        whenCampaignNotPaused
-        whenNotPaused
-    {
+     * @dev Allows the platform admin to claim the remaining funds from a campaign.
+     *
+     * Requirements:
+     * - Claim period must have started and funds must be available.
+     * - Cannot be previously claimed.
+     */
+    function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
         bool isCancelled = s_cancellationTime > 0;
         uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
@@ -1135,7 +1071,7 @@ contract KeepWhatsRaised is
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
-        if(s_fundClaimed){
+        if (s_fundClaimed) {
             revert KeepWhatsRaisedAlreadyClaimed();
         }
 
@@ -1146,7 +1082,7 @@ contract KeepWhatsRaised is
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 amountToClaim = s_availablePerToken[token];
-            
+
             if (amountToClaim > 0) {
                 s_availablePerToken[token] = 0;
                 IERC20(token).safeTransfer(platformAdmin, amountToClaim);
@@ -1167,13 +1103,7 @@ contract KeepWhatsRaised is
     /**
      * @inheritdoc BaseTreasury
      */
-    function _checkSuccessCondition()
-        internal
-        view
-        virtual
-        override
-        returns (bool)
-    {
+    function _checkSuccessCondition() internal view virtual override returns (bool) {
         return true;
     }
 
@@ -1191,7 +1121,7 @@ contract KeepWhatsRaised is
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
-        
+
         // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
         // If not for a reward (pledgeWithoutAReward), pledgeAmount is already in token decimals
         // Tip is always in the pledgeToken's decimals (same token used for payment)
@@ -1203,20 +1133,13 @@ contract KeepWhatsRaised is
             // Non-reward pledge: already in token decimals
             pledgeAmountInTokenDecimals = pledgeAmount;
         }
-        
+
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
-        
+
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
-        
-        uint256 tokenId = INFO.mintNFTForPledge(
-            backer,
-            reward,
-            pledgeToken,
-            pledgeAmountInTokenDecimals,
-            0,
-            tip
-        );
-        
+
+        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
+
         s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
@@ -1227,19 +1150,11 @@ contract KeepWhatsRaised is
         uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
         s_availablePerToken[pledgeToken] += netAvailable;
 
-        emit Receipt(
-            backer,
-            pledgeToken,
-            reward,
-            pledgeAmount,
-            tip,
-            tokenId,
-            rewards
-        );
+        emit Receipt(backer, pledgeToken, reward, pledgeAmount, tip, tokenId, rewards);
     }
 
     /**
-     * @notice Calculates the net amount available from a pledge after deducting 
+     * @notice Calculates the net amount available from a pledge after deducting
      *         all applicable fees.
      *
      * @dev The function performs the following:
@@ -1256,14 +1171,16 @@ contract KeepWhatsRaised is
      *
      * @return The net available amount after all fees are deducted
      */
-    function _calculateNetAvailable(bytes32 pledgeId, address pledgeToken, uint256 tokenId, uint256 pledgeAmount) internal returns (uint256) {
+    function _calculateNetAvailable(bytes32 pledgeId, address pledgeToken, uint256 tokenId, uint256 pledgeAmount)
+        internal
+        returns (uint256)
+    {
         uint256 totalFee = 0;
 
         // Gross Percentage Fee Calculation (correct as-is)
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
-            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i]))
-                        / PERCENT_DIVIDER;
+            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i])) / PERCENT_DIVIDER;
             s_platformFeePerToken[pledgeToken] += fee;
             totalFee += fee;
         }
@@ -1275,8 +1192,7 @@ contract KeepWhatsRaised is
         totalFee += paymentGatewayFee;
 
         // Protocol Fee Calculation (correct as-is)
-        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) /
-            PERCENT_DIVIDER;
+        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
         s_protocolFeePerToken[pledgeToken] += protocolFee;
         totalFee += protocolFee;
 
@@ -1289,20 +1205,20 @@ contract KeepWhatsRaised is
      * @dev Checks the refund period status based on campaign state
      * @param checkIfOver If true, returns whether refund period is over; if false, returns whether currently within refund period
      * @return bool Status based on checkIfOver parameter
-     * 
+     *
      * @notice Refund period logic:
      *         - If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
      *         - If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
      *         - Before deadline (non-cancelled): not in refund period
-     * 
+     *
      * @dev This function handles both cancelled and non-cancelled campaign scenarios
      */
     function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool) {
         uint256 deadline = getDeadline();
         bool isCancelled = s_cancellationTime > 0;
-        
+
         bool refundPeriodOver;
-        
+
         if (isCancelled) {
             // If cancelled, refund period ends after s_config.refundDelay from cancellation time
             refundPeriodOver = block.timestamp > s_cancellationTime + s_config.refundDelay;
@@ -1310,7 +1226,7 @@ contract KeepWhatsRaised is
             // If not cancelled, refund period ends after s_config.refundDelay from deadline
             refundPeriodOver = block.timestamp > deadline + s_config.refundDelay;
         }
-        
+
         if (checkIfOver) {
             return refundPeriodOver;
         } else {
@@ -1321,5 +1237,4 @@ contract KeepWhatsRaised is
             return !refundPeriodOver;
         }
     }
-
 }

@@ -17,7 +17,6 @@ import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
  * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
 contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgradeable, UUPSUpgradeable {
-
     /**
      * @dev Emitted when invalid input is provided.
      */
@@ -28,10 +27,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
      */
     error CampaignInfoFactoryCampaignInitializationFailed();
     error CampaignInfoFactoryPlatformNotListed(bytes32 platformHash);
-    error CampaignInfoFactoryCampaignWithSameIdentifierExists(
-        bytes32 identifierHash,
-        address cloneExists
-    );
+    error CampaignInfoFactoryCampaignWithSameIdentifierExists(bytes32 identifierHash, address cloneExists);
 
     /**
      * @dev Emitted when the campaign currency has no tokens.
@@ -59,10 +55,8 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         address treasuryFactoryAddress
     ) public initializer {
         if (
-            address(globalParams) == address(0) ||
-            campaignImplementation == address(0) ||
-            treasuryFactoryAddress == address(0) ||
-            initialOwner == address(0)
+            address(globalParams) == address(0) || campaignImplementation == address(0)
+                || treasuryFactoryAddress == address(0) || initialOwner == address(0)
         ) {
             revert CampaignInfoFactoryInvalidInput();
         }
@@ -116,13 +110,14 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         }
 
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
-        
+
         // Cache globalParams to save gas on repeated storage reads
         IGlobalParams globalParams = $.globalParams;
 
         // Retrieve time constraints from GlobalParams dataRegistry
         uint256 campaignLaunchBuffer = uint256(globalParams.getFromRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER));
-        uint256 minimumCampaignDuration = uint256(globalParams.getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
+        uint256 minimumCampaignDuration =
+            uint256(globalParams.getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
 
         // Validate campaign timing constraints
         if (campaignData.launchTime < block.timestamp + campaignLaunchBuffer) {
@@ -131,12 +126,10 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         if (campaignData.deadline < campaignData.launchTime + minimumCampaignDuration) {
             revert CampaignInfoFactoryInvalidInput();
         }
-        
+
         bool isValid;
         for (uint256 i = 0; i < platformDataKey.length; i++) {
-            isValid = globalParams.checkIfPlatformDataKeyValid(
-                platformDataKey[i]
-            );
+            isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
             if (!isValid) {
                 revert CampaignInfoFactoryInvalidInput();
             }
@@ -146,10 +139,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         }
         address cloneExists = $.identifierToCampaignInfo[identifierHash];
         if (cloneExists != address(0)) {
-            revert CampaignInfoFactoryCampaignWithSameIdentifierExists(
-                identifierHash,
-                cloneExists
-            );
+            revert CampaignInfoFactoryCampaignWithSameIdentifierExists(identifierHash, cloneExists);
         }
         bool isListed;
         bytes32 platformHash;
@@ -167,15 +157,11 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
             revert CampaignInfoInvalidTokenList();
         }
 
-        bytes memory args = abi.encode(
-            $.treasuryFactoryAddress,
-            globalParams.getProtocolFeePercent(),
-            identifierHash
-        );
+        bytes memory args = abi.encode($.treasuryFactoryAddress, globalParams.getProtocolFeePercent(), identifierHash);
         address clone = Clones.cloneWithImmutableArgs($.implementation, args);
-        
+
         // Initialize with all parameters including NFT metadata
-        (bool success, ) = clone.call(
+        (bool success,) = clone.call(
             abi.encodeWithSignature(
                 "initialize(address,address,bytes32[],bytes32[],bytes32[],(uint256,uint256,uint256,bytes32),address[],string,string,string,string)",
                 creator,
@@ -203,9 +189,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
     /**
      * @inheritdoc ICampaignInfoFactory
      */
-    function updateImplementation(
-        address newImplementation
-    ) external override onlyOwner {
+    function updateImplementation(address newImplementation) external override onlyOwner {
         if (newImplementation == address(0)) {
             revert CampaignInfoFactoryInvalidInput();
         }

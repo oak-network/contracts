@@ -15,7 +15,7 @@ library AdminAccessCheckerStorage {
     }
 
     // keccak256(abi.encode(uint256(keccak256("ccprotocol.storage.AdminAccessChecker")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant ADMIN_ACCESS_CHECKER_STORAGE_LOCATION = 
+    bytes32 private constant ADMIN_ACCESS_CHECKER_STORAGE_LOCATION =
         0x7c2f08fa04c2c7c7ab255a45dbf913d4c236b91c59858917e818398e997f8800;
 
     function _getAdminAccessCheckerStorage() internal pure returns (Storage storage $) {

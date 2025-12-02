@@ -1,5 +1,5 @@
 # Counters
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts-internal/blob/e5024d64e3fbbb8a9ba5520b2280c0e3ebc75174/src/utils/Counters.sol)
+[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/Counters.sol)
 
 
 ## Functions
@@ -33,7 +33,7 @@ function reset(Counter storage counter) internal;
 
 ## Errors
 ### CounterDecrementOverflow
-Error thrown when attempting to decrement a counter with value 0.
+*Error thrown when attempting to decrement a counter with value 0.*
 
 
 ```solidity
@@ -45,10 +45,7 @@ error CounterDecrementOverflow();
 
 ```solidity
 struct Counter {
-    // This variable should never be directly accessed by users of the library: interactions must be restricted to
-    // the library's function. As of Solidity v0.5.2, this cannot be enforced, though there is a proposal to add
-    // this feature: see https://github.com/ethereum/solidity/issues/4637
-    uint256 _value; // default: 0
+    uint256 _value;
 }
 ```
 

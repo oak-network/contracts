@@ -15,7 +15,6 @@ import {TreasuryFactoryStorage} from "./storage/TreasuryFactoryStorage.sol";
  * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
 contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker, UUPSUpgradeable {
-
     error TreasuryFactoryUnauthorized();
     error TreasuryFactoryInvalidKey();
     error TreasuryFactoryTreasuryCreationFailed();
@@ -50,11 +49,11 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function registerTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId,
-        address implementation
-    ) external override onlyPlatformAdmin(platformHash) {
+    function registerTreasuryImplementation(bytes32 platformHash, uint256 implementationId, address implementation)
+        external
+        override
+        onlyPlatformAdmin(platformHash)
+    {
         if (implementation == address(0)) {
             revert TreasuryFactoryInvalidAddress();
         }
@@ -65,10 +64,11 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function approveTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external override onlyProtocolAdmin {
+    function approveTreasuryImplementation(bytes32 platformHash, uint256 implementationId)
+        external
+        override
+        onlyProtocolAdmin
+    {
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         address implementation = $.implementationMap[platformHash][implementationId];
         if (implementation == address(0)) {
@@ -80,9 +80,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function disapproveTreasuryImplementation(
-        address implementation
-    ) external override onlyProtocolAdmin {
+    function disapproveTreasuryImplementation(address implementation) external override onlyProtocolAdmin {
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         $.approvedImplementations[implementation] = false;
     }
@@ -90,10 +88,11 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function removeTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external override onlyPlatformAdmin(platformHash) {
+    function removeTreasuryImplementation(bytes32 platformHash, uint256 implementationId)
+        external
+        override
+        onlyPlatformAdmin(platformHash)
+    {
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         delete $.implementationMap[platformHash][implementationId];
     }
@@ -101,11 +100,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     /**
      * @inheritdoc ITreasuryFactory
      */
-    function deploy(
-        bytes32 platformHash,
-        address infoAddress,
-        uint256 implementationId
-    )
+    function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
         external
         override
         onlyPlatformAdmin(platformHash)
@@ -119,31 +114,19 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
 
         clone = Clones.clone(implementation);
 
-        (bool success, ) = clone.call(
-            abi.encodeWithSignature(
-                "initialize(bytes32,address)",
-                platformHash,
-                infoAddress
-            )
+        // Fetch the platform adapter (trusted forwarder) from GlobalParams
+        address platformAdapter = _getGlobalParams().getPlatformAdapter(platformHash);
+
+        (bool success,) = clone.call(
+            abi.encodeWithSignature("initialize(bytes32,address,address)", platformHash, infoAddress, platformAdapter)
         );
         if (!success) {
             revert TreasuryFactoryTreasuryInitializationFailed();
         }
-        (success, ) = infoAddress.call(
-            abi.encodeWithSignature(
-                "_setPlatformInfo(bytes32,address)",
-                platformHash,
-                clone
-            )
-        );
+        (success,) = infoAddress.call(abi.encodeWithSignature("_setPlatformInfo(bytes32,address)", platformHash, clone));
         if (!success) {
             revert TreasuryFactorySettingPlatformInfoFailed();
         }
-        emit TreasuryFactoryTreasuryDeployed(
-            platformHash,
-            implementationId,
-            infoAddress,
-            clone
-        );
+        emit TreasuryFactoryTreasuryDeployed(platformHash, implementationId, infoAddress, clone);
     }
 }

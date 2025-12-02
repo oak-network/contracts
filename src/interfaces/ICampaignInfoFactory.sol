@@ -13,10 +13,7 @@ interface ICampaignInfoFactory is ICampaignData {
      * @param identifierHash The unique identifier hash of the campaign.
      * @param campaignInfoAddress The address of the created campaign information contract.
      */
-    event CampaignInfoFactoryCampaignCreated(
-        bytes32 indexed identifierHash,
-        address indexed campaignInfoAddress
-    );
+    event CampaignInfoFactoryCampaignCreated(bytes32 indexed identifierHash, address indexed campaignInfoAddress);
 
     /**
      * @notice Emitted when the campaign after creation is initialized.
@@ -25,10 +22,10 @@ interface ICampaignInfoFactory is ICampaignData {
 
     /**
      * @notice Creates a new campaign information contract with NFT.
-     * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked 
-     *      permanently in the campaign contract. Users should verify current fees before 
-     *      calling this function or using intermediate contracts that check fees haven't 
-     *      changed from expected values. The protocol fee is stored as immutable in the cloned 
+     * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+     *      permanently in the campaign contract. Users should verify current fees before
+     *      calling this function or using intermediate contracts that check fees haven't
+     *      changed from expected values. The protocol fee is stored as immutable in the cloned
      *      contract and platform fees are stored during initialization.
      * @param creator The address of the creator of the campaign.
      * @param identifierHash The unique identifier hash of the campaign.

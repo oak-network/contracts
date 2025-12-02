@@ -35,8 +35,18 @@ contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Te
             bytes32 itemId = keccak256(abi.encodePacked("item", i));
 
             ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-            ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees = new ICampaignPaymentTreasury.ExternalFees[](0);
-            paymentTreasury.createPayment(paymentId, buyerId, itemId, address(testToken), paymentAmount, expiration, emptyLineItems, emptyExternalFees);
+            ICampaignPaymentTreasury.ExternalFees[] memory emptyExternalFees =
+                new ICampaignPaymentTreasury.ExternalFees[](0);
+            paymentTreasury.createPayment(
+                paymentId,
+                buyerId,
+                itemId,
+                address(testToken),
+                paymentAmount,
+                expiration,
+                emptyLineItems,
+                emptyExternalFees
+            );
 
             paymentIds[i] = paymentId;
         }
@@ -85,16 +95,14 @@ contract PaymentTreasuryBatchLimit_Test is PaymentTreasury_Integration_Shared_Te
                     console.log("Status: RISKY");
                 }
                 console.log("----------------------------");
-
             } catch {
                 console.log(string(abi.encodePacked("Batch Size: ", vm.toString(batchSize))));
                 console.log("FAILED - Exceeds gas limit or reverted");
                 console.log("----------------------------");
-                break; 
+                break;
             }
 
             setUp();
         }
     }
 }
-

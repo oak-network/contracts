@@ -9,10 +9,7 @@ contract DeployKeepWhatsRaisedImplementation is Script {
     function deploy() public returns (address) {
         console2.log("Deploying KeepWhatsRaisedImplementation...");
         KeepWhatsRaised keepWhatsRaisedImplementation = new KeepWhatsRaised();
-        console2.log(
-            "KeepWhatsRaisedImplementation deployed at:",
-            address(keepWhatsRaisedImplementation)
-        );
+        console2.log("KeepWhatsRaisedImplementation deployed at:", address(keepWhatsRaisedImplementation));
         return address(keepWhatsRaisedImplementation);
     }
 
@@ -30,9 +27,6 @@ contract DeployKeepWhatsRaisedImplementation is Script {
             vm.stopBroadcast();
         }
 
-        console2.log(
-            "KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS",
-            implementationAddress
-        );
+        console2.log("KEEP_WHATS_RAISED_IMPLEMENTATION_ADDRESS", implementationAddress);
     }
 }

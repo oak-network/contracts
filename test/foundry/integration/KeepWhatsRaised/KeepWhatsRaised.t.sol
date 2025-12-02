@@ -32,7 +32,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         approveTreasuryImplementation(PLATFORM_2_HASH);
         console.log("approved treasury");
-        
+
         // Create Campaign
         createCampaign(PLATFORM_2_HASH);
         console.log("created campaign");
@@ -61,7 +61,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
      */
     function enlistPlatform(bytes32 platformHash) internal {
         vm.startPrank(users.protocolAdminAddress);
-        globalParams.enlistPlatform(platformHash, users.platform2AdminAddress, PLATFORM_FEE_PERCENT);
+        globalParams.enlistPlatform(platformHash, users.platform2AdminAddress, PLATFORM_FEE_PERCENT, address(0));
         vm.stopPrank();
     }
 
@@ -116,8 +116,8 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             users.creator1Address,
             identifierHash,
             selectedPlatformHash,
-            platformDataKey,     
-            platformDataValue,   
+            platformDataKey,
+            platformDataValue,
             CAMPAIGN_DATA,
             "Campaign Pledge NFT",
             "PLEDGE",
@@ -276,17 +276,18 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             testToken.approve(treasury, pledgeAmount + tip);
         }
 
-        KeepWhatsRaised(treasury).setFeeAndPledge(pledgeId, backer, address(testToken), pledgeAmount, tip, fee, reward, isPledgeForAReward);
+        KeepWhatsRaised(treasury).setFeeAndPledge(
+            pledgeId, backer, address(testToken), pledgeAmount, tip, fee, reward, isPledgeForAReward
+        );
 
         logs = vm.getRecordedLogs();
 
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(
-            logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", treasury
-        );
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])", treasury);
 
         // Indexed params: backer (topics[1]), pledgeToken (topics[2])
         // Data params: reward, pledgeAmount, tip, tokenId, rewards
-        (,, , tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
+        (,,, tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
 
         vm.stopPrank();
     }
@@ -323,7 +324,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         // Indexed params: backer (topics[1]), pledgeToken (topics[2])
         // Data params: reward, pledgeAmount, tip, tokenId, rewards
-        (,, , tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
+        (,,, tokenId, rewards) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
 
         vm.stopPrank();
     }
@@ -356,7 +357,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         // Indexed params: backer (topics[1]), pledgeToken (topics[2])
         // Data params: reward, pledgeAmount, tip, tokenId, rewards
-        (,, , tokenId,) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
+        (,,, tokenId,) = abi.decode(data, (bytes32, uint256, uint256, uint256, bytes32[]));
         vm.stopPrank();
     }
 
@@ -381,7 +382,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         to = address(uint160(uint256(topics[1])));
 
         (withdrawalAmount, fee) = abi.decode(data, (uint256, uint256));
-        
+
         vm.stopPrank();
     }
 
@@ -393,10 +394,10 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         returns (Vm.Log[] memory logs, uint256 refundedTokenId, uint256 refundAmount, address claimer)
     {
         vm.startPrank(caller);
-        
+
         // Approve treasury to burn NFT
         CampaignInfo(campaignAddress).approve(keepWhatsRaisedAddress, tokenId);
-        
+
         vm.recordLogs();
 
         KeepWhatsRaised(keepWhatsRaisedAddress).claimRefund(tokenId);
@@ -477,7 +478,8 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
 
         logs = vm.getRecordedLogs();
 
-        (bytes32[] memory topics, bytes memory data) = decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", keepWhatsRaisedAddress);
+        (bytes32[] memory topics, bytes memory data) =
+            decodeTopicsAndData(logs, "FeesDisbursed(address,uint256,uint256)", keepWhatsRaisedAddress);
 
         // topics[1] is the indexed token
         (protocolShare, platformShare) = abi.decode(data, (uint256, uint256));
