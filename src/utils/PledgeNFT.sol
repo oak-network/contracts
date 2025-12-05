@@ -99,15 +99,15 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
 
     /**
      * @notice Validates that a string is safe for JSON embedding
-     * @dev Reverts if string contains quotes, backslashes, or control characters
+     * @dev Reverts if string contains quotes, backslashes, control characters, or non-ASCII
      * @param str The string to validate
      */
     function _validateJsonString(string calldata str) internal pure {
         bytes memory b = bytes(str);
         for (uint256 i = 0; i < b.length; i++) {
             bytes1 char = b[i];
-            // Reject: double quote ("), backslash (\), or control characters (0x00-0x1F)
-            if (char == 0x22 || char == 0x5C || char < 0x20) {
+            // Reject: control characters (0x00-0x1F), double quote ("), backslash (\), or non-ASCII (>0x7E)
+            if (char < 0x20 || char == 0x22 || char == 0x5C || char > 0x7E) {
                 revert PledgeNFTInvalidJsonString();
             }
         }
@@ -276,17 +276,6 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
     function getPledgeData(uint256 tokenId) external view returns (PledgeData memory) {
         return s_pledgeData[tokenId];
     }
-
-    /**
-     * @dev Internal function to set pledge data for a token
-     * @param tokenId The token ID
-     * @param backer The backer address
-     * @param reward The reward identifier
-     * @param tokenAddress The address of the token used for the pledge
-     * @param amount The pledge amount
-     * @param shippingFee The shipping fee
-     * @param tipAmount The tip amount
-     */
 
     /**
      * @notice Override supportsInterface for multiple inheritance
