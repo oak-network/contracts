@@ -12,6 +12,7 @@ import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
+import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
 contract CampaignInfo_UnitTest is Test, Defaults {
     CampaignInfo internal campaignInfo;
@@ -336,6 +337,98 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
         campaignInfo.updateLaunchTime(block.timestamp - 1);
 
+        vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_ViolatesMinimumDuration_Reverts() public {
+        // Set minimum campaign duration to 1 day
+        vm.startPrank(admin);
+        globalParams.addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
+            bytes32(uint256(1 days))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(campaignOwner);
+
+        uint256 currentDeadline = campaignInfo.getDeadline();
+        
+        // Try to update launch time to a value that would make duration less than minimum (1 day)
+        // If deadline is at currentLaunchTime + 29 days, and we move launch time forward,
+        // the duration would be less than 1 day, which violates the minimum
+        uint256 newLaunchTime = currentDeadline - 12 hours; // Only 12 hours duration, less than 1 day minimum
+
+        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        campaignInfo.updateLaunchTime(newLaunchTime);
+
+        vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_MeetsMinimumDuration_Success() public {
+        // Set minimum campaign duration to 1 day
+        vm.startPrank(admin);
+        globalParams.addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
+            bytes32(uint256(1 days))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(campaignOwner);
+
+        uint256 currentDeadline = campaignInfo.getDeadline();
+        
+        // Update launch time to a value that still meets the minimum duration requirement
+        // Leave at least 1 day between new launch time and deadline
+        uint256 newLaunchTime = currentDeadline - 2 days; // 2 days duration, meets 1 day minimum
+
+        vm.expectEmit(true, false, false, true);
+        emit CampaignInfo.CampaignInfoLaunchTimeUpdated(newLaunchTime);
+
+        campaignInfo.updateLaunchTime(newLaunchTime);
+
+        assertEq(campaignInfo.getLaunchTime(), newLaunchTime);
+        vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_MoveCloserToNow_Success() public {
+        // Set minimum campaign duration to 1 day
+        vm.startPrank(admin);
+        globalParams.addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION,
+            bytes32(uint256(1 days))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(campaignOwner);
+
+        uint256 originalLaunchTime = campaignInfo.getLaunchTime();
+        uint256 currentDeadline = campaignInfo.getDeadline();
+        
+        // Scenario: Initially set launchTime far in future, but now want to move it closer to now
+        // This should be allowed as long as:
+        // 1. New launchTime >= block.timestamp (not in the past)
+        // 2. Deadline still meets minimum duration requirement
+        
+        // First, move launch time further away to simulate initial far-future setup
+        uint256 farFutureLaunchTime = block.timestamp + 20 days;
+        if (currentDeadline >= farFutureLaunchTime + 1 days) {
+            campaignInfo.updateLaunchTime(farFutureLaunchTime);
+            originalLaunchTime = farFutureLaunchTime;
+        }
+        
+        // Now move launch time closer to now (but still in future and meeting minimum duration)
+        uint256 newLaunchTime = block.timestamp + 2 days; // Move to 2 days from now
+        
+        // Ensure deadline still meets minimum duration
+        require(currentDeadline >= newLaunchTime + 1 days, "Test setup: deadline must meet minimum duration");
+        
+        vm.expectEmit(true, false, false, true);
+        emit CampaignInfo.CampaignInfoLaunchTimeUpdated(newLaunchTime);
+
+        campaignInfo.updateLaunchTime(newLaunchTime);
+
+        assertEq(campaignInfo.getLaunchTime(), newLaunchTime);
+        assertLt(newLaunchTime, originalLaunchTime, "Launch time should be moved closer to now");
         vm.stopPrank();
     }
 

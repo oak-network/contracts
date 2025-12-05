@@ -491,9 +491,16 @@ contract CampaignInfo is
         whenNotCancelled
         whenNotLocked
     {
-        if (launchTime < s_campaignData.launchTime || getDeadline() <= launchTime) {
+        uint256 deadline = getDeadline();
+        uint256 minimumCampaignDuration =
+            uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
+
+        // Ensure launch time is not in the past and deadline still meets minimum duration requirement
+        // Allow moving launch time closer to current time as long as minimum duration is maintained
+        if (launchTime < block.timestamp || deadline <= launchTime || deadline < launchTime + minimumCampaignDuration) {
             revert CampaignInfoInvalidInput();
         }
+
         s_campaignData.launchTime = launchTime;
         emit CampaignInfoLaunchTimeUpdated(launchTime);
     }
