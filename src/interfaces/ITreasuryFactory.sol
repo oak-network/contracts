@@ -21,6 +21,30 @@ interface ITreasuryFactory {
     );
 
     /**
+     * @dev Emitted when a treasury implementation is registered for a platform.
+     * @param platformHash The platform identifier.
+     * @param implementationId The ID of the implementation.
+     * @param implementation The contract address of the implementation.
+     */
+    event TreasuryImplementationRegistered(
+        bytes32 indexed platformHash, uint256 indexed implementationId, address indexed implementation
+    );
+
+    /**
+     * @dev Emitted when a treasury implementation is removed from a platform.
+     * @param platformHash The platform identifier.
+     * @param implementationId The ID of the implementation.
+     */
+    event TreasuryImplementationRemoved(bytes32 indexed platformHash, uint256 indexed implementationId);
+
+    /**
+     * @dev Emitted when a treasury implementation is approved or disapproved by the protocol admin.
+     * @param implementation The contract address of the implementation.
+     * @param isApproved True if approved, false if disapproved.
+     */
+    event TreasuryImplementationApproval(address indexed implementation, bool isApproved);
+
+    /**
      * @notice Registers a treasury implementation for a given platform.
      * @dev Callable only by the platform admin.
      * @param platformHash The platform identifier.

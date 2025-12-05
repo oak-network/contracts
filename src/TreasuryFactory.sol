@@ -59,6 +59,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
         }
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         $.implementationMap[platformHash][implementationId] = implementation;
+        emit TreasuryImplementationRegistered(platformHash, implementationId, implementation);
     }
 
     /**
@@ -75,6 +76,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
             revert TreasuryFactoryImplementationNotSet();
         }
         $.approvedImplementations[implementation] = true;
+        emit TreasuryImplementationApproval(implementation, true);
     }
 
     /**
@@ -83,6 +85,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     function disapproveTreasuryImplementation(address implementation) external override onlyProtocolAdmin {
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         $.approvedImplementations[implementation] = false;
+        emit TreasuryImplementationApproval(implementation, false);
     }
 
     /**
@@ -95,6 +98,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     {
         TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
         delete $.implementationMap[platformHash][implementationId];
+        emit TreasuryImplementationRemoved(platformHash, implementationId);
     }
 
     /**
