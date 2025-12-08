@@ -111,11 +111,20 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         }
 
         console2.log("Setting registry values on GlobalParams");
+        // Only use startPrank in simulation mode
+        if (simulate) {
+            vm.startPrank(deployerAddress);
+        }
+
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
         GlobalParams(globalParams).addToRegistry(
             DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
         );
+
+        if (simulate) {
+            vm.stopPrank();
+        }
     }
 
     // Deploy or reuse contracts
@@ -243,8 +252,8 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
     }
 
     function registerTreasuryImplementation() internal {
-        // Skip if we didn't deploy TreasuryFactory (assuming it's already set up)
-        if (!treasuryFactoryDeployed || !keepWhatsRaisedDeployed) {
+        // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
+        if (!treasuryFactoryDeployed && !keepWhatsRaisedDeployed) {
             console2.log("Skipping registerTreasuryImplementation - using existing contracts");
             implementationRegistered = true;
             return;
@@ -270,8 +279,8 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
     }
 
     function approveTreasuryImplementation() internal {
-        // Skip if we didn't deploy TreasuryFactory (assuming it's already set up)
-        if (!treasuryFactoryDeployed || !keepWhatsRaisedDeployed) {
+        // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
+        if (!treasuryFactoryDeployed && !keepWhatsRaisedDeployed) {
             console2.log("Skipping approveTreasuryImplementation - using existing contracts");
             implementationApproved = true;
             return;
@@ -322,6 +331,10 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         }
 
         console2.log("Transferring admin rights to final addresses...");
+        // Only use startPrank in simulation mode
+        if (simulate) {
+            vm.startPrank(deployerAddress);
+        }
 
         // Only transfer if the final addresses are different from deployer
         if (finalPlatformAdmin != deployerAddress) {
@@ -336,8 +349,14 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             //Transfer admin rights to the final protocol admin
             GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
             console2.log("GlobalParams transferred to:", finalProtocolAdmin);
-            CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
-            console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
+            if (campaignInfoFactoryDeployed) {
+                CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
+                console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
+            }
+        }
+
+        if (simulate) {
+            vm.stopPrank();
         }
 
         adminRightsTransferred = true;
@@ -350,8 +369,10 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
 
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
 
-        // Start broadcast with deployer key
-        vm.startBroadcast(deployerKey);
+        // Start broadcast with deployer key (skip in simulation mode)
+        if (!simulate) {
+            vm.startBroadcast(deployerKey);
+        }
 
         // Deploy or reuse contracts
         deployContracts();
@@ -369,8 +390,10 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
         // Finally, transfer admin rights to the final addresses
         transferAdminRights();
 
-        // Stop broadcast
-        vm.stopBroadcast();
+        // Stop broadcast (skip in simulation mode)
+        if (!simulate) {
+            vm.stopBroadcast();
+        }
 
         // Output summary
         console2.log("\n===========================================");

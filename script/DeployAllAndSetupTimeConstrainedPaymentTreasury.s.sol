@@ -7,16 +7,16 @@ import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
-import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
+import {TimeConstrainedPaymentTreasury} from "src/treasuries/TimeConstrainedPaymentTreasury.sol";
 import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 import {DeployBase} from "./lib/DeployBase.s.sol";
 
 /**
- * @notice Script to deploy and setup all needed contracts for the protocol
+ * @notice Script to deploy and setup all needed contracts for the protocol with TimeConstrainedPaymentTreasury
  */
-contract DeployAllAndSetupPaymentTreasury is DeployBase {
+contract DeployAllAndSetupTimeConstrainedPaymentTreasury is DeployBase {
     // Customizable values (set through environment variables)
     bytes32 platformHash;
     uint256 protocolFeePercent;
@@ -37,7 +37,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
     address treasuryFactoryImplementation;
     address campaignInfoFactory;
     address campaignInfoFactoryImplementation;
-    address paymentTreasuryImplementation;
+    address timeConstrainedPaymentTreasuryImplementation;
 
     // User addresses
     address deployerAddress;
@@ -62,7 +62,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
     bool globalParamsDeployed = false;
     bool treasuryFactoryDeployed = false;
     bool campaignInfoFactoryDeployed = false;
-    bool paymentTreasuryDeployed = false;
+    bool timeConstrainedPaymentTreasuryDeployed = false;
 
     // Configure parameters based on environment variables
     function setupParams() internal {
@@ -95,7 +95,8 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
         campaignInfoFactory = vm.envOr("CAMPAIGN_INFO_FACTORY_ADDRESS", address(0));
-        paymentTreasuryImplementation = vm.envOr("PAYMENT_TREASURY_IMPLEMENTATION_ADDRESS", address(0));
+        timeConstrainedPaymentTreasuryImplementation =
+            vm.envOr("TIME_CONSTRAINED_PAYMENT_TREASURY_IMPLEMENTATION_ADDRESS", address(0));
 
         console2.log("Using platform hash for:", platformName);
         console2.log("Protocol fee percent:", protocolFeePercent);
@@ -247,13 +248,19 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
             console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
         }
 
-        // Deploy or reuse PaymentTreasury implementation
-        if (paymentTreasuryImplementation == address(0)) {
-            paymentTreasuryImplementation = address(new PaymentTreasury());
-            paymentTreasuryDeployed = true;
-            console2.log("PaymentTreasury implementation deployed at:", paymentTreasuryImplementation);
+        // Deploy or reuse TimeConstrainedPaymentTreasury implementation
+        if (timeConstrainedPaymentTreasuryImplementation == address(0)) {
+            timeConstrainedPaymentTreasuryImplementation = address(new TimeConstrainedPaymentTreasury());
+            timeConstrainedPaymentTreasuryDeployed = true;
+            console2.log(
+                "TimeConstrainedPaymentTreasury implementation deployed at:",
+                timeConstrainedPaymentTreasuryImplementation
+            );
         } else {
-            console2.log("Reusing PaymentTreasury implementation at:", paymentTreasuryImplementation);
+            console2.log(
+                "Reusing TimeConstrainedPaymentTreasury implementation at:",
+                timeConstrainedPaymentTreasuryImplementation
+            );
         }
     }
 
@@ -288,7 +295,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
 
     function registerTreasuryImplementation() internal {
         // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
-        if (!treasuryFactoryDeployed && !paymentTreasuryDeployed) {
+        if (!treasuryFactoryDeployed && !timeConstrainedPaymentTreasuryDeployed) {
             console2.log("Skipping registerTreasuryImplementation - using existing contracts");
             implementationRegistered = true;
             return;
@@ -303,7 +310,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
         TreasuryFactory(treasuryFactory).registerTreasuryImplementation(
             platformHash,
             0, // Implementation ID
-            paymentTreasuryImplementation
+            timeConstrainedPaymentTreasuryImplementation
         );
 
         if (simulate) {
@@ -315,7 +322,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
 
     function approveTreasuryImplementation() internal {
         // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
-        if (!treasuryFactoryDeployed && !paymentTreasuryDeployed) {
+        if (!treasuryFactoryDeployed && !timeConstrainedPaymentTreasuryDeployed) {
             console2.log("Skipping approveTreasuryImplementation - using existing contracts");
             implementationApproved = true;
             return;
@@ -453,7 +460,7 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
         if (campaignInfoImplementation != address(0)) {
             console2.log("CAMPAIGN_INFO_IMPLEMENTATION:", campaignInfoImplementation);
         }
-        console2.log("PAYMENT_TREASURY_IMPLEMENTATION:", paymentTreasuryImplementation);
+        console2.log("TIME_CONSTRAINED_PAYMENT_TREASURY_IMPLEMENTATION:", timeConstrainedPaymentTreasuryImplementation);
 
         console2.log("\n--- Platform Configuration ---");
         console2.log("Platform Name Hash:", vm.toString(platformHash));
@@ -506,3 +513,4 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
         console2.log("===========================================");
     }
 }
+
