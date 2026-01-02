@@ -1,7 +1,7 @@
 # ITreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ITreasuryFactory.sol)
 
-*Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.*
+Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.
 
 
 ## Functions
@@ -9,7 +9,7 @@
 
 Registers a treasury implementation for a given platform.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
@@ -29,7 +29,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-*Callable only by the protocol admin.*
+Callable only by the protocol admin.
 
 
 ```solidity
@@ -78,17 +78,13 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
-function deploy(
-    bytes32 platformHash,
-    address infoAddress,
-    uint256 implementationId,
-    string calldata name,
-    string calldata symbol
-) external returns (address clone);
+function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+    external
+    returns (address clone);
 ```
 **Parameters**
 
@@ -97,8 +93,6 @@ function deploy(
 |`platformHash`|`bytes32`|The platform identifier.|
 |`infoAddress`|`address`|The address of the campaign info contract.|
 |`implementationId`|`uint256`|The ID of the implementation to use.|
-|`name`|`string`|The name of the treasury token.|
-|`symbol`|`string`|The symbol of the treasury token.|
 
 **Returns**
 
@@ -109,12 +103,15 @@ function deploy(
 
 ## Events
 ### TreasuryFactoryTreasuryDeployed
-*Emitted when a new treasury is deployed.*
+Emitted when a new treasury is deployed.
 
 
 ```solidity
 event TreasuryFactoryTreasuryDeployed(
-    bytes32 indexed platformHash, uint256 indexed implementationId, address indexed infoAddress, address treasuryAddress
+    bytes32 indexed platformHash,
+    uint256 indexed implementationId,
+    address indexed infoAddress,
+    address treasuryAddress
 );
 ```
 
@@ -126,4 +123,52 @@ event TreasuryFactoryTreasuryDeployed(
 |`implementationId`|`uint256`|The ID of the approved implementation.|
 |`infoAddress`|`address`|The campaign info address linked to the treasury.|
 |`treasuryAddress`|`address`|The deployed treasury address.|
+
+### TreasuryImplementationRegistered
+Emitted when a treasury implementation is registered for a platform.
+
+
+```solidity
+event TreasuryImplementationRegistered(
+    bytes32 indexed platformHash, uint256 indexed implementationId, address indexed implementation
+);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The ID of the implementation.|
+|`implementation`|`address`|The contract address of the implementation.|
+
+### TreasuryImplementationRemoved
+Emitted when a treasury implementation is removed from a platform.
+
+
+```solidity
+event TreasuryImplementationRemoved(bytes32 indexed platformHash, uint256 indexed implementationId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier.|
+|`implementationId`|`uint256`|The ID of the implementation.|
+
+### TreasuryImplementationApproval
+Emitted when a treasury implementation is approved or disapproved by the protocol admin.
+
+
+```solidity
+event TreasuryImplementationApproval(address indexed implementation, bool isApproved);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`implementation`|`address`|The contract address of the implementation.|
+|`isApproved`|`bool`|True if approved, false if disapproved.|
 

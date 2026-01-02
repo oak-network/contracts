@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
+
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
 /// @title PausableCancellable
 /// @notice Abstract contract providing pause and cancel state management with events and modifiers
-abstract contract PausableCancellable {
+abstract contract PausableCancellable is Context {
     bool private _paused;
     bool private _cancelled;
 
@@ -98,11 +100,9 @@ abstract contract PausableCancellable {
      * @param reason A short reason for pausing
      * @dev Can only pause if not already paused or cancelled
      */
-    function _pause(
-        bytes32 reason
-    ) internal virtual whenNotPaused whenNotCancelled {
+    function _pause(bytes32 reason) internal virtual whenNotPaused whenNotCancelled {
         _paused = true;
-        emit Paused(msg.sender, reason);
+        emit Paused(_msgSender(), reason);
     }
 
     /**
@@ -112,7 +112,7 @@ abstract contract PausableCancellable {
      */
     function _unpause(bytes32 reason) internal virtual whenPaused {
         _paused = false;
-        emit Unpaused(msg.sender, reason);
+        emit Unpaused(_msgSender(), reason);
     }
 
     /**
@@ -124,11 +124,9 @@ abstract contract PausableCancellable {
         if (_cancelled) revert CannotCancel();
         /// @dev keccak256 Hash of `Auto-unpaused during cancellation` is passed as a reason
         if (_paused) {
-            _unpause(
-                0x231da0eace2a459b43889b78bbd1fc88a89e3192ee6cbcda7015c539d577e2cd
-            );
+            _unpause(0x231da0eace2a459b43889b78bbd1fc88a89e3192ee6cbcda7015c539d577e2cd);
         }
         _cancelled = true;
-        emit Cancelled(msg.sender, reason);
+        emit Cancelled(_msgSender(), reason);
     }
 }

@@ -1,5 +1,5 @@
 # ICampaignTreasury
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/ICampaignTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignTreasury.sol)
 
 An interface for managing campaign treasury contracts.
 
@@ -81,5 +81,50 @@ function getRaisedAmount() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total raised amount as a uint256 value.|
+
+
+### getLifetimeRaisedAmount
+
+Retrieves the lifetime raised amount in the treasury (never decreases with refunds).
+
+
+```solidity
+function getLifetimeRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+
+
+### getRefundedAmount
+
+Retrieves the total refunded amount in the treasury.
+
+
+```solidity
+function getRefundedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+
+
+### cancelled
+
+Checks if the treasury has been cancelled.
+
+
+```solidity
+function cancelled() external view returns (bool);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the treasury is cancelled, false otherwise.|
 
 

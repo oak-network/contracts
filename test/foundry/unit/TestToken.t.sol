@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
@@ -12,7 +12,7 @@ contract TestToken_UnitTest is Test, Defaults {
     uint256 internal mintAmount = 1_000 * 1e18;
 
     function setUp() public {
-        token = new TestToken(tokenName, tokenSymbol);
+        token = new TestToken(tokenName, tokenSymbol, 18);
     }
 
     function testMintIncreasesBalance() public {

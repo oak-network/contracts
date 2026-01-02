@@ -1,5 +1,8 @@
 # PausableCancellable
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/utils/PausableCancellable.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/PausableCancellable.sol)
+
+**Inherits:**
+Context
 
 Abstract contract providing pause and cancel state management with events and modifiers
 
@@ -8,14 +11,14 @@ Abstract contract providing pause and cancel state management with events and mo
 ### _paused
 
 ```solidity
-bool private _paused;
+bool private _paused
 ```
 
 
 ### _cancelled
 
 ```solidity
-bool private _cancelled;
+bool private _cancelled
 ```
 
 
@@ -26,7 +29,7 @@ Modifier to allow function only when not paused
 
 
 ```solidity
-modifier whenNotPaused();
+modifier whenNotPaused() ;
 ```
 
 ### whenPaused
@@ -35,7 +38,7 @@ Modifier to allow function only when paused
 
 
 ```solidity
-modifier whenPaused();
+modifier whenPaused() ;
 ```
 
 ### whenNotCancelled
@@ -44,7 +47,7 @@ Modifier to allow function only when not cancelled
 
 
 ```solidity
-modifier whenNotCancelled();
+modifier whenNotCancelled() ;
 ```
 
 ### whenCancelled
@@ -53,7 +56,7 @@ Modifier to allow function only when cancelled
 
 
 ```solidity
-modifier whenCancelled();
+modifier whenCancelled() ;
 ```
 
 ### paused
@@ -78,7 +81,7 @@ function cancelled() public view virtual returns (bool);
 
 Pauses the contract
 
-*Can only pause if not already paused or cancelled*
+Can only pause if not already paused or cancelled
 
 
 ```solidity
@@ -95,7 +98,7 @@ function _pause(bytes32 reason) internal virtual whenNotPaused whenNotCancelled;
 
 Unpauses the contract
 
-*Can only unpause if currently paused*
+Can only unpause if currently paused
 
 
 ```solidity
@@ -112,7 +115,7 @@ function _unpause(bytes32 reason) internal virtual whenPaused;
 
 Cancels the contract permanently
 
-*Auto-unpauses if paused, and cannot be undone*
+Auto-unpauses if paused, and cannot be undone
 
 
 ```solidity
@@ -152,7 +155,7 @@ event Cancelled(address indexed account, bytes32 reason);
 
 ## Errors
 ### PausedError
-*Reverts if contract is paused*
+Reverts if contract is paused
 
 
 ```solidity
@@ -160,7 +163,7 @@ error PausedError();
 ```
 
 ### NotPausedError
-*Reverts if contract is not paused*
+Reverts if contract is not paused
 
 
 ```solidity
@@ -168,7 +171,7 @@ error NotPausedError();
 ```
 
 ### CancelledError
-*Reverts if contract is cancelled*
+Reverts if contract is cancelled
 
 
 ```solidity
@@ -176,7 +179,7 @@ error CancelledError();
 ```
 
 ### NotCancelledError
-*Reverts if contract is not cancelled*
+Reverts if contract is not cancelled
 
 
 ```solidity
@@ -184,7 +187,7 @@ error NotCancelledError();
 ```
 
 ### CannotCancel
-*Reverts if contract is already cancelled*
+Reverts if contract is already cancelled
 
 
 ```solidity

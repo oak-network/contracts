@@ -1,42 +1,59 @@
 # TreasuryFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/TreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/TreasuryFactory.sol)
 
 **Inherits:**
-[ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
+Initializable, [ITreasuryFactory](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
 
+Factory contract for creating treasury contracts
 
-## State Variables
-### implementationMap
-
-```solidity
-mapping(bytes32 => mapping(uint256 => address)) private implementationMap;
-```
-
-
-### approvedImplementations
-
-```solidity
-mapping(address => bool) private approvedImplementations;
-```
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
 ### constructor
 
-Initializes the TreasuryFactory contract.
-
-*This constructor sets the address of the GlobalParams contract as the admin.*
+Constructor that disables initializers to prevent implementation contract initialization
 
 
 ```solidity
-constructor(IGlobalParams globalParams);
+constructor() ;
 ```
+
+### initialize
+
+Initializes the TreasuryFactory contract.
+
+
+```solidity
+function initialize(IGlobalParams globalParams) public initializer;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`globalParams`|`IGlobalParams`|The address of the GlobalParams contract|
+
+
+### _authorizeUpgrade
+
+Function that authorizes an upgrade to a new implementation
+
+
+```solidity
+function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|Address of the new implementation|
+
 
 ### registerTreasuryImplementation
 
 Registers a treasury implementation for a given platform.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
@@ -58,7 +75,7 @@ function registerTreasuryImplementation(bytes32 platformHash, uint256 implementa
 
 Approves a previously registered implementation.
 
-*Callable only by the protocol admin.*
+Callable only by the protocol admin.
 
 
 ```solidity
@@ -113,17 +130,15 @@ function removeTreasuryImplementation(bytes32 platformHash, uint256 implementati
 
 Deploys a treasury clone using an approved implementation.
 
-*Callable only by the platform admin.*
+Callable only by the platform admin.
 
 
 ```solidity
-function deploy(
-    bytes32 platformHash,
-    address infoAddress,
-    uint256 implementationId,
-    string calldata name,
-    string calldata symbol
-) external override onlyPlatformAdmin(platformHash) returns (address clone);
+function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+    external
+    override
+    onlyPlatformAdmin(platformHash)
+    returns (address clone);
 ```
 **Parameters**
 
@@ -132,8 +147,6 @@ function deploy(
 |`platformHash`|`bytes32`|The platform identifier.|
 |`infoAddress`|`address`|The address of the campaign info contract.|
 |`implementationId`|`uint256`|The ID of the implementation to use.|
-|`name`|`string`|The name of the treasury token.|
-|`symbol`|`string`|The symbol of the treasury token.|
 
 **Returns**
 

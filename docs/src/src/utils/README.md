@@ -2,10 +2,12 @@
 
 # Contents
 - [AdminAccessChecker](AdminAccessChecker.sol/abstract.AdminAccessChecker.md)
+- [BasePaymentTreasury](BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md)
 - [BaseTreasury](BaseTreasury.sol/abstract.BaseTreasury.md)
 - [CampaignAccessChecker](CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md)
 - [Counters](Counters.sol/library.Counters.md)
 - [FiatEnabled](FiatEnabled.sol/abstract.FiatEnabled.md)
 - [ItemRegistry](ItemRegistry.sol/contract.ItemRegistry.md)
 - [PausableCancellable](PausableCancellable.sol/abstract.PausableCancellable.md)
+- [PledgeNFT](PledgeNFT.sol/abstract.PledgeNFT.md)
 - [TimestampChecker](TimestampChecker.sol/abstract.TimestampChecker.md)

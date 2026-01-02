@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
-import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {TestToken} from "../test/mocks/TestToken.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
@@ -9,30 +8,41 @@ import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
+import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
+import {DeployBase} from "./lib/DeployBase.s.sol";
 
 /**
  * @notice Script to deploy and setup all needed contracts for the protocol
  */
-contract DeployAllAndSetupAllOrNothing is Script {
+contract DeployAllAndSetupAllOrNothing is DeployBase {
     // Customizable values (set through environment variables)
     bytes32 platformHash;
     uint256 protocolFeePercent;
     uint256 platformFeePercent;
     uint256 tokenMintAmount;
     bool simulate;
+    uint256 bufferTime;
+    uint256 campaignLaunchBuffer;
+    uint256 minimumCampaignDuration;
 
     // Contract addresses
     address testToken;
     address globalParams;
+    address globalParamsImplementation;
     address campaignInfoImplementation;
     address treasuryFactory;
+    address treasuryFactoryImplementation;
     address campaignInfoFactory;
+    address campaignInfoFactoryImplementation;
     address allOrNothingImplementation;
 
     // User addresses
     address deployerAddress;
     address finalProtocolAdmin;
     address finalPlatformAdmin;
+    address platformAdapter;
     address backer1;
     address backer2;
 
@@ -56,30 +66,25 @@ contract DeployAllAndSetupAllOrNothing is Script {
     // Configure parameters based on environment variables
     function setupParams() internal {
         // Get customizable values
-        string memory platformName = vm.envOr(
-            "PLATFORM_NAME",
-            string("MiniFunder")
-        );
+        string memory platformName = vm.envOr("PLATFORM_NAME", string("MiniFunder"));
 
         platformHash = keccak256(abi.encodePacked(platformName));
         protocolFeePercent = vm.envOr("PROTOCOL_FEE_PERCENT", uint256(100)); // Default 1%
         platformFeePercent = vm.envOr("PLATFORM_FEE_PERCENT", uint256(400)); // Default 4%
         tokenMintAmount = vm.envOr("TOKEN_MINT_AMOUNT", uint256(10000000e18));
         simulate = vm.envOr("SIMULATE", false);
+        bufferTime = vm.envOr("BUFFER_TIME", uint256(0));
+        campaignLaunchBuffer = vm.envOr("CAMPAIGN_LAUNCH_BUFFER", uint256(0));
+        minimumCampaignDuration = vm.envOr("MINIMUM_CAMPAIGN_DURATION", uint256(0));
 
         // Get user addresses
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         deployerAddress = vm.addr(deployerKey);
 
         // These are the final admin addresses that will receive control
-        finalProtocolAdmin = vm.envOr(
-            "PROTOCOL_ADMIN_ADDRESS",
-            deployerAddress
-        );
-        finalPlatformAdmin = vm.envOr(
-            "PLATFORM_ADMIN_ADDRESS",
-            deployerAddress
-        );
+        finalProtocolAdmin = vm.envOr("PROTOCOL_ADMIN_ADDRESS", deployerAddress);
+        finalPlatformAdmin = vm.envOr("PLATFORM_ADMIN_ADDRESS", deployerAddress);
+        platformAdapter = vm.envOr("PLATFORM_ADAPTER_ADDRESS", address(0));
         backer1 = vm.envOr("BACKER1_ADDRESS", address(0));
         backer2 = vm.envOr("BACKER2_ADDRESS", address(0));
 
@@ -87,14 +92,8 @@ contract DeployAllAndSetupAllOrNothing is Script {
         testToken = vm.envOr("TOKEN_ADDRESS", address(0));
         globalParams = vm.envOr("GLOBAL_PARAMS_ADDRESS", address(0));
         treasuryFactory = vm.envOr("TREASURY_FACTORY_ADDRESS", address(0));
-        campaignInfoFactory = vm.envOr(
-            "CAMPAIGN_INFO_FACTORY_ADDRESS",
-            address(0)
-        );
-        allOrNothingImplementation = vm.envOr(
-            "ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS",
-            address(0)
-        );
+        campaignInfoFactory = vm.envOr("CAMPAIGN_INFO_FACTORY_ADDRESS", address(0));
+        allOrNothingImplementation = vm.envOr("ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS", address(0));
 
         console2.log("Using platform hash for:", platformName);
         console2.log("Protocol fee percent:", protocolFeePercent);
@@ -103,6 +102,33 @@ contract DeployAllAndSetupAllOrNothing is Script {
         console2.log("Deployer address:", deployerAddress);
         console2.log("Final protocol admin:", finalProtocolAdmin);
         console2.log("Final platform admin:", finalPlatformAdmin);
+        console2.log("Platform adapter (trusted forwarder):", platformAdapter);
+        console2.log("Buffer time (seconds):", bufferTime);
+        console2.log("Campaign launch buffer (seconds):", campaignLaunchBuffer);
+        console2.log("Minimum campaign duration (seconds):", minimumCampaignDuration);
+    }
+
+    function setRegistryValues() internal {
+        if (!globalParamsDeployed) {
+            console2.log("Skipping setRegistryValues - using existing GlobalParams");
+            return;
+        }
+
+        console2.log("Setting registry values on GlobalParams");
+        // Only use startPrank in simulation mode
+        if (simulate) {
+            vm.startPrank(deployerAddress);
+        }
+
+        GlobalParams(globalParams).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
+        GlobalParams(globalParams).addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
+        GlobalParams(globalParams).addToRegistry(
+            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
+        );
+
+        if (simulate) {
+            vm.stopPrank();
+        }
     }
 
     // Deploy or reuse contracts
@@ -110,96 +136,93 @@ contract DeployAllAndSetupAllOrNothing is Script {
         console2.log("Setting up contracts...");
 
         // Deploy or reuse TestToken
-
+        // Only deploy TestToken if CURRENCIES is not provided (backward compatibility)
         string memory tokenName = vm.envOr("TOKEN_NAME", string("TestToken"));
         string memory tokenSymbol = vm.envOr("TOKEN_SYMBOL", string("TST"));
 
-        if (testToken == address(0)) {
-            testToken = address(new TestToken(tokenName, tokenSymbol));
+        if (testToken == address(0) && shouldDeployTestToken()) {
+            uint8 decimals = uint8(vm.envOr("TOKEN_DECIMALS", uint256(18)));
+            testToken = address(new TestToken(tokenName, tokenSymbol, decimals));
             testTokenDeployed = true;
             console2.log("TestToken deployed at:", testToken);
-        } else {
+        } else if (testToken != address(0)) {
             console2.log("Reusing TestToken at:", testToken);
+        } else {
+            console2.log("Skipping TestToken deployment - using custom tokens for currencies");
         }
 
         // Deploy or reuse GlobalParams
         if (globalParams == address(0)) {
-            globalParams = address(
-                new GlobalParams(
-                    deployerAddress, // Initially deployer is protocol admin
-                    testToken,
-                    protocolFeePercent
-                )
+            (bytes32[] memory currencies, address[][] memory tokensPerCurrency) = loadCurrenciesAndTokens(testToken);
+
+            // Deploy GlobalParams with UUPS proxy
+            GlobalParams globalParamsImpl = new GlobalParams();
+            globalParamsImplementation = address(globalParamsImpl);
+            bytes memory globalParamsInitData = abi.encodeWithSelector(
+                GlobalParams.initialize.selector, deployerAddress, protocolFeePercent, currencies, tokensPerCurrency
             );
+            ERC1967Proxy globalParamsProxy = new ERC1967Proxy(address(globalParamsImpl), globalParamsInitData);
+            globalParams = address(globalParamsProxy);
             globalParamsDeployed = true;
-            console2.log("GlobalParams deployed at:", globalParams);
+            console2.log("GlobalParams proxy deployed at:", globalParams);
+            console2.log("  Implementation:", globalParamsImplementation);
         } else {
             console2.log("Reusing GlobalParams at:", globalParams);
         }
 
-        // We need at least TestToken and GlobalParams to continue
-        require(testToken != address(0), "TestToken address is required");
+        // GlobalParams is required to continue
         require(globalParams != address(0), "GlobalParams address is required");
 
         // Deploy CampaignInfo implementation if needed for new deployments
         if (campaignInfoFactory == address(0)) {
-            campaignInfoImplementation = address(
-                new CampaignInfo(address(this))
-            );
-            console2.log(
-                "CampaignInfo implementation deployed at:",
-                campaignInfoImplementation
-            );
+            campaignInfoImplementation = address(new CampaignInfo());
+            console2.log("CampaignInfo implementation deployed at:", campaignInfoImplementation);
         }
 
         // Deploy or reuse TreasuryFactory
         if (treasuryFactory == address(0)) {
-            treasuryFactory = address(
-                new TreasuryFactory(GlobalParams(globalParams))
-            );
+            // Deploy TreasuryFactory with UUPS proxy
+            TreasuryFactory treasuryFactoryImpl = new TreasuryFactory();
+            treasuryFactoryImplementation = address(treasuryFactoryImpl);
+            bytes memory treasuryFactoryInitData =
+                abi.encodeWithSelector(TreasuryFactory.initialize.selector, IGlobalParams(globalParams));
+            ERC1967Proxy treasuryFactoryProxy = new ERC1967Proxy(address(treasuryFactoryImpl), treasuryFactoryInitData);
+            treasuryFactory = address(treasuryFactoryProxy);
             treasuryFactoryDeployed = true;
-            console2.log("TreasuryFactory deployed at:", treasuryFactory);
+            console2.log("TreasuryFactory proxy deployed at:", treasuryFactory);
+            console2.log("  Implementation:", treasuryFactoryImplementation);
         } else {
             console2.log("Reusing TreasuryFactory at:", treasuryFactory);
         }
 
         // Deploy or reuse CampaignInfoFactory
         if (campaignInfoFactory == address(0)) {
-            campaignInfoFactory = address(
-                new CampaignInfoFactory(
-                    GlobalParams(globalParams),
-                    campaignInfoImplementation
-                )
+            // Deploy CampaignInfoFactory with UUPS proxy
+            CampaignInfoFactory campaignFactoryImpl = new CampaignInfoFactory();
+            campaignInfoFactoryImplementation = address(campaignFactoryImpl);
+            bytes memory campaignFactoryInitData = abi.encodeWithSelector(
+                CampaignInfoFactory.initialize.selector,
+                deployerAddress,
+                IGlobalParams(globalParams),
+                campaignInfoImplementation,
+                treasuryFactory
             );
-            CampaignInfoFactory(campaignInfoFactory)._initialize(
-                treasuryFactory,
-                globalParams
-            );
+            ERC1967Proxy campaignFactoryProxy = new ERC1967Proxy(address(campaignFactoryImpl), campaignFactoryInitData);
+            campaignInfoFactory = address(campaignFactoryProxy);
             campaignInfoFactoryDeployed = true;
-            console2.log(
-                "CampaignInfoFactory deployed and initialized at:",
-                campaignInfoFactory
-            );
+            console2.log("CampaignInfoFactory proxy deployed at:", campaignInfoFactory);
+            console2.log("  Implementation:", campaignInfoFactoryImplementation);
         } else {
-            console2.log(
-                "Reusing CampaignInfoFactory at:",
-                campaignInfoFactory
-            );
+            console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
         }
 
         // Deploy or reuse AllOrNothing implementation
         if (allOrNothingImplementation == address(0)) {
             allOrNothingImplementation = address(new AllOrNothing());
             allOrNothingDeployed = true;
-            console2.log(
-                "AllOrNothing implementation deployed at:",
-                allOrNothingImplementation
-            );
+            console2.log("AllOrNothing implementation deployed at:", allOrNothingImplementation);
         } else {
-            console2.log(
-                "Reusing AllOrNothing implementation at:",
-                allOrNothingImplementation
-            );
+            console2.log("Reusing AllOrNothing implementation at:", allOrNothingImplementation);
         }
     }
 
@@ -207,9 +230,7 @@ contract DeployAllAndSetupAllOrNothing is Script {
     function enlistPlatform() internal {
         // Skip if we didn't deploy GlobalParams (assuming it's already set up)
         if (!globalParamsDeployed) {
-            console2.log(
-                "Skipping enlistPlatform - using existing GlobalParams"
-            );
+            console2.log("Skipping enlistPlatform - using existing GlobalParams");
             platformEnlisted = true;
             return;
         }
@@ -223,7 +244,8 @@ contract DeployAllAndSetupAllOrNothing is Script {
         GlobalParams(globalParams).enlistPlatform(
             platformHash,
             deployerAddress, // Initially deployer is platform admin
-            platformFeePercent
+            platformFeePercent,
+            platformAdapter // Platform adapter (trusted forwarder) - can be set later with setPlatformAdapter
         );
 
         if (simulate) {
@@ -234,11 +256,9 @@ contract DeployAllAndSetupAllOrNothing is Script {
     }
 
     function registerTreasuryImplementation() internal {
-        // Skip if we didn't deploy TreasuryFactory (assuming it's already set up)
-        if (!treasuryFactoryDeployed || !allOrNothingDeployed) {
-            console2.log(
-                "Skipping registerTreasuryImplementation - using existing contracts"
-            );
+        // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
+        if (!treasuryFactoryDeployed && !allOrNothingDeployed) {
+            console2.log("Skipping registerTreasuryImplementation - using existing contracts");
             implementationRegistered = true;
             return;
         }
@@ -263,11 +283,9 @@ contract DeployAllAndSetupAllOrNothing is Script {
     }
 
     function approveTreasuryImplementation() internal {
-        // Skip if we didn't deploy TreasuryFactory (assuming it's already set up)
-        if (!treasuryFactoryDeployed || !allOrNothingDeployed) {
-            console2.log(
-                "Skipping approveTreasuryImplementation - using existing contracts"
-            );
+        // Skip only if both TreasuryFactory and implementation are reused (assuming already set up)
+        if (!treasuryFactoryDeployed && !allOrNothingDeployed) {
+            console2.log("Skipping approveTreasuryImplementation - using existing contracts");
             implementationApproved = true;
             return;
         }
@@ -311,35 +329,38 @@ contract DeployAllAndSetupAllOrNothing is Script {
     function transferAdminRights() internal {
         // Skip if we didn't deploy GlobalParams (assuming it's already set up)
         if (!globalParamsDeployed) {
-            console2.log(
-                "Skipping transferAdminRights - using existing GlobalParams"
-            );
+            console2.log("Skipping transferAdminRights - using existing GlobalParams");
             adminRightsTransferred = true;
             return;
         }
 
         console2.log("Transferring admin rights to final addresses...");
-
-        // Only transfer if the final addresses are different from deployer
-        if (finalProtocolAdmin != deployerAddress) {
-            console2.log(
-                "Transferring protocol admin rights to:",
-                finalProtocolAdmin
-            );
-            GlobalParams(globalParams).updateProtocolAdminAddress(
-                finalProtocolAdmin
-            );
+        // Only use startPrank in simulation mode
+        if (simulate) {
+            vm.startPrank(deployerAddress);
         }
 
+        // Only transfer if the final addresses are different from deployer
         if (finalPlatformAdmin != deployerAddress) {
-            console2.log(
-                "Updating platform admin address for platform hash:",
-                vm.toString(platformHash)
-            );
-            GlobalParams(globalParams).updatePlatformAdminAddress(
-                platformHash,
-                finalPlatformAdmin
-            );
+            console2.log("Updating platform admin address for platform hash:", vm.toString(platformHash));
+            GlobalParams(globalParams).updatePlatformAdminAddress(platformHash, finalPlatformAdmin);
+        }
+
+        if (finalProtocolAdmin != deployerAddress) {
+            console2.log("Transferring protocol admin rights to:", finalProtocolAdmin);
+            GlobalParams(globalParams).updateProtocolAdminAddress(finalProtocolAdmin);
+
+            //Transfer admin rights to the final protocol admin
+            GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
+            console2.log("GlobalParams transferred to:", finalProtocolAdmin);
+            if (campaignInfoFactoryDeployed) {
+                CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
+                console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
+            }
+        }
+
+        if (simulate) {
+            vm.stopPrank();
         }
 
         adminRightsTransferred = true;
@@ -352,11 +373,14 @@ contract DeployAllAndSetupAllOrNothing is Script {
 
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
 
-        // Start broadcast with deployer key
-        vm.startBroadcast(deployerKey);
+        // Start broadcast with deployer key (skip in simulation mode)
+        if (!simulate) {
+            vm.startBroadcast(deployerKey);
+        }
 
         // Deploy or reuse contracts
         deployContracts();
+        setRegistryValues();
 
         // Setup the protocol with individual transactions in the correct order
         // Since deployer is both protocol and platform admin initially, we can do all steps
@@ -370,70 +394,83 @@ contract DeployAllAndSetupAllOrNothing is Script {
         // Finally, transfer admin rights to the final addresses
         transferAdminRights();
 
-        // Stop broadcast
-        vm.stopBroadcast();
+        // Stop broadcast (skip in simulation mode)
+        if (!simulate) {
+            vm.stopBroadcast();
+        }
 
         // Output summary
-        console2.log("\n--- Deployment & Setup Summary ---");
-        console2.log("Platform Name Hash:", vm.toString(platformHash));
-        console2.log("TOKEN_ADDRESS:", testToken);
-        console2.log("GLOBAL_PARAMS_ADDRESS:", globalParams);
-        if (campaignInfoImplementation != address(0)) {
-            console2.log(
-                "CAMPAIGN_INFO_IMPLEMENTATION_ADDRESS:",
-                campaignInfoImplementation
-            );
+        console2.log("\n===========================================");
+        console2.log("    Deployment & Setup Summary");
+        console2.log("===========================================");
+        console2.log("\n--- Core Protocol Contracts (UUPS Proxies) ---");
+        console2.log("GLOBAL_PARAMS_PROXY:", globalParams);
+        if (globalParamsImplementation != address(0)) {
+            console2.log("  Implementation:", globalParamsImplementation);
         }
-        console2.log("TREASURY_FACTORY_ADDRESS:", treasuryFactory);
-        console2.log("CAMPAIGN_INFO_FACTORY_ADDRESS:", campaignInfoFactory);
-        console2.log(
-            "ALL_OR_NOTHING_IMPLEMENTATION_ADDRESS:",
-            allOrNothingImplementation
-        );
+        console2.log("TREASURY_FACTORY_PROXY:", treasuryFactory);
+        if (treasuryFactoryImplementation != address(0)) {
+            console2.log("  Implementation:", treasuryFactoryImplementation);
+        }
+        console2.log("CAMPAIGN_INFO_FACTORY_PROXY:", campaignInfoFactory);
+        if (campaignInfoFactoryImplementation != address(0)) {
+            console2.log("  Implementation:", campaignInfoFactoryImplementation);
+        }
+
+        console2.log("\n--- Treasury Implementation Contracts ---");
+        if (campaignInfoImplementation != address(0)) {
+            console2.log("CAMPAIGN_INFO_IMPLEMENTATION:", campaignInfoImplementation);
+        }
+        console2.log("ALL_OR_NOTHING_IMPLEMENTATION:", allOrNothingImplementation);
+
+        console2.log("\n--- Platform Configuration ---");
+        console2.log("Platform Name Hash:", vm.toString(platformHash));
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
+        console2.log("Platform Adapter (Trusted Forwarder):", platformAdapter);
+        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
+        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
+
+        console2.log("\n--- Supported Currencies & Tokens ---");
+        string memory currenciesConfig = vm.envOr("CURRENCIES", string(""));
+        if (bytes(currenciesConfig).length > 0) {
+            string[] memory currencyStrings = _split(currenciesConfig, ",");
+            string memory tokensConfig = vm.envOr("TOKENS_PER_CURRENCY", string(""));
+            string[] memory perCurrencyConfigs = _split(tokensConfig, ";");
+
+            for (uint256 i = 0; i < currencyStrings.length; i++) {
+                string memory currency = _trimWhitespace(currencyStrings[i]);
+                console2.log(string(abi.encodePacked("Currency: ", currency)));
+
+                string[] memory tokenStrings = _split(perCurrencyConfigs[i], ",");
+                for (uint256 j = 0; j < tokenStrings.length; j++) {
+                    console2.log("  Token:", _trimWhitespace(tokenStrings[j]));
+                }
+            }
+        } else {
+            console2.log("Currency: USD (default)");
+            console2.log("  Token:", testToken);
+            if (testTokenDeployed) {
+                console2.log("  (TestToken deployed for testing)");
+            }
+        }
 
         if (backer1 != address(0)) {
-            console2.log("Backer1 (tokens minted):", backer1);
+            console2.log("\n--- Test Backers (Tokens Minted) ---");
+            console2.log("Backer1:", backer1);
+            if (backer2 != address(0) && backer1 != backer2) {
+                console2.log("Backer2:", backer2);
+            }
         }
-        if (backer2 != address(0) && backer1 != backer2) {
-            console2.log("Backer2 (tokens minted):", backer2);
-        }
 
-        console2.log("\nDeployment status:");
-        console2.log(
-            "- TestToken:",
-            testTokenDeployed ? "Newly deployed" : "Reused existing"
-        );
-        console2.log(
-            "- GlobalParams:",
-            globalParamsDeployed ? "Newly deployed" : "Reused existing"
-        );
-        console2.log(
-            "- TreasuryFactory:",
-            treasuryFactoryDeployed ? "Newly deployed" : "Reused existing"
-        );
-        console2.log(
-            "- CampaignInfoFactory:",
-            campaignInfoFactoryDeployed ? "Newly deployed" : "Reused existing"
-        );
-        console2.log(
-            "- AllOrNothing Implementation:",
-            allOrNothingDeployed ? "Newly deployed" : "Reused existing"
-        );
+        console2.log("\n--- Setup Steps ---");
+        console2.log("Platform enlisted:", platformEnlisted);
+        console2.log("Treasury implementation registered:", implementationRegistered);
+        console2.log("Treasury implementation approved:", implementationApproved);
+        console2.log("Admin rights transferred:", adminRightsTransferred);
 
-        console2.log("\nSetup steps:");
-        console2.log("1. Platform enlisted:", platformEnlisted);
-        console2.log(
-            "2. Treasury implementation registered:",
-            implementationRegistered
-        );
-        console2.log(
-            "3. Treasury implementation approved:",
-            implementationApproved
-        );
-        console2.log("4. Admin rights transferred:", adminRightsTransferred);
-
-        console2.log("\nDeployment and setup completed successfully!");
+        console2.log("\n===========================================");
+        console2.log("Deployment and setup completed successfully!");
+        console2.log("===========================================");
     }
 }

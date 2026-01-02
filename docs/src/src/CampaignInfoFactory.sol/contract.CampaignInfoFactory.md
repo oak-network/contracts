@@ -1,89 +1,71 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/CampaignInfoFactory.sol)
 
 **Inherits:**
-Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), Ownable
+Initializable, [ICampaignInfoFactory](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
 
 Factory contract for creating campaign information contracts.
 
-
-## State Variables
-### GLOBAL_PARAMS
-
-```solidity
-IGlobalParams private GLOBAL_PARAMS;
-```
-
-
-### s_treasuryFactoryAddress
-
-```solidity
-address private s_treasuryFactoryAddress;
-```
-
-
-### s_initialized
-
-```solidity
-bool private s_initialized;
-```
-
-
-### s_implementation
-
-```solidity
-address private s_implementation;
-```
-
-
-### isValidCampaignInfo
-
-```solidity
-mapping(address => bool) public isValidCampaignInfo;
-```
-
-
-### identifierToCampaignInfo
-
-```solidity
-mapping(bytes32 => address) public identifierToCampaignInfo;
-```
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
 ### constructor
 
+Constructor that disables initializers to prevent implementation contract initialization
+
 
 ```solidity
-constructor(IGlobalParams globalParams, address campaignImplementation) Ownable(msg.sender);
+constructor() ;
+```
+
+### initialize
+
+Initializes the CampaignInfoFactory contract.
+
+
+```solidity
+function initialize(
+    address initialOwner,
+    IGlobalParams globalParams,
+    address campaignImplementation,
+    address treasuryFactoryAddress
+) public initializer;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
+|`initialOwner`|`address`|The address that will own the factory|
 |`globalParams`|`IGlobalParams`|The address of the global parameters contract.|
-|`campaignImplementation`|`address`||
+|`campaignImplementation`|`address`|The address of the campaign implementation contract.|
+|`treasuryFactoryAddress`|`address`|The address of the treasury factory contract.|
 
 
-### _initialize
+### _authorizeUpgrade
 
-*Initializes the factory with treasury factory address.*
+Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
-function _initialize(address treasuryFactoryAddress, address globalParams) external onlyOwner initializer;
+function _authorizeUpgrade(address newImplementation) internal override onlyOwner;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`treasuryFactoryAddress`|`address`|The address of the treasury factory contract.|
-|`globalParams`|`address`|The address of the global parameters contract.|
+|`newImplementation`|`address`|Address of the new implementation|
 
 
 ### createCampaign
 
-Creates a new campaign information contract.
+Creates a new campaign with NFT
+
+IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+permanently in the campaign contract. Users should verify current fees before
+calling this function or using intermediate contracts that check fees haven't
+changed from expected values. The protocol fee is stored as immutable in the cloned
+contract and platform fees are stored during initialization.
 
 
 ```solidity
@@ -93,19 +75,27 @@ function createCampaign(
     bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
     bytes32[] calldata platformDataValue,
-    CampaignData calldata campaignData
+    CampaignData calldata campaignData,
+    string calldata nftName,
+    string calldata nftSymbol,
+    string calldata nftImageURI,
+    string calldata contractURI
 ) external override;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`creator`|`address`|The address of the creator of the campaign.|
-|`identifierHash`|`bytes32`|The unique identifier hash of the campaign.|
-|`selectedPlatformHash`|`bytes32[]`|An array of platform identifiers selected for the campaign.|
-|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
-|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
-|`campaignData`|`CampaignData`|The struct containing campaign launch details.|
+|`creator`|`address`|The campaign creator address|
+|`identifierHash`|`bytes32`|The unique identifier hash for the campaign|
+|`selectedPlatformHash`|`bytes32[]`|Array of selected platform hashes|
+|`platformDataKey`|`bytes32[]`|Array of platform data keys|
+|`platformDataValue`|`bytes32[]`|Array of platform data values|
+|`campaignData`|`CampaignData`|The campaign data|
+|`nftName`|`string`|NFT collection name|
+|`nftSymbol`|`string`|NFT collection symbol|
+|`nftImageURI`|`string`|NFT image URI for individual tokens|
+|`contractURI`|`string`|IPFS URI for contract-level metadata (constructed off-chain)|
 
 
 ### updateImplementation
@@ -123,17 +113,51 @@ function updateImplementation(address newImplementation) external override onlyO
 |`newImplementation`|`address`|The address of the camapaignInfo implementation contract.|
 
 
-## Errors
-### CampaignInfoFactoryAlreadyInitialized
-*Emitted when the factory is initialized.*
+### isValidCampaignInfo
+
+Check if a campaign info address is valid
 
 
 ```solidity
-error CampaignInfoFactoryAlreadyInitialized();
+function isValidCampaignInfo(address campaignInfo) external view returns (bool);
 ```
+**Parameters**
 
+|Name|Type|Description|
+|----|----|-----------|
+|`campaignInfo`|`address`|The campaign info address to check|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|bool True if valid, false otherwise|
+
+
+### identifierToCampaignInfo
+
+Get campaign info address from identifier
+
+
+```solidity
+function identifierToCampaignInfo(bytes32 identifierHash) external view returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`identifierHash`|`bytes32`|The identifier hash|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|address The campaign info address|
+
+
+## Errors
 ### CampaignInfoFactoryInvalidInput
-*Emitted when invalid input is provided.*
+Emitted when invalid input is provided.
 
 
 ```solidity
@@ -141,7 +165,7 @@ error CampaignInfoFactoryInvalidInput();
 ```
 
 ### CampaignInfoFactoryCampaignInitializationFailed
-*Emitted when campaign creation fails.*
+Emitted when campaign creation fails.
 
 
 ```solidity
@@ -158,5 +182,13 @@ error CampaignInfoFactoryPlatformNotListed(bytes32 platformHash);
 
 ```solidity
 error CampaignInfoFactoryCampaignWithSameIdentifierExists(bytes32 identifierHash, address cloneExists);
+```
+
+### CampaignInfoInvalidTokenList
+Emitted when the campaign currency has no tokens.
+
+
+```solidity
+error CampaignInfoInvalidTokenList();
 ```
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
@@ -10,11 +10,8 @@ contract DeployCampaignInfoImplementation is Script {
         console2.log("Deploying CampaignInfo implementation...");
         // Implementation will use the script address as admin, but this will be replaced
         // when the factory creates new instances
-        CampaignInfo campaignInfo = new CampaignInfo(address(this));
-        console2.log(
-            "CampaignInfo implementation deployed at:",
-            address(campaignInfo)
-        );
+        CampaignInfo campaignInfo = new CampaignInfo();
+        console2.log("CampaignInfo implementation deployed at:", address(campaignInfo));
         return address(campaignInfo);
     }
 

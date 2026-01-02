@@ -1,8 +1,8 @@
 # CampaignInfo
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/CampaignInfo.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/CampaignInfo.sol)
 
 **Inherits:**
-[ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), Initializable
+[ICampaignData](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), [PledgeNFT](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PledgeNFT.sol/abstract.PledgeNFT.md), Initializable
 
 Manages campaign information and platform data.
 
@@ -11,49 +11,70 @@ Manages campaign information and platform data.
 ### s_campaignData
 
 ```solidity
-CampaignData private s_campaignData;
+CampaignData private s_campaignData
 ```
 
 
 ### s_platformTreasuryAddress
 
 ```solidity
-mapping(bytes32 => address) private s_platformTreasuryAddress;
+mapping(bytes32 => address) private s_platformTreasuryAddress
 ```
 
 
 ### s_platformFeePercent
 
 ```solidity
-mapping(bytes32 => uint256) private s_platformFeePercent;
+mapping(bytes32 => uint256) private s_platformFeePercent
 ```
 
 
 ### s_isSelectedPlatform
 
 ```solidity
-mapping(bytes32 => bool) private s_isSelectedPlatform;
+mapping(bytes32 => bool) private s_isSelectedPlatform
 ```
 
 
 ### s_isApprovedPlatform
 
 ```solidity
-mapping(bytes32 => bool) private s_isApprovedPlatform;
+mapping(bytes32 => bool) private s_isApprovedPlatform
 ```
 
 
 ### s_platformData
 
 ```solidity
-mapping(bytes32 => bytes32) private s_platformData;
+mapping(bytes32 => bytes32) private s_platformData
 ```
 
 
 ### s_approvedPlatformHashes
 
 ```solidity
-bytes32[] private s_approvedPlatformHashes;
+bytes32[] private s_approvedPlatformHashes
+```
+
+
+### s_acceptedTokens
+
+```solidity
+address[] private s_acceptedTokens
+```
+
+
+### s_isAcceptedToken
+
+```solidity
+mapping(address => bool) private s_isAcceptedToken
+```
+
+
+### s_isLocked
+
+```solidity
+bool private s_isLocked
 ```
 
 
@@ -65,11 +86,37 @@ bytes32[] private s_approvedPlatformHashes;
 function getApprovedPlatformHashes() external view returns (bytes32[] memory);
 ```
 
-### constructor
+### isLocked
+
+Returns whether the campaign is locked (after treasury deployment).
 
 
 ```solidity
-constructor(address creator) Ownable(creator);
+function isLocked() external view override returns (bool);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the campaign is locked, false otherwise.|
+
+
+### whenNotLocked
+
+Modifier that checks if the campaign is not locked.
+
+
+```solidity
+modifier whenNotLocked() ;
+```
+
+### constructor
+
+Constructor passes empty strings to ERC721
+
+
+```solidity
+constructor() Ownable(_msgSender()) ERC721("", "");
 ```
 
 ### initialize
@@ -82,7 +129,12 @@ function initialize(
     bytes32[] calldata selectedPlatformHash,
     bytes32[] calldata platformDataKey,
     bytes32[] calldata platformDataValue,
-    CampaignData calldata campaignData
+    CampaignData calldata campaignData,
+    address[] calldata acceptedTokens,
+    string calldata nftName,
+    string calldata nftSymbol,
+    string calldata nftImageURI,
+    string calldata nftContractURI
 ) external initializer;
 ```
 
@@ -116,7 +168,7 @@ function checkIfPlatformSelected(bytes32 platformHash) public view override retu
 
 ### checkIfPlatformApproved
 
-*Check if a platform is already approved*
+Check if a platform is already approved
 
 
 ```solidity
@@ -167,7 +219,9 @@ function getProtocolAdminAddress() public view override returns (address);
 
 ### getTotalRaisedAmount
 
-Retrieves the total amount raised in the campaign.
+Retrieves the total amount raised across non-cancelled treasuries.
+
+This excludes cancelled treasuries and is affected by refunds.
 
 
 ```solidity
@@ -178,6 +232,100 @@ function getTotalRaisedAmount() external view override returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total amount raised in the campaign.|
+
+
+### getTotalLifetimeRaisedAmount
+
+Retrieves the total lifetime raised amount across all treasuries.
+
+This amount never decreases even when refunds are processed.
+It represents the sum of all pledges/payments ever made to the campaign,
+regardless of cancellations or refunds.
+
+
+```solidity
+function getTotalLifetimeRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total lifetime raised amount as a uint256 value.|
+
+
+### getTotalRefundedAmount
+
+Retrieves the total refunded amount across all treasuries.
+
+This is calculated as the difference between lifetime raised amount
+and current raised amount. It represents the sum of all refunds
+that have been processed across all treasuries.
+
+
+```solidity
+function getTotalRefundedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+
+
+### getTotalAvailableRaisedAmount
+
+Retrieves the total available raised amount across all treasuries.
+
+This includes funds from both active and cancelled treasuries,
+and is affected by refunds. It represents the actual current
+balance of funds across all treasuries.
+
+
+```solidity
+function getTotalAvailableRaisedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total available raised amount as a uint256 value.|
+
+
+### getTotalCancelledAmount
+
+Retrieves the total raised amount from cancelled treasuries only.
+
+This is the opposite of getTotalRaisedAmount(), which only includes
+non-cancelled treasuries. This function only sums up raised amounts
+from treasuries that have been cancelled.
+
+
+```solidity
+function getTotalCancelledAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total raised amount from cancelled treasuries as a uint256 value.|
+
+
+### getTotalExpectedAmount
+
+Retrieves the total expected (pending) amount across payment treasuries.
+
+This only applies to payment treasuries and represents payments that
+have been created but not yet confirmed. Regular treasuries are skipped.
+
+
+```solidity
+function getTotalExpectedAmount() external view returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total expected amount as a uint256 value.|
 
 
 ### getPlatformAdminAddress
@@ -246,21 +394,6 @@ function getGoalAmount() external view override returns (uint256);
 |`<none>`|`uint256`|The funding goal amount of the campaign.|
 
 
-### getTokenAddress
-
-Retrieves the address of the token used in the campaign.
-
-
-```solidity
-function getTokenAddress() external view override returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the campaign's token.|
-
-
 ### getProtocolFeePercent
 
 Retrieves the protocol fee percentage for the campaign.
@@ -276,9 +409,60 @@ function getProtocolFeePercent() external view override returns (uint256);
 |`<none>`|`uint256`|The protocol fee percentage applied to the campaign.|
 
 
+### getCampaignCurrency
+
+Retrieves the campaign's currency identifier.
+
+
+```solidity
+function getCampaignCurrency() external view override returns (bytes32);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bytes32`|The bytes32 currency identifier for the campaign.|
+
+
+### getAcceptedTokens
+
+Retrieves the cached accepted tokens for the campaign.
+
+
+```solidity
+function getAcceptedTokens() external view override returns (address[] memory);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the campaign.|
+
+
+### isTokenAccepted
+
+Checks if a token is accepted for the campaign.
+
+
+```solidity
+function isTokenAccepted(address token) external view override returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`token`|`address`|The token address to check.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the token is accepted; otherwise, false.|
+
+
 ### paused
 
-*Returns true if the campaign is paused, and false otherwise.*
+Returns true if the campaign is paused, and false otherwise.
 
 
 ```solidity
@@ -287,7 +471,7 @@ function paused() public view override(ICampaignInfo, PausableCancellable) retur
 
 ### cancelled
 
-*Returns true if the campaign is cancelled, and false otherwise.*
+Returns true if the campaign is cancelled, and false otherwise.
 
 
 ```solidity
@@ -313,6 +497,27 @@ function getPlatformFeePercent(bytes32 platformHash) external view override retu
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The platform fee percentage applied to the campaign on the platform.|
+
+
+### getPlatformClaimDelay
+
+Retrieves the claim delay (in seconds) configured for the given platform.
+
+
+```solidity
+function getPlatformClaimDelay(bytes32 platformHash) external view override returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The claim delay in seconds.|
 
 
 ### getPlatformData
@@ -351,10 +556,84 @@ function getIdentifierHash() external view override returns (bytes32);
 |`<none>`|`bytes32`|The bytes32 hash that uniquely identifies the campaign.|
 
 
+### getDataFromRegistry
+
+Retrieves a value from the GlobalParams data registry.
+
+
+```solidity
+function getDataFromRegistry(bytes32 key) external view override returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
+
+
+### getBufferTime
+
+Retrieves the buffer time from the GlobalParams data registry.
+
+
+```solidity
+function getBufferTime() external view override returns (uint256 bufferTime);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`bufferTime`|`uint256`|The buffer time value.|
+
+
+### getLineItemType
+
+Retrieves a platform-specific line item type configuration from GlobalParams.
+
+
+```solidity
+function getLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    view
+    override
+    returns (
+        bool exists,
+        string memory label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`exists`|`bool`|Whether this line item type exists and is active.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
+
+
 ### transferOwnership
 
-*Transfers ownership of the contract to a new account (`newOwner`).
-Can only be called by the current owner.*
+Transfers ownership of the contract to a new account (`newOwner`).
+Can only be called by the current owner.
 
 
 ```solidity
@@ -376,9 +655,9 @@ function updateLaunchTime(uint256 launchTime)
     external
     override
     onlyOwner
-    currentTimeIsLess(getLaunchTime())
     whenNotPaused
-    whenNotCancelled;
+    whenNotCancelled
+    whenNotLocked;
 ```
 **Parameters**
 
@@ -393,13 +672,7 @@ Updates the campaign's deadline.
 
 
 ```solidity
-function updateDeadline(uint256 deadline)
-    external
-    override
-    onlyOwner
-    currentTimeIsLess(getLaunchTime())
-    whenNotPaused
-    whenNotCancelled;
+function updateDeadline(uint256 deadline) external override onlyOwner whenNotPaused whenNotCancelled whenNotLocked;
 ```
 **Parameters**
 
@@ -418,9 +691,9 @@ function updateGoalAmount(uint256 goalAmount)
     external
     override
     onlyOwner
-    currentTimeIsLess(getLaunchTime())
     whenNotPaused
-    whenNotCancelled;
+    whenNotCancelled
+    whenNotLocked;
 ```
 **Parameters**
 
@@ -433,17 +706,16 @@ function updateGoalAmount(uint256 goalAmount)
 
 Updates the selection status of a platform for the campaign.
 
-*It can only be called for a platform if its not approved i.e. the platform treasury is not deployed*
+It can only be called for a platform if its not approved i.e. the platform treasury is not deployed
 
 
 ```solidity
-function updateSelectedPlatform(bytes32 platformHash, bool selection)
-    external
-    override
-    onlyOwner
-    currentTimeIsLess(getLaunchTime())
-    whenNotPaused
-    whenNotCancelled;
+function updateSelectedPlatform(
+    bytes32 platformHash,
+    bool selection,
+    bytes32[] calldata platformDataKey,
+    bytes32[] calldata platformDataValue
+) external override onlyOwner currentTimeIsLess(getLaunchTime()) whenNotPaused whenNotCancelled;
 ```
 **Parameters**
 
@@ -451,11 +723,13 @@ function updateSelectedPlatform(bytes32 platformHash, bool selection)
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 |`selection`|`bool`|The new selection status (true or false).|
+|`platformDataKey`|`bytes32[]`|An array of platform-specific data keys.|
+|`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
 
 
 ### _pauseCampaign
 
-*External function to pause the campaign.*
+External function to pause the campaign.
 
 
 ```solidity
@@ -464,7 +738,7 @@ function _pauseCampaign(bytes32 message) external onlyProtocolAdmin;
 
 ### _unpauseCampaign
 
-*External function to unpause the campaign.*
+External function to unpause the campaign.
 
 
 ```solidity
@@ -473,16 +747,79 @@ function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin;
 
 ### _cancelCampaign
 
-*External function to cancel the campaign.*
+External function to cancel the campaign.
 
 
 ```solidity
 function _cancelCampaign(bytes32 message) external;
 ```
 
+### setImageURI
+
+Sets the image URI for NFT metadata
+
+Can only be updated before campaign launch
+
+
+```solidity
+function setImageURI(string calldata newImageURI)
+    external
+    override(ICampaignInfo, PledgeNFT)
+    onlyOwner
+    currentTimeIsLess(getLaunchTime());
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImageURI`|`string`|The new image URI|
+
+
+### updateContractURI
+
+Updates the contract-level metadata URI
+
+Can only be updated before campaign launch
+
+
+```solidity
+function updateContractURI(string calldata newContractURI)
+    external
+    override(ICampaignInfo, PledgeNFT)
+    onlyOwner
+    currentTimeIsLess(getLaunchTime());
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newContractURI`|`string`|The new contract URI|
+
+
+### mintNFTForPledge
+
+
+```solidity
+function mintNFTForPledge(
+    address backer,
+    bytes32 reward,
+    address tokenAddress,
+    uint256 amount,
+    uint256 shippingFee,
+    uint256 tipAmount
+) public override(ICampaignInfo, PledgeNFT) returns (uint256 tokenId);
+```
+
+### burn
+
+
+```solidity
+function burn(uint256 tokenId) public override(ICampaignInfo, PledgeNFT);
+```
+
 ### _setPlatformInfo
 
-*Sets platform information for the campaign.*
+Sets platform information for the campaign and grants treasury role.
 
 
 ```solidity
@@ -498,7 +835,7 @@ function _setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress)
 
 ## Events
 ### CampaignInfoLaunchTimeUpdated
-*Emitted when the launch time of the campaign is updated.*
+Emitted when the launch time of the campaign is updated.
 
 
 ```solidity
@@ -512,7 +849,7 @@ event CampaignInfoLaunchTimeUpdated(uint256 newLaunchTime);
 |`newLaunchTime`|`uint256`|The new launch time.|
 
 ### CampaignInfoDeadlineUpdated
-*Emitted when the deadline of the campaign is updated.*
+Emitted when the deadline of the campaign is updated.
 
 
 ```solidity
@@ -526,7 +863,7 @@ event CampaignInfoDeadlineUpdated(uint256 newDeadline);
 |`newDeadline`|`uint256`|The new deadline.|
 
 ### CampaignInfoGoalAmountUpdated
-*Emitted when the goal amount of the campaign is updated.*
+Emitted when the goal amount of the campaign is updated.
 
 
 ```solidity
@@ -540,7 +877,7 @@ event CampaignInfoGoalAmountUpdated(uint256 newGoalAmount);
 |`newGoalAmount`|`uint256`|The new goal amount.|
 
 ### CampaignInfoSelectedPlatformUpdated
-*Emitted when the selection state of a platform is updated.*
+Emitted when the selection state of a platform is updated.
 
 
 ```solidity
@@ -555,7 +892,7 @@ event CampaignInfoSelectedPlatformUpdated(bytes32 indexed platformHash, bool sel
 |`selection`|`bool`|The new selection state.|
 
 ### CampaignInfoPlatformInfoUpdated
-*Emitted when platform information is updated for the campaign.*
+Emitted when platform information is updated for the campaign.
 
 
 ```solidity
@@ -571,7 +908,7 @@ event CampaignInfoPlatformInfoUpdated(bytes32 indexed platformHash, address inde
 
 ## Errors
 ### CampaignInfoInvalidPlatformUpdate
-*Emitted when an invalid platform update is attempted.*
+Emitted when an invalid platform update is attempted.
 
 
 ```solidity
@@ -586,7 +923,7 @@ error CampaignInfoInvalidPlatformUpdate(bytes32 platformHash, bool selection);
 |`selection`|`bool`|The selection state (true/false).|
 
 ### CampaignInfoUnauthorized
-*Emitted when an unauthorized action is attempted.*
+Emitted when an unauthorized action is attempted.
 
 
 ```solidity
@@ -594,7 +931,7 @@ error CampaignInfoUnauthorized();
 ```
 
 ### CampaignInfoInvalidInput
-*Emitted when an invalid input is detected.*
+Emitted when an invalid input is detected.
 
 
 ```solidity
@@ -602,7 +939,7 @@ error CampaignInfoInvalidInput();
 ```
 
 ### CampaignInfoPlatformNotSelected
-*Emitted when a platform is not selected for the campaign.*
+Emitted when a platform is not selected for the campaign.
 
 
 ```solidity
@@ -616,7 +953,7 @@ error CampaignInfoPlatformNotSelected(bytes32 platformHash);
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 
 ### CampaignInfoPlatformAlreadyApproved
-*Emitted when a platform is already approved for the campaign.*
+Emitted when a platform is already approved for the campaign.
 
 
 ```solidity
@@ -629,13 +966,20 @@ error CampaignInfoPlatformAlreadyApproved(bytes32 platformHash);
 |----|----|-----------|
 |`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
 
+### CampaignInfoIsLocked
+Emitted when an operation is attempted on a locked campaign.
+
+
+```solidity
+error CampaignInfoIsLocked();
+```
+
 ## Structs
 ### Config
 
 ```solidity
 struct Config {
     address treasuryFactory;
-    address token;
     uint256 protocolFeePercent;
     bytes32 identifierHash;
 }

@@ -1,101 +1,40 @@
 # GlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/GlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/GlobalParams.sol)
 
 **Inherits:**
-[IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), Ownable
+Initializable, [IGlobalParams](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), OwnableUpgradeable, UUPSUpgradeable
 
 Manages global parameters and platform information.
+
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## State Variables
 ### ZERO_BYTES
 
 ```solidity
-bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
-```
-
-
-### s_protocolAdminAddress
-
-```solidity
-address private s_protocolAdminAddress;
-```
-
-
-### s_tokenAddress
-
-```solidity
-address private s_tokenAddress;
-```
-
-
-### s_protocolFeePercent
-
-```solidity
-uint256 private s_protocolFeePercent;
-```
-
-
-### s_platformIsListed
-
-```solidity
-mapping(bytes32 => bool) private s_platformIsListed;
-```
-
-
-### s_platformAdminAddress
-
-```solidity
-mapping(bytes32 => address) private s_platformAdminAddress;
-```
-
-
-### s_platformFeePercent
-
-```solidity
-mapping(bytes32 => uint256) private s_platformFeePercent;
-```
-
-
-### s_platformDataOwner
-
-```solidity
-mapping(bytes32 => bytes32) private s_platformDataOwner;
-```
-
-
-### s_platformData
-
-```solidity
-mapping(bytes32 => bool) private s_platformData;
-```
-
-
-### s_numberOfListedPlatforms
-
-```solidity
-Counters.Counter private s_numberOfListedPlatforms;
+bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 
 ## Functions
 ### notAddressZero
 
-*Reverts if the input address is zero.*
+Reverts if the input address is zero.
 
 
 ```solidity
-modifier notAddressZero(address account);
+modifier notAddressZero(address account) ;
 ```
 
 ### onlyPlatformAdmin
 
-*Modifier that restricts function access to platform administrators of a specific platform.
-Users attempting to execute functions with this modifier must be the platform admin for the given platform.*
+Modifier that restricts function access to platform administrators of a specific platform.
+Users attempting to execute functions with this modifier must be the platform admin for the given platform.
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformHash);
+modifier onlyPlatformAdmin(bytes32 platformHash) ;
 ```
 **Parameters**
 
@@ -108,23 +47,91 @@ modifier onlyPlatformAdmin(bytes32 platformHash);
 
 
 ```solidity
-modifier platformIsListed(bytes32 platformHash);
+modifier platformIsListed(bytes32 platformHash) ;
 ```
 
 ### constructor
 
+Constructor that disables initializers to prevent implementation contract initialization
+
 
 ```solidity
-constructor(address protocolAdminAddress, address tokenAddress, uint256 protocolFeePercent)
-    Ownable(protocolAdminAddress);
+constructor() ;
+```
+
+### initialize
+
+Initializer function (replaces constructor)
+
+
+```solidity
+function initialize(
+    address protocolAdminAddress,
+    uint256 protocolFeePercent,
+    bytes32[] memory currencies,
+    address[][] memory tokensPerCurrency
+) public initializer;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`protocolAdminAddress`|`address`|The address of the protocol admin.|
-|`tokenAddress`|`address`|The address of the token contract.|
 |`protocolFeePercent`|`uint256`|The protocol fee percentage.|
+|`currencies`|`bytes32[]`|The array of currency identifiers.|
+|`tokensPerCurrency`|`address[][]`|The array of token arrays for each currency.|
+
+
+### _authorizeUpgrade
+
+Function that authorizes an upgrade to a new implementation
+
+
+```solidity
+function _authorizeUpgrade(address newImplementation) internal override onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|Address of the new implementation|
+
+
+### addToRegistry
+
+Adds a key-value pair to the data registry.
+
+
+```solidity
+function addToRegistry(bytes32 key, bytes32 value) external onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+|`value`|`bytes32`|The registry value.|
+
+
+### getFromRegistry
+
+Retrieves a value from the data registry.
+
+
+```solidity
+function getFromRegistry(bytes32 key) external view returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
 
 
 ### getPlatformAdminAddress
@@ -183,21 +190,6 @@ function getProtocolAdminAddress() external view override returns (address);
 |`<none>`|`address`|The admin address of the protocol.|
 
 
-### getTokenAddress
-
-Retrieves the address of the protocol's native token.
-
-
-```solidity
-function getTokenAddress() external view override returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the native token.|
-
-
 ### getProtocolFeePercent
 
 Retrieves the protocol fee percentage.
@@ -237,6 +229,32 @@ function getPlatformFeePercent(bytes32 platformHash)
 |Name|Type|Description|
 |----|----|-----------|
 |`platformFeePercent`|`uint256`|The platform fee percentage as a uint256 value.|
+
+
+### getPlatformClaimDelay
+
+Retrieves the claim delay (in seconds) for a specific platform.
+
+
+```solidity
+function getPlatformClaimDelay(bytes32 platformHash)
+    external
+    view
+    override
+    platformIsListed(platformHash)
+    returns (uint256 claimDelay);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`claimDelay`|`uint256`|The claim delay in seconds.|
 
 
 ### getPlatformDataOwner
@@ -304,16 +322,18 @@ function checkIfPlatformDataKeyValid(bytes32 platformDataKey) external view over
 
 ### enlistPlatform
 
-Enlists a platform with its admin address and fee percentage.
+Enlists a platform with its admin address, fee percentage, and optional adapter.
 
-*The platformFeePercent can be any value including zero.*
+The platformFeePercent can be any value including zero.
 
 
 ```solidity
-function enlistPlatform(bytes32 platformHash, address platformAdminAddress, uint256 platformFeePercent)
-    external
-    onlyOwner
-    notAddressZero(platformAdminAddress);
+function enlistPlatform(
+    bytes32 platformHash,
+    address platformAdminAddress,
+    uint256 platformFeePercent,
+    address platformAdapter
+) external onlyOwner notAddressZero(platformAdminAddress);
 ```
 **Parameters**
 
@@ -322,6 +342,7 @@ function enlistPlatform(bytes32 platformHash, address platformAdminAddress, uint
 |`platformHash`|`bytes32`|The platform's identifier.|
 |`platformAdminAddress`|`address`|The platform's admin address.|
 |`platformFeePercent`|`uint256`|The platform's fee percentage.|
+|`platformAdapter`|`address`|The platform's adapter (trusted forwarder) address for ERC-2771 meta-transactions. Can be address(0) if not needed.|
 
 
 ### delistPlatform
@@ -396,21 +417,6 @@ function updateProtocolAdminAddress(address protocolAdminAddress)
 |`protocolAdminAddress`|`address`||
 
 
-### updateTokenAddress
-
-Updates the address of the protocol's native token.
-
-
-```solidity
-function updateTokenAddress(address tokenAddress) external override onlyOwner notAddressZero(tokenAddress);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`tokenAddress`|`address`||
-
-
 ### updateProtocolFeePercent
 
 Updates the protocol fee percentage.
@@ -447,9 +453,223 @@ function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminA
 |`platformAdminAddress`|`address`||
 
 
+### updatePlatformClaimDelay
+
+Updates the claim delay for a specific platform.
+
+
+```solidity
+function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay)
+    external
+    override
+    platformIsListed(platformHash)
+    onlyPlatformAdmin(platformHash);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`claimDelay`|`uint256`|The claim delay in seconds.|
+
+
+### getPlatformAdapter
+
+Retrieves the adapter (trusted forwarder) address for a platform.
+
+
+```solidity
+function getPlatformAdapter(bytes32 platformHash)
+    external
+    view
+    override
+    platformIsListed(platformHash)
+    returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The adapter address for ERC-2771 meta-transactions.|
+
+
+### setPlatformAdapter
+
+Sets the adapter (trusted forwarder) address for a platform.
+
+Only callable by the protocol admin (owner).
+
+
+```solidity
+function setPlatformAdapter(bytes32 platformHash, address adapter)
+    external
+    override
+    onlyOwner
+    platformIsListed(platformHash);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`adapter`|`address`|The address of the adapter contract.|
+
+
+### addTokenToCurrency
+
+Adds a token to a currency.
+
+
+```solidity
+function addTokenToCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to add.|
+
+
+### removeTokenFromCurrency
+
+Removes a token from a currency.
+
+
+```solidity
+function removeTokenFromCurrency(bytes32 currency, address token)
+    external
+    override
+    onlyOwner
+    notAddressZero(token);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to remove.|
+
+
+### getTokensForCurrency
+
+Retrieves all tokens accepted for a specific currency.
+
+
+```solidity
+function getTokensForCurrency(bytes32 currency) external view override returns (address[] memory);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the currency.|
+
+
+### setPlatformLineItemType
+
+Sets or updates a platform-specific line item type configuration.
+
+Only callable by the platform admin.
+
+
+```solidity
+function setPlatformLineItemType(
+    bytes32 platformHash,
+    bytes32 typeId,
+    string calldata label,
+    bool countsTowardGoal,
+    bool applyProtocolFee,
+    bool canRefund,
+    bool instantTransfer
+) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred. Constraints: - If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false. - Non-goal instant transfer items cannot be refundable.|
+
+
+### removePlatformLineItemType
+
+Removes a platform-specific line item type by setting its exists flag to false.
+
+Only callable by the platform admin. This prevents the type from being used in new pledges.
+
+
+```solidity
+function removePlatformLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    platformIsListed(platformHash)
+    onlyPlatformAdmin(platformHash);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type to remove.|
+
+
+### getPlatformLineItemType
+
+Retrieves a platform-specific line item type configuration.
+
+
+```solidity
+function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    view
+    returns (
+        bool exists,
+        string memory label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`exists`|`bool`|Whether this line item type exists and is active.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred to platform admin after payment confirmation.|
+
+
 ### _revertIfAddressZero
 
-*Reverts if the input address is zero.*
+Reverts if the input address is zero.
 
 
 ```solidity
@@ -458,8 +678,8 @@ function _revertIfAddressZero(address account) internal pure;
 
 ### _onlyPlatformAdmin
 
-*Internal function to check if the sender is the platform administrator for a specific platform.
-If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.*
+Internal function to check if the sender is the platform administrator for a specific platform.
+If the sender is not the platform admin, it reverts with GlobalParamsUnauthorized error.
 
 
 ```solidity
@@ -474,11 +694,13 @@ function _onlyPlatformAdmin(bytes32 platformHash) private view;
 
 ## Events
 ### PlatformEnlisted
-*Emitted when a platform is enlisted.*
+Emitted when a platform is enlisted.
 
 
 ```solidity
-event PlatformEnlisted(bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent);
+event PlatformEnlisted(
+    bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent
+);
 ```
 
 **Parameters**
@@ -490,7 +712,7 @@ event PlatformEnlisted(bytes32 indexed platformHash, address indexed platformAdm
 |`platformFeePercent`|`uint256`|The fee percentage of the enlisted platform.|
 
 ### PlatformDelisted
-*Emitted when a platform is delisted.*
+Emitted when a platform is delisted.
 
 
 ```solidity
@@ -504,7 +726,7 @@ event PlatformDelisted(bytes32 indexed platformHash);
 |`platformHash`|`bytes32`|The identifier of the delisted platform.|
 
 ### ProtocolAdminAddressUpdated
-*Emitted when the protocol admin address is updated.*
+Emitted when the protocol admin address is updated.
 
 
 ```solidity
@@ -517,22 +739,38 @@ event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 |----|----|-----------|
 |`newAdminAddress`|`address`|The new protocol admin address.|
 
-### TokenAddressUpdated
-*Emitted when the token address is updated.*
+### TokenAddedToCurrency
+Emitted when a token is added to a currency.
 
 
 ```solidity
-event TokenAddressUpdated(address indexed newTokenAddress);
+event TokenAddedToCurrency(bytes32 indexed currency, address indexed token);
 ```
 
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`newTokenAddress`|`address`|The new token address.|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address added.|
+
+### TokenRemovedFromCurrency
+Emitted when a token is removed from a currency.
+
+
+```solidity
+event TokenRemovedFromCurrency(bytes32 indexed currency, address indexed token);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address removed.|
 
 ### ProtocolFeePercentUpdated
-*Emitted when the protocol fee percent is updated.*
+Emitted when the protocol fee percent is updated.
 
 
 ```solidity
@@ -546,7 +784,7 @@ event ProtocolFeePercentUpdated(uint256 newFeePercent);
 |`newFeePercent`|`uint256`|The new protocol fee percentage.|
 
 ### PlatformAdminAddressUpdated
-*Emitted when the platform admin address is updated.*
+Emitted when the platform admin address is updated.
 
 
 ```solidity
@@ -561,7 +799,7 @@ event PlatformAdminAddressUpdated(bytes32 indexed platformHash, address indexed 
 |`newAdminAddress`|`address`|The new admin address of the platform.|
 
 ### PlatformDataAdded
-*Emitted when platform data is added.*
+Emitted when platform data is added.
 
 
 ```solidity
@@ -576,7 +814,7 @@ event PlatformDataAdded(bytes32 indexed platformHash, bytes32 indexed platformDa
 |`platformDataKey`|`bytes32`|The data key added to the platform.|
 
 ### PlatformDataRemoved
-*Emitted when platform data is removed.*
+Emitted when platform data is removed.
 
 
 ```solidity
@@ -590,9 +828,88 @@ event PlatformDataRemoved(bytes32 indexed platformHash, bytes32 platformDataKey)
 |`platformHash`|`bytes32`|The identifier of the platform.|
 |`platformDataKey`|`bytes32`|The data key removed from the platform.|
 
+### DataAddedToRegistry
+Emitted when data is added to the registry.
+
+
+```solidity
+event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+|`value`|`bytes32`|The registry value.|
+
+### PlatformLineItemTypeSet
+Emitted when a platform-specific line item type is set or updated.
+
+
+```solidity
+event PlatformLineItemTypeSet(
+    bytes32 indexed platformHash,
+    bytes32 indexed typeId,
+    string label,
+    bool countsTowardGoal,
+    bool applyProtocolFee,
+    bool canRefund,
+    bool instantTransfer
+);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+|`label`|`string`|The label of the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred to platform admin after payment confirmation.|
+
+### PlatformClaimDelayUpdated
+
+```solidity
+event PlatformClaimDelayUpdated(bytes32 indexed platformHash, uint256 claimDelay);
+```
+
+### PlatformAdapterSet
+Emitted when a platform adapter (trusted forwarder) is set.
+
+
+```solidity
+event PlatformAdapterSet(bytes32 indexed platformHash, address indexed adapter);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`adapter`|`address`|The address of the adapter contract.|
+
+### PlatformLineItemTypeRemoved
+Emitted when a platform-specific line item type is removed.
+
+
+```solidity
+event PlatformLineItemTypeRemoved(bytes32 indexed platformHash, bytes32 indexed typeId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the removed line item type.|
+
 ## Errors
 ### GlobalParamsInvalidInput
-*Throws when the input address is zero.*
+Throws when the input address is zero.
 
 
 ```solidity
@@ -600,7 +917,7 @@ error GlobalParamsInvalidInput();
 ```
 
 ### GlobalParamsPlatformNotListed
-*Throws when the platform is not listed.*
+Throws when the platform is not listed.
 
 
 ```solidity
@@ -614,7 +931,7 @@ error GlobalParamsPlatformNotListed(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAlreadyListed
-*Throws when the platform is already listed.*
+Throws when the platform is already listed.
 
 
 ```solidity
@@ -628,7 +945,7 @@ error GlobalParamsPlatformAlreadyListed(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAdminNotSet
-*Throws when the platform admin is not set.*
+Throws when the platform admin is not set.
 
 
 ```solidity
@@ -642,7 +959,7 @@ error GlobalParamsPlatformAdminNotSet(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformFeePercentIsZero
-*Throws when the platform fee percent is zero.*
+Throws when the platform fee percent is zero.
 
 
 ```solidity
@@ -656,7 +973,7 @@ error GlobalParamsPlatformFeePercentIsZero(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformDataAlreadySet
-*Throws when the platform data is already set.*
+Throws when the platform data is already set.
 
 
 ```solidity
@@ -664,7 +981,7 @@ error GlobalParamsPlatformDataAlreadySet();
 ```
 
 ### GlobalParamsPlatformDataNotSet
-*Throws when the platform data is not set.*
+Throws when the platform data is not set.
 
 
 ```solidity
@@ -672,7 +989,7 @@ error GlobalParamsPlatformDataNotSet();
 ```
 
 ### GlobalParamsPlatformDataSlotTaken
-*Throws when the platform data slot is already taken.*
+Throws when the platform data slot is already taken.
 
 
 ```solidity
@@ -680,10 +997,62 @@ error GlobalParamsPlatformDataSlotTaken();
 ```
 
 ### GlobalParamsUnauthorized
-*Throws when the caller is not authorized.*
+Throws when the caller is not authorized.
 
 
 ```solidity
 error GlobalParamsUnauthorized();
 ```
+
+### GlobalParamsCurrencyTokenLengthMismatch
+Throws when currency and token arrays length mismatch.
+
+
+```solidity
+error GlobalParamsCurrencyTokenLengthMismatch();
+```
+
+### GlobalParamsCurrencyHasNoTokens
+Throws when a currency has no tokens registered.
+
+
+```solidity
+error GlobalParamsCurrencyHasNoTokens(bytes32 currency);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+### GlobalParamsTokenNotInCurrency
+Throws when a token is not found in a currency.
+
+
+```solidity
+error GlobalParamsTokenNotInCurrency(bytes32 currency, address token);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address.|
+
+### GlobalParamsPlatformLineItemTypeNotFound
+Throws when a platform-specific line item type is not found.
+
+
+```solidity
+error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typeId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
 

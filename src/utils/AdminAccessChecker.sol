@@ -1,24 +1,37 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IGlobalParams} from "../interfaces/IGlobalParams.sol";
+import {AdminAccessCheckerStorage} from "../storage/AdminAccessCheckerStorage.sol";
 
 /**
  * @title AdminAccessChecker
  * @dev This abstract contract provides access control mechanisms to restrict the execution of specific functions
  * to authorized protocol administrators and platform administrators.
+ * @dev Updated to use ERC-7201 namespaced storage for upgradeable contracts
  */
-abstract contract AdminAccessChecker {
-    // Immutable reference to the IGlobalParams contract, which manages global parameters and admin addresses.
-    IGlobalParams internal GLOBAL_PARAMS;
-
+abstract contract AdminAccessChecker is Context {
     /**
      * @dev Throws when the caller is not authorized.
      */
     error AdminAccessCheckerUnauthorized();
 
+    /**
+     * @dev Internal initializer function for AdminAccessChecker
+     * @param globalParams The IGlobalParams contract instance
+     */
     function __AccessChecker_init(IGlobalParams globalParams) internal {
-        GLOBAL_PARAMS = globalParams;
+        AdminAccessCheckerStorage.Storage storage $ = AdminAccessCheckerStorage._getAdminAccessCheckerStorage();
+        $.globalParams = globalParams;
+    }
+
+    /**
+     * @dev Returns the stored GLOBAL_PARAMS for internal use
+     */
+    function _getGlobalParams() internal view returns (IGlobalParams) {
+        AdminAccessCheckerStorage.Storage storage $ = AdminAccessCheckerStorage._getAdminAccessCheckerStorage();
+        return $.globalParams;
     }
 
     /**
@@ -45,7 +58,8 @@ abstract contract AdminAccessChecker {
      * If the sender is not the protocol admin, it reverts with AdminAccessCheckerUnauthorized error.
      */
     function _onlyProtocolAdmin() private view {
-        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
+        AdminAccessCheckerStorage.Storage storage $ = AdminAccessCheckerStorage._getAdminAccessCheckerStorage();
+        if (_msgSender() != $.globalParams.getProtocolAdminAddress()) {
             revert AdminAccessCheckerUnauthorized();
         }
     }
@@ -56,7 +70,8 @@ abstract contract AdminAccessChecker {
      * @param platformHash The unique identifier of the platform.
      */
     function _onlyPlatformAdmin(bytes32 platformHash) private view {
-        if (msg.sender != GLOBAL_PARAMS.getPlatformAdminAddress(platformHash)) {
+        AdminAccessCheckerStorage.Storage storage $ = AdminAccessCheckerStorage._getAdminAccessCheckerStorage();
+        if (_msgSender() != $.globalParams.getPlatformAdminAddress(platformHash)) {
             revert AdminAccessCheckerUnauthorized();
         }
     }

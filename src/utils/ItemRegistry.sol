@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
@@ -28,10 +28,7 @@ contract ItemRegistry is IItem, Context {
     /**
      * @inheritdoc IItem
      */
-    function getItem(
-        address owner,
-        bytes32 itemId
-    ) external view override returns (Item memory) {
+    function getItem(address owner, bytes32 itemId) external view override returns (Item memory) {
         return Items[owner][itemId];
     }
 
@@ -48,10 +45,7 @@ contract ItemRegistry is IItem, Context {
      * @param itemIds An array of unique item identifiers.
      * @param items An array of `Item` structs containing item attributes.
      */
-    function addItemsBatch(
-        bytes32[] calldata itemIds,
-        Item[] calldata items
-    ) external {
+    function addItemsBatch(bytes32[] calldata itemIds, Item[] calldata items) external {
         if (itemIds.length != items.length) {
             revert ItemRegistryMismatchedArraysLength();
         }

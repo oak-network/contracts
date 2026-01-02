@@ -1,8 +1,8 @@
 # AllOrNothing
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/treasuries/AllOrNothing.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/treasuries/AllOrNothing.sol)
 
 **Inherits:**
-[IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ERC721Burnable
+[IReward](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ReentrancyGuard
 
 A contract for handling crowdfunding campaigns with rewards.
 
@@ -11,83 +11,53 @@ A contract for handling crowdfunding campaigns with rewards.
 ### s_tokenToTotalCollectedAmount
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount;
+mapping(uint256 => uint256) private s_tokenToTotalCollectedAmount
 ```
 
 
 ### s_tokenToPledgedAmount
 
 ```solidity
-mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+mapping(uint256 => uint256) private s_tokenToPledgedAmount
 ```
 
 
 ### s_reward
 
 ```solidity
-mapping(bytes32 => Reward) private s_reward;
+mapping(bytes32 => Reward) private s_reward
 ```
 
 
-### s_tokenIdCounter
+### s_tokenIdToPledgeToken
 
 ```solidity
-Counters.Counter private s_tokenIdCounter;
+mapping(uint256 => address) private s_tokenIdToPledgeToken
 ```
 
 
 ### s_rewardCounter
 
 ```solidity
-Counters.Counter private s_rewardCounter;
-```
-
-
-### s_name
-
-```solidity
-string private s_name;
-```
-
-
-### s_symbol
-
-```solidity
-string private s_symbol;
+Counters.Counter private s_rewardCounter
 ```
 
 
 ## Functions
 ### constructor
 
-*Constructor for the AllOrNothing contract.*
+Constructor for the AllOrNothing contract.
 
 
 ```solidity
-constructor() ERC721("", "");
+constructor() ;
 ```
 
 ### initialize
 
 
 ```solidity
-function initialize(bytes32 _platformHash, address _infoAddress, string calldata _name, string calldata _symbol)
-    external
-    initializer;
-```
-
-### name
-
-
-```solidity
-function name() public view override returns (string memory);
-```
-
-### symbol
-
-
-```solidity
-function symbol() public view override returns (string memory);
+function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer;
 ```
 
 ### getReward
@@ -126,14 +96,44 @@ function getRaisedAmount() external view override returns (uint256);
 |`<none>`|`uint256`|The total raised amount as a uint256 value.|
 
 
+### getLifetimeRaisedAmount
+
+Retrieves the lifetime raised amount in the treasury (never decreases with refunds).
+
+
+```solidity
+function getLifetimeRaisedAmount() external view override returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+
+
+### getRefundedAmount
+
+Retrieves the total refunded amount in the treasury.
+
+
+```solidity
+function getRefundedAmount() external view override returns (uint256);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+
+
 ### addRewards
 
 Adds multiple rewards in a batch.
 
-*This function allows for both reward tiers and non-reward tiers.
+This function allows for both reward tiers and non-reward tiers.
 For both types, rewards must have non-zero value.
 If items are specified (non-empty arrays), the itemId, itemValue, and itemQuantity arrays must match in length.
-Empty arrays are allowed for both reward tiers and non-reward tiers.*
+Empty arrays are allowed for both reward tiers and non-reward tiers.
 
 
 ```solidity
@@ -178,13 +178,14 @@ function removeReward(bytes32 rewardName)
 
 Allows a backer to pledge for a reward.
 
-*The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-The non-reward tiers cannot be pledged for without a reward.*
+The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
+The non-reward tiers cannot be pledged for without a reward.
 
 
 ```solidity
-function pledgeForAReward(address backer, uint256 shippingFee, bytes32[] calldata reward)
+function pledgeForAReward(address backer, address pledgeToken, uint256 shippingFee, bytes32[] calldata reward)
     external
+    nonReentrant
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -196,7 +197,8 @@ function pledgeForAReward(address backer, uint256 shippingFee, bytes32[] calldat
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
-|`shippingFee`|`uint256`||
+|`pledgeToken`|`address`|The token address to use for the pledge.|
+|`shippingFee`|`uint256`|The shipping fee amount.|
 |`reward`|`bytes32[]`|An array of reward names.|
 
 
@@ -206,8 +208,9 @@ Allows a backer to pledge without selecting a reward.
 
 
 ```solidity
-function pledgeWithoutAReward(address backer, uint256 pledgeAmount)
+function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledgeAmount)
     external
+    nonReentrant
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
     whenCampaignNotPaused
     whenNotPaused
@@ -219,6 +222,7 @@ function pledgeWithoutAReward(address backer, uint256 pledgeAmount)
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token address to use for the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
 
 
@@ -261,7 +265,7 @@ function withdraw() public override whenNotPaused whenNotCancelled;
 
 ### cancelTreasury
 
-*This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.*
+This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
 
 
 ```solidity
@@ -270,7 +274,7 @@ function cancelTreasury(bytes32 message) public override;
 
 ### _checkSuccessCondition
 
-*Internal function to check the success condition for fee disbursement.*
+Internal function to check the success condition for fee disbursement.
 
 
 ```solidity
@@ -289,30 +293,24 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 ```solidity
 function _pledge(
     address backer,
+    address pledgeToken,
     bytes32 reward,
     uint256 pledgeAmount,
     uint256 shippingFee,
-    uint256 tokenId,
     bytes32[] memory rewards
 ) private;
 ```
 
-### supportsInterface
-
-
-```solidity
-function supportsInterface(bytes4 interfaceId) public view override returns (bool);
-```
-
 ## Events
 ### Receipt
-*Emitted when a backer makes a pledge.*
+Emitted when a backer makes a pledge.
 
 
 ```solidity
 event Receipt(
     address indexed backer,
-    bytes32 indexed reward,
+    address indexed pledgeToken,
+    bytes32 reward,
     uint256 pledgeAmount,
     uint256 shippingFee,
     uint256 tokenId,
@@ -325,6 +323,7 @@ event Receipt(
 |Name|Type|Description|
 |----|----|-----------|
 |`backer`|`address`|The address of the backer making the pledge.|
+|`pledgeToken`|`address`|The token used for the pledge.|
 |`reward`|`bytes32`|The name of the reward.|
 |`pledgeAmount`|`uint256`|The amount pledged.|
 |`shippingFee`|`uint256`||
@@ -332,7 +331,7 @@ event Receipt(
 |`rewards`|`bytes32[]`|An array of reward names.|
 
 ### RewardsAdded
-*Emitted when rewards are added to the campaign.*
+Emitted when rewards are added to the campaign.
 
 
 ```solidity
@@ -347,7 +346,7 @@ event RewardsAdded(bytes32[] rewardNames, Reward[] rewards);
 |`rewards`|`Reward[]`|The details of the rewards.|
 
 ### RewardRemoved
-*Emitted when a reward is removed from the campaign.*
+Emitted when a reward is removed from the campaign.
 
 
 ```solidity
@@ -361,7 +360,7 @@ event RewardRemoved(bytes32 indexed rewardName);
 |`rewardName`|`bytes32`|The name of the reward.|
 
 ### RefundClaimed
-*Emitted when a refund is claimed.*
+Emitted when a refund is claimed.
 
 
 ```solidity
@@ -378,7 +377,7 @@ event RefundClaimed(uint256 tokenId, uint256 refundAmount, address claimer);
 
 ## Errors
 ### AllOrNothingUnAuthorized
-*Emitted when an unauthorized action is attempted.*
+Emitted when an unauthorized action is attempted.
 
 
 ```solidity
@@ -386,7 +385,7 @@ error AllOrNothingUnAuthorized();
 ```
 
 ### AllOrNothingInvalidInput
-*Emitted when an invalid input is detected.*
+Emitted when an invalid input is detected.
 
 
 ```solidity
@@ -394,7 +393,7 @@ error AllOrNothingInvalidInput();
 ```
 
 ### AllOrNothingTransferFailed
-*Emitted when a token transfer fails.*
+Emitted when a token transfer fails.
 
 
 ```solidity
@@ -402,7 +401,7 @@ error AllOrNothingTransferFailed();
 ```
 
 ### AllOrNothingNotSuccessful
-*Emitted when the campaign is not successful.*
+Emitted when the campaign is not successful.
 
 
 ```solidity
@@ -410,7 +409,7 @@ error AllOrNothingNotSuccessful();
 ```
 
 ### AllOrNothingFeeNotDisbursed
-*Emitted when fees are not disbursed.*
+Emitted when fees are not disbursed.
 
 
 ```solidity
@@ -418,7 +417,7 @@ error AllOrNothingFeeNotDisbursed();
 ```
 
 ### AllOrNothingFeeAlreadyDisbursed
-*Emitted when `disburseFees` after fee is disbursed already.*
+Emitted when `disburseFees` after fee is disbursed already.
 
 
 ```solidity
@@ -426,15 +425,23 @@ error AllOrNothingFeeAlreadyDisbursed();
 ```
 
 ### AllOrNothingRewardExists
-*Emitted when a `Reward` already exists for given input.*
+Emitted when a `Reward` already exists for given input.
 
 
 ```solidity
 error AllOrNothingRewardExists();
 ```
 
+### AllOrNothingTokenNotAccepted
+Emitted when a token is not accepted for the campaign.
+
+
+```solidity
+error AllOrNothingTokenNotAccepted(address token);
+```
+
 ### AllOrNothingNotClaimable
-*Emitted when claiming an unclaimable refund.*
+Emitted when claiming an unclaimable refund.
 
 
 ```solidity

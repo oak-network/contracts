@@ -1,5 +1,5 @@
 # IGlobalParams
-[Git Source](https://github.com/ccprotocol/ccprotocol-contracts/blob/b6945e2b533f7d9aacb156ae915f6d1bb6b199de/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -77,21 +77,6 @@ function getProtocolAdminAddress() external view returns (address);
 |`<none>`|`address`|The admin address of the protocol.|
 
 
-### getTokenAddress
-
-Retrieves the address of the protocol's native token.
-
-
-```solidity
-function getTokenAddress() external view returns (address);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|The address of the native token.|
-
-
 ### getProtocolFeePercent
 
 Retrieves the protocol fee percentage.
@@ -149,6 +134,27 @@ function getPlatformFeePercent(bytes32 platformHash) external view returns (uint
 |`<none>`|`uint256`|The platform fee percentage as a uint256 value.|
 
 
+### getPlatformClaimDelay
+
+Retrieves the claim delay (in seconds) for a specific platform.
+
+
+```solidity
+function getPlatformClaimDelay(bytes32 platformHash) external view returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|The claim delay in seconds.|
+
+
 ### checkIfPlatformDataKeyValid
 
 Checks if a platform-specific data key is valid.
@@ -185,21 +191,6 @@ function updateProtocolAdminAddress(address _protocolAdminAddress) external;
 |`_protocolAdminAddress`|`address`|The new admin address of the protocol.|
 
 
-### updateTokenAddress
-
-Updates the address of the protocol's native token.
-
-
-```solidity
-function updateTokenAddress(address _tokenAddress) external;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_tokenAddress`|`address`|The new address of the native token.|
-
-
 ### updateProtocolFeePercent
 
 Updates the protocol fee percentage.
@@ -229,5 +220,216 @@ function updatePlatformAdminAddress(bytes32 _platformHash, address _platformAdmi
 |----|----|-----------|
 |`_platformHash`|`bytes32`|The unique identifier of the platform.|
 |`_platformAdminAddress`|`address`|The new admin address of the platform.|
+
+
+### updatePlatformClaimDelay
+
+Updates the claim delay for a specific platform.
+
+
+```solidity
+function updatePlatformClaimDelay(bytes32 platformHash, uint256 claimDelay) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`claimDelay`|`uint256`|The claim delay in seconds.|
+
+
+### getPlatformAdapter
+
+Retrieves the adapter (trusted forwarder) address for a platform.
+
+
+```solidity
+function getPlatformAdapter(bytes32 platformHash) external view returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The adapter address for ERC-2771 meta-transactions.|
+
+
+### setPlatformAdapter
+
+Sets the adapter (trusted forwarder) address for a platform.
+
+Only callable by the protocol admin (owner).
+
+
+```solidity
+function setPlatformAdapter(bytes32 platformHash, address adapter) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The unique identifier of the platform.|
+|`adapter`|`address`|The address of the adapter contract.|
+
+
+### addTokenToCurrency
+
+Adds a token to a currency.
+
+
+```solidity
+function addTokenToCurrency(bytes32 currency, address token) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to add.|
+
+
+### removeTokenFromCurrency
+
+Removes a token from a currency.
+
+
+```solidity
+function removeTokenFromCurrency(bytes32 currency, address token) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+|`token`|`address`|The token address to remove.|
+
+
+### getTokensForCurrency
+
+Retrieves all tokens accepted for a specific currency.
+
+
+```solidity
+function getTokensForCurrency(bytes32 currency) external view returns (address[] memory);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`currency`|`bytes32`|The currency identifier.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address[]`|An array of token addresses accepted for the currency.|
+
+
+### getFromRegistry
+
+Retrieves a value from the data registry.
+
+
+```solidity
+function getFromRegistry(bytes32 key) external view returns (bytes32 value);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`key`|`bytes32`|The registry key.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`value`|`bytes32`|The registry value.|
+
+
+### setPlatformLineItemType
+
+Sets or updates a platform-specific line item type configuration.
+
+
+```solidity
+function setPlatformLineItemType(
+    bytes32 platformHash,
+    bytes32 typeId,
+    string calldata label,
+    bool countsTowardGoal,
+    bool applyProtocolFee,
+    bool canRefund,
+    bool instantTransfer
+) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
+
+
+### removePlatformLineItemType
+
+Removes a platform-specific line item type by setting its exists flag to false.
+
+
+```solidity
+function removePlatformLineItemType(bytes32 platformHash, bytes32 typeId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type to remove.|
+
+
+### getPlatformLineItemType
+
+Retrieves a platform-specific line item type configuration.
+
+
+```solidity
+function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
+    external
+    view
+    returns (
+        bool exists,
+        string memory label,
+        bool countsTowardGoal,
+        bool applyProtocolFee,
+        bool canRefund,
+        bool instantTransfer
+    );
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The identifier of the platform.|
+|`typeId`|`bytes32`|The identifier of the line item type.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`exists`|`bool`|Whether this line item type exists and is active.|
+|`label`|`string`|The label identifier for the line item type.|
+|`countsTowardGoal`|`bool`|Whether this line item counts toward the campaign goal.|
+|`applyProtocolFee`|`bool`|Whether this line item is included in protocol fee calculation.|
+|`canRefund`|`bool`|Whether this line item can be refunded.|
+|`instantTransfer`|`bool`|Whether this line item amount can be instantly transferred.|
 
 

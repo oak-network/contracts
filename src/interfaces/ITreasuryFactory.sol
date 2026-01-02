@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /**
  * @title ITreasuryFactory
@@ -21,17 +21,38 @@ interface ITreasuryFactory {
     );
 
     /**
+     * @dev Emitted when a treasury implementation is registered for a platform.
+     * @param platformHash The platform identifier.
+     * @param implementationId The ID of the implementation.
+     * @param implementation The contract address of the implementation.
+     */
+    event TreasuryImplementationRegistered(
+        bytes32 indexed platformHash, uint256 indexed implementationId, address indexed implementation
+    );
+
+    /**
+     * @dev Emitted when a treasury implementation is removed from a platform.
+     * @param platformHash The platform identifier.
+     * @param implementationId The ID of the implementation.
+     */
+    event TreasuryImplementationRemoved(bytes32 indexed platformHash, uint256 indexed implementationId);
+
+    /**
+     * @dev Emitted when a treasury implementation is approved or disapproved by the protocol admin.
+     * @param implementation The contract address of the implementation.
+     * @param isApproved True if approved, false if disapproved.
+     */
+    event TreasuryImplementationApproval(address indexed implementation, bool isApproved);
+
+    /**
      * @notice Registers a treasury implementation for a given platform.
      * @dev Callable only by the platform admin.
      * @param platformHash The platform identifier.
      * @param implementationId The ID to assign to the implementation.
      * @param implementation The contract address of the implementation.
      */
-    function registerTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId,
-        address implementation
-    ) external;
+    function registerTreasuryImplementation(bytes32 platformHash, uint256 implementationId, address implementation)
+        external;
 
     /**
      * @notice Approves a previously registered implementation.
@@ -39,10 +60,7 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param implementationId The ID of the implementation to approve.
      */
-    function approveTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external;
+    function approveTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
 
     /**
      * @notice Disapproves a previously approved treasury implementation.
@@ -55,10 +73,7 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param implementationId The implementation ID to remove.
      */
-    function removeTreasuryImplementation(
-        bytes32 platformHash,
-        uint256 implementationId
-    ) external;
+    function removeTreasuryImplementation(bytes32 platformHash, uint256 implementationId) external;
 
     /**
      * @notice Deploys a treasury clone using an approved implementation.
@@ -66,15 +81,9 @@ interface ITreasuryFactory {
      * @param platformHash The platform identifier.
      * @param infoAddress The address of the campaign info contract.
      * @param implementationId The ID of the implementation to use.
-     * @param name The name of the treasury token.
-     * @param symbol The symbol of the treasury token.
      * @return clone The address of the deployed treasury contract.
      */
-    function deploy(
-        bytes32 platformHash,
-        address infoAddress,
-        uint256 implementationId,
-        string calldata name,
-        string calldata symbol
-    ) external returns (address clone);
+    function deploy(bytes32 platformHash, address infoAddress, uint256 implementationId)
+        external
+        returns (address clone);
 }

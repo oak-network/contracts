@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /**
  * @title ICampaignTreasury
@@ -39,4 +39,22 @@ interface ICampaignTreasury {
      * @return The total raised amount as a uint256 value.
      */
     function getRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the lifetime raised amount in the treasury (never decreases with refunds).
+     * @return The lifetime raised amount as a uint256 value.
+     */
+    function getLifetimeRaisedAmount() external view returns (uint256);
+
+    /**
+     * @notice Retrieves the total refunded amount in the treasury.
+     * @return The total refunded amount as a uint256 value.
+     */
+    function getRefundedAmount() external view returns (uint256);
+
+    /**
+     * @notice Checks if the treasury has been cancelled.
+     * @return True if the treasury is cancelled, false otherwise.
+     */
+    function cancelled() external view returns (bool);
 }
