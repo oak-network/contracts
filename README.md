@@ -1,8 +1,8 @@
-# Creative Crowdfunding Protocol (CC Protocol) Smart Contracts
+# Oak Network Smart Contracts
 
 ## Overview
 
-CC Protocol is a decentralized crowdfunding protocol designed to help creators launch and manage campaigns across multiple platforms. By providing a standardized infrastructure, the protocol simplifies the process of creating, funding, and managing crowdfunding initiatives in web3 across different platforms.
+Oak Network is a decentralized crowdfunding protocol designed to help creators launch and manage campaigns across multiple platforms. By providing a standardized infrastructure, the protocol simplifies the process of creating, funding, and managing crowdfunding initiatives in web3 across different platforms.
 
 ## Features
 
@@ -21,8 +21,8 @@ CC Protocol is a decentralized crowdfunding protocol designed to help creators l
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/ccprotocol/ccprotocol-contracts.git
-cd ccprotocol-contracts
+git clone https://github.com/oak-network/contracts.git
+cd contracts
 ```
 
 2. Install dependencies:
@@ -138,7 +138,7 @@ Security audit reports can be found in the [`audits/`](./audits/) folder. We reg
 
 ## Contributing
 
-We welcome all contributions to the Creative Crowdfunding Protocol. If you're interested in helping, here's how you can contribute:
+We welcome all contributions to the Oak Network. If you're interested in helping, here's how you can contribute:
 
 - **Report bugs** by opening issues
 - **Suggest enhancements** or new features
@@ -154,14 +154,14 @@ Before contributing, please read our detailed [Contributing Guidelines](./CONTRI
 
 ### Community
 
-Join our community on [Discord](https://discord.gg/4tR9rWc3QE) for questions and discussions.
+Join our community on [Discord](https://discord.gg/tnBhVxSDDS) for questions and discussions.
 
 Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectful.
 
 ## Contributors
 
-<a href="https://github.com/ccprotocol/ccprotocol-contracts/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=ccprotocol/ccprotocol-contracts" />
+<a href="https://github.com/oak-network/contracts/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=oak-network/contracts" />
 </a>
 
 Made with [contrib.rocks](https://contrib.rocks).
