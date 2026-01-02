@@ -104,13 +104,13 @@ modifier whenCampaignNotPaused();
 modifier whenCampaignNotCancelled();
 ```
 
-### getplatformHash
+### getPlatformHash
 
 Retrieves the platform identifier associated with the treasury.
 
 
 ```solidity
-function getplatformHash() external view override returns (bytes32);
+function getPlatformHash() external view override returns (bytes32);
 ```
 **Returns**
 
@@ -119,13 +119,13 @@ function getplatformHash() external view override returns (bytes32);
 |`<none>`|`bytes32`|The platform identifier as a bytes32 value.|
 
 
-### getplatformFeePercent
+### getPlatformFeePercent
 
 Retrieves the platform fee percentage for the treasury.
 
 
 ```solidity
-function getplatformFeePercent() external view override returns (uint256);
+function getPlatformFeePercent() external view override returns (uint256);
 ```
 **Returns**
 

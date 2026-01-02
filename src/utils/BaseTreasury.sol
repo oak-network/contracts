@@ -110,14 +110,14 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function getplatformHash() external view override returns (bytes32) {
+    function getPlatformHash() external view override returns (bytes32) {
         return PLATFORM_HASH;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function getplatformFeePercent() external view override returns (uint256) {
+    function getPlatformFeePercent() external view override returns (uint256) {
         return PLATFORM_FEE_PERCENT;
     }
 
