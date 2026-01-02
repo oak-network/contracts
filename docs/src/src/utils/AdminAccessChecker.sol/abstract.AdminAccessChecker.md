@@ -1,19 +1,19 @@
 # AdminAccessChecker
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/AdminAccessChecker.sol)
 
 **Inherits:**
 Context
 
-*This abstract contract provides access control mechanisms to restrict the execution of specific functions
-to authorized protocol administrators and platform administrators.*
+This abstract contract provides access control mechanisms to restrict the execution of specific functions
+to authorized protocol administrators and platform administrators.
 
-*Updated to use ERC-7201 namespaced storage for upgradeable contracts*
+Updated to use ERC-7201 namespaced storage for upgradeable contracts
 
 
 ## Functions
 ### __AccessChecker_init
 
-*Internal initializer function for AdminAccessChecker*
+Internal initializer function for AdminAccessChecker
 
 
 ```solidity
@@ -28,7 +28,7 @@ function __AccessChecker_init(IGlobalParams globalParams) internal;
 
 ### _getGlobalParams
 
-*Returns the stored GLOBAL_PARAMS for internal use*
+Returns the stored GLOBAL_PARAMS for internal use
 
 
 ```solidity
@@ -37,22 +37,22 @@ function _getGlobalParams() internal view returns (IGlobalParams);
 
 ### onlyProtocolAdmin
 
-*Modifier that restricts function access to protocol administrators only.
-Users attempting to execute functions with this modifier must be the protocol admin.*
+Modifier that restricts function access to protocol administrators only.
+Users attempting to execute functions with this modifier must be the protocol admin.
 
 
 ```solidity
-modifier onlyProtocolAdmin();
+modifier onlyProtocolAdmin() ;
 ```
 
 ### onlyPlatformAdmin
 
-*Modifier that restricts function access to platform administrators of a specific platform.
-Users attempting to execute functions with this modifier must be the platform admin for the given platform.*
+Modifier that restricts function access to platform administrators of a specific platform.
+Users attempting to execute functions with this modifier must be the platform admin for the given platform.
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformHash);
+modifier onlyPlatformAdmin(bytes32 platformHash) ;
 ```
 **Parameters**
 
@@ -63,8 +63,8 @@ modifier onlyPlatformAdmin(bytes32 platformHash);
 
 ### _onlyProtocolAdmin
 
-*Internal function to check if the sender is the protocol administrator.
-If the sender is not the protocol admin, it reverts with AdminAccessCheckerUnauthorized error.*
+Internal function to check if the sender is the protocol administrator.
+If the sender is not the protocol admin, it reverts with AdminAccessCheckerUnauthorized error.
 
 
 ```solidity
@@ -73,8 +73,8 @@ function _onlyProtocolAdmin() private view;
 
 ### _onlyPlatformAdmin
 
-*Internal function to check if the sender is the platform administrator for a specific platform.
-If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.*
+Internal function to check if the sender is the platform administrator for a specific platform.
+If the sender is not the platform admin, it reverts with AdminAccessCheckerUnauthorized error.
 
 
 ```solidity
@@ -89,7 +89,7 @@ function _onlyPlatformAdmin(bytes32 platformHash) private view;
 
 ## Errors
 ### AdminAccessCheckerUnauthorized
-*Throws when the caller is not authorized.*
+Throws when the caller is not authorized.
 
 
 ```solidity

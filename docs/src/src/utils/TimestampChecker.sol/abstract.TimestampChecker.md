@@ -1,5 +1,5 @@
 # TimestampChecker
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/TimestampChecker.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/TimestampChecker.sol)
 
 A contract that provides timestamp-related checks for contract functions.
 
@@ -11,7 +11,7 @@ Modifier that checks if the current timestamp is greater than a specified time.
 
 
 ```solidity
-modifier currentTimeIsGreater(uint256 inputTime);
+modifier currentTimeIsGreater(uint256 inputTime) ;
 ```
 **Parameters**
 
@@ -26,7 +26,7 @@ Modifier that checks if the current timestamp is less than a specified time.
 
 
 ```solidity
-modifier currentTimeIsLess(uint256 inputTime);
+modifier currentTimeIsLess(uint256 inputTime) ;
 ```
 **Parameters**
 
@@ -41,7 +41,7 @@ Modifier that checks if the current timestamp is within a specified time range.
 
 
 ```solidity
-modifier currentTimeIsWithinRange(uint256 initialTime, uint256 finalTime);
+modifier currentTimeIsWithinRange(uint256 initialTime, uint256 finalTime) ;
 ```
 **Parameters**
 
@@ -53,7 +53,7 @@ modifier currentTimeIsWithinRange(uint256 initialTime, uint256 finalTime);
 
 ### _revertIfCurrentTimeIsNotLess
 
-*Internal function to revert if the current timestamp is less than or equal a specified time.*
+Internal function to revert if the current timestamp is less than or equal a specified time.
 
 
 ```solidity
@@ -68,7 +68,7 @@ function _revertIfCurrentTimeIsNotLess(uint256 inputTime) internal view virtual;
 
 ### _revertIfCurrentTimeIsNotGreater
 
-*Internal function to revert if the current timestamp is not greater than or equal a specified time.*
+Internal function to revert if the current timestamp is not greater than or equal a specified time.
 
 
 ```solidity
@@ -83,7 +83,7 @@ function _revertIfCurrentTimeIsNotGreater(uint256 inputTime) internal view virtu
 
 ### _revertIfCurrentTimeIsNotWithinRange
 
-*Internal function to revert if the current timestamp is not within a specified time range.*
+Internal function to revert if the current timestamp is not within a specified time range.
 
 
 ```solidity
@@ -99,7 +99,7 @@ function _revertIfCurrentTimeIsNotWithinRange(uint256 initialTime, uint256 final
 
 ## Errors
 ### CurrentTimeIsGreater
-*Error: The current timestamp is greater than the specified input time.*
+Error: The current timestamp is greater than the specified input time.
 
 
 ```solidity
@@ -114,7 +114,7 @@ error CurrentTimeIsGreater(uint256 inputTime, uint256 currentTime);
 |`currentTime`|`uint256`|The current block timestamp.|
 
 ### CurrentTimeIsLess
-*Error: The current timestamp is less than the specified input time.*
+Error: The current timestamp is less than the specified input time.
 
 
 ```solidity
@@ -129,7 +129,7 @@ error CurrentTimeIsLess(uint256 inputTime, uint256 currentTime);
 |`currentTime`|`uint256`|The current block timestamp.|
 
 ### CurrentTimeIsNotWithinRange
-*Error: The current timestamp is not within the specified range.*
+Error: The current timestamp is not within the specified range.
 
 
 ```solidity

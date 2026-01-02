@@ -1,5 +1,5 @@
 # ICampaignPaymentTreasury
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/ICampaignPaymentTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignPaymentTreasury.sol)
 
 An interface for managing campaign payment treasury contracts.
 
@@ -71,7 +71,7 @@ function createPaymentBatch(
 
 Allows a buyer to make a direct crypto payment for an item.
 
-*This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.*
+This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
 
 
 ```solidity
@@ -167,7 +167,7 @@ function withdraw() external;
 
 Claims a refund for non-NFT payments (payments without minted NFTs).
 
-*Only callable by platform admin. Used for payments confirmed without a buyer address.*
+Only callable by platform admin. Used for payments confirmed without a buyer address.
 
 
 ```solidity
@@ -185,8 +185,8 @@ function claimRefund(bytes32 paymentId, address refundAddress) external;
 
 Claims a refund for NFT payments (payments with minted NFTs).
 
-*Burns the NFT associated with the payment. Caller must have approved the treasury for the NFT.
-Used for processCryptoPayment and confirmPayment (with buyer address) transactions.*
+Burns the NFT associated with the payment. Caller must have approved the treasury for the NFT.
+Used for processCryptoPayment and confirmPayment (with buyer address) transactions.
 
 
 ```solidity
@@ -323,7 +323,7 @@ function getRefundedAmount() external view returns (uint256);
 
 Retrieves the total expected (pending) amount in the treasury.
 
-*This represents payments that have been created but not yet confirmed.*
+This represents payments that have been created but not yet confirmed.
 
 
 ```solidity
@@ -437,7 +437,7 @@ struct LineItem {
 ### ExternalFees
 Represents metadata about external fees associated with a payment.
 
-*These values are informational only and do not affect treasury balances or transfers.*
+These values are informational only and do not affect treasury balances or transfers.
 
 
 ```solidity

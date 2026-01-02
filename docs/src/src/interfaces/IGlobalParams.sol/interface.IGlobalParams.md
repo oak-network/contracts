@@ -1,5 +1,5 @@
 # IGlobalParams
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/IGlobalParams.sol)
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -263,7 +263,7 @@ function getPlatformAdapter(bytes32 platformHash) external view returns (address
 
 Sets the adapter (trusted forwarder) address for a platform.
 
-*Only callable by the protocol admin (owner).*
+Only callable by the protocol admin (owner).
 
 
 ```solidity

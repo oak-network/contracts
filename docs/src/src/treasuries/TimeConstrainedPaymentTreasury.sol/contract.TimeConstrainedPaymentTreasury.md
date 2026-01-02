@@ -1,18 +1,18 @@
 # TimeConstrainedPaymentTreasury
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/treasuries/TimeConstrainedPaymentTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/treasuries/TimeConstrainedPaymentTreasury.sol)
 
 **Inherits:**
-[BasePaymentTreasury](/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md)
+[BasePaymentTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md)
 
 
 ## Functions
 ### constructor
 
-*Constructor for the TimeConstrainedPaymentTreasury contract.*
+Constructor for the TimeConstrainedPaymentTreasury contract.
 
 
 ```solidity
-constructor();
+constructor() ;
 ```
 
 ### initialize
@@ -24,7 +24,7 @@ function initialize(bytes32 _platformHash, address _infoAddress, address _truste
 
 ### _checkTimeWithinRange
 
-*Internal function to check if current time is within the allowed range.*
+Internal function to check if current time is within the allowed range.
 
 
 ```solidity
@@ -33,7 +33,7 @@ function _checkTimeWithinRange() internal view;
 
 ### _checkTimeIsGreater
 
-*Internal function to check if current time is greater than launch time.*
+Internal function to check if current time is greater than launch time.
 
 
 ```solidity
@@ -106,7 +106,7 @@ function createPaymentBatch(
 
 Allows a buyer to make a direct crypto payment for an item.
 
-*This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.*
+This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
 
 
 ```solidity
@@ -188,7 +188,7 @@ function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata b
 
 Claims a refund for non-NFT payments (payments without minted NFTs).
 
-*Only callable by platform admin. Used for payments confirmed without a buyer address.*
+Only callable by platform admin. Used for payments confirmed without a buyer address.
 
 
 ```solidity
@@ -206,7 +206,7 @@ function claimRefund(bytes32 paymentId, address refundAddress) public override w
 
 Claims a refund for non-NFT payments (payments without minted NFTs).
 
-*Only callable by platform admin. Used for payments confirmed without a buyer address.*
+Only callable by platform admin. Used for payments confirmed without a buyer address.
 
 
 ```solidity
@@ -263,7 +263,7 @@ function withdraw() public override whenNotPaused whenNotCancelled;
 
 ### cancelTreasury
 
-*This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.*
+This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
 
 
 ```solidity
@@ -272,7 +272,7 @@ function cancelTreasury(bytes32 message) public override;
 
 ### _checkSuccessCondition
 
-*Internal function to check the success condition for fee disbursement.*
+Internal function to check the success condition for fee disbursement.
 
 
 ```solidity
@@ -287,7 +287,7 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 
 ## Errors
 ### TimeConstrainedPaymentTreasuryUnAuthorized
-*Emitted when an unauthorized action is attempted.*
+Emitted when an unauthorized action is attempted.
 
 
 ```solidity

@@ -1,9 +1,9 @@
 # GlobalParamsStorage
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/storage/GlobalParamsStorage.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/storage/GlobalParamsStorage.sol)
 
 Storage contract for GlobalParams using ERC-7201 namespaced storage
 
-*This contract contains the storage layout and accessor functions for GlobalParams*
+This contract contains the storage layout and accessor functions for GlobalParams
 
 
 ## State Variables
@@ -11,7 +11,7 @@ Storage contract for GlobalParams using ERC-7201 namespaced storage
 
 ```solidity
 bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION =
-    0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00;
+    0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00
 ```
 
 
@@ -66,8 +66,10 @@ struct Storage {
     mapping(bytes32 => bool) platformData;
     mapping(bytes32 => bytes32) dataRegistry;
     mapping(bytes32 => address[]) currencyToTokens;
+    // Platform-specific line item types: mapping(platformHash => mapping(typeId => LineItemType))
     mapping(bytes32 => mapping(bytes32 => LineItemType)) platformLineItemTypes;
     mapping(bytes32 => uint256) platformClaimDelay;
+    // Platform adapter (trusted forwarder) for ERC-2771 meta-transactions: mapping(platformHash => adapterAddress)
     mapping(bytes32 => address) platformAdapter;
     Counters.Counter numberOfListedPlatforms;
 }

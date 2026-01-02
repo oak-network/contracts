@@ -1,8 +1,8 @@
 # ICampaignInfoFactory
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/ICampaignInfoFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignInfoFactory.sol)
 
 **Inherits:**
-[ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
+[ICampaignData](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
 
 An interface for creating and managing campaign information contracts.
 
@@ -12,11 +12,11 @@ An interface for creating and managing campaign information contracts.
 
 Creates a new campaign information contract with NFT.
 
-*IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
 permanently in the campaign contract. Users should verify current fees before
 calling this function or using intermediate contracts that check fees haven't
 changed from expected values. The protocol fee is stored as immutable in the cloned
-contract and platform fees are stored during initialization.*
+contract and platform fees are stored during initialization.
 
 
 ```solidity

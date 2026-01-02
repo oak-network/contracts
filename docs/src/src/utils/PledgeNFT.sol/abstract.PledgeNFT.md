@@ -1,61 +1,61 @@
 # PledgeNFT
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/utils/PledgeNFT.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/PledgeNFT.sol)
 
 **Inherits:**
 ERC721Burnable, AccessControl
 
 Abstract contract for NFTs representing pledges with on-chain metadata
 
-*Contains counter logic and NFT metadata storage*
+Contains counter logic and NFT metadata storage
 
 
 ## State Variables
 ### MINTER_ROLE
 
 ```solidity
-bytes32 public constant MINTER_ROLE = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6;
+bytes32 public constant MINTER_ROLE = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6
 ```
 
 
 ### s_nftName
 
 ```solidity
-string internal s_nftName;
+string internal s_nftName
 ```
 
 
 ### s_nftSymbol
 
 ```solidity
-string internal s_nftSymbol;
+string internal s_nftSymbol
 ```
 
 
 ### s_imageURI
 
 ```solidity
-string internal s_imageURI;
+string internal s_imageURI
 ```
 
 
 ### s_contractURI
 
 ```solidity
-string internal s_contractURI;
+string internal s_contractURI
 ```
 
 
 ### s_tokenIdCounter
 
 ```solidity
-Counters.Counter internal s_tokenIdCounter;
+Counters.Counter internal s_tokenIdCounter
 ```
 
 
 ### s_pledgeData
 
 ```solidity
-mapping(uint256 => PledgeData) internal s_pledgeData;
+mapping(uint256 => PledgeData) internal s_pledgeData
 ```
 
 
@@ -64,7 +64,7 @@ mapping(uint256 => PledgeData) internal s_pledgeData;
 
 Initialize NFT metadata
 
-*Called by CampaignInfo during initialization*
+Called by CampaignInfo during initialization
 
 
 ```solidity
@@ -89,7 +89,7 @@ function _initializeNFT(
 
 Validates that a string is safe for JSON embedding
 
-*Reverts if string contains quotes, backslashes, or control characters*
+Reverts if string contains quotes, backslashes, control characters, or non-ASCII
 
 
 ```solidity
@@ -106,7 +106,7 @@ function _validateJsonString(string calldata str) internal pure;
 
 Mints a pledge NFT (auto-increments counter)
 
-*Called by treasuries - returns the new token ID to use as pledge ID*
+Called by treasuries - returns the new token ID to use as pledge ID
 
 
 ```solidity
@@ -186,7 +186,7 @@ function symbol() public view virtual override returns (string memory);
 
 Sets the image URI for all NFTs
 
-*Must be overridden by inheriting contracts to implement access control*
+Must be overridden by inheriting contracts to implement access control
 
 
 ```solidity
@@ -218,7 +218,7 @@ function contractURI() external view virtual returns (string memory);
 
 Update contract-level metadata URI
 
-*Must be overridden by inheriting contracts to implement access control*
+Must be overridden by inheriting contracts to implement access control
 
 
 ```solidity
@@ -307,8 +307,6 @@ function getPledgeData(uint256 tokenId) external view returns (PledgeData memory
 
 Override supportsInterface for multiple inheritance
 
-*Internal function to set pledge data for a token*
-
 
 ```solidity
 function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, AccessControl) returns (bool);
@@ -328,7 +326,7 @@ function supportsInterface(bytes4 interfaceId) public view virtual override(ERC7
 
 ## Events
 ### ImageURIUpdated
-*Emitted when the image URI is updated*
+Emitted when the image URI is updated
 
 
 ```solidity
@@ -342,7 +340,7 @@ event ImageURIUpdated(string newImageURI);
 |`newImageURI`|`string`|The new image URI|
 
 ### ContractURIUpdated
-*Emitted when the contract URI is updated*
+Emitted when the contract URI is updated
 
 
 ```solidity
@@ -356,7 +354,7 @@ event ContractURIUpdated(string newContractURI);
 |`newContractURI`|`string`|The new contract URI|
 
 ### PledgeNFTMinted
-*Emitted when a pledge NFT is minted*
+Emitted when a pledge NFT is minted
 
 
 ```solidity
@@ -374,7 +372,7 @@ event PledgeNFTMinted(uint256 indexed tokenId, address indexed backer, address i
 
 ## Errors
 ### PledgeNFTUnAuthorized
-*Emitted when unauthorized access is attempted*
+Emitted when unauthorized access is attempted
 
 
 ```solidity
@@ -382,7 +380,7 @@ error PledgeNFTUnAuthorized();
 ```
 
 ### PledgeNFTInvalidJsonString
-*Emitted when a string contains invalid characters for JSON*
+Emitted when a string contains invalid characters for JSON
 
 
 ```solidity
@@ -391,7 +389,7 @@ error PledgeNFTInvalidJsonString();
 
 ## Structs
 ### PledgeData
-*Struct to store pledge data for each token*
+Struct to store pledge data for each token
 
 
 ```solidity

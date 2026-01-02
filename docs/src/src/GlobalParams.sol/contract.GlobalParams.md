@@ -1,40 +1,40 @@
 # GlobalParams
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/GlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/GlobalParams.sol)
 
 **Inherits:**
-Initializable, [IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), OwnableUpgradeable, UUPSUpgradeable
+Initializable, [IGlobalParams](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), OwnableUpgradeable, UUPSUpgradeable
 
 Manages global parameters and platform information.
 
-*UUPS Upgradeable contract with ERC-7201 namespaced storage*
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## State Variables
 ### ZERO_BYTES
 
 ```solidity
-bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
+bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000
 ```
 
 
 ## Functions
 ### notAddressZero
 
-*Reverts if the input address is zero.*
+Reverts if the input address is zero.
 
 
 ```solidity
-modifier notAddressZero(address account);
+modifier notAddressZero(address account) ;
 ```
 
 ### onlyPlatformAdmin
 
-*Modifier that restricts function access to platform administrators of a specific platform.
-Users attempting to execute functions with this modifier must be the platform admin for the given platform.*
+Modifier that restricts function access to platform administrators of a specific platform.
+Users attempting to execute functions with this modifier must be the platform admin for the given platform.
 
 
 ```solidity
-modifier onlyPlatformAdmin(bytes32 platformHash);
+modifier onlyPlatformAdmin(bytes32 platformHash) ;
 ```
 **Parameters**
 
@@ -47,21 +47,21 @@ modifier onlyPlatformAdmin(bytes32 platformHash);
 
 
 ```solidity
-modifier platformIsListed(bytes32 platformHash);
+modifier platformIsListed(bytes32 platformHash) ;
 ```
 
 ### constructor
 
-*Constructor that disables initializers to prevent implementation contract initialization*
+Constructor that disables initializers to prevent implementation contract initialization
 
 
 ```solidity
-constructor();
+constructor() ;
 ```
 
 ### initialize
 
-*Initializer function (replaces constructor)*
+Initializer function (replaces constructor)
 
 
 ```solidity
@@ -84,7 +84,7 @@ function initialize(
 
 ### _authorizeUpgrade
 
-*Function that authorizes an upgrade to a new implementation*
+Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
@@ -324,7 +324,7 @@ function checkIfPlatformDataKeyValid(bytes32 platformDataKey) external view over
 
 Enlists a platform with its admin address, fee percentage, and optional adapter.
 
-*The platformFeePercent can be any value including zero.*
+The platformFeePercent can be any value including zero.
 
 
 ```solidity
@@ -503,7 +503,7 @@ function getPlatformAdapter(bytes32 platformHash)
 
 Sets the adapter (trusted forwarder) address for a platform.
 
-*Only callable by the protocol admin (owner).*
+Only callable by the protocol admin (owner).
 
 
 ```solidity
@@ -543,7 +543,11 @@ Removes a token from a currency.
 
 
 ```solidity
-function removeTokenFromCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token);
+function removeTokenFromCurrency(bytes32 currency, address token)
+    external
+    override
+    onlyOwner
+    notAddressZero(token);
 ```
 **Parameters**
 
@@ -578,7 +582,7 @@ function getTokensForCurrency(bytes32 currency) external view override returns (
 
 Sets or updates a platform-specific line item type configuration.
 
-*Only callable by the platform admin.*
+Only callable by the platform admin.
 
 
 ```solidity
@@ -609,7 +613,7 @@ function setPlatformLineItemType(
 
 Removes a platform-specific line item type by setting its exists flag to false.
 
-*Only callable by the platform admin. This prevents the type from being used in new pledges.*
+Only callable by the platform admin. This prevents the type from being used in new pledges.
 
 
 ```solidity
@@ -665,7 +669,7 @@ function getPlatformLineItemType(bytes32 platformHash, bytes32 typeId)
 
 ### _revertIfAddressZero
 
-*Reverts if the input address is zero.*
+Reverts if the input address is zero.
 
 
 ```solidity
@@ -674,8 +678,8 @@ function _revertIfAddressZero(address account) internal pure;
 
 ### _onlyPlatformAdmin
 
-*Internal function to check if the sender is the platform administrator for a specific platform.
-If the sender is not the platform admin, it reverts with GlobalParamsUnauthorized error.*
+Internal function to check if the sender is the platform administrator for a specific platform.
+If the sender is not the platform admin, it reverts with GlobalParamsUnauthorized error.
 
 
 ```solidity
@@ -690,11 +694,13 @@ function _onlyPlatformAdmin(bytes32 platformHash) private view;
 
 ## Events
 ### PlatformEnlisted
-*Emitted when a platform is enlisted.*
+Emitted when a platform is enlisted.
 
 
 ```solidity
-event PlatformEnlisted(bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent);
+event PlatformEnlisted(
+    bytes32 indexed platformHash, address indexed platformAdminAddress, uint256 platformFeePercent
+);
 ```
 
 **Parameters**
@@ -706,7 +712,7 @@ event PlatformEnlisted(bytes32 indexed platformHash, address indexed platformAdm
 |`platformFeePercent`|`uint256`|The fee percentage of the enlisted platform.|
 
 ### PlatformDelisted
-*Emitted when a platform is delisted.*
+Emitted when a platform is delisted.
 
 
 ```solidity
@@ -720,7 +726,7 @@ event PlatformDelisted(bytes32 indexed platformHash);
 |`platformHash`|`bytes32`|The identifier of the delisted platform.|
 
 ### ProtocolAdminAddressUpdated
-*Emitted when the protocol admin address is updated.*
+Emitted when the protocol admin address is updated.
 
 
 ```solidity
@@ -734,7 +740,7 @@ event ProtocolAdminAddressUpdated(address indexed newAdminAddress);
 |`newAdminAddress`|`address`|The new protocol admin address.|
 
 ### TokenAddedToCurrency
-*Emitted when a token is added to a currency.*
+Emitted when a token is added to a currency.
 
 
 ```solidity
@@ -749,7 +755,7 @@ event TokenAddedToCurrency(bytes32 indexed currency, address indexed token);
 |`token`|`address`|The token address added.|
 
 ### TokenRemovedFromCurrency
-*Emitted when a token is removed from a currency.*
+Emitted when a token is removed from a currency.
 
 
 ```solidity
@@ -764,7 +770,7 @@ event TokenRemovedFromCurrency(bytes32 indexed currency, address indexed token);
 |`token`|`address`|The token address removed.|
 
 ### ProtocolFeePercentUpdated
-*Emitted when the protocol fee percent is updated.*
+Emitted when the protocol fee percent is updated.
 
 
 ```solidity
@@ -778,7 +784,7 @@ event ProtocolFeePercentUpdated(uint256 newFeePercent);
 |`newFeePercent`|`uint256`|The new protocol fee percentage.|
 
 ### PlatformAdminAddressUpdated
-*Emitted when the platform admin address is updated.*
+Emitted when the platform admin address is updated.
 
 
 ```solidity
@@ -793,7 +799,7 @@ event PlatformAdminAddressUpdated(bytes32 indexed platformHash, address indexed 
 |`newAdminAddress`|`address`|The new admin address of the platform.|
 
 ### PlatformDataAdded
-*Emitted when platform data is added.*
+Emitted when platform data is added.
 
 
 ```solidity
@@ -808,7 +814,7 @@ event PlatformDataAdded(bytes32 indexed platformHash, bytes32 indexed platformDa
 |`platformDataKey`|`bytes32`|The data key added to the platform.|
 
 ### PlatformDataRemoved
-*Emitted when platform data is removed.*
+Emitted when platform data is removed.
 
 
 ```solidity
@@ -823,7 +829,7 @@ event PlatformDataRemoved(bytes32 indexed platformHash, bytes32 platformDataKey)
 |`platformDataKey`|`bytes32`|The data key removed from the platform.|
 
 ### DataAddedToRegistry
-*Emitted when data is added to the registry.*
+Emitted when data is added to the registry.
 
 
 ```solidity
@@ -838,7 +844,7 @@ event DataAddedToRegistry(bytes32 indexed key, bytes32 value);
 |`value`|`bytes32`|The registry value.|
 
 ### PlatformLineItemTypeSet
-*Emitted when a platform-specific line item type is set or updated.*
+Emitted when a platform-specific line item type is set or updated.
 
 
 ```solidity
@@ -872,7 +878,7 @@ event PlatformClaimDelayUpdated(bytes32 indexed platformHash, uint256 claimDelay
 ```
 
 ### PlatformAdapterSet
-*Emitted when a platform adapter (trusted forwarder) is set.*
+Emitted when a platform adapter (trusted forwarder) is set.
 
 
 ```solidity
@@ -887,7 +893,7 @@ event PlatformAdapterSet(bytes32 indexed platformHash, address indexed adapter);
 |`adapter`|`address`|The address of the adapter contract.|
 
 ### PlatformLineItemTypeRemoved
-*Emitted when a platform-specific line item type is removed.*
+Emitted when a platform-specific line item type is removed.
 
 
 ```solidity
@@ -903,7 +909,7 @@ event PlatformLineItemTypeRemoved(bytes32 indexed platformHash, bytes32 indexed 
 
 ## Errors
 ### GlobalParamsInvalidInput
-*Throws when the input address is zero.*
+Throws when the input address is zero.
 
 
 ```solidity
@@ -911,7 +917,7 @@ error GlobalParamsInvalidInput();
 ```
 
 ### GlobalParamsPlatformNotListed
-*Throws when the platform is not listed.*
+Throws when the platform is not listed.
 
 
 ```solidity
@@ -925,7 +931,7 @@ error GlobalParamsPlatformNotListed(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAlreadyListed
-*Throws when the platform is already listed.*
+Throws when the platform is already listed.
 
 
 ```solidity
@@ -939,7 +945,7 @@ error GlobalParamsPlatformAlreadyListed(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformAdminNotSet
-*Throws when the platform admin is not set.*
+Throws when the platform admin is not set.
 
 
 ```solidity
@@ -953,7 +959,7 @@ error GlobalParamsPlatformAdminNotSet(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformFeePercentIsZero
-*Throws when the platform fee percent is zero.*
+Throws when the platform fee percent is zero.
 
 
 ```solidity
@@ -967,7 +973,7 @@ error GlobalParamsPlatformFeePercentIsZero(bytes32 platformHash);
 |`platformHash`|`bytes32`|The identifier of the platform.|
 
 ### GlobalParamsPlatformDataAlreadySet
-*Throws when the platform data is already set.*
+Throws when the platform data is already set.
 
 
 ```solidity
@@ -975,7 +981,7 @@ error GlobalParamsPlatformDataAlreadySet();
 ```
 
 ### GlobalParamsPlatformDataNotSet
-*Throws when the platform data is not set.*
+Throws when the platform data is not set.
 
 
 ```solidity
@@ -983,7 +989,7 @@ error GlobalParamsPlatformDataNotSet();
 ```
 
 ### GlobalParamsPlatformDataSlotTaken
-*Throws when the platform data slot is already taken.*
+Throws when the platform data slot is already taken.
 
 
 ```solidity
@@ -991,7 +997,7 @@ error GlobalParamsPlatformDataSlotTaken();
 ```
 
 ### GlobalParamsUnauthorized
-*Throws when the caller is not authorized.*
+Throws when the caller is not authorized.
 
 
 ```solidity
@@ -999,7 +1005,7 @@ error GlobalParamsUnauthorized();
 ```
 
 ### GlobalParamsCurrencyTokenLengthMismatch
-*Throws when currency and token arrays length mismatch.*
+Throws when currency and token arrays length mismatch.
 
 
 ```solidity
@@ -1007,7 +1013,7 @@ error GlobalParamsCurrencyTokenLengthMismatch();
 ```
 
 ### GlobalParamsCurrencyHasNoTokens
-*Throws when a currency has no tokens registered.*
+Throws when a currency has no tokens registered.
 
 
 ```solidity
@@ -1021,7 +1027,7 @@ error GlobalParamsCurrencyHasNoTokens(bytes32 currency);
 |`currency`|`bytes32`|The currency identifier.|
 
 ### GlobalParamsTokenNotInCurrency
-*Throws when a token is not found in a currency.*
+Throws when a token is not found in a currency.
 
 
 ```solidity
@@ -1036,7 +1042,7 @@ error GlobalParamsTokenNotInCurrency(bytes32 currency, address token);
 |`token`|`address`|The token address.|
 
 ### GlobalParamsPlatformLineItemTypeNotFound
-*Throws when a platform-specific line item type is not found.*
+Throws when a platform-specific line item type is not found.
 
 
 ```solidity

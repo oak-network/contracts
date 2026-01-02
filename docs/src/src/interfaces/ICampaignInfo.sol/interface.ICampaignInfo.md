@@ -1,12 +1,12 @@
 # ICampaignInfo
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignInfo.sol)
 
 **Inherits:**
 IERC721
 
 An interface for managing campaign information in a crowdfunding system.
 
-*Inherits from IERC721 as CampaignInfo is an ERC721 NFT collection*
+Inherits from IERC721 as CampaignInfo is an ERC721 NFT collection
 
 
 ## Functions
@@ -50,7 +50,7 @@ function checkIfPlatformSelected(bytes32 platformHash) external view returns (bo
 
 Retrieves the total amount raised across non-cancelled treasuries.
 
-*This excludes cancelled treasuries and is affected by refunds.*
+This excludes cancelled treasuries and is affected by refunds.
 
 
 ```solidity
@@ -67,9 +67,9 @@ function getTotalRaisedAmount() external view returns (uint256);
 
 Retrieves the total lifetime raised amount across all treasuries.
 
-*This amount never decreases even when refunds are processed.
+This amount never decreases even when refunds are processed.
 It represents the sum of all pledges/payments ever made to the campaign,
-regardless of cancellations or refunds.*
+regardless of cancellations or refunds.
 
 
 ```solidity
@@ -86,9 +86,9 @@ function getTotalLifetimeRaisedAmount() external view returns (uint256);
 
 Retrieves the total refunded amount across all treasuries.
 
-*This is calculated as the difference between lifetime raised amount
+This is calculated as the difference between lifetime raised amount
 and current raised amount. It represents the sum of all refunds
-that have been processed across all treasuries.*
+that have been processed across all treasuries.
 
 
 ```solidity
@@ -105,9 +105,9 @@ function getTotalRefundedAmount() external view returns (uint256);
 
 Retrieves the total available raised amount across all treasuries.
 
-*This includes funds from both active and cancelled treasuries,
+This includes funds from both active and cancelled treasuries,
 and is affected by refunds. It represents the actual current
-balance of funds across all treasuries.*
+balance of funds across all treasuries.
 
 
 ```solidity
@@ -124,9 +124,9 @@ function getTotalAvailableRaisedAmount() external view returns (uint256);
 
 Retrieves the total raised amount from cancelled treasuries only.
 
-*This is the opposite of getTotalRaisedAmount(), which only includes
+This is the opposite of getTotalRaisedAmount(), which only includes
 non-cancelled treasuries. This function only sums up raised amounts
-from treasuries that have been cancelled.*
+from treasuries that have been cancelled.
 
 
 ```solidity
@@ -143,8 +143,8 @@ function getTotalCancelledAmount() external view returns (uint256);
 
 Retrieves the total expected (pending) amount across payment treasuries.
 
-*This only applies to payment treasuries and represents payments that
-have been created but not yet confirmed. Regular treasuries are skipped.*
+This only applies to payment treasuries and represents payments that
+have been created but not yet confirmed. Regular treasuries are skipped.
 
 
 ```solidity
@@ -446,7 +446,7 @@ function updateGoalAmount(uint256 goalAmount) external;
 
 Updates the selection status of a platform for the campaign.
 
-*It can only be called for a platform if its not approved i.e. the platform treasury is not deployed*
+It can only be called for a platform if its not approved i.e. the platform treasury is not deployed
 
 
 ```solidity
@@ -469,7 +469,7 @@ function updateSelectedPlatform(
 
 ### paused
 
-*Returns true if the campaign is paused, and false otherwise.*
+Returns true if the campaign is paused, and false otherwise.
 
 
 ```solidity
@@ -478,7 +478,7 @@ function paused() external view returns (bool);
 
 ### cancelled
 
-*Returns true if the campaign is cancelled, and false otherwise.*
+Returns true if the campaign is cancelled, and false otherwise.
 
 
 ```solidity
@@ -562,7 +562,7 @@ function getLineItemType(bytes32 platformHash, bytes32 typeId)
 
 Mints a pledge NFT for a backer
 
-*Can only be called by treasuries with MINTER_ROLE*
+Can only be called by treasuries with MINTER_ROLE
 
 
 ```solidity
@@ -640,7 +640,7 @@ function burn(uint256 tokenId) external;
 
 ### isLocked
 
-*Returns true if the campaign is locked (after treasury deployment), and false otherwise.*
+Returns true if the campaign is locked (after treasury deployment), and false otherwise.
 
 
 ```solidity

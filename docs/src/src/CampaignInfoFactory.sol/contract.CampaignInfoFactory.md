@@ -1,22 +1,22 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/CampaignInfoFactory.sol)
 
 **Inherits:**
-Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
+Initializable, [ICampaignInfoFactory](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
 
 Factory contract for creating campaign information contracts.
 
-*UUPS Upgradeable contract with ERC-7201 namespaced storage*
+UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
 ### constructor
 
-*Constructor that disables initializers to prevent implementation contract initialization*
+Constructor that disables initializers to prevent implementation contract initialization
 
 
 ```solidity
-constructor();
+constructor() ;
 ```
 
 ### initialize
@@ -44,7 +44,7 @@ function initialize(
 
 ### _authorizeUpgrade
 
-*Function that authorizes an upgrade to a new implementation*
+Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
@@ -61,11 +61,11 @@ function _authorizeUpgrade(address newImplementation) internal override onlyOwne
 
 Creates a new campaign with NFT
 
-*IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
+IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
 permanently in the campaign contract. Users should verify current fees before
 calling this function or using intermediate contracts that check fees haven't
 changed from expected values. The protocol fee is stored as immutable in the cloned
-contract and platform fees are stored during initialization.*
+contract and platform fees are stored during initialization.
 
 
 ```solidity
@@ -157,7 +157,7 @@ function identifierToCampaignInfo(bytes32 identifierHash) external view returns 
 
 ## Errors
 ### CampaignInfoFactoryInvalidInput
-*Emitted when invalid input is provided.*
+Emitted when invalid input is provided.
 
 
 ```solidity
@@ -165,7 +165,7 @@ error CampaignInfoFactoryInvalidInput();
 ```
 
 ### CampaignInfoFactoryCampaignInitializationFailed
-*Emitted when campaign creation fails.*
+Emitted when campaign creation fails.
 
 
 ```solidity
@@ -185,7 +185,7 @@ error CampaignInfoFactoryCampaignWithSameIdentifierExists(bytes32 identifierHash
 ```
 
 ### CampaignInfoInvalidTokenList
-*Emitted when the campaign currency has no tokens.*
+Emitted when the campaign currency has no tokens.
 
 
 ```solidity

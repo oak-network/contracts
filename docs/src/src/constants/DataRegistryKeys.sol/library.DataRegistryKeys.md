@@ -1,38 +1,38 @@
 # DataRegistryKeys
-[Git Source](https://github.com/oak-network/ccprotocol-contracts-internal/blob/be3636c015d0f78c20f6d8f0de7b678aaf6d8428/src/constants/DataRegistryKeys.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/constants/DataRegistryKeys.sol)
 
 Centralized storage for all dataRegistry keys used in GlobalParams
 
-*This library provides a single source of truth for all dataRegistry keys
-to ensure consistency across contracts and prevent key collisions.*
+This library provides a single source of truth for all dataRegistry keys
+to ensure consistency across contracts and prevent key collisions.
 
 
 ## State Variables
 ### BUFFER_TIME
 
 ```solidity
-bytes32 public constant BUFFER_TIME = keccak256("bufferTime");
+bytes32 public constant BUFFER_TIME = keccak256("bufferTime")
 ```
 
 
 ### MAX_PAYMENT_EXPIRATION
 
 ```solidity
-bytes32 public constant MAX_PAYMENT_EXPIRATION = keccak256("maxPaymentExpiration");
+bytes32 public constant MAX_PAYMENT_EXPIRATION = keccak256("maxPaymentExpiration")
 ```
 
 
 ### CAMPAIGN_LAUNCH_BUFFER
 
 ```solidity
-bytes32 public constant CAMPAIGN_LAUNCH_BUFFER = keccak256("campaignLaunchBuffer");
+bytes32 public constant CAMPAIGN_LAUNCH_BUFFER = keccak256("campaignLaunchBuffer")
 ```
 
 
 ### MINIMUM_CAMPAIGN_DURATION
 
 ```solidity
-bytes32 public constant MINIMUM_CAMPAIGN_DURATION = keccak256("minimumCampaignDuration");
+bytes32 public constant MINIMUM_CAMPAIGN_DURATION = keccak256("minimumCampaignDuration")
 ```
 
 
