@@ -485,7 +485,7 @@ abstract contract BasePaymentTreasury is
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function getExpectedAmount() external view returns (uint256) {
+    function getExpectedAmount() public view returns (uint256) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         uint256 totalNormalized = 0;
 
