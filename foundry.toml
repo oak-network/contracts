@@ -8,8 +8,12 @@ optimizer_runs = 200
 solc_version = "0.8.22"
 
 remappings = [
+  "@chainlink/contracts-ccip/=lib/ccip/contracts/",
+  "@layerzerolabs/lz-evm-oapp-v2/=lib/LayerZero-v2/packages/layerzero-v2/evm/oapp/",
+  "@layerzerolabs/lz-evm-protocol-v2/=lib/LayerZero-v2/packages/layerzero-v2/evm/protocol/",
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+  "@stargate-v2/=lib/stargate-v2/packages/stg-evm-v2/src/"
 ]
 
 [rpc_endpoints]

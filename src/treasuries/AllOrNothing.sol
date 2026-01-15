@@ -10,6 +10,7 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
+import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 
 /**
  * @title AllOrNothing
@@ -27,6 +28,10 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     mapping(bytes32 => Reward) private s_reward;
     // Mapping to store the token used for each pledge
     mapping(uint256 => address) private s_tokenIdToPledgeToken;
+    // Mapping of intent ID to token ID for cross-chain pledges
+    mapping(bytes32 => uint256) private s_intentIdToTokenId;
+    // Mapping of token ID to intent ID for cross-chain pledges
+    mapping(uint256 => bytes32) private s_tokenIdToIntentId;
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
@@ -85,6 +90,10 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      * @dev Emitted when a token transfer fails.
      */
     error AllOrNothingTransferFailed();
+    /**
+     * @dev Emitted when a cross-chain intent is already processed.
+     */
+    error AllOrNothingIntentAlreadyProcessed(bytes32 intentId);
 
     /**
      * @dev Emitted when the campaign is not successful.
@@ -323,6 +332,89 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     }
 
     /**
+     * @notice Cross-chain pledge for a reward (funds pre-delivered by Executor).
+     * @param intentId The cross-chain intent ID.
+     * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token address to use for the pledge.
+     * @param shippingFee The shipping fee amount.
+     * @param reward An array of reward names.
+     */
+    function crossChainPledgeForAReward(
+        bytes32 intentId,
+        address backer,
+        address pledgeToken,
+        uint256 shippingFee,
+        bytes32[] calldata reward
+    )
+        external
+        onlyCrossChainExecutor
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        if (intentId == ZERO_BYTES || s_intentIdToTokenId[intentId] != 0) {
+            revert AllOrNothingIntentAlreadyProcessed(intentId);
+        }
+
+        uint256 rewardLen = reward.length;
+        Reward storage tempReward = s_reward[reward[0]];
+        if (
+            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
+                || !tempReward.isRewardTier
+        ) {
+            revert AllOrNothingInvalidInput();
+        }
+        uint256 pledgeAmount = tempReward.rewardValue;
+        for (uint256 i = 1; i < rewardLen; i++) {
+            if (reward[i] == ZERO_BYTES) {
+                revert AllOrNothingInvalidInput();
+            }
+            tempReward = s_reward[reward[i]];
+            if (tempReward.rewardValue == 0) {
+                revert AllOrNothingInvalidInput();
+            }
+            pledgeAmount += tempReward.rewardValue;
+        }
+
+        uint256 tokenId = _pledgeCrossChain(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        s_intentIdToTokenId[intentId] = tokenId;
+        s_tokenIdToIntentId[tokenId] = intentId;
+    }
+
+    /**
+     * @notice Cross-chain pledge without selecting a reward (funds pre-delivered by Executor).
+     * @param intentId The cross-chain intent ID.
+     * @param backer The address of the backer making the pledge.
+     * @param pledgeToken The token address to use for the pledge.
+     * @param pledgeAmount The amount of the pledge (token decimals).
+     */
+    function crossChainPledgeWithoutAReward(
+        bytes32 intentId,
+        address backer,
+        address pledgeToken,
+        uint256 pledgeAmount
+    )
+        external
+        onlyCrossChainExecutor
+        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
+        whenCampaignNotPaused
+        whenNotPaused
+        whenCampaignNotCancelled
+        whenNotCancelled
+    {
+        if (intentId == ZERO_BYTES || s_intentIdToTokenId[intentId] != 0) {
+            revert AllOrNothingIntentAlreadyProcessed(intentId);
+        }
+
+        bytes32[] memory emptyByteArray = new bytes32[](0);
+        uint256 tokenId = _pledgeCrossChain(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray);
+        s_intentIdToTokenId[intentId] = tokenId;
+        s_tokenIdToIntentId[tokenId] = intentId;
+    }
+
+    /**
      * @notice Allows a backer to claim a refund.
      * @param tokenId The ID of the token representing the pledge.
      */
@@ -347,15 +439,27 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             revert AllOrNothingNotClaimable(tokenId);
         }
 
+        bytes32 intentId = s_tokenIdToIntentId[tokenId];
+
         s_tokenToTotalCollectedAmount[tokenId] = 0;
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenRaisedAmounts[pledgeToken] -= pledgedAmount;
         delete s_tokenIdToPledgeToken[tokenId];
+        if (intentId != ZERO_BYTES) {
+            delete s_tokenIdToIntentId[tokenId];
+            delete s_intentIdToTokenId[intentId];
+        }
 
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
 
-        IERC20(pledgeToken).safeTransfer(nftOwner, amountToRefund);
+        if (intentId != ZERO_BYTES) {
+            address executor = _getCrossChainExecutor();
+            IERC20(pledgeToken).safeTransfer(executor, amountToRefund);
+            ICrossChainExecutor(executor).requestRefund(intentId, pledgeToken, amountToRefund, nftOwner);
+        } else {
+            IERC20(pledgeToken).safeTransfer(nftOwner, amountToRefund);
+        }
         emit RefundClaimed(tokenId, amountToRefund, nftOwner);
     }
 
@@ -427,6 +531,46 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
 
         uint256 tokenId = INFO.mintNFTForPledge(
+            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
+        );
+
+        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
+        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+
+        emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
+    }
+
+    /// @dev Internal cross-chain pledge helper; funds are already in the treasury.
+    function _pledgeCrossChain(
+        address backer,
+        address pledgeToken,
+        bytes32 reward,
+        uint256 pledgeAmount,
+        uint256 shippingFee,
+        bytes32[] memory rewards
+    ) private returns (uint256 tokenId) {
+        // Validate token is accepted
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
+
+        uint256 pledgeAmountInTokenDecimals;
+        uint256 shippingFeeInTokenDecimals;
+
+        if (reward != ZERO_BYTES) {
+            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
+        } else {
+            pledgeAmountInTokenDecimals = pledgeAmount;
+            shippingFeeInTokenDecimals = shippingFee;
+        }
+
+        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+
+        tokenId = INFO.mintNFTForPledge(
             backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
         );
 

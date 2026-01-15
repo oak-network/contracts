@@ -10,6 +10,8 @@ import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.s
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
 import {DataRegistryKeys} from "../constants/DataRegistryKeys.sol";
+import {CrossChainRegistryKeys} from "../constants/CrossChainRegistryKeys.sol";
+import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 
 /**
  * @title BasePaymentTreasury
@@ -39,6 +41,7 @@ abstract contract BasePaymentTreasury is
     mapping(address => uint256) internal s_protocolFeePerToken; // Protocol fees per token
     mapping(bytes32 => uint256) internal s_paymentIdToTokenId; // Track NFT token ID for each payment (0 means no NFT)
     mapping(bytes32 => address) internal s_paymentIdToCreator; // Track creator address for on-chain payments (for getPaymentData lookup)
+    mapping(bytes32 => bytes32) internal s_paymentIdToIntentId; // Track cross-chain intent ID per payment (if any)
 
     /**
      * @dev Stores information about a payment in the treasury.
@@ -266,6 +269,10 @@ abstract contract BasePaymentTreasury is
      * @dev Throws when there are no funds available to claim.
      */
     error PaymentTreasuryNoFundsToClaim();
+    /**
+     * @dev Throws when a cross-chain entrypoint is called by a non-executor.
+     */
+    error PaymentTreasuryCrossChainExecutorUnauthorized();
 
     /**
      * @dev Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
@@ -392,6 +399,19 @@ abstract contract BasePaymentTreasury is
             revert AccessCheckerUnauthorized();
         }
         _;
+    }
+
+    modifier onlyCrossChainExecutor() {
+        address executor = _getCrossChainExecutor();
+        if (executor == address(0) || _msgSender() != executor) {
+            revert PaymentTreasuryCrossChainExecutorUnauthorized();
+        }
+        _;
+    }
+
+    function _getCrossChainExecutor() internal view returns (address) {
+        bytes32 value = INFO.getDataFromRegistry(CrossChainRegistryKeys.executor());
+        return address(uint160(uint256(value)));
     }
 
     /**
@@ -789,6 +809,50 @@ abstract contract BasePaymentTreasury is
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
+        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, buyerAddress);
+    }
+
+    /**
+     * @notice Cross-chain crypto payment (funds pre-delivered by Executor).
+     * @param intentId The cross-chain intent ID.
+     * @param paymentId The external payment ID.
+     * @param itemId The item identifier.
+     * @param buyerAddress The buyer address (NFT owner).
+     * @param paymentToken The token used for the payment.
+     * @param amount The payment amount (token decimals).
+     * @param lineItems The line items included in the payment.
+     * @param externalFees External fee metadata (informational only).
+     */
+    function processCrossChainPayment(
+        bytes32 intentId,
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        address paymentToken,
+        uint256 amount,
+        ICampaignPaymentTreasury.LineItem[] calldata lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
+    ) external whenCampaignNotPaused whenCampaignNotCancelled onlyCrossChainExecutor {
+        if (intentId == ZERO_BYTES) {
+            revert PaymentTreasuryInvalidInput();
+        }
+
+        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, address(0));
+
+        s_paymentIdToIntentId[paymentId] = intentId;
+    }
+
+    /// @dev Internal payment processor. If tokenSource is zero, funds are assumed pre-delivered.
+    function _processCryptoPayment(
+        bytes32 paymentId,
+        bytes32 itemId,
+        address buyerAddress,
+        address paymentToken,
+        uint256 amount,
+        ICampaignPaymentTreasury.LineItem[] calldata lineItems,
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees,
+        address tokenSource
+    ) internal {
         if (
             buyerAddress == address(0) || amount == 0 || paymentId == ZERO_BYTES || itemId == ZERO_BYTES
                 || paymentToken == address(0)
@@ -912,7 +976,9 @@ abstract contract BasePaymentTreasury is
             }
         }
 
-        IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
+        if (tokenSource != address(0)) {
+            IERC20(paymentToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+        }
 
         s_payment[internalPaymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
@@ -1515,10 +1581,21 @@ abstract contract BasePaymentTreasury is
         s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
         s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
 
+        bytes32 intentId = s_paymentIdToIntentId[paymentId];
+        if (intentId != ZERO_BYTES) {
+            delete s_paymentIdToIntentId[paymentId];
+        }
+
         // Burn NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
 
-        IERC20(paymentToken).safeTransfer(nftOwner, totalRefundAmount);
+        if (intentId != ZERO_BYTES) {
+            address executor = _getCrossChainExecutor();
+            IERC20(paymentToken).safeTransfer(executor, totalRefundAmount);
+            ICrossChainExecutor(executor).requestRefund(intentId, paymentToken, totalRefundAmount, nftOwner);
+        } else {
+            IERC20(paymentToken).safeTransfer(nftOwner, totalRefundAmount);
+        }
         emit RefundClaimed(paymentId, totalRefundAmount, nftOwner);
     }
 

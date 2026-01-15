@@ -8,6 +8,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
+import {CrossChainRegistryKeys} from "../constants/CrossChainRegistryKeys.sol";
 
 /**
  * @title BaseTreasury
@@ -72,6 +73,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      * @dev Throws an error indicating that the campaign is paused.
      */
     error TreasuryCampaignInfoIsPaused();
+    /**
+     * @dev Throws when a cross-chain entrypoint is called by a non-executor.
+     */
+    error TreasuryCrossChainExecutorUnauthorized();
 
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
         __CampaignAccessChecker_init(infoAddress);
@@ -105,6 +110,19 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     modifier whenCampaignNotCancelled() {
         _revertIfCampaignCancelled();
         _;
+    }
+
+    modifier onlyCrossChainExecutor() {
+        address executor = _getCrossChainExecutor();
+        if (executor == address(0) || _msgSender() != executor) {
+            revert TreasuryCrossChainExecutorUnauthorized();
+        }
+        _;
+    }
+
+    function _getCrossChainExecutor() internal view returns (address) {
+        bytes32 value = INFO.getDataFromRegistry(CrossChainRegistryKeys.executor());
+        return address(uint160(uint256(value)));
     }
 
     /**
