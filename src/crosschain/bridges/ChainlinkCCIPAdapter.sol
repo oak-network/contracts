@@ -10,7 +10,6 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IGlobalParams} from "../../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../../interfaces/ICrossChainExecutor.sol";
 import {IBridgeAdapter} from "../../interfaces/IBridgeAdapter.sol";
-import {CrossChainRegistryKeys} from "../../constants/CrossChainRegistryKeys.sol";
 
 /**
  * @title ChainlinkCCIPAdapter
@@ -29,7 +28,8 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
     error ChainlinkCCIPAdapterTokenMismatch();
     error ChainlinkCCIPAdapterAmountMismatch();
     error ChainlinkCCIPAdapterUnknownChainSelector();
-    error ChainlinkCCIPAdapterSourceChainIdMismatch(uint256 payloadChainId, uint64 provenanceSelector, uint64 expected);
+    error ChainlinkCCIPAdapterChainSelectorMismatch(uint256 sourceChainId, uint64 expected, uint64 actual);
+    error ChainlinkCCIPAdapterInvalidIntentSender(uint256 sourceChainId, address expected, address actual);
     error ChainlinkCCIPAdapterExecutorNotSet();
     error ChainlinkCCIPAdapterIntentExpired();
 
@@ -51,20 +51,25 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         if (block.timestamp > intent.deadline) {
             revert ChainlinkCCIPAdapterIntentExpired();
         }
-        
-        uint64 expectedSelector = _getCcipSelector(intent.sourceChainId);
+
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0)) {
+            revert ChainlinkCCIPAdapterExecutorNotSet();
+        }
+
+        uint64 expectedSelector = ICrossChainExecutor(executor).getCcipChainSelector(intent.sourceChainId);
         if (expectedSelector == 0) {
             revert ChainlinkCCIPAdapterUnknownChainSelector();
         }
         if (expectedSelector != message.sourceChainSelector) {
-            revert ChainlinkCCIPAdapterSourceChainIdMismatch(
-                intent.sourceChainId, message.sourceChainSelector, expectedSelector
+            revert ChainlinkCCIPAdapterChainSelectorMismatch(
+                intent.sourceChainId, expectedSelector, message.sourceChainSelector
             );
         }
 
-        address allowedSender = _getAllowedSender(intent.sourceChainId);
-        if (allowedSender == address(0) || allowedSender != sourceSender) {
-            revert ChainlinkCCIPAdapterInvalidSender();
+        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        if (expectedSender == address(0) || expectedSender != sourceSender) {
+            revert ChainlinkCCIPAdapterInvalidIntentSender(intent.sourceChainId, expectedSender, sourceSender);
         }
 
         if (message.destTokenAmounts.length != 1) {
@@ -74,20 +79,12 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         address receivedToken = message.destTokenAmounts[0].token;
         uint256 receivedAmount = message.destTokenAmounts[0].amount;
 
-        if (intent.destinationToken != receivedToken) {
-            revert ChainlinkCCIPAdapterTokenMismatch();
-        }
         if (intent.amount != receivedAmount) {
             revert ChainlinkCCIPAdapterAmountMismatch();
         }
 
-        address executor = _getExecutor();
-        if (executor == address(0)) {
-            revert ChainlinkCCIPAdapterExecutorNotSet();
-        }
-
         IERC20(receivedToken).safeTransfer(executor, receivedAmount);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent);
+        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, receivedToken);
     }
 
     /**
@@ -104,11 +101,12 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         override
         returns (bytes32 messageId)
     {
-        if (msg.sender != _getExecutor()) {
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0) || msg.sender != executor) {
             revert ChainlinkCCIPAdapterUnauthorized();
         }
 
-        uint64 destinationSelector = _getCcipSelector(destinationChainId);
+        uint64 destinationSelector = ICrossChainExecutor(executor).getCcipChainSelector(destinationChainId);
         if (destinationSelector == 0) {
             revert ChainlinkCCIPAdapterUnknownChainSelector();
         }
@@ -138,7 +136,12 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         override
         returns (uint256 fee)
     {
-        uint64 destinationSelector = _getCcipSelector(destinationChainId);
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0)) {
+            revert ChainlinkCCIPAdapterExecutorNotSet();
+        }
+
+        uint64 destinationSelector = ICrossChainExecutor(executor).getCcipChainSelector(destinationChainId);
         if (destinationSelector == 0) {
             revert ChainlinkCCIPAdapterUnknownChainSelector();
         }
@@ -162,20 +165,6 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
             feeToken: address(0),
             extraArgs: Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 200_000, allowOutOfOrderExecution: true}))
         });
-    }
-
-    function _getExecutor() internal view returns (address) {
-        bytes32 value = GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.executor());
-        return address(uint160(uint256(value)));
-    }
-
-    function _getCcipSelector(uint256 chainId) internal view returns (uint64) {
-        return uint64(uint256(GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.ccipSelector(chainId))));
-    }
-
-    function _getAllowedSender(uint256 chainId) internal view returns (address) {
-        bytes32 value = GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.allowedSender(chainId, BRIDGE_ID));
-        return address(uint160(uint256(value)));
     }
 
     receive() external payable {}

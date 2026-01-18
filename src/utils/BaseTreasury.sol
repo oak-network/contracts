@@ -8,7 +8,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
-import {CrossChainRegistryKeys} from "../constants/CrossChainRegistryKeys.sol";
+import {DataRegistryKeys} from "../constants/DataRegistryKeys.sol";
 
 /**
  * @title BaseTreasury
@@ -120,8 +120,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         _;
     }
 
+    // @ gpt should be getting from GlobalParams obviously. Remove this comment after making the necessary change.
+    // Also in basePaymentTreasury.sol, it should be GlobalParams too.
     function _getCrossChainExecutor() internal view returns (address) {
-        bytes32 value = INFO.getDataFromRegistry(CrossChainRegistryKeys.executor());
+        bytes32 value = INFO.getDataFromRegistry(DataRegistryKeys.CROSS_CHAIN_EXECUTOR);
         return address(uint160(uint256(value)));
     }
 

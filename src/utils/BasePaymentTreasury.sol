@@ -10,7 +10,6 @@ import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.s
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
 import {DataRegistryKeys} from "../constants/DataRegistryKeys.sol";
-import {CrossChainRegistryKeys} from "../constants/CrossChainRegistryKeys.sol";
 import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 
 /**
@@ -410,7 +409,7 @@ abstract contract BasePaymentTreasury is
     }
 
     function _getCrossChainExecutor() internal view returns (address) {
-        bytes32 value = INFO.getDataFromRegistry(CrossChainRegistryKeys.executor());
+        bytes32 value = INFO.getDataFromRegistry(DataRegistryKeys.CROSS_CHAIN_EXECUTOR);
         return address(uint160(uint256(value)));
     }
 

@@ -12,7 +12,6 @@ import {SendParam, MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-o
 import {IGlobalParams} from "../../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../../interfaces/ICrossChainExecutor.sol";
 import {IBridgeAdapter} from "../../interfaces/IBridgeAdapter.sol";
-import {CrossChainRegistryKeys} from "../../constants/CrossChainRegistryKeys.sol";
 
 /**
  * @title LayerZeroStargateAdapter
@@ -26,13 +25,15 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     ILayerZeroEndpointV2 public immutable ENDPOINT;
     IGlobalParams public immutable GLOBAL_PARAMS;
 
+    // Needed for refunds: destination token => Stargate contract that can bridge that token.
+    mapping(address => address) public stargateForToken;
+
     error LayerZeroStargateAdapterUnauthorized();
     error LayerZeroStargateAdapterInvalidPeer();
-    error LayerZeroStargateAdapterInvalidStargateComposer();
     error LayerZeroStargateAdapterTokenNotConfigured();
     error LayerZeroStargateAdapterAmountMismatch();
     error LayerZeroStargateAdapterUnknownDestinationChainId();
-    error LayerZeroStargateAdapterSourceChainIdMismatch(uint256 payloadChainId, uint32 provenanceSrcEid, uint32 expected);
+    error LayerZeroStargateAdapterEidMismatch(uint256 sourceChainId, uint32 expected, uint32 actual);
     error LayerZeroStargateAdapterExecutorNotSet();
     error LayerZeroStargateAdapterIntentExpired();
 
@@ -42,6 +43,21 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     constructor(address endpoint, IGlobalParams globalParams) {
         ENDPOINT = ILayerZeroEndpointV2(endpoint);
         GLOBAL_PARAMS = globalParams;
+    }
+
+    modifier onlyProtocolAdmin() {
+        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
+            revert LayerZeroStargateAdapterUnauthorized();
+        }
+        _;
+    }
+
+    /// @notice Sets the Stargate contract used to bridge a given destination token for refunds.
+    function setStargateForToken(address token, address stargate) external onlyProtocolAdmin {
+        if (token == address(0) || stargate == address(0)) {
+            revert LayerZeroStargateAdapterTokenNotConfigured();
+        }
+        stargateForToken[token] = stargate;
     }
 
     /**
@@ -69,38 +85,34 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
             revert LayerZeroStargateAdapterIntentExpired();
         }
 
-        uint32 expectedEid = _getLzEid(intent.sourceChainId);
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0)) {
+            revert LayerZeroStargateAdapterExecutorNotSet();
+        }
+
+        uint32 expectedEid = ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId);
         if (expectedEid == 0) {
             revert LayerZeroStargateAdapterUnknownDestinationChainId();
         }
         if (expectedEid != srcEid) {
-            revert LayerZeroStargateAdapterSourceChainIdMismatch(intent.sourceChainId, srcEid, expectedEid);
+            revert LayerZeroStargateAdapterEidMismatch(intent.sourceChainId, expectedEid, srcEid);
         }
 
-        bytes32 expectedPeer = _getAllowedPeer(intent.sourceChainId);
-        if (expectedPeer == bytes32(0) || expectedPeer != composeFrom) {
+        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        bytes32 expectedPeer = bytes32(uint256(uint160(expectedSender)));
+        if (expectedSender == address(0) || expectedPeer != composeFrom) {
             revert LayerZeroStargateAdapterInvalidPeer();
-        }
-
-        address expectedStargate = _getStargateForToken(intent.destinationToken);
-        if (expectedStargate == address(0)) {
-            revert LayerZeroStargateAdapterTokenNotConfigured();
-        }
-        if (from != expectedStargate) {
-            revert LayerZeroStargateAdapterInvalidStargateComposer();
         }
 
         if (intent.amount != amountLD) {
             revert LayerZeroStargateAdapterAmountMismatch();
         }
 
-        address executor = _getExecutor();
-        if (executor == address(0)) {
-            revert LayerZeroStargateAdapterExecutorNotSet();
-        }
+        // Resolve received token from the Stargate contract calling compose.
+        address receivedToken = IStargate(from).token();
 
-        IERC20(intent.destinationToken).safeTransfer(executor, amountLD);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent);
+        IERC20(receivedToken).safeTransfer(executor, amountLD);
+        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, receivedToken);
 
         emit IntentComposed(guid, srcEid, intent.intentId, amountLD);
     }
@@ -118,11 +130,15 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
         override
         returns (uint256 fee)
     {
-        address stargate = _getStargateForToken(token);
+        address stargate = stargateForToken[token];
         if (stargate == address(0)) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
-        uint32 dstEid = _getLzEid(destinationChainId);
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0)) {
+            revert LayerZeroStargateAdapterExecutorNotSet();
+        }
+        uint32 dstEid = ICrossChainExecutor(executor).getLayerZeroEid(destinationChainId);
         if (dstEid == 0) {
             revert LayerZeroStargateAdapterUnknownDestinationChainId();
         }
@@ -155,15 +171,16 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
         override
         returns (bytes32 refundId)
     {
-        if (msg.sender != _getExecutor()) {
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        if (executor == address(0) || msg.sender != executor) {
             revert LayerZeroStargateAdapterUnauthorized();
         }
 
-        address stargate = _getStargateForToken(token);
+        address stargate = stargateForToken[token];
         if (stargate == address(0)) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
-        uint32 dstEid = _getLzEid(destinationChainId);
+        uint32 dstEid = ICrossChainExecutor(executor).getLayerZeroEid(destinationChainId);
         if (dstEid == 0) {
             revert LayerZeroStargateAdapterUnknownDestinationChainId();
         }
@@ -184,31 +201,13 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
         (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: msg.value}(
             sendParam,
             MessagingFee({nativeFee: msg.value, lzTokenFee: 0}),
-            payable(address(this))
+            payable(msg.sender)
         );
 
         IERC20(token).forceApprove(stargate, 0);
 
         refundId = msgReceipt.guid;
         emit RefundSent(refundId, destinationChainId, recipient, token, amount);
-    }
-
-    function _getExecutor() internal view returns (address) {
-        bytes32 value = GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.executor());
-        return address(uint160(uint256(value)));
-    }
-
-    function _getLzEid(uint256 chainId) internal view returns (uint32) {
-        return uint32(uint256(GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.lzEid(chainId))));
-    }
-
-    function _getAllowedPeer(uint256 chainId) internal view returns (bytes32) {
-        return GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.allowedSender(chainId, BRIDGE_ID));
-    }
-
-    function _getStargateForToken(address token) internal view returns (address) {
-        bytes32 value = GLOBAL_PARAMS.getFromRegistry(CrossChainRegistryKeys.stargateForToken(token));
-        return address(uint160(uint256(value)));
     }
 
     receive() external payable {}

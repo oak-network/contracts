@@ -16,3 +16,6 @@
 [submodule "lib/stargate-v2"]
 	path = lib/stargate-v2
 	url = https://github.com/stargate-protocol/stargate-v2
+[submodule "lib/solidity-bytes-utils"]
+	path = lib/solidity-bytes-utils
+	url = https://github.com/GNSPS/solidity-bytes-utils

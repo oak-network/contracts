@@ -1,4 +1,10 @@
 {
+  "lib/LayerZero-v2": {
+    "rev": "ab9b083410b9359285a5756807e1b6145d4711a7"
+  },
+  "lib/ccip": {
+    "rev": "171f9f0cf249765116e3131b61f5b4157566f25f"
+  },
   "lib/forge-std": {
     "rev": "1d9650e951204a0ddce9ff89c32f1997984cef4d"
   },
@@ -13,5 +19,8 @@
       "name": "v5.3.0",
       "rev": "60b305a8f3ff0c7688f02ac470417b6bbf1c4d27"
     }
+  },
+  "lib/stargate-v2": {
+    "rev": "4b7f398e974f868a115f6d437ac57ee85ca6da41"
   }
 }

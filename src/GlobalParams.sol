@@ -8,6 +8,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {Counters} from "./utils/Counters.sol";
 import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
+import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
 
 /**
  * @title GlobalParams
@@ -301,6 +302,15 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function getFromRegistry(bytes32 key) external view returns (bytes32 value) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         value = $.dataRegistry[key];
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function getCrossChainExecutor() external view returns (address) {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        bytes32 value = $.dataRegistry[DataRegistryKeys.CROSS_CHAIN_EXECUTOR];
+        return address(uint160(uint256(value)));
     }
 
     /**

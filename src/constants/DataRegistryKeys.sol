@@ -14,6 +14,10 @@ library DataRegistryKeys {
     bytes32 public constant CAMPAIGN_LAUNCH_BUFFER = keccak256("campaignLaunchBuffer");
     bytes32 public constant MINIMUM_CAMPAIGN_DURATION = keccak256("minimumCampaignDuration");
 
+    // Cross-chain keys
+    /// @notice Registry key for the destination-chain cross-chain executor address.
+    bytes32 public constant CROSS_CHAIN_EXECUTOR = keccak256("crosschain.executor");
+
     /**
      * @notice Generates a namespaced registry key scoped to a specific platform.
      * @param baseKey The base registry key.

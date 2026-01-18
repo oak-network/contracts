@@ -136,6 +136,11 @@ interface IGlobalParams {
     function getFromRegistry(bytes32 key) external view returns (bytes32 value);
 
     /**
+     * @notice Returns the destination-chain cross-chain executor address from the data registry.
+     */
+    function getCrossChainExecutor() external view returns (address);
+
+    /**
      * @notice Sets or updates a platform-specific line item type configuration.
      * @param platformHash The identifier of the platform.
      * @param typeId The identifier of the line item type.

@@ -20,7 +20,6 @@ interface ICrossChainExecutor {
      * @param treasury Target treasury on Ethereum.
      * @param sender Original sender on source chain.
      * @param sourceToken Token on the source chain.
-     * @param destinationToken Token delivered on Ethereum.
      * @param amount Amount delivered (token decimals).
      * @param deadline Expiration timestamp.
      * @param data ABI-encoded calldata for the treasury entrypoint.
@@ -31,7 +30,6 @@ interface ICrossChainExecutor {
         address treasury;
         address sender;
         address sourceToken;
-        address destinationToken;
         uint256 amount;
         uint256 deadline;
         bytes data;
@@ -55,8 +53,24 @@ interface ICrossChainExecutor {
      * @notice Execute a cross-chain intent on the destination chain.
      * @param bridgeId Bridge identifier.
      * @param intent Cross-chain intent payload.
+     * @param receivedToken Token received on the destination chain for this intent.
      */
-    function executeIntent(bytes32 bridgeId, CrossChainIntent calldata intent) external;
+    function executeIntent(bytes32 bridgeId, CrossChainIntent calldata intent, address receivedToken) external;
+
+    /**
+     * @notice Returns the registered IntentSender for a given source chainId.
+     */
+    function getIntentSender(uint256 chainId) external view returns (address);
+
+    /**
+     * @notice Returns the stored CCIP chain selector for a given source chainId.
+     */
+    function getCcipChainSelector(uint256 chainId) external view returns (uint64);
+
+    /**
+     * @notice Returns the stored LayerZero eid for a given source chainId.
+     */
+    function getLayerZeroEid(uint256 chainId) external view returns (uint32);
 
     /**
      * @notice Record a refund request for an executed intent.
@@ -68,12 +82,20 @@ interface ICrossChainExecutor {
     function requestRefund(bytes32 intentId, address destinationToken, uint256 amount, address recipient) external;
 
     /**
-     * @notice Bridge a refund back to the source chain.
+     * @notice Bridge a refund back to the source chain via CCIP.
+     * @dev Callable only by the configured off-chain agent.
      * @param intentId Intent identifier.
-     * @param refundBridgeId Bridge identifier.
-     * @return refundId Bridge message ID.
+     * @return refundId CCIP message ID.
      */
-    function executeRefund(bytes32 intentId, bytes32 refundBridgeId) external payable returns (bytes32 refundId);
+    function executeRefundCCIP(bytes32 intentId) external payable returns (bytes32 refundId);
+
+    /**
+     * @notice Bridge a refund back to the source chain via LayerZero/Stargate.
+     * @dev Callable only by the configured off-chain agent.
+     * @param intentId Intent identifier.
+     * @return refundId LayerZero GUID.
+     */
+    function executeRefundLZStargate(bytes32 intentId) external payable returns (bytes32 refundId);
 
     /// @notice Returns the status of a given intent.
     function getIntentStatus(bytes32 intentId) external view returns (IntentStatus status);
@@ -83,6 +105,7 @@ interface ICrossChainExecutor {
 
 
     event IntentExecuted(
+        bytes32 indexed bridgeId,
         bytes32 indexed intentId,
         address indexed sender,
         address token,
