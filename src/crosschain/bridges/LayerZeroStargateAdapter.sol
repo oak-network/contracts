@@ -182,9 +182,9 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
             revert LayerZeroStargateAdapterInsufficientFee(requiredFee.nativeFee, msg.value);
         }
 
-        (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: requiredFee.nativeFee}(
+        (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: msg.value}(
             sendParam,
-            MessagingFee({nativeFee: requiredFee.nativeFee, lzTokenFee: 0}),
+            MessagingFee({nativeFee: msg.value, lzTokenFee: 0}),
             payable(feeRefundRecipient)
         );
 
