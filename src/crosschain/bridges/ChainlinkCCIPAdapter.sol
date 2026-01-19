@@ -9,13 +9,13 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import {IGlobalParams} from "../../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../../interfaces/ICrossChainExecutor.sol";
-import {IBridgeAdapter} from "../../interfaces/IBridgeAdapter.sol";
+import {IChainlinkCCIPAdapter} from "../../interfaces/IChainlinkCCIPAdapter.sol";
 
 /**
  * @title ChainlinkCCIPAdapter
  * @notice Destination-chain adapter for CCIP token delivery and refund sending.
  */
-contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
+contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
     using SafeERC20 for IERC20;
 
     bytes32 public constant BRIDGE_ID = keccak256("CCIP");
@@ -32,6 +32,8 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
     error ChainlinkCCIPAdapterInvalidIntentSender(uint256 sourceChainId, address expected, address actual);
     error ChainlinkCCIPAdapterExecutorNotSet();
     error ChainlinkCCIPAdapterIntentExpired();
+    error ChainlinkCCIPAdapterInsufficientFee(uint256 required, uint256 provided);
+    error ChainlinkCCIPAdapterFeeRefundFailed();
 
     event RefundSent(bytes32 indexed messageId, uint256 destinationChainId, address recipient, uint256 amount);
 
@@ -48,13 +50,16 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         ICrossChainExecutor.CrossChainIntent memory intent =
             abi.decode(message.data, (ICrossChainExecutor.CrossChainIntent));
 
-        if (block.timestamp > intent.deadline) {
-            revert ChainlinkCCIPAdapterIntentExpired();
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+
+        // Validate sender provenance first.
+        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        if (expectedSender != sourceSender) {
+            revert ChainlinkCCIPAdapterInvalidIntentSender(intent.sourceChainId, expectedSender, sourceSender);
         }
 
-        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0)) {
-            revert ChainlinkCCIPAdapterExecutorNotSet();
+        if (block.timestamp > intent.deadline) {
+            revert ChainlinkCCIPAdapterIntentExpired();
         }
 
         uint64 expectedSelector = ICrossChainExecutor(executor).getCcipChainSelector(intent.sourceChainId);
@@ -65,11 +70,6 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
             revert ChainlinkCCIPAdapterChainSelectorMismatch(
                 intent.sourceChainId, expectedSelector, message.sourceChainSelector
             );
-        }
-
-        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
-        if (expectedSender == address(0) || expectedSender != sourceSender) {
-            revert ChainlinkCCIPAdapterInvalidIntentSender(intent.sourceChainId, expectedSender, sourceSender);
         }
 
         if (message.destTokenAmounts.length != 1) {
@@ -88,14 +88,15 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
     }
 
     /**
-     * @notice Sends a refund back to the source chain using CCIP.
-     * @param destinationChainId The source chainId of the original intent.
-     * @param recipient The recipient address on the source chain.
-     * @param token The token on destination chain to refund.
-     * @param amount The amount to refund.
-     * @return messageId The CCIP message ID.
+     * @inheritdoc IChainlinkCCIPAdapter
      */
-    function sendRefund(uint256 destinationChainId, address recipient, address token, uint256 amount)
+    function sendRefund(
+        uint256 destinationChainId,
+        address recipient,
+        address token,
+        uint256 amount,
+        address feeRefundRecipient
+    )
         external
         payable
         override
@@ -116,19 +117,27 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         Client.EVM2AnyMessage memory ccipMessage = _buildRefundMessage(destinationSelector, recipient, token, amount);
         IRouterClient router = IRouterClient(getRouter());
 
+        uint256 requiredFee = router.getFee(destinationSelector, ccipMessage);
+        if (msg.value < requiredFee) {
+            revert ChainlinkCCIPAdapterInsufficientFee(requiredFee, msg.value);
+        }
+
         IERC20(token).forceApprove(address(router), amount);
-        messageId = router.ccipSend{value: msg.value}(destinationSelector, ccipMessage);
+        messageId = router.ccipSend{value: requiredFee}(destinationSelector, ccipMessage);
         IERC20(token).forceApprove(address(router), 0);
+
+        if (msg.value > requiredFee) {
+            (bool ok,) = feeRefundRecipient.call{value: msg.value - requiredFee}("");
+            if (!ok) {
+                revert ChainlinkCCIPAdapterFeeRefundFailed();
+            }
+        }
 
         emit RefundSent(messageId, destinationChainId, recipient, amount);
     }
 
     /**
-     * @notice Quotes the CCIP fee for a refund.
-     * @param destinationChainId The source chainId of the original intent.
-     * @param token The token to refund.
-     * @param amount The amount to refund.
-     * @return fee The native fee required by CCIP.
+     * @inheritdoc IChainlinkCCIPAdapter
      */
     function quoteRefundFee(uint256 destinationChainId, address token, uint256 amount)
         external
@@ -137,14 +146,7 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         returns (uint256 fee)
     {
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0)) {
-            revert ChainlinkCCIPAdapterExecutorNotSet();
-        }
-
         uint64 destinationSelector = ICrossChainExecutor(executor).getCcipChainSelector(destinationChainId);
-        if (destinationSelector == 0) {
-            revert ChainlinkCCIPAdapterUnknownChainSelector();
-        }
 
         Client.EVM2AnyMessage memory ccipMessage = _buildRefundMessage(destinationSelector, address(0), token, amount);
         return IRouterClient(getRouter()).getFee(destinationSelector, ccipMessage);
@@ -167,5 +169,4 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IBridgeAdapter {
         });
     }
 
-    receive() external payable {}
 }

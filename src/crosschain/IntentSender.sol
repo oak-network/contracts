@@ -36,7 +36,7 @@ contract IntentSender is Ownable {
      * @notice LayerZero/Stargate send parameters.
      * @param stargate Stargate contract address.
      * @param minAmount Minimum amount to receive on destination.
-      * @param gasLimit Gas limit to use on destination (0 => default 500_000).
+     * @param gasLimit Gas limit to use on destination (0 => default 500_000).
      */
     struct LZStargateParams {
         address stargate;
@@ -258,6 +258,7 @@ contract IntentSender is Ownable {
         if (params.minAmount > intent.amount) {
             revert IntentSenderInvalidAmount();
         }
+        
         if (IStargate(params.stargate).token() != intent.sourceToken) {
             revert IntentSenderInvalidStargate();
         }

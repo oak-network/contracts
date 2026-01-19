@@ -11,22 +11,19 @@ import {SendParam, MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-o
 
 import {IGlobalParams} from "../../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../../interfaces/ICrossChainExecutor.sol";
-import {IBridgeAdapter} from "../../interfaces/IBridgeAdapter.sol";
+import {ILayerZeroStargateAdapter} from "../../interfaces/ILayerZeroStargateAdapter.sol";
 
 /**
  * @title LayerZeroStargateAdapter
  * @notice Destination-chain adapter for LayerZero v2 + Stargate v2 delivery and refunds.
  */
-contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
+contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapter {
     using SafeERC20 for IERC20;
 
     bytes32 public constant BRIDGE_ID = keccak256("LAYERZERO");
 
     ILayerZeroEndpointV2 public immutable ENDPOINT;
     IGlobalParams public immutable GLOBAL_PARAMS;
-
-    // Needed for refunds: destination token => Stargate contract that can bridge that token.
-    mapping(address => address) public stargateForToken;
 
     error LayerZeroStargateAdapterUnauthorized();
     error LayerZeroStargateAdapterInvalidPeer();
@@ -36,6 +33,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     error LayerZeroStargateAdapterEidMismatch(uint256 sourceChainId, uint32 expected, uint32 actual);
     error LayerZeroStargateAdapterExecutorNotSet();
     error LayerZeroStargateAdapterIntentExpired();
+    error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
 
     event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
     event RefundSent(bytes32 indexed guid, uint256 destinationChainId, address recipient, address token, uint256 amount);
@@ -43,21 +41,6 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     constructor(address endpoint, IGlobalParams globalParams) {
         ENDPOINT = ILayerZeroEndpointV2(endpoint);
         GLOBAL_PARAMS = globalParams;
-    }
-
-    modifier onlyProtocolAdmin() {
-        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
-            revert LayerZeroStargateAdapterUnauthorized();
-        }
-        _;
-    }
-
-    /// @notice Sets the Stargate contract used to bridge a given destination token for refunds.
-    function setStargateForToken(address token, address stargate) external onlyProtocolAdmin {
-        if (token == address(0) || stargate == address(0)) {
-            revert LayerZeroStargateAdapterTokenNotConfigured();
-        }
-        stargateForToken[token] = stargate;
     }
 
     /**
@@ -118,20 +101,15 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     }
 
     /**
-     * @notice Quotes the LayerZero/Stargate fee for a refund.
-     * @param destinationChainId The source chainId of the original intent.
-     * @param token The token to refund.
-     * @param amount The amount to refund.
-     * @return fee The native fee required.
+     * @inheritdoc ILayerZeroStargateAdapter
      */
-    function quoteRefundFee(uint256 destinationChainId, address token, uint256 amount)
+    function quoteRefundFee(uint256 destinationChainId, address token, uint256 amount, address stargate)
         external
         view
         override
         returns (uint256 fee)
     {
-        address stargate = stargateForToken[token];
-        if (stargate == address(0)) {
+        if (stargate == address(0) || IStargate(stargate).token() != token) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
@@ -158,14 +136,16 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
     }
 
     /**
-     * @notice Sends a refund back to the source chain using Stargate.
-     * @param destinationChainId The source chainId of the original intent.
-     * @param recipient The recipient on the source chain.
-     * @param token The token on destination chain to refund.
-     * @param amount The amount to refund.
-     * @return refundId The LayerZero GUID for tracking.
+     * @inheritdoc ILayerZeroStargateAdapter
      */
-    function sendRefund(uint256 destinationChainId, address recipient, address token, uint256 amount)
+    function sendRefund(
+        uint256 destinationChainId,
+        address recipient,
+        address token,
+        uint256 amount,
+        address stargate,
+        address feeRefundRecipient
+    )
         external
         payable
         override
@@ -176,8 +156,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
             revert LayerZeroStargateAdapterUnauthorized();
         }
 
-        address stargate = stargateForToken[token];
-        if (stargate == address(0)) {
+        if (stargate == address(0) || IStargate(stargate).token() != token) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
         uint32 dstEid = ICrossChainExecutor(executor).getLayerZeroEid(destinationChainId);
@@ -198,10 +177,15 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
             oftCmd: ""
         });
 
-        (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: msg.value}(
+        MessagingFee memory requiredFee = IStargate(stargate).quoteSend(sendParam, false);
+        if (msg.value < requiredFee.nativeFee) {
+            revert LayerZeroStargateAdapterInsufficientFee(requiredFee.nativeFee, msg.value);
+        }
+
+        (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: requiredFee.nativeFee}(
             sendParam,
-            MessagingFee({nativeFee: msg.value, lzTokenFee: 0}),
-            payable(msg.sender)
+            MessagingFee({nativeFee: requiredFee.nativeFee, lzTokenFee: 0}),
+            payable(feeRefundRecipient)
         );
 
         IERC20(token).forceApprove(stargate, 0);
@@ -210,5 +194,4 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, IBridgeAdapter {
         emit RefundSent(refundId, destinationChainId, recipient, token, amount);
     }
 
-    receive() external payable {}
 }

@@ -87,15 +87,16 @@ interface ICrossChainExecutor {
      * @param intentId Intent identifier.
      * @return refundId CCIP message ID.
      */
-    function executeRefundCCIP(bytes32 intentId) external payable returns (bytes32 refundId);
+    function sendRefundCCIP(bytes32 intentId) external payable returns (bytes32 refundId);
 
     /**
      * @notice Bridge a refund back to the source chain via LayerZero/Stargate.
      * @dev Callable only by the configured off-chain agent.
      * @param intentId Intent identifier.
+     * @param stargate Stargate contract address on the destination chain used for refund bridging.
      * @return refundId LayerZero GUID.
      */
-    function executeRefundLZStargate(bytes32 intentId) external payable returns (bytes32 refundId);
+    function sendRefundLZStargate(bytes32 intentId, address stargate) external payable returns (bytes32 refundId);
 
     /// @notice Returns the status of a given intent.
     function getIntentStatus(bytes32 intentId) external view returns (IntentStatus status);

@@ -6,7 +6,8 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IGlobalParams} from "../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
-import {IBridgeAdapter} from "../interfaces/IBridgeAdapter.sol";
+import {IChainlinkCCIPAdapter} from "../interfaces/IChainlinkCCIPAdapter.sol";
+import {ILayerZeroStargateAdapter} from "../interfaces/ILayerZeroStargateAdapter.sol";
 
 /**
  * @title Executor
@@ -22,7 +23,7 @@ contract Executor is ICrossChainExecutor, Pausable {
 
     // Bridge adapter allowlist (bridgeId => adapter address)
     mapping(bytes32 => address) private _bridgeAdapters;
-    // Source chain configuration (owned by Executor per spec)
+    // Source chain configuration
     mapping(uint256 => address) private _intentSenders;
     mapping(uint256 => uint64) private _ccipChainSelectors;
     mapping(uint256 => uint32) private _layerZeroEids;
@@ -171,10 +172,10 @@ contract Executor is ICrossChainExecutor, Pausable {
     /**
      * @inheritdoc ICrossChainExecutor
      */
-    function executeRefundCCIP(bytes32 intentId)
+    function sendRefundCCIP(bytes32 intentId)
         external
         payable
-        override
+        override(ICrossChainExecutor)
         whenNotPaused
         onlyAgent
         returns (bytes32 refundId)
@@ -193,28 +194,16 @@ contract Executor is ICrossChainExecutor, Pausable {
             revert ExecutorBridgeAdapterNotSet(BRIDGE_ID_CCIP);
         }
 
-        uint256 requiredFee = IBridgeAdapter(adapter).quoteRefundFee(
-            refundIntent.sourceChainId, refundIntent.destinationToken, refundIntent.amount
-        );
-        if (msg.value < requiredFee) {
-            revert ExecutorInsufficientFee(requiredFee, msg.value);
-        }
-
-        record.status = IntentStatus.Refunded;
-
         IERC20(refundIntent.destinationToken).forceApprove(adapter, refundIntent.amount);
-        refundId = IBridgeAdapter(adapter).sendRefund{value: requiredFee}(
-            refundIntent.sourceChainId, refundIntent.recipient, refundIntent.destinationToken, refundIntent.amount
+        refundId = IChainlinkCCIPAdapter(adapter).sendRefund{value: msg.value}(
+            refundIntent.sourceChainId,
+            refundIntent.recipient,
+            refundIntent.destinationToken,
+            refundIntent.amount,
+            msg.sender
         );
         IERC20(refundIntent.destinationToken).forceApprove(adapter, 0);
-
-        // Refund any excess msg.value back to the agent.
-        if (msg.value > requiredFee) {
-            (bool ok,) = msg.sender.call{value: msg.value - requiredFee}("");
-            if (!ok) {
-                revert ExecutorUnauthorized();
-            }
-        }
+        record.status = IntentStatus.Refunded;
 
         emit RefundExecuted(intentId, refundId);
     }
@@ -222,10 +211,10 @@ contract Executor is ICrossChainExecutor, Pausable {
     /**
      * @inheritdoc ICrossChainExecutor
      */
-    function executeRefundLZStargate(bytes32 intentId)
+    function sendRefundLZStargate(bytes32 intentId, address stargate)
         external
         payable
-        override
+        override(ICrossChainExecutor)
         whenNotPaused
         onlyAgent
         returns (bytes32 refundId)
@@ -244,27 +233,17 @@ contract Executor is ICrossChainExecutor, Pausable {
             revert ExecutorBridgeAdapterNotSet(BRIDGE_ID_LAYERZERO);
         }
 
-        uint256 requiredFee = IBridgeAdapter(adapter).quoteRefundFee(
-            refundIntent.sourceChainId, refundIntent.destinationToken, refundIntent.amount
-        );
-        if (msg.value < requiredFee) {
-            revert ExecutorInsufficientFee(requiredFee, msg.value);
-        }
-
-        record.status = IntentStatus.Refunded;
-
         IERC20(refundIntent.destinationToken).forceApprove(adapter, refundIntent.amount);
-        refundId = IBridgeAdapter(adapter).sendRefund{value: requiredFee}(
-            refundIntent.sourceChainId, refundIntent.recipient, refundIntent.destinationToken, refundIntent.amount
+        refundId = ILayerZeroStargateAdapter(adapter).sendRefund{value: msg.value}(
+            refundIntent.sourceChainId,
+            refundIntent.recipient,
+            refundIntent.destinationToken,
+            refundIntent.amount,
+            stargate,
+            msg.sender
         );
         IERC20(refundIntent.destinationToken).forceApprove(adapter, 0);
-
-        if (msg.value > requiredFee) {
-            (bool ok,) = msg.sender.call{value: msg.value - requiredFee}("");
-            if (!ok) {
-                revert ExecutorUnauthorized();
-            }
-        }
+        record.status = IntentStatus.Refunded;
 
         emit RefundExecuted(intentId, refundId);
     }
