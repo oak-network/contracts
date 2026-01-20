@@ -456,7 +456,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         if (intentId != ZERO_BYTES) {
             address executor = _getCrossChainExecutor();
             IERC20(pledgeToken).safeTransfer(executor, amountToRefund);
-            ICrossChainExecutor(executor).requestRefund(intentId, pledgeToken, amountToRefund, nftOwner);
+            ICrossChainExecutor(executor).requestRefund(intentId, amountToRefund, nftOwner);
         } else {
             IERC20(pledgeToken).safeTransfer(nftOwner, amountToRefund);
         }

@@ -28,18 +28,7 @@ contract Executor is ICrossChainExecutor, Pausable {
     mapping(uint256 => uint64) private _ccipChainSelectors;
     mapping(uint256 => uint32) private _layerZeroEids;
 
-    struct IntentRecord {
-        IntentStatus status;
-        uint256 sourceChainId;
-        address sourceToken;
-        address destinationToken; // token delivered on destination chain (for refunds)
-        uint256 escrowedAmount;
-        address sender;
-        address treasury;
-    }
-
-    mapping(bytes32 => IntentRecord) public intents;
-    mapping(bytes32 => RefundIntent) private _refundIntents;
+    mapping(bytes32 => Intent) private _intents;
     mapping(address => mapping(bytes4 => bool)) public allowedTreasurySelectors;
     address public agent;
 
@@ -80,21 +69,14 @@ contract Executor is ICrossChainExecutor, Pausable {
      * @notice Executes an adapter-authenticated intent by forwarding calldata to the treasury.
      * @param bridgeId Bridge identifier (e.g. keccak256("CCIP")).
      * @param intent The cross-chain intent payload.
-     * @param receivedToken Token received on destination for this intent.
+     * @param payload ABI-encoded calldata for the treasury entrypoint.
      */
-    function executeIntent(bytes32 bridgeId, CrossChainIntent calldata intent, address receivedToken)
+    function executeIntent(bytes32 bridgeId, Intent memory intent, bytes calldata payload)
         external
         override
         whenNotPaused
     {
-        // Adapter-authenticated intent dispatch; selector allowlist prevents arbitrary calls.
-        if (intents[intent.intentId].status != IntentStatus.Unseen) {
-            revert ExecutorIntentAlreadyProcessed(intent.intentId);
-        }
-        if (intent.data.length < 4) {
-            revert ExecutorInvalidData();
-        }
-
+        // Validate caller is a registered adapter first
         address expectedAdapter = _bridgeAdapters[bridgeId];
         if (expectedAdapter == address(0)) {
             revert ExecutorBridgeAdapterNotSet(bridgeId);
@@ -103,70 +85,62 @@ contract Executor is ICrossChainExecutor, Pausable {
             revert ExecutorAdapterMismatch(bridgeId, msg.sender);
         }
 
-        bytes4 selector = bytes4(intent.data);
+        if (_intents[intent.intentId].status != Status.None) {
+            revert ExecutorIntentAlreadyProcessed(intent.intentId);
+        }
+        if (payload.length < 4) {
+            revert ExecutorInvalidData();
+        }
+
+        bytes4 selector = bytes4(payload);
         if (!allowedTreasurySelectors[intent.treasury][selector]) {
             revert ExecutorSelectorNotAllowed(intent.treasury, selector);
         }
 
-        intents[intent.intentId] = IntentRecord({
-            status: IntentStatus.Executed,
-            sourceChainId: intent.sourceChainId,
-            sourceToken: intent.sourceToken,
-            destinationToken: receivedToken,
-            escrowedAmount: intent.amount,
-            sender: intent.sender,
-            treasury: intent.treasury
-        });
+        intent.status = Status.Executed;
+        _intents[intent.intentId] = intent;
 
-        IERC20(receivedToken).safeTransfer(intent.treasury, intent.amount);
+        IERC20(intent.token).safeTransfer(intent.treasury, intent.amount);
 
-        (bool success, bytes memory returndata) = intent.treasury.call(intent.data);
+        (bool success, bytes memory returndata) = intent.treasury.call(payload);
         if (!success) {
             revert ExecutorCallFailed(intent.intentId, returndata);
         }
 
-        emit IntentExecuted(bridgeId, intent.intentId, intent.sender, receivedToken, intent.amount, intent.treasury);
+        emit IntentExecuted(bridgeId, intent.intentId, intent.account, intent.token, intent.amount, intent.treasury);
     }
 
     /**
      * @notice Records a refund request initiated by the treasury.
+     * @dev Updates the intent's amount and account for the refund.
      * @param intentId The cross-chain intent ID.
-     * @param destinationToken The token to refund on destination.
      * @param amount The amount to refund.
      * @param recipient The recipient on the source chain.
      */
-    function requestRefund(bytes32 intentId, address destinationToken, uint256 amount, address recipient)
+    function requestRefund(bytes32 intentId, uint256 amount, address recipient)
         external
         override
         whenNotPaused
     {
-        // Called by treasury after refund state updates; executor only records the request.
-        IntentRecord storage record = intents[intentId];
-        if (record.status != IntentStatus.Executed) {
+        Intent storage storedIntent = _intents[intentId];
+        if (storedIntent.status != Status.Executed) {
             revert ExecutorInvalidRefund(intentId);
         }
-        if (msg.sender != record.treasury) {
+        if (msg.sender != storedIntent.treasury) {
             revert ExecutorUnauthorized();
         }
         if (recipient == address(0)) {
             revert ExecutorInvalidRefund(intentId);
         }
-        if (amount == 0 || amount > record.escrowedAmount) {
-            revert ExecutorInvalidRefund(intentId);
-        }
-        if (destinationToken != record.destinationToken) {
+        if (amount == 0) {
             revert ExecutorInvalidRefund(intentId);
         }
 
-        record.status = IntentStatus.RefundRequested;
-        _refundIntents[intentId] = RefundIntent({
-            destinationToken: destinationToken,
-            amount: amount,
-            recipient: recipient,
-            sourceChainId: record.sourceChainId
-        });
+        storedIntent.status = Status.RefundRequested;
+        storedIntent.amount = amount;
+        storedIntent.account = recipient;
 
-        emit RefundRequested(intentId, destinationToken, amount, recipient);
+        emit RefundRequested(intentId, storedIntent.token, amount, recipient);
     }
 
     /**
@@ -180,12 +154,11 @@ contract Executor is ICrossChainExecutor, Pausable {
         onlyAgent
         returns (bytes32 refundId)
     {
-        IntentRecord storage record = intents[intentId];
-        if (record.status != IntentStatus.RefundRequested) {
+        Intent memory intent = _intents[intentId];
+        if (intent.status != Status.RefundRequested) {
             revert ExecutorRefundNotRequested(intentId);
         }
-        RefundIntent memory refundIntent = _refundIntents[intentId];
-        if (refundIntent.amount == 0 || refundIntent.recipient == address(0)) {
+        if (intent.amount == 0 || intent.account == address(0)) {
             revert ExecutorInvalidRefund(intentId);
         }
 
@@ -194,16 +167,17 @@ contract Executor is ICrossChainExecutor, Pausable {
             revert ExecutorBridgeAdapterNotSet(BRIDGE_ID_CCIP);
         }
 
-        IERC20(refundIntent.destinationToken).forceApprove(adapter, refundIntent.amount);
+        delete _intents[intentId];
+
+        IERC20(intent.token).forceApprove(adapter, intent.amount);
         refundId = IChainlinkCCIPAdapter(adapter).sendRefund{value: msg.value}(
-            refundIntent.sourceChainId,
-            refundIntent.recipient,
-            refundIntent.destinationToken,
-            refundIntent.amount,
+            intent.sourceChainId,
+            intent.account,
+            intent.token,
+            intent.amount,
             msg.sender
         );
-        IERC20(refundIntent.destinationToken).forceApprove(adapter, 0);
-        record.status = IntentStatus.Refunded;
+        IERC20(intent.token).forceApprove(adapter, 0);
 
         emit RefundExecuted(intentId, refundId);
     }
@@ -219,12 +193,11 @@ contract Executor is ICrossChainExecutor, Pausable {
         onlyAgent
         returns (bytes32 refundId)
     {
-        IntentRecord storage record = intents[intentId];
-        if (record.status != IntentStatus.RefundRequested) {
+        Intent memory intent = _intents[intentId];
+        if (intent.status != Status.RefundRequested) {
             revert ExecutorRefundNotRequested(intentId);
         }
-        RefundIntent memory refundIntent = _refundIntents[intentId];
-        if (refundIntent.amount == 0 || refundIntent.recipient == address(0)) {
+        if (intent.amount == 0 || intent.account == address(0)) {
             revert ExecutorInvalidRefund(intentId);
         }
 
@@ -233,27 +206,28 @@ contract Executor is ICrossChainExecutor, Pausable {
             revert ExecutorBridgeAdapterNotSet(BRIDGE_ID_LAYERZERO);
         }
 
-        IERC20(refundIntent.destinationToken).forceApprove(adapter, refundIntent.amount);
+        delete _intents[intentId];
+
+        IERC20(intent.token).forceApprove(adapter, intent.amount);
         refundId = ILayerZeroStargateAdapter(adapter).sendRefund{value: msg.value}(
-            refundIntent.sourceChainId,
-            refundIntent.recipient,
-            refundIntent.destinationToken,
-            refundIntent.amount,
+            intent.sourceChainId,
+            intent.account,
+            intent.token,
+            intent.amount,
             stargate,
             msg.sender
         );
-        IERC20(refundIntent.destinationToken).forceApprove(adapter, 0);
-        record.status = IntentStatus.Refunded;
+        IERC20(intent.token).forceApprove(adapter, 0);
 
         emit RefundExecuted(intentId, refundId);
     }
 
-    function getIntentStatus(bytes32 intentId) external view override returns (IntentStatus status) {
-        return intents[intentId].status;
+    function getIntentStatus(bytes32 intentId) external view override returns (Status status) {
+        return _intents[intentId].status;
     }
 
-    function getRefundIntent(bytes32 intentId) external view override returns (RefundIntent memory refundIntent) {
-        return _refundIntents[intentId];
+    function getIntent(bytes32 intentId) external view override returns (Intent memory intent) {
+        return _intents[intentId];
     }
 
     /**

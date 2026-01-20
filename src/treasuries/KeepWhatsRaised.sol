@@ -1075,7 +1075,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (intentId != ZERO_BYTES) {
             address executor = _getCrossChainExecutor();
             IERC20(pledgeToken).safeTransfer(executor, netRefundAmount);
-            ICrossChainExecutor(executor).requestRefund(intentId, pledgeToken, netRefundAmount, nftOwner);
+            ICrossChainExecutor(executor).requestRefund(intentId, netRefundAmount, nftOwner);
         } else {
             IERC20(pledgeToken).safeTransfer(nftOwner, netRefundAmount);
         }

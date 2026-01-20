@@ -20,6 +20,9 @@
       "rev": "60b305a8f3ff0c7688f02ac470417b6bbf1c4d27"
     }
   },
+  "lib/solidity-bytes-utils": {
+    "rev": "fc502455bb2a7e26a743378df042612dd50d1eb9"
+  },
   "lib/stargate-v2": {
     "rev": "4b7f398e974f868a115f6d437ac57ee85ca6da41"
   }

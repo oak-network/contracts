@@ -6,56 +6,41 @@ pragma solidity ^0.8.22;
  * @notice Interface for the Executor that handles cross-chain intents and refunds.
  */
 interface ICrossChainExecutor {
-    enum IntentStatus {
-        Unseen,
+    enum Status {
+        None,
+        Ongoing,
         Executed,
         RefundRequested,
-        Refunded
+        Failed
     }
 
     /**
-     * @notice Cross-chain intent payload delivered to Ethereum.
+     * @notice Cross-chain intent payload.
      * @param intentId Unique identifier for this intent.
      * @param sourceChainId EVM chainId of the source chain.
-     * @param treasury Target treasury on Ethereum.
-     * @param sender Original sender on source chain.
-     * @param sourceToken Token on the source chain.
-     * @param amount Amount delivered (token decimals).
-     * @param deadline Expiration timestamp.
-     * @param data ABI-encoded calldata for the treasury entrypoint.
+     * @param status Current status of the intent.
+     * @param treasury Target treasury on destination chain.
+     * @param account The account associated with this intent (sender on source, recipient on refund).
+     * @param token The token for this intent (source token initially, updated to destination token by adapter).
+     * @param amount Amount (token decimals).
      */
-    struct CrossChainIntent {
+    struct Intent {
         bytes32 intentId;
         uint256 sourceChainId;
+        Status status;
         address treasury;
-        address sender;
-        address sourceToken;
+        address account;
+        address token;
         uint256 amount;
-        uint256 deadline;
-        bytes data;
-    }
-
-    /**
-     * @notice Refund intent recorded by the executor.
-     * @param destinationToken Token to refund on Ethereum.
-     * @param amount Amount to refund.
-     * @param recipient Recipient on the source chain.
-     * @param sourceChainId Source chainId for routing.
-     */
-    struct RefundIntent {
-        address destinationToken;
-        uint256 amount;
-        address recipient;
-        uint256 sourceChainId;
     }
 
     /**
      * @notice Execute a cross-chain intent on the destination chain.
      * @param bridgeId Bridge identifier.
      * @param intent Cross-chain intent payload.
-     * @param receivedToken Token received on the destination chain for this intent.
+     * @param payload ABI-encoded calldata for the treasury entrypoint.
      */
-    function executeIntent(bytes32 bridgeId, CrossChainIntent calldata intent, address receivedToken) external;
+    function executeIntent(bytes32 bridgeId, Intent memory intent, bytes calldata payload) external;
 
     /**
      * @notice Returns the registered IntentSender for a given source chainId.
@@ -75,11 +60,10 @@ interface ICrossChainExecutor {
     /**
      * @notice Record a refund request for an executed intent.
      * @param intentId Intent identifier.
-     * @param destinationToken Token to refund.
      * @param amount Refund amount.
      * @param recipient Source-chain recipient.
      */
-    function requestRefund(bytes32 intentId, address destinationToken, uint256 amount, address recipient) external;
+    function requestRefund(bytes32 intentId, uint256 amount, address recipient) external;
 
     /**
      * @notice Bridge a refund back to the source chain via CCIP.
@@ -99,16 +83,16 @@ interface ICrossChainExecutor {
     function sendRefundLZStargate(bytes32 intentId, address stargate) external payable returns (bytes32 refundId);
 
     /// @notice Returns the status of a given intent.
-    function getIntentStatus(bytes32 intentId) external view returns (IntentStatus status);
+    function getIntentStatus(bytes32 intentId) external view returns (Status status);
 
-    /// @notice Returns the refund intent for a given intent ID.
-    function getRefundIntent(bytes32 intentId) external view returns (RefundIntent memory refundIntent);
+    /// @notice Returns the full intent for a given intent ID.
+    function getIntent(bytes32 intentId) external view returns (Intent memory intent);
 
 
     event IntentExecuted(
         bytes32 indexed bridgeId,
         bytes32 indexed intentId,
-        address indexed sender,
+        address indexed account,
         address token,
         uint256 amount,
         address treasury

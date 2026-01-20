@@ -25,13 +25,12 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
     error ChainlinkCCIPAdapterUnauthorized();
     error ChainlinkCCIPAdapterInvalidSender();
     error ChainlinkCCIPAdapterUnexpectedTokenCount();
-    error ChainlinkCCIPAdapterTokenMismatch();
     error ChainlinkCCIPAdapterAmountMismatch();
     error ChainlinkCCIPAdapterUnknownChainSelector();
     error ChainlinkCCIPAdapterChainSelectorMismatch(uint256 sourceChainId, uint64 expected, uint64 actual);
     error ChainlinkCCIPAdapterInvalidIntentSender(uint256 sourceChainId, address expected, address actual);
     error ChainlinkCCIPAdapterExecutorNotSet();
-    error ChainlinkCCIPAdapterIntentExpired();
+    error ChainlinkCCIPAdapterInvalidIntentStatus();
     error ChainlinkCCIPAdapterInsufficientFee(uint256 required, uint256 provided);
     error ChainlinkCCIPAdapterFeeRefundFailed();
 
@@ -42,24 +41,24 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
     }
 
     /**
-     * @dev CCIP receive hook. Validates provenance, forwards funds to executor, and executes intent.
+     * @dev CCIP receive hook. Validates provenance, updates intent token, forwards funds to executor, and executes intent.
      */
     function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
-        address sourceSender = abi.decode(message.sender, (address));
+        (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
+            abi.decode(message.data, (ICrossChainExecutor.Intent, bytes));
 
-        ICrossChainExecutor.CrossChainIntent memory intent =
-            abi.decode(message.data, (ICrossChainExecutor.CrossChainIntent));
-
+        // Validate intent status is Ongoing
+        if (intent.status != ICrossChainExecutor.Status.Ongoing) {
+            revert ChainlinkCCIPAdapterInvalidIntentStatus();
+        }
+        
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-
-        // Validate sender provenance first.
+        address sourceSender = abi.decode(message.sender, (address));
+        
+        // Validate sender provenance
         address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
         if (expectedSender != sourceSender) {
             revert ChainlinkCCIPAdapterInvalidIntentSender(intent.sourceChainId, expectedSender, sourceSender);
-        }
-
-        if (block.timestamp > intent.deadline) {
-            revert ChainlinkCCIPAdapterIntentExpired();
         }
 
         uint64 expectedSelector = ICrossChainExecutor(executor).getCcipChainSelector(intent.sourceChainId);
@@ -83,8 +82,11 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
             revert ChainlinkCCIPAdapterAmountMismatch();
         }
 
+        // Update intent token to the received destination token
+        intent.token = receivedToken;
+
         IERC20(receivedToken).safeTransfer(executor, receivedAmount);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, receivedToken);
+        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
     }
 
     /**

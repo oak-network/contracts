@@ -28,11 +28,10 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     error LayerZeroStargateAdapterUnauthorized();
     error LayerZeroStargateAdapterInvalidPeer();
     error LayerZeroStargateAdapterTokenNotConfigured();
-    error LayerZeroStargateAdapterAmountMismatch();
     error LayerZeroStargateAdapterUnknownDestinationChainId();
     error LayerZeroStargateAdapterEidMismatch(uint256 sourceChainId, uint32 expected, uint32 actual);
     error LayerZeroStargateAdapterExecutorNotSet();
-    error LayerZeroStargateAdapterIntentExpired();
+    error LayerZeroStargateAdapterInvalidIntentStatus();
     error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
 
     event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
@@ -44,7 +43,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     }
 
     /**
-     * @notice LayerZero compose entrypoint. Validates provenance and dispatches intent.
+     * @notice LayerZero compose entrypoint. Validates provenance, updates intent token/amount, and dispatches intent.
      */
     function lzCompose(
         address from,
@@ -62,10 +61,12 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         uint256 amountLD = OFTComposeMsgCodec.amountLD(message);
 
         bytes memory inner = OFTComposeMsgCodec.composeMsg(message);
-        ICrossChainExecutor.CrossChainIntent memory intent = abi.decode(inner, (ICrossChainExecutor.CrossChainIntent));
+        (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
+            abi.decode(inner, (ICrossChainExecutor.Intent, bytes));
         
-        if (block.timestamp > intent.deadline) {
-            revert LayerZeroStargateAdapterIntentExpired();
+        // Validate intent status is Ongoing
+        if (intent.status != ICrossChainExecutor.Status.Ongoing) {
+            revert LayerZeroStargateAdapterInvalidIntentStatus();
         }
 
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
@@ -87,15 +88,15 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
             revert LayerZeroStargateAdapterInvalidPeer();
         }
 
-        if (intent.amount != amountLD) {
-            revert LayerZeroStargateAdapterAmountMismatch();
-        }
-
-        // Resolve received token from the Stargate contract calling compose.
+        // Resolve received token from the Stargate contract calling compose
         address receivedToken = IStargate(from).token();
 
+        // Update intent token and amount to reflect what was actually received
+        intent.token = receivedToken;
+        intent.amount = amountLD;
+
         IERC20(receivedToken).safeTransfer(executor, amountLD);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, receivedToken);
+        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
 
         emit IntentComposed(guid, srcEid, intent.intentId, amountLD);
     }
@@ -125,7 +126,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
             dstEid: dstEid,
             to: bytes32(uint256(uint160(address(0)))),
             amountLD: amount,
-            minAmountLD: amount,
+            minAmountLD: 0,
             extraOptions: "",
             composeMsg: "",
             oftCmd: ""
@@ -171,7 +172,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
             dstEid: dstEid,
             to: bytes32(uint256(uint160(recipient))),
             amountLD: amount,
-            minAmountLD: amount,
+            minAmountLD: 0,
             extraOptions: "",
             composeMsg: "",
             oftCmd: ""

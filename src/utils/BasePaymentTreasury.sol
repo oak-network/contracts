@@ -1591,7 +1591,7 @@ abstract contract BasePaymentTreasury is
         if (intentId != ZERO_BYTES) {
             address executor = _getCrossChainExecutor();
             IERC20(paymentToken).safeTransfer(executor, totalRefundAmount);
-            ICrossChainExecutor(executor).requestRefund(intentId, paymentToken, totalRefundAmount, nftOwner);
+            ICrossChainExecutor(executor).requestRefund(intentId, totalRefundAmount, nftOwner);
         } else {
             IERC20(paymentToken).safeTransfer(nftOwner, totalRefundAmount);
         }
