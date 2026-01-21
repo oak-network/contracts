@@ -46,6 +46,7 @@ contract Executor is ICrossChainExecutor, Pausable {
     error ExecutorInvalidBridgeAdapter(bytes32 bridgeId);
     error ExecutorInvalidChainSelector(uint256 chainId);
     error ExecutorInvalidLayerZeroEid(uint256 chainId);
+    error ExecutorInsufficientBalance();
 
     modifier onlyProtocolAdmin() {
         if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
@@ -134,6 +135,9 @@ contract Executor is ICrossChainExecutor, Pausable {
         }
         if (amount == 0) {
             revert ExecutorInvalidRefund(intentId);
+        }
+        if (IERC20(storedIntent.token).balanceOf(address(this)) < amount) {
+            revert ExecutorInsufficientBalance();
         }
 
         storedIntent.status = Status.RefundRequested;

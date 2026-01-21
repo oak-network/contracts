@@ -63,15 +63,18 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         bytes memory inner = OFTComposeMsgCodec.composeMsg(message);
         (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
             abi.decode(inner, (ICrossChainExecutor.Intent, bytes));
+
+        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        bytes32 expectedPeer = bytes32(uint256(uint160(expectedSender)));
+
+        if (expectedSender == address(0) || expectedPeer != composeFrom) {
+            revert LayerZeroStargateAdapterInvalidPeer();
+        }
         
         // Validate intent status is Ongoing
         if (intent.status != ICrossChainExecutor.Status.Ongoing) {
             revert LayerZeroStargateAdapterInvalidIntentStatus();
-        }
-
-        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0)) {
-            revert LayerZeroStargateAdapterExecutorNotSet();
         }
 
         uint32 expectedEid = ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId);
@@ -80,12 +83,6 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         }
         if (expectedEid != srcEid) {
             revert LayerZeroStargateAdapterEidMismatch(intent.sourceChainId, expectedEid, srcEid);
-        }
-
-        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
-        bytes32 expectedPeer = bytes32(uint256(uint160(expectedSender)));
-        if (expectedSender == address(0) || expectedPeer != composeFrom) {
-            revert LayerZeroStargateAdapterInvalidPeer();
         }
 
         // Resolve received token from the Stargate contract calling compose

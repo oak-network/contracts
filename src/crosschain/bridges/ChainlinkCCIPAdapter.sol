@@ -47,11 +47,6 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
         (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
             abi.decode(message.data, (ICrossChainExecutor.Intent, bytes));
 
-        // Validate intent status is Ongoing
-        if (intent.status != ICrossChainExecutor.Status.Ongoing) {
-            revert ChainlinkCCIPAdapterInvalidIntentStatus();
-        }
-        
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
         address sourceSender = abi.decode(message.sender, (address));
         
@@ -61,6 +56,11 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
             revert ChainlinkCCIPAdapterInvalidIntentSender(intent.sourceChainId, expectedSender, sourceSender);
         }
 
+        // Validate intent status is Ongoing
+        if (intent.status != ICrossChainExecutor.Status.Ongoing) {
+            revert ChainlinkCCIPAdapterInvalidIntentStatus();
+        }
+        
         uint64 expectedSelector = ICrossChainExecutor(executor).getCcipChainSelector(intent.sourceChainId);
         if (expectedSelector == 0) {
             revert ChainlinkCCIPAdapterUnknownChainSelector();
