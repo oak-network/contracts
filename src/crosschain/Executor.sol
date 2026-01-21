@@ -32,21 +32,30 @@ contract Executor is ICrossChainExecutor, Pausable {
     mapping(address => mapping(bytes4 => bool)) public allowedTreasurySelectors;
     address public agent;
 
+    // Hard revert errors 
     error ExecutorUnauthorized();
-    error ExecutorIntentAlreadyProcessed(bytes32 intentId);
     error ExecutorAdapterMismatch(bytes32 bridgeId, address caller);
+    error ExecutorBridgeAdapterNotSet(bytes32 bridgeId);
+
+    // Soft failure errors 
+    error ExecutorIntentAlreadyProcessed();
     error ExecutorInvalidData();
-    error ExecutorSelectorNotAllowed(address treasury, bytes4 selector);
-    error ExecutorRefundNotRequested(bytes32 intentId);
+    error ExecutorSelectorNotAllowed();
+    error ExecutorCallFailed();
+
+    // Refund-related errors
+    error ExecutorRefundNotAllowed(bytes32 intentId);
     error ExecutorInvalidRefund(bytes32 intentId);
     error ExecutorInsufficientFee(uint256 required, uint256 provided);
-    error ExecutorCallFailed(bytes32 intentId, bytes data);
+    error ExecutorInsufficientBalance();
+
+    // Configuration errors
     error ExecutorInvalidSenderConfig(uint256 chainId);
-    error ExecutorBridgeAdapterNotSet(bytes32 bridgeId);
     error ExecutorInvalidBridgeAdapter(bytes32 bridgeId);
     error ExecutorInvalidChainSelector(uint256 chainId);
     error ExecutorInvalidLayerZeroEid(uint256 chainId);
-    error ExecutorInsufficientBalance();
+
+    event IntentFailed(bytes32 indexed intentId, bytes4 errorSelector);
 
     modifier onlyProtocolAdmin() {
         if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
@@ -68,6 +77,7 @@ contract Executor is ICrossChainExecutor, Pausable {
 
     /**
      * @notice Executes an adapter-authenticated intent by forwarding calldata to the treasury.
+     * @dev If the intent arrives with Failed status (from adapter), it records the failure for refund.
      * @param bridgeId Bridge identifier (e.g. keccak256("CCIP")).
      * @param intent The cross-chain intent payload.
      * @param payload ABI-encoded calldata for the treasury entrypoint.
@@ -77,36 +87,67 @@ contract Executor is ICrossChainExecutor, Pausable {
         override
         whenNotPaused
     {
-        // Validate caller is a registered adapter first
+        // Validate caller is a registered adapter - revert on failure
         address expectedAdapter = _bridgeAdapters[bridgeId];
-        if (expectedAdapter == address(0)) {
-            revert ExecutorBridgeAdapterNotSet(bridgeId);
-        }
+
         if (msg.sender != expectedAdapter) {
             revert ExecutorAdapterMismatch(bridgeId, msg.sender);
         }
 
+        // Check if intent already arrived as Failed from adapter
+        if (intent.status == Status.Failed) {
+            // Record the failed intent for refund processing
+            _intents[intent.intentId] = intent;
+            return;
+        }
+
+        // Execute the intent with soft failure handling
+        _executeIntent(bridgeId, intent, payload);
+    }
+
+    /**
+     * @dev Internal function that executes the intent with soft failure pattern.
+     * @param bridgeId Bridge identifier.
+     * @param intent The cross-chain intent payload.
+     * @param payload ABI-encoded calldata for the treasury entrypoint.
+     */
+    function _executeIntent(bytes32 bridgeId, Intent memory intent, bytes calldata payload) internal {
+        bytes4 errorSelector;
+
+        // Validate intent not already processed
         if (_intents[intent.intentId].status != Status.None) {
-            revert ExecutorIntentAlreadyProcessed(intent.intentId);
-        }
-        if (payload.length < 4) {
-            revert ExecutorInvalidData();
-        }
-
-        bytes4 selector = bytes4(payload);
-        if (!allowedTreasurySelectors[intent.treasury][selector]) {
-            revert ExecutorSelectorNotAllowed(intent.treasury, selector);
+            errorSelector = ExecutorIntentAlreadyProcessed.selector;
+        } else if (!allowedTreasurySelectors[intent.treasury][bytes4(payload)]) {
+            errorSelector = ExecutorSelectorNotAllowed.selector;
         }
 
+        // Handle failure case
+        if (errorSelector != bytes4(0)) {
+            intent.status = Status.Failed;
+            _intents[intent.intentId] = intent;
+            emit IntentFailed(intent.intentId, errorSelector);
+            return;
+        }
+
+        // Approve treasury to pull tokens
+        IERC20(intent.token).forceApprove(intent.treasury, intent.amount);
+
+        // Call treasury with payload
+        (bool success,) = intent.treasury.call(payload);
+
+        // Reset approval
+        IERC20(intent.token).forceApprove(intent.treasury, 0);
+
+        // Handle call failure
+        if (!success) {
+            intent.status = Status.Failed;
+            _intents[intent.intentId] = intent;
+            emit IntentFailed(intent.intentId, ExecutorCallFailed.selector);
+            return;
+        }
+        // Record successful intent
         intent.status = Status.Executed;
         _intents[intent.intentId] = intent;
-
-        IERC20(intent.token).safeTransfer(intent.treasury, intent.amount);
-
-        (bool success, bytes memory returndata) = intent.treasury.call(payload);
-        if (!success) {
-            revert ExecutorCallFailed(intent.intentId, returndata);
-        }
 
         emit IntentExecuted(bridgeId, intent.intentId, intent.account, intent.token, intent.amount, intent.treasury);
     }
@@ -159,8 +200,9 @@ contract Executor is ICrossChainExecutor, Pausable {
         returns (bytes32 refundId)
     {
         Intent memory intent = _intents[intentId];
-        if (intent.status != Status.RefundRequested) {
-            revert ExecutorRefundNotRequested(intentId);
+        // Allow refunds for both RefundRequested (treasury-initiated) and Failed (adapter/executor failure) statuses
+        if (intent.status != Status.RefundRequested && intent.status != Status.Failed) {
+            revert ExecutorRefundNotAllowed(intentId);
         }
         if (intent.amount == 0 || intent.account == address(0)) {
             revert ExecutorInvalidRefund(intentId);
@@ -198,8 +240,9 @@ contract Executor is ICrossChainExecutor, Pausable {
         returns (bytes32 refundId)
     {
         Intent memory intent = _intents[intentId];
-        if (intent.status != Status.RefundRequested) {
-            revert ExecutorRefundNotRequested(intentId);
+        // Allow refunds for both RefundRequested (treasury-initiated) and Failed (adapter/executor failure) statuses
+        if (intent.status != Status.RefundRequested && intent.status != Status.Failed) {
+            revert ExecutorRefundNotAllowed(intentId);
         }
         if (intent.amount == 0 || intent.account == address(0)) {
             revert ExecutorInvalidRefund(intentId);

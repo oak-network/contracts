@@ -836,7 +836,7 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput();
         }
 
-        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, address(0));
+        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, _msgSender());
 
         s_paymentIdToIntentId[paymentId] = intentId;
     }

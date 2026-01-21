@@ -25,17 +25,23 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     ILayerZeroEndpointV2 public immutable ENDPOINT;
     IGlobalParams public immutable GLOBAL_PARAMS;
 
+    // Hard revert errors (authentication/critical)
     error LayerZeroStargateAdapterUnauthorized();
     error LayerZeroStargateAdapterInvalidPeer();
+
+    // Soft failure errors (simplified, no params)
+    error LayerZeroStargateAdapterInvalidIntentStatus();
+    error LayerZeroStargateAdapterEidMismatch();
+
+    // Refund-related errors
     error LayerZeroStargateAdapterTokenNotConfigured();
     error LayerZeroStargateAdapterUnknownDestinationChainId();
-    error LayerZeroStargateAdapterEidMismatch(uint256 sourceChainId, uint32 expected, uint32 actual);
     error LayerZeroStargateAdapterExecutorNotSet();
-    error LayerZeroStargateAdapterInvalidIntentStatus();
     error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
 
     event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
     event RefundSent(bytes32 indexed guid, uint256 destinationChainId, address recipient, address token, uint256 amount);
+    event IntentFailed(bytes32 indexed intentId, bytes4 errorSelector);
 
     constructor(address endpoint, IGlobalParams globalParams) {
         ENDPOINT = ILayerZeroEndpointV2(endpoint);
@@ -52,6 +58,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         address,
         bytes calldata
     ) external payable override {
+        // Validate endpoint and peer - revert on failure
         if (msg.sender != address(ENDPOINT)) {
             revert LayerZeroStargateAdapterUnauthorized();
         }
@@ -68,21 +75,18 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
         bytes32 expectedPeer = bytes32(uint256(uint160(expectedSender)));
 
-        if (expectedSender == address(0) || expectedPeer != composeFrom) {
+        if (expectedPeer != composeFrom) {
             revert LayerZeroStargateAdapterInvalidPeer();
         }
         
+        // Soft failure validations - use errorSelector pattern
+        bytes4 errorSelector;
+
         // Validate intent status is Ongoing
         if (intent.status != ICrossChainExecutor.Status.Ongoing) {
-            revert LayerZeroStargateAdapterInvalidIntentStatus();
-        }
-
-        uint32 expectedEid = ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId);
-        if (expectedEid == 0) {
-            revert LayerZeroStargateAdapterUnknownDestinationChainId();
-        }
-        if (expectedEid != srcEid) {
-            revert LayerZeroStargateAdapterEidMismatch(intent.sourceChainId, expectedEid, srcEid);
+            errorSelector = LayerZeroStargateAdapterInvalidIntentStatus.selector;
+        } else if (ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId) != srcEid) {
+            errorSelector = LayerZeroStargateAdapterEidMismatch.selector;
         }
 
         // Resolve received token from the Stargate contract calling compose
@@ -92,6 +96,13 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         intent.token = receivedToken;
         intent.amount = amountLD;
 
+        // Handle failure case
+        if (errorSelector != bytes4(0)) {
+            intent.status = ICrossChainExecutor.Status.Failed;
+            emit IntentFailed(intent.intentId, errorSelector);
+        }
+
+        // For failed intents, executor will record the failure and hold tokens for refund
         IERC20(receivedToken).safeTransfer(executor, amountLD);
         ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
 
@@ -101,7 +112,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     /**
      * @inheritdoc ILayerZeroStargateAdapter
      */
-    function quoteRefundFee(uint256 destinationChainId, address token, uint256 amount, address stargate)
+    function quoteRefundFee(uint256 destinationChainId, address recipient, address token, uint256 amount, address stargate)
         external
         view
         override
@@ -121,7 +132,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
 
         SendParam memory sendParam = SendParam({
             dstEid: dstEid,
-            to: bytes32(uint256(uint160(address(0)))),
+            to: bytes32(uint256(uint160(recipient))),
             amountLD: amount,
             minAmountLD: 0,
             extraOptions: "",
