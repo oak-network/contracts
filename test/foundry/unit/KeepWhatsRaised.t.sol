@@ -1861,8 +1861,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         uint256 protocolFee = (baseAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
         uint256 gatewayFeeNormalized = expectedGatewayFee6Decimals * 1e12; // Convert 6-decimal fee to 18-decimal for comparison
 
-        uint256 expectedAvailable =
-            (baseAmount * 2) - (platformFee * 2) - (vakiCommission * 2) - (protocolFee * 2) - (gatewayFeeNormalized * 2);
+        uint256 expectedAvailable = (baseAmount * 2) - (platformFee * 2) - (vakiCommission * 2) - (protocolFee * 2)
+            - (gatewayFeeNormalized * 2);
 
         assertEq(
             availableAmount, expectedAvailable, "Available amount should account for properly denormalized gateway fees"

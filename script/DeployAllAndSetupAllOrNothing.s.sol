@@ -122,9 +122,8 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
 
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
         GlobalParams(globalParams).addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
-        GlobalParams(globalParams).addToRegistry(
-            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
-        );
+        GlobalParams(globalParams)
+            .addToRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration));
 
         if (simulate) {
             vm.stopPrank();
@@ -241,12 +240,13 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        GlobalParams(globalParams).enlistPlatform(
-            platformHash,
-            deployerAddress, // Initially deployer is platform admin
-            platformFeePercent,
-            platformAdapter // Platform adapter (trusted forwarder) - can be set later with setPlatformAdapter
-        );
+        GlobalParams(globalParams)
+            .enlistPlatform(
+                platformHash,
+                deployerAddress, // Initially deployer is platform admin
+                platformFeePercent,
+                platformAdapter // Platform adapter (trusted forwarder) - can be set later with setPlatformAdapter
+            );
 
         if (simulate) {
             vm.stopPrank();
@@ -269,11 +269,12 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        TreasuryFactory(treasuryFactory).registerTreasuryImplementation(
-            platformHash,
-            0, // Implementation ID
-            allOrNothingImplementation
-        );
+        TreasuryFactory(treasuryFactory)
+            .registerTreasuryImplementation(
+                platformHash,
+                0, // Implementation ID
+                allOrNothingImplementation
+            );
 
         if (simulate) {
             vm.stopPrank();
@@ -296,10 +297,11 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             vm.startPrank(deployerAddress);
         }
 
-        TreasuryFactory(treasuryFactory).approveTreasuryImplementation(
-            platformHash,
-            0 // Implementation ID
-        );
+        TreasuryFactory(treasuryFactory)
+            .approveTreasuryImplementation(
+                platformHash,
+                0 // Implementation ID
+            );
 
         if (simulate) {
             vm.stopPrank();

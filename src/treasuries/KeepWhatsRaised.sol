@@ -870,7 +870,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         }
 
         bytes32[] memory emptyByteArray = new bytes32[](0);
-        uint256 tokenId = _pledgeCrossChain(pledgeId, backer, pledgeToken, ZERO_BYTES, emptyByteArray, pledgeAmount, tip);
+        uint256 tokenId =
+            _pledgeCrossChain(pledgeId, backer, pledgeToken, ZERO_BYTES, emptyByteArray, pledgeAmount, tip);
         s_intentIdToTokenId[intentId] = tokenId;
         s_tokenIdToIntentId[tokenId] = intentId;
     }

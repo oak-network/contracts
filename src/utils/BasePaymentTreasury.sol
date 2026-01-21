@@ -808,7 +808,9 @@ abstract contract BasePaymentTreasury is
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
-        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, buyerAddress);
+        _processCryptoPayment(
+            paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, buyerAddress
+        );
     }
 
     /**
@@ -836,7 +838,9 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput();
         }
 
-        _processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, _msgSender());
+        _processCryptoPayment(
+            paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, _msgSender()
+        );
 
         s_paymentIdToIntentId[paymentId] = intentId;
     }

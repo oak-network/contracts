@@ -3,18 +3,23 @@ pragma solidity ^0.8.22;
 
 /**
  * @title ILayerZeroStargateAdapter
- * @notice Interface for LayerZero/Stargate bridge adapters used for refunds.
+ * @notice Interface for the LayerZero Stargate bridge adapter that handles refund operations.
+ * @dev The adapter receives cross-chain intents via Stargate's OFT compose mechanism and can send
+ *      refunds back to source chains. Intent reception is handled via lzCompose; this interface
+ *      exposes refund functionality.
  */
 interface ILayerZeroStargateAdapter {
     /**
-     * @notice Sends a refund to the source chain via LayerZero/Stargate.
-     * @param destinationChainId Source chainId of the original intent.
-     * @param recipient Recipient on the source chain.
-     * @param token Token on destination chain to refund.
-     * @param amount Amount to refund.
-     * @param stargate Stargate contract address on destination chain used for bridging this token.
-     * @param feeRefundRecipient Address to refund any excess native fee to.
-     * @return refundId LayerZero GUID.
+     * @notice Sends a token refund to the source chain via LayerZero Stargate.
+     * @dev Only callable by the CrossChainExecutor. Excess native fees are handled by Stargate
+     *      and returned to feeRefundRecipient.
+     * @param destinationChainId EVM chain ID of the refund destination (original source chain).
+     * @param recipient Address on the destination chain to receive the refunded tokens.
+     * @param token Token address on this chain to bridge back.
+     * @param amount Amount of tokens to refund.
+     * @param stargate Stargate pool contract address that supports the token being refunded.
+     * @param feeRefundRecipient Address to receive any excess native fee.
+     * @return refundId LayerZero GUID for tracking the refund.
      */
     function sendRefund(
         uint256 destinationChainId,
@@ -23,23 +28,22 @@ interface ILayerZeroStargateAdapter {
         uint256 amount,
         address stargate,
         address feeRefundRecipient
-    )
-        external
-        payable
-        returns (bytes32 refundId);
+    ) external payable returns (bytes32 refundId);
 
     /**
-     * @notice Quotes the fee required to send a refund via LayerZero/Stargate.
-     * @param destinationChainId Source chainId of the original intent.
-     * @param recipient Recipient on the source chain.
-     * @param token Token to refund.
-     * @param amount Amount to refund.
-     * @param stargate Stargate contract address on destination chain used for bridging this token.
-     * @return fee Native fee required by LayerZero.
+     * @notice Quotes the native fee required to send a refund via LayerZero Stargate.
+     * @param destinationChainId EVM chain ID of the refund destination.
+     * @param recipient Address on the destination chain to receive the refund.
+     * @param token Token address to refund.
+     * @param amount Amount of tokens to refund.
+     * @param stargate Stargate pool contract address that supports the token.
+     * @return fee Native token fee required by LayerZero.
      */
-    function quoteRefundFee(uint256 destinationChainId, address recipient, address token, uint256 amount, address stargate)
-        external
-        view
-        returns (uint256 fee);
+    function quoteRefundFee(
+        uint256 destinationChainId,
+        address recipient,
+        address token,
+        uint256 amount,
+        address stargate
+    ) external view returns (uint256 fee);
 }
-

@@ -8,8 +8,12 @@ import {TimeConstrainedPaymentTreasury} from "src/treasuries/TimeConstrainedPaym
 contract DeployTimeConstrainedPaymentTreasuryImplementation is Script {
     function deploy() public returns (address) {
         console2.log("Deploying TimeConstrainedPaymentTreasuryImplementation...");
-        TimeConstrainedPaymentTreasury timeConstrainedPaymentTreasuryImplementation = new TimeConstrainedPaymentTreasury();
-        console2.log("TimeConstrainedPaymentTreasuryImplementation deployed at:", address(timeConstrainedPaymentTreasuryImplementation));
+        TimeConstrainedPaymentTreasury timeConstrainedPaymentTreasuryImplementation =
+            new TimeConstrainedPaymentTreasury();
+        console2.log(
+            "TimeConstrainedPaymentTreasuryImplementation deployed at:",
+            address(timeConstrainedPaymentTreasuryImplementation)
+        );
         return address(timeConstrainedPaymentTreasuryImplementation);
     }
 

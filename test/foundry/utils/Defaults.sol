@@ -84,10 +84,7 @@ contract Defaults is Constants, ICampaignData, IReward {
 
         //Add Campaign Data
         CAMPAIGN_DATA = CampaignData({
-            launchTime: LAUNCH_TIME,
-            deadline: DEADLINE,
-            goalAmount: GOAL_AMOUNT,
-            currency: bytes32("USD")
+            launchTime: LAUNCH_TIME, deadline: DEADLINE, goalAmount: GOAL_AMOUNT, currency: bytes32("USD")
         });
 
         // Initialize the reward arrays

@@ -457,12 +457,10 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
         ICampaignPaymentTreasury.ExternalFees[] memory externalFees = new ICampaignPaymentTreasury.ExternalFees[](2);
         externalFees[0] = ICampaignPaymentTreasury.ExternalFees({
-            feeType: keccak256(abi.encodePacked("gateway_fee")),
-            feeAmount: 15e18
+            feeType: keccak256(abi.encodePacked("gateway_fee")), feeAmount: 15e18
         });
         externalFees[1] = ICampaignPaymentTreasury.ExternalFees({
-            feeType: keccak256(abi.encodePacked("processing_fee")),
-            feeAmount: 5e18
+            feeType: keccak256(abi.encodePacked("processing_fee")), feeAmount: 5e18
         });
 
         vm.prank(users.platform1AdminAddress);

@@ -96,12 +96,10 @@ contract DeployAll is DeployBase {
         uint256 minimumCampaignDuration = vm.envOr("MINIMUM_CAMPAIGN_DURATION", uint256(0));
 
         GlobalParams(address(globalParamsProxy)).addToRegistry(DataRegistryKeys.BUFFER_TIME, bytes32(bufferTime));
-        GlobalParams(address(globalParamsProxy)).addToRegistry(
-            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer)
-        );
-        GlobalParams(address(globalParamsProxy)).addToRegistry(
-            DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration)
-        );
+        GlobalParams(address(globalParamsProxy))
+            .addToRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER, bytes32(campaignLaunchBuffer));
+        GlobalParams(address(globalParamsProxy))
+            .addToRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION, bytes32(minimumCampaignDuration));
 
         if (!simulate) {
             vm.stopBroadcast();

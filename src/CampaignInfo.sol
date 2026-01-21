@@ -508,14 +508,7 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function updateDeadline(uint256 deadline)
-        external
-        override
-        onlyOwner
-        whenNotPaused
-        whenNotCancelled
-        whenNotLocked
-    {
+    function updateDeadline(uint256 deadline) external override onlyOwner whenNotPaused whenNotCancelled whenNotLocked {
         uint256 launchTime = getLaunchTime();
         uint256 minimumCampaignDuration =
             uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));

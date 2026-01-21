@@ -23,20 +23,53 @@ import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 
 /**
  * @title IntentSender
- * @notice Source-chain sender for cross-chain payment intents.
- * @dev Pulls tokens from the account and forwards intents to Ethereum via CCIP or LayerZero/Stargate.
+ * @notice Source-chain contract for initiating cross-chain payment intents.
+ * @dev Deployed on source chains to send payment intents to the destination chain.
+ *      Supports two bridging protocols:
+ *      - Chainlink CCIP: For token transfers with arbitrary message passing
+ *      - LayerZero Stargate: For OFT-based transfers with compose messages
+ *
+ *      The contract pulls tokens from the payer's account and bridges them along with
+ *      the intent payload to the destination chain adapter.
  */
 contract IntentSender is Ownable {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
 
+    // =============================================================
+    //                           CONSTANTS
+    // =============================================================
+
+    /// @dev Default gas limit for destination chain execution.
     uint128 internal constant DEFAULT_GAS_AMOUNT = 500_000;
 
+    /// @notice Chainlink CCIP router on this chain.
+    IRouterClient public immutable CCIP_ROUTER;
+
+    /// @notice CCIP chain selector for the destination chain.
+    uint64 public immutable CCIP_DESTINATION_SELECTOR;
+
+    /// @notice CCIP adapter address on the destination chain.
+    address public immutable CCIP_DESTINATION_ADAPTER;
+
+    /// @notice LayerZero endpoint ID for the destination chain.
+    uint32 public immutable LZ_DESTINATION_EID;
+
+    /// @notice LayerZero/Stargate adapter address on the destination chain.
+    address public immutable LZ_DESTINATION_ADAPTER;
+
+    // =============================================================
+    //                             STATE
+    // =============================================================
+
+    /// @notice Authorized off-chain agent for submitting intents.
+    address public agent;
+
     /**
-     * @notice LayerZero/Stargate send parameters.
-     * @param stargate Stargate contract address.
-     * @param minAmount Minimum amount to receive on destination.
-     * @param gasLimit Gas limit to use on destination (0 => default 500_000).
+     * @notice Parameters for LayerZero/Stargate send operations.
+     * @param stargate Stargate pool contract address for the token.
+     * @param minAmount Minimum amount to receive on destination after fees.
+     * @param gasLimit Gas limit for destination execution (0 uses DEFAULT_GAS_AMOUNT).
      */
     struct LZStargateParams {
         address stargate;
@@ -44,36 +77,62 @@ contract IntentSender is Ownable {
         uint128 gasLimit;
     }
 
-    IRouterClient public immutable CCIP_ROUTER;
-    uint64 public immutable CCIP_DESTINATION_SELECTOR;
-    address public immutable CCIP_DESTINATION_ADAPTER;
-
-    uint32 public immutable LZ_DESTINATION_EID;
-    address public immutable LZ_DESTINATION_ADAPTER;
-
-    address public agent;
-
     // =============================================================
-    //                             ERRORS
+    //                            ERRORS
     // =============================================================
 
+    /// @dev Intent amount is zero or below minimum.
     error IntentSenderInvalidAmount();
+
+    /// @dev Required address is zero.
     error IntentSenderInvalidReceiver();
+
+    /// @dev Token address is zero.
     error IntentSenderInvalidToken();
+
+    /// @dev Provided native fee is insufficient for the bridge.
     error IntentSenderInsufficientFee();
+
+    /// @dev Failed to refund excess native fee to sender.
     error IntentSenderFeeRefundFailed();
+
+    /// @dev Caller is not the authorized agent.
     error IntentSenderUnauthorized();
+
+    /// @dev Stargate pool does not match the intent token.
     error IntentSenderInvalidStargate();
+
+    /// @dev LayerZero fee token not supported (only native).
     error IntentSenderUnsupportedLzFeeToken();
+
+    /// @dev Quoted received amount is less than minimum.
     error IntentSenderUnexpectedReceivedAmount(uint256 expected, uint256 actual);
+
+    /// @dev Payload is too short (must have function selector).
     error IntentSenderInvalidPayload();
+
+    /// @dev Intent status must be None for new intents.
     error IntentSenderInvalidIntentStatus();
 
     // =============================================================
-    //                             EVENTS
+    //                            EVENTS
     // =============================================================
 
+    /**
+     * @notice Emitted when the authorized agent is updated.
+     * @param agent New agent address.
+     */
     event AgentSet(address indexed agent);
+
+    /**
+     * @notice Emitted when an intent is sent via Chainlink CCIP.
+     * @param messageId CCIP message ID for tracking.
+     * @param intentId Unique intent identifier.
+     * @param destinationChainSelector CCIP destination chain selector.
+     * @param account Payer account that funded the intent.
+     * @param token Token being bridged.
+     * @param amount Amount being bridged.
+     */
     event IntentSentCCIP(
         bytes32 indexed messageId,
         bytes32 indexed intentId,
@@ -82,6 +141,17 @@ contract IntentSender is Ownable {
         address token,
         uint256 amount
     );
+
+    /**
+     * @notice Emitted when an intent is sent via LayerZero/Stargate.
+     * @param guid LayerZero GUID for tracking.
+     * @param intentId Unique intent identifier.
+     * @param dstEid LayerZero destination endpoint ID.
+     * @param account Payer account that funded the intent.
+     * @param stargate Stargate pool used for bridging.
+     * @param token Token being bridged.
+     * @param amountReceivedLD Expected amount to be received on destination.
+     */
     event IntentSentLayerZeroStargate(
         bytes32 indexed guid,
         bytes32 indexed intentId,
@@ -93,7 +163,7 @@ contract IntentSender is Ownable {
     );
 
     /**
-     * @notice Modifier to ensure the caller is the authorized agent.
+     * @notice Validates that caller is the authorized off-chain agent.
      */
     modifier onlyAgent() {
         if (msg.sender != agent) {
@@ -103,13 +173,13 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @notice Creates a new IntentSender.
-     * @param _agent The off-chain agent address.
-     * @param ccipRouter Chainlink CCIP router address on the source chain.
-     * @param ccipDestinationSelector Destination chain selector (destination is Ethereum).
-     * @param ccipDestinationAdapter Destination-chain CCIP adapter address (on Ethereum).
-     * @param lzDestinationEid LayerZero destination endpoint id (destination is Ethereum).
-     * @param lzDestinationAdapter Destination-chain LayerZero/Stargate adapter address (on Ethereum).
+     * @notice Deploys a new IntentSender contract.
+     * @param _agent Initial authorized agent address.
+     * @param ccipRouter Chainlink CCIP router address on this chain.
+     * @param ccipDestinationSelector CCIP chain selector for the destination.
+     * @param ccipDestinationAdapter CCIP adapter address on the destination chain.
+     * @param lzDestinationEid LayerZero endpoint ID for the destination.
+     * @param lzDestinationAdapter LayerZero/Stargate adapter address on the destination chain.
      */
     constructor(
         address _agent,
@@ -127,9 +197,13 @@ contract IntentSender is Ownable {
         LZ_DESTINATION_ADAPTER = lzDestinationAdapter;
     }
 
+    // =============================================================
+    //                        ADMIN FUNCTIONS
+    // =============================================================
+
     /**
-     * @notice Sets the single authorized agent.
-     * @param newAgent The agent address allowed to submit intents.
+     * @notice Updates the authorized agent address.
+     * @param newAgent New agent address (cannot be zero).
      */
     function setAgent(address newAgent) external onlyOwner {
         if (newAgent == address(0)) {
@@ -144,11 +218,11 @@ contract IntentSender is Ownable {
     // =============================================================
 
     /**
-     * @notice Quotes the CCIP fee for a given intent.
-     * @param intent The cross-chain intent to send.
-     * @param payload ABI-encoded calldata for the treasury entrypoint.
-     * @param gasLimit Gas limit to use on destination (0 => default 500_000).
-     * @return ccipFee The native fee required by CCIP.
+     * @notice Quotes the native fee required to send an intent via CCIP.
+     * @param intent The intent to send (will be validated).
+     * @param payload ABI-encoded treasury calldata.
+     * @param gasLimit Destination gas limit (0 uses default 500,000).
+     * @return ccipFee Native fee required by CCIP.
      */
     function quoteFeeCCIP(ICrossChainExecutor.Intent memory intent, bytes calldata payload, uint256 gasLimit)
         external
@@ -162,21 +236,17 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @notice Quotes the LayerZero messaging fee for Stargate.
-     * @param params Stargate parameters.
-     * @param intent The cross-chain intent to send.
-     * @param payload ABI-encoded calldata for the treasury entrypoint.
-     * @return nativeFee The native fee required.
+     * @notice Quotes the native fee required to send an intent via LayerZero/Stargate.
+     * @param params Stargate send parameters.
+     * @param intent The intent to send (will be validated).
+     * @param payload ABI-encoded treasury calldata.
+     * @return nativeFee Native fee required by LayerZero.
      */
     function quoteFeeLayerZeroStargate(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload
-    )
-        external
-        view
-        returns (uint256 nativeFee)
-    {
+    ) external view returns (uint256 nativeFee) {
         _sanitizeIntent(intent, payload);
         MessagingFee memory lzFee =
             IStargate(params.stargate).quoteSend(_buildStargateSendParam(params, intent, payload), false);
@@ -184,38 +254,35 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @notice Quotes the delivered amount for a LayerZero/Stargate send.
-     * @param params Stargate parameters.
-     * @param intent The cross-chain intent to send.
-     * @param payload ABI-encoded calldata for the treasury entrypoint.
-     * @return limit OFT limits for the route.
-     * @return feeDetails OFT fee breakdown.
+     * @notice Quotes the OFT transfer details for a LayerZero/Stargate send.
+     * @param params Stargate send parameters.
+     * @param intent The intent to send (will be validated).
+     * @param payload ABI-encoded treasury calldata.
+     * @return limit OFT transfer limits for the route.
+     * @return feeDetails Breakdown of OFT fees.
      * @return receipt Quote containing amountSentLD and amountReceivedLD.
      */
     function quoteLayerZeroStargateOFT(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload
-    )
-        external
-        view
-        returns (OFTLimit memory limit, OFTFeeDetail[] memory feeDetails, OFTReceipt memory receipt)
-    {
+    ) external view returns (OFTLimit memory limit, OFTFeeDetail[] memory feeDetails, OFTReceipt memory receipt) {
         _sanitizeIntent(intent, payload);
         return IStargate(params.stargate).quoteOFT(_buildStargateSendParam(params, intent, payload));
     }
 
     // =============================================================
-    //                          SEND INTENT
+    //                         SEND INTENT
     // =============================================================
 
     /**
-     * @notice Sends a cross-chain intent via CCIP.
-     * @dev Pulls `intent.amount` of `intent.token` from `intent.account`.
-     * @param intent The cross-chain intent to send.
-     * @param payload ABI-encoded calldata for the treasury entrypoint.
-     * @param gasLimit Gas limit to use on destination (0 => default 500_000).
-     * @return messageId The CCIP message ID.
+     * @notice Sends a cross-chain payment intent via Chainlink CCIP.
+     * @dev Pulls tokens from `intent.account` and bridges them with the intent payload.
+     *      Excess native fee is refunded to the caller.
+     * @param intent The intent to send (status must be None).
+     * @param payload ABI-encoded calldata for the treasury function.
+     * @param gasLimit Destination gas limit (0 uses default 500,000).
+     * @return messageId CCIP message ID for tracking.
      */
     function sendIntentCCIP(ICrossChainExecutor.Intent memory intent, bytes calldata payload, uint256 gasLimit)
         external
@@ -227,7 +294,7 @@ contract IntentSender is Ownable {
 
         gasLimit = gasLimit == 0 ? uint256(DEFAULT_GAS_AMOUNT) : gasLimit;
         Client.EVM2AnyMessage memory ccipMessage = _buildCCIPIntentMessage(intent, payload, gasLimit);
-        
+
         uint256 ccipFee = CCIP_ROUTER.getFee(CCIP_DESTINATION_SELECTOR, ccipMessage);
         if (msg.value < ccipFee) {
             revert IntentSenderInsufficientFee();
@@ -247,39 +314,30 @@ contract IntentSender is Ownable {
         }
 
         emit IntentSentCCIP(
-            messageId,
-            intent.intentId,
-            CCIP_DESTINATION_SELECTOR,
-            intent.account,
-            intent.token,
-            intent.amount
+            messageId, intent.intentId, CCIP_DESTINATION_SELECTOR, intent.account, intent.token, intent.amount
         );
     }
 
     /**
-     * @notice Sends a cross-chain intent via LayerZero/Stargate.
-     * @dev Pulls `intent.amount` of `intent.token` from `intent.account`.
-     * @param params Stargate parameters.
-     * @param intent The cross-chain intent to send.
-     * @param payload ABI-encoded calldata for the treasury entrypoint.
-     * @return guid The LayerZero GUID for tracking.
+     * @notice Sends a cross-chain payment intent via LayerZero/Stargate.
+     * @dev Pulls tokens from `intent.account` and bridges them using Stargate's OFT mechanism.
+     *      Excess native fee is handled by Stargate and refunded to the caller.
+     * @param params Stargate send parameters including pool address and slippage.
+     * @param intent The intent to send (status must be None).
+     * @param payload ABI-encoded calldata for the treasury function.
+     * @return guid LayerZero GUID for tracking.
      */
     function sendIntentLZStargate(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload
-    )
-        external
-        payable
-        onlyAgent
-        returns (bytes32 guid)
-    {
+    ) external payable onlyAgent returns (bytes32 guid) {
         _sanitizeIntent(intent, payload);
 
         if (params.minAmount > intent.amount) {
             revert IntentSenderInvalidAmount();
         }
-        
+
         if (IStargate(params.stargate).token() != intent.token) {
             revert IntentSenderInvalidStargate();
         }
@@ -288,7 +346,7 @@ contract IntentSender is Ownable {
 
         uint256 amountReceivedLD;
         {
-            (, , OFTReceipt memory receipt) = IStargate(params.stargate).quoteOFT(sendParam);
+            (,, OFTReceipt memory receipt) = IStargate(params.stargate).quoteOFT(sendParam);
             amountReceivedLD = receipt.amountReceivedLD;
         }
         if (amountReceivedLD < params.minAmount) {
@@ -304,32 +362,24 @@ contract IntentSender is Ownable {
         IERC20(intent.token).forceApprove(params.stargate, intent.amount);
 
         (MessagingReceipt memory msgReceipt,) = IStargate(params.stargate).send{value: msg.value}(
-            sendParam,
-            MessagingFee({nativeFee: msg.value, lzTokenFee: 0}),
-            payable(msg.sender)
+            sendParam, MessagingFee({nativeFee: msg.value, lzTokenFee: 0}), payable(msg.sender)
         );
 
         IERC20(intent.token).forceApprove(params.stargate, 0);
 
         guid = msgReceipt.guid;
         emit IntentSentLayerZeroStargate(
-            guid,
-            intent.intentId,
-            LZ_DESTINATION_EID,
-            intent.account,
-            params.stargate,
-            intent.token,
-            amountReceivedLD
+            guid, intent.intentId, LZ_DESTINATION_EID, intent.account, params.stargate, intent.token, amountReceivedLD
         );
     }
 
     // =============================================================
-    //                       INTERNAL HELPERS
+    //                       INTERNAL FUNCTIONS
     // =============================================================
 
     /**
-     * @dev Validates intent fields, sets sourceChainId and status.
-     * @dev Reverts if status is not None, amount is zero, required addresses are zero, or payload is empty.
+     * @dev Validates and initializes intent fields before sending.
+     *      Sets sourceChainId to current chain and status to Ongoing.
      */
     function _sanitizeIntent(ICrossChainExecutor.Intent memory intent, bytes calldata payload) internal view {
         if (intent.status != ICrossChainExecutor.Status.None) {
@@ -356,13 +406,9 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @dev Builds a CCIP message for the intent, including token transfer and destination gas limit.
+     * @dev Constructs a CCIP message for the intent with token transfer.
      */
-    function _buildCCIPIntentMessage(
-        ICrossChainExecutor.Intent memory intent,
-        bytes calldata payload,
-        uint256 gasLimit
-    )
+    function _buildCCIPIntentMessage(ICrossChainExecutor.Intent memory intent, bytes calldata payload, uint256 gasLimit)
         internal
         view
         returns (Client.EVM2AnyMessage memory)
@@ -380,23 +426,17 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @dev Builds Stargate SendParam for delivery to the destination adapter using compose.
+     * @dev Constructs Stargate SendParam with compose message for the intent.
      */
     function _buildStargateSendParam(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload
-    )
-        internal
-        view
-        returns (SendParam memory)
-    {
+    ) internal view returns (SendParam memory) {
         uint128 gas = params.gasLimit == 0 ? DEFAULT_GAS_AMOUNT : params.gasLimit;
         bytes memory extraOptions = OptionsBuilder.newOptions().addExecutorLzComposeOption(0, gas, 0);
-        bytes memory composeMsg = abi.encodePacked(
-            bytes32(uint256(uint160(address(this)))),
-            abi.encode(intent, payload)
-        );
+        bytes memory composeMsg =
+            abi.encodePacked(bytes32(uint256(uint160(address(this)))), abi.encode(intent, payload));
         return SendParam({
             dstEid: LZ_DESTINATION_EID,
             to: bytes32(uint256(uint160(LZ_DESTINATION_ADAPTER))),
@@ -407,5 +447,4 @@ contract IntentSender is Ownable {
             oftCmd: ""
         });
     }
-
 }

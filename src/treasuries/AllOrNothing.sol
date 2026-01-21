@@ -390,12 +390,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      * @param pledgeToken The token address to use for the pledge.
      * @param pledgeAmount The amount of the pledge (token decimals).
      */
-    function crossChainPledgeWithoutAReward(
-        bytes32 intentId,
-        address backer,
-        address pledgeToken,
-        uint256 pledgeAmount
-    )
+    function crossChainPledgeWithoutAReward(bytes32 intentId, address backer, address pledgeToken, uint256 pledgeAmount)
         external
         onlyCrossChainExecutor
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())

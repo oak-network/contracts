@@ -276,9 +276,8 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
             testToken.approve(treasury, pledgeAmount + tip);
         }
 
-        KeepWhatsRaised(treasury).setFeeAndPledge(
-            pledgeId, backer, address(testToken), pledgeAmount, tip, fee, reward, isPledgeForAReward
-        );
+        KeepWhatsRaised(treasury)
+            .setFeeAndPledge(pledgeId, backer, address(testToken), pledgeAmount, tip, fee, reward, isPledgeForAReward);
 
         logs = vm.getRecordedLogs();
 

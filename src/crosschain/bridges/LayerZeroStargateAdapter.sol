@@ -7,7 +7,11 @@ import {ILayerZeroComposer} from "@layerzerolabs/lz-evm-protocol-v2/contracts/in
 import {ILayerZeroEndpointV2} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 import {IStargate} from "@stargate-v2/interfaces/IStargate.sol";
-import {SendParam, MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
+import {
+    SendParam,
+    MessagingFee,
+    MessagingReceipt
+} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
 import {IGlobalParams} from "../../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../../interfaces/ICrossChainExecutor.sol";
@@ -15,50 +19,104 @@ import {ILayerZeroStargateAdapter} from "../../interfaces/ILayerZeroStargateAdap
 
 /**
  * @title LayerZeroStargateAdapter
- * @notice Destination-chain adapter for LayerZero v2 + Stargate v2 delivery and refunds.
+ * @notice Destination-chain adapter for receiving cross-chain intents via LayerZero Stargate.
+ * @dev This adapter implements ILayerZeroComposer to receive OFT transfers with compose messages
+ *      from Stargate v2. It handles:
+ *      - Receiving and validating incoming compose messages containing payment intents
+ *      - Forwarding validated intents to the CrossChainExecutor
+ *      - Sending refunds back to source chains via Stargate
+ *
+ *      The adapter implements soft-failure validation: invalid intents are marked as Failed
+ *      rather than reverting, allowing funds to be held for refund processing.
  */
 contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapter {
     using SafeERC20 for IERC20;
 
-    bytes32 public constant BRIDGE_ID = keccak256("LAYERZERO");
+    /// @notice Bridge identifier: keccak256("LAYERZERO")
+    bytes32 public constant BRIDGE_ID = 0xe34d309d2a3947d08baad60196a07f69352ed61cce4b781f48c19141173b2894;
 
+    /// @notice LayerZero endpoint contract on this chain.
     ILayerZeroEndpointV2 public immutable ENDPOINT;
+
+    /// @notice Global parameters contract for protocol configuration.
     IGlobalParams public immutable GLOBAL_PARAMS;
 
-    // Hard revert errors (authentication/critical)
+    // =============================================================
+    //                            ERRORS
+    // =============================================================
+
+    /// @dev Caller is not authorized for this operation.
     error LayerZeroStargateAdapterUnauthorized();
+
+    /// @dev Compose message sender does not match the registered IntentSender for the source chain.
     error LayerZeroStargateAdapterInvalidPeer();
 
-    // Soft failure errors (simplified, no params)
+    /// @dev Intent status is not Ongoing (soft failure).
     error LayerZeroStargateAdapterInvalidIntentStatus();
+
+    /// @dev LayerZero endpoint ID does not match the expected ID for the source chain (soft failure).
     error LayerZeroStargateAdapterEidMismatch();
 
-    // Refund-related errors
+    /// @dev Stargate pool is not configured or does not match the token.
     error LayerZeroStargateAdapterTokenNotConfigured();
+
+    /// @dev No LayerZero endpoint ID configured for the destination chain.
     error LayerZeroStargateAdapterUnknownDestinationChainId();
+
+    /// @dev CrossChainExecutor is not configured in GlobalParams.
     error LayerZeroStargateAdapterExecutorNotSet();
+
+    /// @dev Provided native fee is insufficient for the LayerZero operation.
     error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
 
-    event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
-    event RefundSent(bytes32 indexed guid, uint256 destinationChainId, address recipient, address token, uint256 amount);
-    event IntentFailed(bytes32 indexed intentId, bytes4 errorSelector);
+    // =============================================================
+    //                            EVENTS
+    // =============================================================
 
+    /**
+     * @notice Emitted when an intent is received and processed via lzCompose.
+     * @param guid LayerZero GUID of the incoming message.
+     * @param srcEid Source chain's LayerZero endpoint ID.
+     * @param intentId Unique intent identifier.
+     * @param amount Token amount received.
+     */
+    event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
+
+    /**
+     * @notice Emitted when a refund is sent via Stargate.
+     * @param guid LayerZero GUID for tracking.
+     * @param destinationChainId EVM chain ID of the refund destination.
+     * @param recipient Address receiving the refund on the destination chain.
+     * @param token Token being refunded.
+     * @param amount Amount of tokens refunded.
+     */
+    event RefundSent(
+        bytes32 indexed guid, uint256 destinationChainId, address recipient, address token, uint256 amount
+    );
+
+    /**
+     * @notice Deploys a new LayerZeroStargateAdapter.
+     * @param endpoint LayerZero endpoint address on this chain.
+     * @param globalParams Global parameters contract address.
+     */
     constructor(address endpoint, IGlobalParams globalParams) {
         ENDPOINT = ILayerZeroEndpointV2(endpoint);
         GLOBAL_PARAMS = globalParams;
     }
 
     /**
-     * @notice LayerZero compose entrypoint. Validates provenance, updates intent token/amount, and dispatches intent.
+     * @notice LayerZero compose callback for receiving Stargate OFT transfers.
+     * @dev Called by the LayerZero endpoint after a Stargate transfer with a compose message.
+     *      Validates the message provenance and forwards the intent to the executor.
+     * @param from The Stargate pool contract that initiated the compose.
+     * @param guid LayerZero GUID of the message.
+     * @param message The compose message containing the encoded intent and payload.
      */
-    function lzCompose(
-        address from,
-        bytes32 guid,
-        bytes calldata message,
-        address,
-        bytes calldata
-    ) external payable override {
-        // Validate endpoint and peer - revert on failure
+    function lzCompose(address from, bytes32 guid, bytes calldata message, address, bytes calldata)
+        external
+        payable
+        override
+    {
         if (msg.sender != address(ENDPOINT)) {
             revert LayerZeroStargateAdapterUnauthorized();
         }
@@ -78,46 +136,39 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         if (expectedPeer != composeFrom) {
             revert LayerZeroStargateAdapterInvalidPeer();
         }
-        
-        // Soft failure validations - use errorSelector pattern
+
         bytes4 errorSelector;
 
-        // Validate intent status is Ongoing
         if (intent.status != ICrossChainExecutor.Status.Ongoing) {
             errorSelector = LayerZeroStargateAdapterInvalidIntentStatus.selector;
         } else if (ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId) != srcEid) {
             errorSelector = LayerZeroStargateAdapterEidMismatch.selector;
         }
 
-        // Resolve received token from the Stargate contract calling compose
         address receivedToken = IStargate(from).token();
 
-        // Update intent token and amount to reflect what was actually received
         intent.token = receivedToken;
         intent.amount = amountLD;
 
-        // Handle failure case
         if (errorSelector != bytes4(0)) {
             intent.status = ICrossChainExecutor.Status.Failed;
-            emit IntentFailed(intent.intentId, errorSelector);
+            emit ICrossChainExecutor.IntentFailed(intent.intentId, errorSelector);
         }
 
-        // For failed intents, executor will record the failure and hold tokens for refund
         IERC20(receivedToken).safeTransfer(executor, amountLD);
         ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
 
         emit IntentComposed(guid, srcEid, intent.intentId, amountLD);
     }
 
-    /**
-     * @inheritdoc ILayerZeroStargateAdapter
-     */
-    function quoteRefundFee(uint256 destinationChainId, address recipient, address token, uint256 amount, address stargate)
-        external
-        view
-        override
-        returns (uint256 fee)
-    {
+    /// @inheritdoc ILayerZeroStargateAdapter
+    function quoteRefundFee(
+        uint256 destinationChainId,
+        address recipient,
+        address token,
+        uint256 amount,
+        address stargate
+    ) external view override returns (uint256 fee) {
         if (stargate == address(0) || IStargate(stargate).token() != token) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
@@ -144,9 +195,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         return mfee.nativeFee;
     }
 
-    /**
-     * @inheritdoc ILayerZeroStargateAdapter
-     */
+    /// @inheritdoc ILayerZeroStargateAdapter
     function sendRefund(
         uint256 destinationChainId,
         address recipient,
@@ -154,12 +203,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         uint256 amount,
         address stargate,
         address feeRefundRecipient
-    )
-        external
-        payable
-        override
-        returns (bytes32 refundId)
-    {
+    ) external payable override returns (bytes32 refundId) {
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
         if (executor == address(0) || msg.sender != executor) {
             revert LayerZeroStargateAdapterUnauthorized();
@@ -192,9 +236,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         }
 
         (MessagingReceipt memory msgReceipt,) = IStargate(stargate).send{value: msg.value}(
-            sendParam,
-            MessagingFee({nativeFee: msg.value, lzTokenFee: 0}),
-            payable(feeRefundRecipient)
+            sendParam, MessagingFee({nativeFee: msg.value, lzTokenFee: 0}), payable(feeRefundRecipient)
         );
 
         IERC20(token).forceApprove(stargate, 0);
@@ -202,5 +244,4 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         refundId = msgReceipt.guid;
         emit RefundSent(refundId, destinationChainId, recipient, token, amount);
     }
-
 }
