@@ -308,7 +308,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward, backer);
     }
 
     /**
@@ -328,11 +328,11 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     {
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray);
+        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray, backer);
     }
 
     /**
-     * @notice Cross-chain pledge for a reward (funds pre-delivered by Executor).
+     * @notice Cross-chain pledge for a reward.
      * @param intentId The cross-chain intent ID.
      * @param backer The address of the backer making the pledge.
      * @param pledgeToken The token address to use for the pledge.
@@ -378,13 +378,13 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             pledgeAmount += tempReward.rewardValue;
         }
 
-        uint256 tokenId = _pledgeCrossChain(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        uint256 tokenId = _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward, _msgSender());
         s_intentIdToTokenId[intentId] = tokenId;
         s_tokenIdToIntentId[tokenId] = intentId;
     }
 
     /**
-     * @notice Cross-chain pledge without selecting a reward (funds pre-delivered by Executor).
+     * @notice Cross-chain pledge without selecting a reward.
      * @param intentId The cross-chain intent ID.
      * @param backer The address of the backer making the pledge.
      * @param pledgeToken The token address to use for the pledge.
@@ -404,7 +404,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         }
 
         bytes32[] memory emptyByteArray = new bytes32[](0);
-        uint256 tokenId = _pledgeCrossChain(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray);
+        uint256 tokenId = _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray, _msgSender());
         s_intentIdToTokenId[intentId] = tokenId;
         s_tokenIdToIntentId[tokenId] = intentId;
     }
@@ -499,8 +499,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 shippingFee,
-        bytes32[] memory rewards
-    ) private {
+        bytes32[] memory rewards,
+        address tokenSource
+    ) private returns (uint256 tokenId) {
         // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
@@ -523,47 +524,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
 
-        IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
-
-        uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
-        );
-
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
-        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
-        s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-
-        emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
-    }
-
-    /// @dev Internal cross-chain pledge helper; funds are already in the treasury.
-    function _pledgeCrossChain(
-        address backer,
-        address pledgeToken,
-        bytes32 reward,
-        uint256 pledgeAmount,
-        uint256 shippingFee,
-        bytes32[] memory rewards
-    ) private returns (uint256 tokenId) {
-        // Validate token is accepted
-        if (!INFO.isTokenAccepted(pledgeToken)) {
-            revert AllOrNothingTokenNotAccepted(pledgeToken);
-        }
-
-        uint256 pledgeAmountInTokenDecimals;
-        uint256 shippingFeeInTokenDecimals;
-
-        if (reward != ZERO_BYTES) {
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
-        } else {
-            pledgeAmountInTokenDecimals = pledgeAmount;
-            shippingFeeInTokenDecimals = shippingFee;
-        }
-
-        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+        IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
 
         tokenId = INFO.mintNFTForPledge(
             backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0

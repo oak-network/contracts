@@ -804,7 +804,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @notice Cross-chain pledge for a reward (funds pre-delivered by Executor).
+     * @notice Cross-chain pledge for a reward.
      * @param intentId The cross-chain intent ID.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
@@ -832,16 +832,13 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedIntentAlreadyProcessed(intentId);
         }
 
-        if (reward.length == 0 || reward[0] == ZERO_BYTES) {
-            revert KeepWhatsRaisedInvalidInput();
-        }
-        uint256 tokenId = _pledgeCrossChain(pledgeId, backer, pledgeToken, reward[0], reward, 0, tip);
+        uint256 tokenId = _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender());
         s_intentIdToTokenId[intentId] = tokenId;
         s_tokenIdToIntentId[tokenId] = intentId;
     }
 
     /**
-     * @notice Cross-chain pledge without selecting a reward (funds pre-delivered by Executor).
+     * @notice Cross-chain pledge without selecting a reward.
      * @param intentId The cross-chain intent ID.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
@@ -868,10 +865,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (intentId == ZERO_BYTES || s_intentIdToTokenId[intentId] != 0) {
             revert KeepWhatsRaisedIntentAlreadyProcessed(intentId);
         }
-
-        bytes32[] memory emptyByteArray = new bytes32[](0);
-        uint256 tokenId =
-            _pledgeCrossChain(pledgeId, backer, pledgeToken, ZERO_BYTES, emptyByteArray, pledgeAmount, tip);
+    
+        uint256 tokenId = _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender());
         s_intentIdToTokenId[intentId] = tokenId;
         s_tokenIdToIntentId[tokenId] = intentId;
     }
@@ -1230,71 +1225,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
 
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
-
-        tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
-
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
-        s_tokenToTippedAmount[tokenId] = tip;
-        s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-
-        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
-        s_availablePerToken[pledgeToken] += netAvailable;
-
-        emit Receipt(backer, pledgeToken, reward, pledgeAmount, tip, tokenId, rewards);
-    }
-
-    /// @dev Internal cross-chain pledge helper; funds are already in the treasury.
-    function _pledgeCrossChain(
-        bytes32 pledgeId,
-        address backer,
-        address pledgeToken,
-        bytes32 reward,
-        bytes32[] memory rewards,
-        uint256 pledgeAmount,
-        uint256 tip
-    ) private returns (uint256 tokenId) {
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
-
-        if (s_processedPledges[internalPledgeId]) {
-            revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
-        }
-        s_processedPledges[internalPledgeId] = true;
-
-        if (reward != ZERO_BYTES) {
-            uint256 rewardLen = rewards.length;
-            Reward memory tempReward = s_reward[reward];
-            if (
-                backer == address(0) || rewardLen == 0 || rewardLen > s_rewardCounter.current() || rewards[0] != reward
-                    || !tempReward.isRewardTier
-            ) {
-                revert KeepWhatsRaisedInvalidInput();
-            }
-            pledgeAmount = tempReward.rewardValue;
-            for (uint256 i = 1; i < rewardLen; i++) {
-                if (rewards[i] == ZERO_BYTES) {
-                    revert KeepWhatsRaisedInvalidInput();
-                }
-                tempReward = s_reward[rewards[i]];
-                if (tempReward.rewardValue == 0) {
-                    revert KeepWhatsRaisedInvalidInput();
-                }
-                pledgeAmount += tempReward.rewardValue;
-            }
-        }
-
-        if (!INFO.isTokenAccepted(pledgeToken)) {
-            revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
-        }
-
-        uint256 pledgeAmountInTokenDecimals;
-        if (reward != ZERO_BYTES) {
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-        } else {
-            pledgeAmountInTokenDecimals = pledgeAmount;
-        }
 
         tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
 

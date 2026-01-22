@@ -157,11 +157,28 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
 
         executor.setIntentSender(config.sourceChainId, intentSender);
 
-        executor.setSelector(SELECTOR_0, true);
-        executor.setSelector(SELECTOR_1, true);
-        executor.setSelector(SELECTOR_2, true);
-        executor.setSelector(SELECTOR_3, true);
-        executor.setSelector(SELECTOR_4, true);
+        // Note: These should be updated with actual treasury addresses as needed
+        address paymentTreasury = vm.envOr("PAYMENT_TREASURY_ADDRESS", address(0));
+        address keepWhatsRaised = vm.envOr("KEEP_WHATS_RAISED_ADDRESS", address(0));
+        address allOrNothing = vm.envOr("ALL_OR_NOTHING_ADDRESS", address(0));
+
+        if (paymentTreasury != address(0)) {
+            bytes4[] memory selectors = new bytes4[](1);
+            selectors[0] = SELECTOR_0;
+            executor.setSelectors(paymentTreasury, selectors, true);
+        }
+        if (keepWhatsRaised != address(0)) {
+            bytes4[] memory selectors = new bytes4[](2);
+            selectors[0] = SELECTOR_1;
+            selectors[1] = SELECTOR_2;
+            executor.setSelectors(keepWhatsRaised, selectors, true);
+        }
+        if (allOrNothing != address(0)) {
+            bytes4[] memory selectors = new bytes4[](2);
+            selectors[0] = SELECTOR_3;
+            selectors[1] = SELECTOR_4;
+            executor.setSelectors(allOrNothing, selectors, true);
+        }
 
         if (!simulate) {
             vm.stopBroadcast();
@@ -199,12 +216,21 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
         console2.log("Registered IntentSender chainId:", config.sourceChainId);
         console2.log("Source CCIP selector:", config.sourceCcipSelector);
         console2.log("Source LZ eid:", config.sourceLzEid);
-        console2.log("Allowed selectors:");
-        console2.logBytes4(SELECTOR_0);
-        console2.logBytes4(SELECTOR_1);
-        console2.logBytes4(SELECTOR_2);
-        console2.logBytes4(SELECTOR_3);
-        console2.logBytes4(SELECTOR_4);
+        console2.log("Allowed selectors configured for provided treasuries:");
+        if (vm.envAddress("PAYMENT_TREASURY_ADDRESS") != address(0)) {
+            console2.log("  PaymentTreasury:", vm.envAddress("PAYMENT_TREASURY_ADDRESS"));
+            console2.logBytes4(SELECTOR_0);
+        }
+        if (vm.envAddress("KEEP_WHATS_RAISED_ADDRESS") != address(0)) {
+            console2.log("  KeepWhatsRaised:", vm.envAddress("KEEP_WHATS_RAISED_ADDRESS"));
+            console2.logBytes4(SELECTOR_1);
+            console2.logBytes4(SELECTOR_2);
+        }
+        if (vm.envAddress("ALL_OR_NOTHING_ADDRESS") != address(0)) {
+            console2.log("  AllOrNothing:", vm.envAddress("ALL_OR_NOTHING_ADDRESS"));
+            console2.logBytes4(SELECTOR_3);
+            console2.logBytes4(SELECTOR_4);
+        }
 
         console2.log("\n===========================================");
         console2.log("Deployment and setup completed successfully!");

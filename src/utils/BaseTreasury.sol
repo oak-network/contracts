@@ -112,6 +112,9 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         _;
     }
 
+    /**
+     * @dev Modifier that checks if the caller is the cross-chain executor.
+     */
     modifier onlyCrossChainExecutor() {
         address executor = _getCrossChainExecutor();
         if (executor == address(0) || _msgSender() != executor) {
@@ -120,8 +123,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         _;
     }
 
-    // @ gpt should be getting from GlobalParams obviously. Remove this comment after making the necessary change.
-    // Also in basePaymentTreasury.sol, it should be GlobalParams too.
+    /**
+     * @dev Internal function to get the cross-chain executor address.
+     * @return The cross-chain executor address.
+     */
     function _getCrossChainExecutor() internal view returns (address) {
         bytes32 value = INFO.getDataFromRegistry(DataRegistryKeys.CROSS_CHAIN_EXECUTOR);
         return address(uint160(uint256(value)));

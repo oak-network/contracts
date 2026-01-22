@@ -49,8 +49,8 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     /// @dev Intent storage by intent ID.
     mapping(bytes32 intentId => Intent) private _intents;
 
-    /// @dev Allowlisted function selectors.
-    mapping(bytes4 selector => bool allowed) private _allowedSelectors;
+    /// @dev Allowlisted function selectors per treasury.
+    mapping(address treasury => mapping(bytes4 selector => bool allowed)) private _allowedSelectors;
 
     /// @notice Authorized off-chain agent for executing refunds.
     address public agent;
@@ -264,12 +264,13 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     }
 
     /**
-     * @notice Checks if a function selector is allowlisted.
+     * @notice Checks if a function selector is allowlisted for a specific treasury.
+     * @param treasury The treasury address to check.
      * @param selector Function selector to check.
      * @return True if the selector is allowed.
      */
-    function isSelectorAllowed(bytes4 selector) external view returns (bool) {
-        return _allowedSelectors[selector];
+    function isSelectorAllowed(address treasury, bytes4 selector) external view returns (bool) {
+        return _allowedSelectors[treasury][selector];
     }
 
     // =============================================================
@@ -277,13 +278,20 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Allowlists or removes a function selector.
-     * @param selector Function selector to configure.
-     * @param allowed Whether the selector should be allowed.
+     * @notice Allowlists or removes function selectors for a specific treasury.
+     * @param treasury The treasury address to configure.
+     * @param selectors Array of function selectors to configure.
+     * @param allowed Whether the selectors should be allowed.
      */
-    function setSelector(bytes4 selector, bool allowed) external onlyOwner {
-        _allowedSelectors[selector] = allowed;
-        emit SelectorAllowed(selector, allowed);
+    function setSelectors(address treasury, bytes4[] calldata selectors, bool allowed) external onlyOwner {
+        for (uint256 i = 0; i < selectors.length;) {
+            _allowedSelectors[treasury][selectors[i]] = allowed;
+            emit SelectorAllowed(treasury, selectors[i], allowed);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /**
@@ -404,7 +412,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
 
         if (_intents[intent.intentId].status != Status.None) {
             errorSelector = ExecutorIntentAlreadyProcessed.selector;
-        } else if (!_allowedSelectors[bytes4(payload)]) {
+        } else if (!_allowedSelectors[intent.treasury][bytes4(payload)]) {
             errorSelector = ExecutorSelectorNotAllowed.selector;
         }
 

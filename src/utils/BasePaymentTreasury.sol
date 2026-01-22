@@ -834,7 +834,7 @@ abstract contract BasePaymentTreasury is
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) external whenCampaignNotPaused whenCampaignNotCancelled onlyCrossChainExecutor {
-        if (intentId == ZERO_BYTES) {
+        if (intentId == ZERO_BYTES || s_paymentIdToIntentId[paymentId] != ZERO_BYTES) {
             revert PaymentTreasuryInvalidInput();
         }
 
@@ -845,7 +845,7 @@ abstract contract BasePaymentTreasury is
         s_paymentIdToIntentId[paymentId] = intentId;
     }
 
-    /// @dev Internal payment processor. If tokenSource is zero, funds are assumed pre-delivered.
+    /// @dev Internal payment processor.
     function _processCryptoPayment(
         bytes32 paymentId,
         bytes32 itemId,
@@ -895,8 +895,6 @@ abstract contract BasePaymentTreasury is
 
         // Validate, calculate total, store, and process line items
         uint256 totalAmount = amount;
-        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-        uint256 protocolFeePercent = INFO.getProtocolFeePercent();
         uint256 totalInstantTransferAmount = 0;
 
         for (uint256 i = 0; i < lineItems.length; i++) {
@@ -947,7 +945,7 @@ abstract contract BasePaymentTreasury is
                 // Apply protocol fee if applicable
                 uint256 feeAmount = 0;
                 if (applyProtocolFee) {
-                    uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
+                    uint256 protocolFee = (item.amount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
                     feeAmount += protocolFee;
                     s_protocolFeePerToken[paymentToken] += protocolFee;
                 }
@@ -979,9 +977,7 @@ abstract contract BasePaymentTreasury is
             }
         }
 
-        if (tokenSource != address(0)) {
-            IERC20(paymentToken).safeTransferFrom(tokenSource, address(this), totalAmount);
-        }
+        IERC20(paymentToken).safeTransferFrom(tokenSource, address(this), totalAmount);
 
         s_payment[internalPaymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
@@ -1002,7 +998,7 @@ abstract contract BasePaymentTreasury is
 
         // Perform single batch transfer if there are any instant transfer amounts
         if (totalInstantTransferAmount > 0) {
-            IERC20(paymentToken).safeTransfer(platformAdmin, totalInstantTransferAmount);
+            IERC20(paymentToken).safeTransfer(INFO.getPlatformAdminAddress(PLATFORM_HASH), totalInstantTransferAmount);
         }
         // Mint NFT for crypto payment
         uint256 tokenId = INFO.mintNFTForPledge(
