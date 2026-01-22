@@ -26,9 +26,9 @@ abstract contract CrossChainDeployBase is DeployBase {
     bytes1 private constant DOUBLE_QUOTE = 0x22; // "
     bytes1 private constant SINGLE_QUOTE = 0x27; // '
 
-    function _loadMode() internal view returns (Mode mode, string memory label) {
+    function _loadMode() internal returns (Mode mode, string memory label) {
         string memory modeEnv = vm.envOr("MODE", string("TEST"));
-        modeEnv = _toUpper(_trimWhitespace(modeEnv));
+        modeEnv = _toUpperCase(_trimWhitespace(modeEnv));
 
         if (_equals(modeEnv, "MAIN")) {
             return (Mode.MAIN, "MAIN");
@@ -63,7 +63,7 @@ abstract contract CrossChainDeployBase is DeployBase {
         }
     }
 
-    function _parseSourceNetworks() internal view returns (string[] memory networks) {
+    function _parseSourceNetworks() internal returns (string[] memory networks) {
         string memory sourceNetworks = vm.envOr("SOURCE_NETWORKS", string(""));
         if (bytes(sourceNetworks).length == 0) {
             networks = new string[](1);
@@ -81,7 +81,7 @@ abstract contract CrossChainDeployBase is DeployBase {
         for (uint256 i = 0; i < raw.length; i++) {
             string memory item = _trimWhitespace(raw[i]);
             item = _stripQuotes(item);
-            item = _toUpper(item);
+            item = _toUpperCase(item);
             if (bytes(item).length == 0) {
                 revert("SOURCE_NETWORKS entry empty");
             }
@@ -133,7 +133,7 @@ abstract contract CrossChainDeployBase is DeployBase {
         return input;
     }
 
-    function _toUpper(string memory input) internal pure returns (string memory) {
+    function _toUpperCase(string memory input) internal pure returns (string memory) {
         bytes memory data = bytes(input);
         for (uint256 i = 0; i < data.length; i++) {
             if (data[i] >= 0x61 && data[i] <= 0x7A) {

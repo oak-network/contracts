@@ -16,8 +16,11 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
     bytes32 internal constant BRIDGE_ID_LAYERZERO =
         0xe34d309d2a3947d08baad60196a07f69352ed61cce4b781f48c19141173b2894;
 
-    bytes4[5] internal constant ALLOWED_SELECTORS =
-        [0xf1d2ae6a, 0x44019d1e, 0x80b213af, 0xa3d19199, 0xc13f3393];
+    bytes4 internal constant SELECTOR_0 = 0xf1d2ae6a;
+    bytes4 internal constant SELECTOR_1 = 0x44019d1e;
+    bytes4 internal constant SELECTOR_2 = 0x80b213af;
+    bytes4 internal constant SELECTOR_3 = 0xa3d19199;
+    bytes4 internal constant SELECTOR_4 = 0xc13f3393;
 
     string internal constant DESTINATION_NETWORK = "ETH";
 
@@ -154,9 +157,11 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
 
         executor.setIntentSender(config.sourceChainId, intentSender);
 
-        for (uint256 i = 0; i < ALLOWED_SELECTORS.length; i++) {
-            executor.setSelector(ALLOWED_SELECTORS[i], true);
-        }
+        executor.setSelector(SELECTOR_0, true);
+        executor.setSelector(SELECTOR_1, true);
+        executor.setSelector(SELECTOR_2, true);
+        executor.setSelector(SELECTOR_3, true);
+        executor.setSelector(SELECTOR_4, true);
 
         if (!simulate) {
             vm.stopBroadcast();
@@ -195,9 +200,11 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
         console2.log("Source CCIP selector:", config.sourceCcipSelector);
         console2.log("Source LZ eid:", config.sourceLzEid);
         console2.log("Allowed selectors:");
-        for (uint256 i = 0; i < ALLOWED_SELECTORS.length; i++) {
-            console2.logBytes4(ALLOWED_SELECTORS[i]);
-        }
+        console2.logBytes4(SELECTOR_0);
+        console2.logBytes4(SELECTOR_1);
+        console2.logBytes4(SELECTOR_2);
+        console2.logBytes4(SELECTOR_3);
+        console2.logBytes4(SELECTOR_4);
 
         console2.log("\n===========================================");
         console2.log("Deployment and setup completed successfully!");
