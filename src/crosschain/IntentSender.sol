@@ -242,7 +242,7 @@ contract IntentSender is Ownable {
      * @param payload ABI-encoded treasury calldata.
      * @return nativeFee Native fee required by LayerZero.
      */
-    function quoteFeeLayerZeroStargate(
+    function quoteFeeLZStargate(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload

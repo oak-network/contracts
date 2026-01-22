@@ -101,12 +101,11 @@ interface ICrossChainExecutor {
     event RefundExecuted(bytes32 indexed intentId, bytes32 indexed refundMessageId);
 
     /**
-     * @notice Emitted when a treasury selector is allowlisted or removed.
-     * @param treasury Treasury contract address.
+     * @notice Emitted when a function selector is allowlisted or removed.
      * @param selector Function selector that was updated.
      * @param allowed Whether the selector is now allowed.
      */
-    event TreasurySelectorAllowed(address indexed treasury, bytes4 indexed selector, bool allowed);
+    event SelectorAllowed(bytes4 indexed selector, bool allowed);
 
     /**
      * @notice Emitted when the authorized agent address is updated.

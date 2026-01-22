@@ -169,13 +169,11 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         uint256 amount,
         address stargate
     ) external view override returns (uint256 fee) {
-        if (stargate == address(0) || IStargate(stargate).token() != token) {
+        if (IStargate(stargate).token() != token) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0)) {
-            revert LayerZeroStargateAdapterExecutorNotSet();
-        }
+
         uint32 dstEid = ICrossChainExecutor(executor).getLayerZeroEid(destinationChainId);
         if (dstEid == 0) {
             revert LayerZeroStargateAdapterUnknownDestinationChainId();
@@ -205,11 +203,11 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         address feeRefundRecipient
     ) external payable override returns (bytes32 refundId) {
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0) || msg.sender != executor) {
+        if (msg.sender != executor) {
             revert LayerZeroStargateAdapterUnauthorized();
         }
 
-        if (stargate == address(0) || IStargate(stargate).token() != token) {
+        if (IStargate(stargate).token() != token) {
             revert LayerZeroStargateAdapterTokenNotConfigured();
         }
         uint32 dstEid = ICrossChainExecutor(executor).getLayerZeroEid(destinationChainId);

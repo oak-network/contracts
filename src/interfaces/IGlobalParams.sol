@@ -141,6 +141,12 @@ interface IGlobalParams {
     function getCrossChainExecutor() external view returns (address);
 
     /**
+     * @notice Sets the destination-chain cross-chain executor address in the data registry.
+     * @param executor The address of the cross-chain executor contract.
+     */
+    function setCrossChainExecutor(address executor) external;
+
+    /**
      * @notice Sets or updates a platform-specific line item type configuration.
      * @param platformHash The identifier of the platform.
      * @param typeId The identifier of the line item type.

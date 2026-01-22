@@ -2,9 +2,9 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-import {IGlobalParams} from "../interfaces/IGlobalParams.sol";
 import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 import {IChainlinkCCIPAdapter} from "../interfaces/IChainlinkCCIPAdapter.sol";
 import {ILayerZeroStargateAdapter} from "../interfaces/ILayerZeroStargateAdapter.sol";
@@ -21,11 +21,8 @@ import {ILayerZeroStargateAdapter} from "../interfaces/ILayerZeroStargateAdapter
  *      The executor implements a soft-failure pattern where validation errors do not revert
  *      but instead mark the intent as Failed, allowing funds to be refunded to the source chain.
  */
-contract CrossChainExecutor is ICrossChainExecutor, Pausable {
+contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     using SafeERC20 for IERC20;
-
-    /// @notice Global parameters contract for protocol-wide configuration.
-    IGlobalParams public immutable GLOBAL_PARAMS;
 
     /// @notice Bridge identifier for Chainlink CCIP: keccak256("CCIP")
     bytes32 public constant BRIDGE_ID_CCIP = 0x5fa42365004d29017b6e1fff462c90ecf163a6f09987e7af7e4b8c324fc7cc5f;
@@ -52,8 +49,8 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     /// @dev Intent storage by intent ID.
     mapping(bytes32 intentId => Intent) private _intents;
 
-    /// @dev Allowlisted function selectors per treasury contract.
-    mapping(address treasury => mapping(bytes4 selector => bool allowed)) private _allowedTreasurySelectors;
+    /// @dev Allowlisted function selectors.
+    mapping(bytes4 selector => bool allowed) private _allowedSelectors;
 
     /// @notice Authorized off-chain agent for executing refunds.
     address public agent;
@@ -77,7 +74,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     /// @dev Payload or configuration data is invalid (soft failure).
     error ExecutorInvalidData();
 
-    /// @dev Function selector not allowlisted for the treasury (soft failure).
+    /// @dev Function selector not allowlisted (soft failure).
     error ExecutorSelectorNotAllowed();
 
     /// @dev Treasury call failed (soft failure).
@@ -108,16 +105,6 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     error ExecutorInvalidLayerZeroEid(uint256 chainId);
 
     /**
-     * @notice Validates that caller is the protocol admin.
-     */
-    modifier onlyProtocolAdmin() {
-        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
-            revert ExecutorUnauthorized();
-        }
-        _;
-    }
-
-    /**
      * @notice Validates that caller is the authorized off-chain agent.
      */
     modifier onlyAgent() {
@@ -129,9 +116,10 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
 
     /**
      * @notice Initializes the CrossChainExecutor.
+     * @param _agent Address of the authorized off-chain agent for refund operations.
      */
-    constructor(IGlobalParams globalParams) {
-        GLOBAL_PARAMS = globalParams;
+    constructor(address _agent) Ownable(msg.sender) {
+        agent = _agent;
     }
 
     /// @inheritdoc ICrossChainExecutor
@@ -276,13 +264,12 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     }
 
     /**
-     * @notice Checks if a function selector is allowlisted for a treasury.
-     * @param treasury Treasury contract address.
+     * @notice Checks if a function selector is allowlisted.
      * @param selector Function selector to check.
-     * @return True if the selector is allowed for the treasury.
+     * @return True if the selector is allowed.
      */
-    function isTreasurySelectorAllowed(address treasury, bytes4 selector) external view returns (bool) {
-        return _allowedTreasurySelectors[treasury][selector];
+    function isSelectorAllowed(bytes4 selector) external view returns (bool) {
+        return _allowedSelectors[selector];
     }
 
     // =============================================================
@@ -290,21 +277,20 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     // =============================================================
 
     /**
-     * @notice Allowlists or removes a function selector for a treasury contract.
-     * @param treasury Treasury contract address.
+     * @notice Allowlists or removes a function selector.
      * @param selector Function selector to configure.
      * @param allowed Whether the selector should be allowed.
      */
-    function setTreasurySelector(address treasury, bytes4 selector, bool allowed) external onlyProtocolAdmin {
-        _allowedTreasurySelectors[treasury][selector] = allowed;
-        emit TreasurySelectorAllowed(treasury, selector, allowed);
+    function setSelector(bytes4 selector, bool allowed) external onlyOwner {
+        _allowedSelectors[selector] = allowed;
+        emit SelectorAllowed(selector, allowed);
     }
 
     /**
      * @notice Sets the authorized off-chain agent for refund operations.
      * @param newAgent Address of the new agent.
      */
-    function setAgent(address newAgent) external onlyProtocolAdmin {
+    function setAgent(address newAgent) external onlyOwner {
         if (newAgent == address(0)) {
             revert ExecutorUnauthorized();
         }
@@ -317,7 +303,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
      * @param chainId EVM chain ID of the source chain.
      * @param intentSender Address of the IntentSender contract.
      */
-    function setIntentSender(uint256 chainId, address intentSender) external onlyProtocolAdmin {
+    function setIntentSender(uint256 chainId, address intentSender) external onlyOwner {
         if (intentSender == address(0)) {
             revert ExecutorInvalidSenderConfig(chainId);
         }
@@ -325,27 +311,24 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     }
 
     /**
-     * @notice Registers a bridge adapter for a bridge identifier.
-     * @param bridgeId Bridge identifier (e.g., BRIDGE_ID_CCIP).
-     * @param adapter Address of the bridge adapter contract.
+     * @notice Batch registers bridge adapters for bridge identifiers.
+     * @param bridgeIds Array of bridge identifiers (e.g., BRIDGE_ID_CCIP).
+     * @param adapters Array of corresponding bridge adapter contract addresses.
      */
-    function setBridgeAdapter(bytes32 bridgeId, address adapter) external onlyProtocolAdmin {
-        if (adapter == address(0)) {
-            revert ExecutorInvalidBridgeAdapter(bridgeId);
+    function setBridgeAdapters(bytes32[] calldata bridgeIds, address[] calldata adapters) external onlyOwner {
+        if (bridgeIds.length != adapters.length) {
+            revert ExecutorInvalidData();
         }
-        _bridgeAdapters[bridgeId] = adapter;
-    }
+        for (uint256 i = 0; i < bridgeIds.length;) {
+            if (adapters[i] == address(0)) {
+                revert ExecutorInvalidBridgeAdapter(bridgeIds[i]);
+            }
+            _bridgeAdapters[bridgeIds[i]] = adapters[i];
 
-    /**
-     * @notice Maps an EVM chain ID to its CCIP chain selector.
-     * @param chainId EVM chain ID.
-     * @param chainSelector CCIP chain selector.
-     */
-    function setCcipChainSelector(uint256 chainId, uint64 chainSelector) external onlyProtocolAdmin {
-        if (chainSelector == 0) {
-            revert ExecutorInvalidChainSelector(chainId);
+            unchecked {
+                ++i;
+            }
         }
-        _ccipChainSelectors[chainId] = chainSelector;
     }
 
     /**
@@ -355,29 +338,21 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
      */
     function setCcipChainSelectors(uint256[] calldata chainIds, uint64[] calldata selectors)
         external
-        onlyProtocolAdmin
+        onlyOwner
     {
         if (chainIds.length != selectors.length) {
             revert ExecutorInvalidData();
         }
-        for (uint256 i = 0; i < chainIds.length; i++) {
+        for (uint256 i = 0; i < chainIds.length;) {
             if (selectors[i] == 0) {
                 revert ExecutorInvalidChainSelector(chainIds[i]);
             }
             _ccipChainSelectors[chainIds[i]] = selectors[i];
-        }
-    }
 
-    /**
-     * @notice Maps an EVM chain ID to its LayerZero endpoint ID.
-     * @param chainId EVM chain ID.
-     * @param eid LayerZero endpoint ID.
-     */
-    function setLayerZeroEid(uint256 chainId, uint32 eid) external onlyProtocolAdmin {
-        if (eid == 0) {
-            revert ExecutorInvalidLayerZeroEid(chainId);
+            unchecked {
+                ++i;
+            }
         }
-        _layerZeroEids[chainId] = eid;
     }
 
     /**
@@ -385,29 +360,33 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
      * @param chainIds Array of EVM chain IDs.
      * @param eids Array of corresponding LayerZero endpoint IDs.
      */
-    function setLayerZeroEids(uint256[] calldata chainIds, uint32[] calldata eids) external onlyProtocolAdmin {
+    function setLayerZeroEids(uint256[] calldata chainIds, uint32[] calldata eids) external onlyOwner {
         if (chainIds.length != eids.length) {
             revert ExecutorInvalidData();
         }
-        for (uint256 i = 0; i < chainIds.length; i++) {
+        for (uint256 i = 0; i < chainIds.length;) {
             if (eids[i] == 0) {
                 revert ExecutorInvalidLayerZeroEid(chainIds[i]);
             }
             _layerZeroEids[chainIds[i]] = eids[i];
+            
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /**
      * @notice Pauses all executor operations.
      */
-    function pause() external onlyProtocolAdmin {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /**
      * @notice Unpauses executor operations.
      */
-    function unpause() external onlyProtocolAdmin {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -425,7 +404,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
 
         if (_intents[intent.intentId].status != Status.None) {
             errorSelector = ExecutorIntentAlreadyProcessed.selector;
-        } else if (!_allowedTreasurySelectors[intent.treasury][bytes4(payload)]) {
+        } else if (!_allowedSelectors[bytes4(payload)]) {
             errorSelector = ExecutorSelectorNotAllowed.selector;
         }
 

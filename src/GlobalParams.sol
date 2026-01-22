@@ -307,6 +307,19 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
+    function setCrossChainExecutor(address executor) external onlyOwner {
+        if (executor == address(0)) {
+            revert GlobalParamsInvalidInput();
+        }
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        bytes32 value = bytes32(uint256(uint160(executor)));
+        $.dataRegistry[DataRegistryKeys.CROSS_CHAIN_EXECUTOR] = value;
+        emit DataAddedToRegistry(DataRegistryKeys.CROSS_CHAIN_EXECUTOR, value);
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
     function getCrossChainExecutor() external view returns (address) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         bytes32 value = $.dataRegistry[DataRegistryKeys.CROSS_CHAIN_EXECUTOR];
