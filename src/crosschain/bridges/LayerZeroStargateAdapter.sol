@@ -69,6 +69,9 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     /// @dev Provided native fee is insufficient for the LayerZero operation.
     error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
 
+    /// @dev Compose message is too short to contain composeFrom.
+    error LayerZeroStargateAdapterInvalidComposeMsg();
+
     // =============================================================
     //                            EVENTS
     // =============================================================
@@ -126,8 +129,20 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         uint256 amountLD = OFTComposeMsgCodec.amountLD(message);
 
         bytes memory inner = OFTComposeMsgCodec.composeMsg(message);
+        if (inner.length < 32) {
+            revert LayerZeroStargateAdapterInvalidComposeMsg();
+        }
+
+        // Strip composeFrom prefix before decoding intent + payload.
+        bytes memory data = new bytes(inner.length - 32);
+        for (uint256 i = 32; i < inner.length;) {
+            data[i - 32] = inner[i];
+            unchecked {
+                ++i;
+            }
+        }
         (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
-            abi.decode(inner, (ICrossChainExecutor.Intent, bytes));
+            abi.decode(data, (ICrossChainExecutor.Intent, bytes));
 
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
         address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
