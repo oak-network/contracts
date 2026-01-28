@@ -27,11 +27,6 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     error GoalBasedPaymentTreasuryUnauthorized();
 
     /**
-     * @dev Constructor for the GoalBasedPaymentTreasury contract.
-     */
-    constructor() {}
-
-    /**
      * @notice Initializes the GoalBasedPaymentTreasury contract.
      * @param _platformHash The platform hash identifier.
      * @param _infoAddress The address of the CampaignInfo contract.
@@ -39,6 +34,49 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      */
     function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
         __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
+    }
+
+    /**
+     * @dev Internal function to check if current time is within launchTime → deadline range.
+     */
+    function _checkCreateTimeRange() internal view {
+        _revertIfCurrentTimeIsNotWithinRange(INFO.getLaunchTime(), INFO.getDeadline());
+    }
+
+    /**
+     * @dev Internal function to check if current time is within launchTime → deadline + buffer range.
+     */
+    function _checkConfirmTimeRange() internal view {
+        _revertIfCurrentTimeIsNotWithinRange(INFO.getLaunchTime(), INFO.getDeadline() + INFO.getBufferTime());
+    }
+
+    /**
+     * @dev Internal function to check if current time is greater than launchTime.
+     */
+    function _checkAfterLaunch() internal view {
+        _revertIfCurrentTimeIsNotGreater(INFO.getLaunchTime());
+    }
+
+    /**
+     * @dev Internal function to check if current time is greater than deadline.
+     */
+    function _checkAfterDeadline() internal view {
+        _revertIfCurrentTimeIsNotGreater(INFO.getDeadline());
+    }
+
+    /**
+     * @dev Internal function to check optimistic lock for refunds.
+     * Blocks refunds if the campaign is projected to succeed (Confirmed + Pending >= Goal).
+     */
+    function _checkRefundAllowed() internal view {
+        if (block.timestamp >= INFO.getDeadline()) {
+            uint256 progress = block.timestamp > INFO.getDeadline() + INFO.getBufferTime()
+                ? getRaisedAmount()
+                : getRaisedAmount() + getExpectedAmount();
+            if (progress >= INFO.getGoalAmount()) {
+                revert GoalBasedPaymentTreasuryNotRefundable();
+            }
+        }
     }
 
     /**
@@ -54,13 +92,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         uint256 expiration,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-    )
-        public
-        override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
-        whenNotPaused
-        whenNotCancelled
-    {
+    ) public override whenNotPaused whenNotCancelled {
+        _checkCreateTimeRange();
         super.createPayment(paymentId, buyerId, itemId, paymentToken, amount, expiration, lineItems, externalFees);
     }
 
@@ -77,13 +110,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         uint256[] calldata expirations,
         ICampaignPaymentTreasury.LineItem[][] calldata lineItemsArray,
         ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
-    )
-        public
-        override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
-        whenNotPaused
-        whenNotCancelled
-    {
+    ) public override whenNotPaused whenNotCancelled {
+        _checkCreateTimeRange();
         super.createPaymentBatch(
             paymentIds, buyerIds, itemIds, paymentTokens, amounts, expirations, lineItemsArray, externalFeesArray
         );
@@ -101,13 +129,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         uint256 amount,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
-    )
-        public
-        override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
-        whenNotPaused
-        whenNotCancelled
-    {
+    ) public override whenNotPaused whenNotCancelled {
+        _checkCreateTimeRange();
         super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
     }
 
@@ -118,10 +141,10 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function confirmPayment(bytes32 paymentId, address buyerAddress)
         public
         override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline() + INFO.getBufferTime())
         whenNotPaused
         whenNotCancelled
     {
+        _checkConfirmTimeRange();
         super.confirmPayment(paymentId, buyerAddress);
     }
 
@@ -132,10 +155,10 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
         public
         override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline() + INFO.getBufferTime())
         whenNotPaused
         whenNotCancelled
     {
+        _checkConfirmTimeRange();
         super.confirmPaymentBatch(paymentIds, buyerAddresses);
     }
 
@@ -146,10 +169,10 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function cancelPayment(bytes32 paymentId)
         public
         override
-        currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline() + INFO.getBufferTime())
         whenNotPaused
         whenNotCancelled
     {
+        _checkConfirmTimeRange();
         super.cancelPayment(paymentId);
     }
 
@@ -160,16 +183,11 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function claimRefund(bytes32 paymentId, address refundAddress)
         public
         override
-        currentTimeIsGreater(INFO.getLaunchTime())
         whenNotPaused
         whenNotCancelled
     {
-        // Optimistic Lock: Block refunds if the campaign is projected to succeed (Confirmed + Pending >= Goal).
-        // This prevents a "bank run" during the settlement buffer while pending payments are confirmed.
-        // If pending payments fail and the total drops below the goal after buffer has elapsed, refunds will unlock.
-        if (block.timestamp >= INFO.getDeadline() && getGoalProgress() >= INFO.getGoalAmount()) {
-            revert GoalBasedPaymentTreasuryNotRefundable();
-        }
+        _checkAfterLaunch();
+        _checkRefundAllowed();
         super.claimRefund(paymentId, refundAddress);
     }
 
@@ -180,16 +198,11 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function claimRefund(bytes32 paymentId)
         public
         override
-        currentTimeIsGreater(INFO.getLaunchTime())
         whenNotPaused
         whenNotCancelled
     {
-        // Optimistic Lock: Block refunds if the campaign is projected to succeed (Confirmed + Pending >= Goal).
-        // This prevents a "bank run" during the settlement buffer while pending payments are confirmed.
-        // If pending payments fail and the total drops below the goal after buffer has elapsed, refunds will unlock.
-        if (block.timestamp >= INFO.getDeadline() && getGoalProgress() >= INFO.getGoalAmount()) {
-            revert GoalBasedPaymentTreasuryNotRefundable();
-        }
+        _checkAfterLaunch();
+        _checkRefundAllowed();
         super.claimRefund(paymentId);
     }
 
@@ -197,12 +210,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @inheritdoc ICampaignPaymentTreasury
      * @dev Claiming expired funds is allowed after launchTime.
      */
-    function claimExpiredFunds()
-        public
-        override
-        currentTimeIsGreater(INFO.getLaunchTime())
-        whenNotPaused
-    {
+    function claimExpiredFunds() public override whenNotPaused {
+        _checkAfterLaunch();
         super.claimExpiredFunds();
     }
 
@@ -210,12 +219,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @inheritdoc ICampaignPaymentTreasury
      * @dev Fee disbursement is only allowed after deadline and requires goal to be met.
      */
-    function disburseFees()
-        public
-        override
-        currentTimeIsGreater(INFO.getDeadline())
-        whenNotPaused
-    {
+    function disburseFees() public override whenNotPaused {
+        _checkAfterDeadline();
         if (!_checkSuccessCondition()) {
             revert GoalBasedPaymentTreasuryGoalNotMet();
         }
@@ -226,12 +231,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @inheritdoc BasePaymentTreasury
      * @dev Claiming non-goal line items is allowed after launchTime.
      */
-    function claimNonGoalLineItems(address token)
-        public
-        override
-        currentTimeIsGreater(INFO.getLaunchTime())
-        whenNotPaused
-    {
+    function claimNonGoalLineItems(address token) public override whenNotPaused {
+        _checkAfterLaunch();
         super.claimNonGoalLineItems(token);
     }
 
@@ -240,13 +241,8 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @dev Withdrawal is only allowed after deadline.
      *      Success condition is checked in the base implementation.
      */
-    function withdraw()
-        public
-        override
-        currentTimeIsGreater(INFO.getDeadline())
-        whenNotPaused
-        whenNotCancelled
-    {
+    function withdraw() public override whenNotPaused whenNotCancelled {
+        _checkAfterDeadline();
         super.withdraw();
     }
 
@@ -259,19 +255,6 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
             revert GoalBasedPaymentTreasuryUnauthorized();
         }
         _cancel(message);
-    }
-
-    /**
-     * @notice Returns goal progress - time-aware for consistency.
-     * @return The current goal progress amount (normalized to 18 decimals).
-     */
-    function getGoalProgress() public view returns (uint256) {
-        if (block.timestamp > INFO.getDeadline() + INFO.getBufferTime()) {
-            // After settlement period: only confirmed matters
-            return getRaisedAmount();
-        }
-        // During campaign/buffer: optimistic view (pending + confirmed)
-        return getRaisedAmount() + getExpectedAmount();
     }
 
     /**

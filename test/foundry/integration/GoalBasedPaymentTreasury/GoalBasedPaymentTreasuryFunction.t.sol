@@ -283,89 +283,6 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
     }
 
     /*//////////////////////////////////////////////////////////////
-                    GOAL PROGRESS CALCULATION TESTS
-    //////////////////////////////////////////////////////////////*/
-
-    function test_getGoalProgress_PendingPlusConfirmed_BeforeBufferEnd() external {
-        advanceToWithinRange();
-
-        // Create and confirm a crypto payment (confirmed)
-        vm.prank(users.backer1Address);
-        testToken.approve(address(goalBasedPaymentTreasury), PAYMENT_AMOUNT_1);
-
-        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.processCryptoPayment(
-            PAYMENT_ID_1,
-            ITEM_ID_1,
-            users.backer1Address,
-            address(testToken),
-            PAYMENT_AMOUNT_1,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        // Create a pending payment
-        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.createPayment(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            address(testToken),
-            PAYMENT_AMOUNT_2,
-            expiration,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        // Goal progress should include both pending and confirmed
-        uint256 goalProgress = goalBasedPaymentTreasury.getGoalProgress();
-        assertEq(goalProgress, PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2, "Goal progress should be pending + confirmed");
-    }
-
-    function test_getGoalProgress_OnlyConfirmed_AfterBufferEnd() external {
-        advanceToWithinRange();
-
-        // Create and confirm a crypto payment (confirmed)
-        vm.prank(users.backer1Address);
-        testToken.approve(address(goalBasedPaymentTreasury), PAYMENT_AMOUNT_1);
-
-        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.processCryptoPayment(
-            PAYMENT_ID_1,
-            ITEM_ID_1,
-            users.backer1Address,
-            address(testToken),
-            PAYMENT_AMOUNT_1,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        // Create a pending payment
-        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.createPayment(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            address(testToken),
-            PAYMENT_AMOUNT_2,
-            expiration,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        // Advance past buffer period
-        advanceToAfterDeadlinePlusBuffer();
-
-        // Goal progress should only include confirmed
-        uint256 goalProgress = goalBasedPaymentTreasury.getGoalProgress();
-        assertEq(goalProgress, PAYMENT_AMOUNT_1, "Goal progress should only be confirmed after buffer");
-    }
-
-    /*//////////////////////////////////////////////////////////////
                         REFUND TESTS - OPTIMISTIC LOCK
     //////////////////////////////////////////////////////////////*/
 
@@ -468,17 +385,8 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
         uint256 pendingAmount = campaignGoalAmount;
         _createAndFundPayment(PAYMENT_ID_2, BUYER_ID_1, ITEM_ID_2, pendingAmount, users.backer1Address);
 
-        // Verify goal progress includes pending during buffer
-        advanceToAfterDeadline();
-        uint256 goalProgressDuringBuffer = goalBasedPaymentTreasury.getGoalProgress();
-        assertGe(goalProgressDuringBuffer, campaignGoalAmount, "Goal should be met optimistically during buffer");
-
         // Advance past buffer period - pending payments can no longer be confirmed
         advanceToAfterDeadlinePlusBuffer();
-
-        // Goal progress should now only show confirmed (which is below goal)
-        uint256 goalProgressAfterBuffer = goalBasedPaymentTreasury.getGoalProgress();
-        assertLt(goalProgressAfterBuffer, campaignGoalAmount, "Goal should not be met after buffer");
 
         // Approve treasury to burn NFT
         vm.prank(users.backer2Address);
@@ -644,49 +552,6 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
         goalBasedPaymentTreasury.confirmPayment(PAYMENT_ID_1, users.backer1Address);
 
         assertEq(goalBasedPaymentTreasury.getRaisedAmount(), PAYMENT_AMOUNT_1);
-    }
-
-    function test_goalProgress_AtExactDeadlinePlusBuffer() external {
-        advanceToWithinRange();
-
-        // Create confirmed and pending payments
-        vm.prank(users.backer1Address);
-        testToken.approve(address(goalBasedPaymentTreasury), PAYMENT_AMOUNT_1);
-
-        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.processCryptoPayment(
-            PAYMENT_ID_1,
-            ITEM_ID_1,
-            users.backer1Address,
-            address(testToken),
-            PAYMENT_AMOUNT_1,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        uint256 expiration = block.timestamp + PAYMENT_EXPIRATION;
-        vm.prank(users.platform1AdminAddress);
-        goalBasedPaymentTreasury.createPayment(
-            PAYMENT_ID_2,
-            BUYER_ID_2,
-            ITEM_ID_2,
-            address(testToken),
-            PAYMENT_AMOUNT_2,
-            expiration,
-            emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
-        );
-
-        // At exact deadline + buffer, should include pending
-        advanceToDeadlinePlusBuffer();
-        uint256 goalProgressAtBuffer = goalBasedPaymentTreasury.getGoalProgress();
-        assertEq(goalProgressAtBuffer, PAYMENT_AMOUNT_1 + PAYMENT_AMOUNT_2, "Should include pending at exact buffer end");
-
-        // After deadline + buffer, should only include confirmed
-        advanceToAfterDeadlinePlusBuffer();
-        uint256 goalProgressAfterBuffer = goalBasedPaymentTreasury.getGoalProgress();
-        assertEq(goalProgressAfterBuffer, PAYMENT_AMOUNT_1, "Should only include confirmed after buffer");
     }
 
     function test_claimExpiredFunds_AfterLaunchTime() external {
