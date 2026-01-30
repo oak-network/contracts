@@ -55,55 +55,6 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     /// @notice Authorized off-chain agent for executing refunds.
     address public agent;
 
-    // =============================================================
-    //                            ERRORS
-    // =============================================================
-
-    /// @dev Caller is not authorized for this operation.
-    error ExecutorUnauthorized();
-
-    /// @dev Caller is not the expected bridge adapter.
-    error ExecutorAdapterMismatch(bytes32 bridgeId, address caller);
-
-    /// @dev No adapter registered for the given bridge ID.
-    error ExecutorBridgeAdapterNotSet(bytes32 bridgeId);
-
-    /// @dev Intent has already been processed (soft failure).
-    error ExecutorIntentAlreadyProcessed();
-
-    /// @dev Payload or configuration data is invalid (soft failure).
-    error ExecutorInvalidData();
-
-    /// @dev Function selector not allowlisted (soft failure).
-    error ExecutorSelectorNotAllowed();
-
-    /// @dev Treasury call failed (soft failure).
-    error ExecutorCallFailed();
-
-    /// @dev Intent is not in a refundable state.
-    error ExecutorRefundNotAllowed(bytes32 intentId);
-
-    /// @dev Refund parameters are invalid.
-    error ExecutorInvalidRefund(bytes32 intentId);
-
-    /// @dev Provided fee is insufficient for the bridge operation.
-    error ExecutorInsufficientFee(uint256 required, uint256 provided);
-
-    /// @dev Contract does not hold sufficient token balance.
-    error ExecutorInsufficientBalance();
-
-    /// @dev Invalid IntentSender configuration.
-    error ExecutorInvalidSenderConfig(uint256 chainId);
-
-    /// @dev Invalid bridge adapter address.
-    error ExecutorInvalidBridgeAdapter(bytes32 bridgeId);
-
-    /// @dev Invalid CCIP chain selector.
-    error ExecutorInvalidChainSelector(uint256 chainId);
-
-    /// @dev Invalid LayerZero endpoint ID.
-    error ExecutorInvalidLayerZeroEid(uint256 chainId);
-
     /**
      * @notice Validates that caller is the authorized off-chain agent.
      */
@@ -237,11 +188,6 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     // =============================================================
     //                        VIEW FUNCTIONS
     // =============================================================
-
-    /// @inheritdoc ICrossChainExecutor
-    function getIntentStatus(bytes32 intentId) external view override returns (Status status) {
-        return _intents[intentId].status;
-    }
 
     /// @inheritdoc ICrossChainExecutor
     function getIntent(bytes32 intentId) external view override returns (Intent memory intent) {

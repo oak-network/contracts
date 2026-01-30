@@ -56,6 +56,55 @@ interface ICrossChainExecutor {
     }
 
     // =============================================================
+    //                            ERRORS
+    // =============================================================
+
+    /// @dev Caller is not authorized for this operation.
+    error ExecutorUnauthorized();
+
+    /// @dev Caller is not the expected bridge adapter.
+    error ExecutorAdapterMismatch(bytes32 bridgeId, address caller);
+
+    /// @dev No adapter registered for the given bridge ID.
+    error ExecutorBridgeAdapterNotSet(bytes32 bridgeId);
+
+    /// @dev Intent has already been processed (soft failure).
+    error ExecutorIntentAlreadyProcessed();
+
+    /// @dev Payload or configuration data is invalid (soft failure).
+    error ExecutorInvalidData();
+
+    /// @dev Function selector not allowlisted (soft failure).
+    error ExecutorSelectorNotAllowed();
+
+    /// @dev Treasury call failed (soft failure).
+    error ExecutorCallFailed();
+
+    /// @dev Intent is not in a refundable state.
+    error ExecutorRefundNotAllowed(bytes32 intentId);
+
+    /// @dev Refund parameters are invalid.
+    error ExecutorInvalidRefund(bytes32 intentId);
+
+    /// @dev Provided fee is insufficient for the bridge operation.
+    error ExecutorInsufficientFee(uint256 required, uint256 provided);
+
+    /// @dev Contract does not hold sufficient token balance.
+    error ExecutorInsufficientBalance();
+
+    /// @dev Invalid IntentSender configuration.
+    error ExecutorInvalidSenderConfig(uint256 chainId);
+
+    /// @dev Invalid bridge adapter address.
+    error ExecutorInvalidBridgeAdapter(bytes32 bridgeId);
+
+    /// @dev Invalid CCIP chain selector.
+    error ExecutorInvalidChainSelector(uint256 chainId);
+
+    /// @dev Invalid LayerZero endpoint ID.
+    error ExecutorInvalidLayerZeroEid(uint256 chainId);
+
+    // =============================================================
     //                            EVENTS
     // =============================================================
 
@@ -178,13 +227,6 @@ interface ICrossChainExecutor {
      * @return The LayerZero endpoint ID (eid), or zero if not configured.
      */
     function getLayerZeroEid(uint256 chainId) external view returns (uint32);
-
-    /**
-     * @notice Returns the current status of an intent.
-     * @param intentId Unique identifier of the intent.
-     * @return status The intent's lifecycle status.
-     */
-    function getIntentStatus(bytes32 intentId) external view returns (Status status);
 
     /**
      * @notice Returns the full intent data for a given intent ID.

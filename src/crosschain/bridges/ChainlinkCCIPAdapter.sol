@@ -31,47 +31,6 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
     /// @notice Global parameters contract for protocol configuration.
     IGlobalParams public immutable GLOBAL_PARAMS;
 
-    // =============================================================
-    //                            ERRORS
-    // =============================================================
-
-    /// @dev Caller is not authorized for this operation.
-    error ChainlinkCCIPAdapterUnauthorized();
-
-    /// @dev Message sender does not match the registered IntentSender for the source chain.
-    error ChainlinkCCIPAdapterInvalidIntentSender();
-
-    /// @dev Intent status is not Ongoing (soft failure).
-    error ChainlinkCCIPAdapterInvalidIntentStatus();
-
-    /// @dev CCIP chain selector does not match the expected selector for the source chain (soft failure).
-    error ChainlinkCCIPAdapterChainSelectorMismatch();
-
-    /// @dev Received token amount does not match the intent amount (soft failure).
-    error ChainlinkCCIPAdapterAmountMismatch();
-
-    /// @dev No CCIP chain selector configured for the destination chain.
-    error ChainlinkCCIPAdapterUnknownChainSelector();
-
-    /// @dev Provided native fee is insufficient for the CCIP operation.
-    error ChainlinkCCIPAdapterInsufficientFee(uint256 required, uint256 provided);
-
-    /// @dev Failed to refund excess native fee.
-    error ChainlinkCCIPAdapterFeeRefundFailed();
-
-    // =============================================================
-    //                            EVENTS
-    // =============================================================
-
-    /**
-     * @notice Emitted when a refund is sent via CCIP.
-     * @param messageId CCIP message ID for tracking.
-     * @param destinationChainId EVM chain ID of the refund destination.
-     * @param recipient Address receiving the refund on the destination chain.
-     * @param amount Amount of tokens refunded.
-     */
-    event RefundSent(bytes32 indexed messageId, uint256 destinationChainId, address recipient, uint256 amount);
-
     /**
      * @notice Deploys a new ChainlinkCCIPAdapter.
      * @param router Chainlink CCIP router address on this chain.
@@ -90,7 +49,7 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
         address feeRefundRecipient
     ) external payable override returns (bytes32 messageId) {
         address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        if (executor == address(0) || msg.sender != executor) {
+        if (msg.sender != executor) {
             revert ChainlinkCCIPAdapterUnauthorized();
         }
 
@@ -120,7 +79,7 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
             }
         }
 
-        emit RefundSent(messageId, destinationChainId, recipient, amount);
+        emit RefundSentCCIP(messageId, destinationChainId, recipient, amount);
     }
 
     /// @inheritdoc IChainlinkCCIPAdapter
@@ -149,10 +108,10 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
         (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
             abi.decode(message.data, (ICrossChainExecutor.Intent, bytes));
 
-        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
+        ICrossChainExecutor executor = ICrossChainExecutor(GLOBAL_PARAMS.getCrossChainExecutor());
         address sourceSender = abi.decode(message.sender, (address));
 
-        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        address expectedSender = executor.getIntentSender(intent.sourceChainId);
         if (expectedSender != sourceSender) {
             revert ChainlinkCCIPAdapterInvalidIntentSender();
         }
@@ -164,12 +123,11 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
 
         if (intent.status != ICrossChainExecutor.Status.Ongoing) {
             errorSelector = ChainlinkCCIPAdapterInvalidIntentStatus.selector;
-        } else if (
-            ICrossChainExecutor(executor).getCcipChainSelector(intent.sourceChainId) != message.sourceChainSelector
-        ) {
+        } else if (executor.getCcipChainSelector(intent.sourceChainId) != message.sourceChainSelector) {
             errorSelector = ChainlinkCCIPAdapterChainSelectorMismatch.selector;
         } else if (intent.amount != receivedAmount) {
             errorSelector = ChainlinkCCIPAdapterAmountMismatch.selector;
+            intent.amount = receivedAmount;
         }
 
         intent.token = receivedToken;
@@ -179,8 +137,8 @@ contract ChainlinkCCIPAdapter is CCIPReceiver, IChainlinkCCIPAdapter {
             emit ICrossChainExecutor.IntentFailed(intent.intentId, errorSelector);
         }
 
-        IERC20(receivedToken).safeTransfer(executor, receivedAmount);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
+        IERC20(receivedToken).safeTransfer(address(executor), receivedAmount);
+        executor.executeIntent(BRIDGE_ID, intent, payload);
     }
 
     /**

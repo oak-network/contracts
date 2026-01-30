@@ -41,62 +41,6 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     /// @notice Global parameters contract for protocol configuration.
     IGlobalParams public immutable GLOBAL_PARAMS;
 
-    // =============================================================
-    //                            ERRORS
-    // =============================================================
-
-    /// @dev Caller is not authorized for this operation.
-    error LayerZeroStargateAdapterUnauthorized();
-
-    /// @dev Compose message sender does not match the registered IntentSender for the source chain.
-    error LayerZeroStargateAdapterInvalidPeer();
-
-    /// @dev Intent status is not Ongoing (soft failure).
-    error LayerZeroStargateAdapterInvalidIntentStatus();
-
-    /// @dev LayerZero endpoint ID does not match the expected ID for the source chain (soft failure).
-    error LayerZeroStargateAdapterEidMismatch();
-
-    /// @dev Stargate pool is not configured or does not match the token.
-    error LayerZeroStargateAdapterTokenNotConfigured();
-
-    /// @dev No LayerZero endpoint ID configured for the destination chain.
-    error LayerZeroStargateAdapterUnknownDestinationChainId();
-
-    /// @dev CrossChainExecutor is not configured in GlobalParams.
-    error LayerZeroStargateAdapterExecutorNotSet();
-
-    /// @dev Provided native fee is insufficient for the LayerZero operation.
-    error LayerZeroStargateAdapterInsufficientFee(uint256 required, uint256 provided);
-
-    /// @dev Compose message is too short to contain composeFrom.
-    error LayerZeroStargateAdapterInvalidComposeMsg();
-
-    // =============================================================
-    //                            EVENTS
-    // =============================================================
-
-    /**
-     * @notice Emitted when an intent is received and processed via lzCompose.
-     * @param guid LayerZero GUID of the incoming message.
-     * @param srcEid Source chain's LayerZero endpoint ID.
-     * @param intentId Unique intent identifier.
-     * @param amount Token amount received.
-     */
-    event IntentComposed(bytes32 indexed guid, uint32 indexed srcEid, bytes32 indexed intentId, uint256 amount);
-
-    /**
-     * @notice Emitted when a refund is sent via Stargate.
-     * @param guid LayerZero GUID for tracking.
-     * @param destinationChainId EVM chain ID of the refund destination.
-     * @param recipient Address receiving the refund on the destination chain.
-     * @param token Token being refunded.
-     * @param amount Amount of tokens refunded.
-     */
-    event RefundSent(
-        bytes32 indexed guid, uint256 destinationChainId, address recipient, address token, uint256 amount
-    );
-
     /**
      * @notice Deploys a new LayerZeroStargateAdapter.
      * @param endpoint LayerZero endpoint address on this chain.
@@ -129,23 +73,11 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         uint256 amountLD = OFTComposeMsgCodec.amountLD(message);
 
         bytes memory inner = OFTComposeMsgCodec.composeMsg(message);
-        if (inner.length < 32) {
-            revert LayerZeroStargateAdapterInvalidComposeMsg();
-        }
-
-        // Strip composeFrom prefix before decoding intent + payload.
-        bytes memory data = new bytes(inner.length - 32);
-        for (uint256 i = 32; i < inner.length;) {
-            data[i - 32] = inner[i];
-            unchecked {
-                ++i;
-            }
-        }
         (ICrossChainExecutor.Intent memory intent, bytes memory payload) =
-            abi.decode(data, (ICrossChainExecutor.Intent, bytes));
+            abi.decode(inner, (ICrossChainExecutor.Intent, bytes));
 
-        address executor = GLOBAL_PARAMS.getCrossChainExecutor();
-        address expectedSender = ICrossChainExecutor(executor).getIntentSender(intent.sourceChainId);
+        ICrossChainExecutor executor = ICrossChainExecutor(GLOBAL_PARAMS.getCrossChainExecutor());
+        address expectedSender = executor.getIntentSender(intent.sourceChainId);
         bytes32 expectedPeer = bytes32(uint256(uint160(expectedSender)));
 
         if (expectedPeer != composeFrom) {
@@ -156,7 +88,7 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
 
         if (intent.status != ICrossChainExecutor.Status.Ongoing) {
             errorSelector = LayerZeroStargateAdapterInvalidIntentStatus.selector;
-        } else if (ICrossChainExecutor(executor).getLayerZeroEid(intent.sourceChainId) != srcEid) {
+        } else if (executor.getLayerZeroEid(intent.sourceChainId) != srcEid) {
             errorSelector = LayerZeroStargateAdapterEidMismatch.selector;
         }
 
@@ -170,8 +102,8 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
             emit ICrossChainExecutor.IntentFailed(intent.intentId, errorSelector);
         }
 
-        IERC20(receivedToken).safeTransfer(executor, amountLD);
-        ICrossChainExecutor(executor).executeIntent(BRIDGE_ID, intent, payload);
+        IERC20(receivedToken).safeTransfer(address(executor), amountLD);
+        executor.executeIntent(BRIDGE_ID, intent, payload);
 
         emit IntentComposed(guid, srcEid, intent.intentId, amountLD);
     }
@@ -255,6 +187,6 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
         IERC20(token).forceApprove(stargate, 0);
 
         refundId = msgReceipt.guid;
-        emit RefundSent(refundId, destinationChainId, recipient, token, amount);
+        emit RefundSentLZStargate(refundId, destinationChainId, recipient, token, amount);
     }
 }

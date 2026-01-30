@@ -41,7 +41,7 @@ contract IntentSender is Ownable {
     // =============================================================
 
     /// @dev Default gas limit for destination chain execution.
-    uint128 internal constant DEFAULT_GAS_AMOUNT = 500_000;
+    uint128 internal constant DEFAULT_GAS_AMOUNT = 800_000;
 
     /// @notice Chainlink CCIP router on this chain.
     IRouterClient public immutable CCIP_ROUTER;
@@ -49,18 +49,18 @@ contract IntentSender is Ownable {
     /// @notice CCIP chain selector for the destination chain.
     uint64 public immutable CCIP_DESTINATION_SELECTOR;
 
-    /// @notice CCIP adapter address on the destination chain.
-    address public immutable CCIP_DESTINATION_ADAPTER;
-
     /// @notice LayerZero endpoint ID for the destination chain.
     uint32 public immutable LZ_DESTINATION_EID;
-
-    /// @notice LayerZero/Stargate adapter address on the destination chain.
-    address public immutable LZ_DESTINATION_ADAPTER;
 
     // =============================================================
     //                             STATE
     // =============================================================
+
+    /// @notice CCIP adapter address on the destination chain.
+    address public ccipDestinationAdapter;
+
+    /// @notice LayerZero/Stargate adapter address on the destination chain.
+    address public layerZeroDestinationAdapter;
 
     /// @notice Authorized off-chain agent for submitting intents.
     address public agent;
@@ -125,6 +125,18 @@ contract IntentSender is Ownable {
     event AgentSet(address indexed agent);
 
     /**
+     * @notice Emitted when the CCIP destination adapter is updated.
+     * @param adapter New adapter address.
+     */
+    event CcipDestinationAdapterSet(address indexed adapter);
+
+    /**
+     * @notice Emitted when the LayerZero/Stargate destination adapter is updated.
+     * @param adapter New adapter address.
+     */
+    event LzDestinationAdapterSet(address indexed adapter);
+
+    /**
      * @notice Emitted when an intent is sent via Chainlink CCIP.
      * @param messageId CCIP message ID for tracking.
      * @param intentId Unique intent identifier.
@@ -177,24 +189,24 @@ contract IntentSender is Ownable {
      * @param _agent Initial authorized agent address.
      * @param ccipRouter Chainlink CCIP router address on this chain.
      * @param ccipDestinationSelector CCIP chain selector for the destination.
-     * @param ccipDestinationAdapter CCIP adapter address on the destination chain.
+     * @param _ccipDestinationAdapter CCIP adapter address on the destination chain.
      * @param lzDestinationEid LayerZero endpoint ID for the destination.
-     * @param lzDestinationAdapter LayerZero/Stargate adapter address on the destination chain.
+     * @param _lzDestinationAdapter LayerZero/Stargate adapter address on the destination chain.
      */
     constructor(
         address _agent,
         address ccipRouter,
         uint64 ccipDestinationSelector,
-        address ccipDestinationAdapter,
+        address _ccipDestinationAdapter,
         uint32 lzDestinationEid,
-        address lzDestinationAdapter
+        address _lzDestinationAdapter
     ) Ownable(msg.sender) {
         agent = _agent;
         CCIP_ROUTER = IRouterClient(ccipRouter);
-        CCIP_DESTINATION_SELECTOR = ccipDestinationSelector;
-        CCIP_DESTINATION_ADAPTER = ccipDestinationAdapter;
+        ccipDestinationSelector = ccipDestinationSelector;
+        ccipDestinationAdapter = _ccipDestinationAdapter;
         LZ_DESTINATION_EID = lzDestinationEid;
-        LZ_DESTINATION_ADAPTER = lzDestinationAdapter;
+        layerZeroDestinationAdapter = _lzDestinationAdapter;
     }
 
     // =============================================================
@@ -213,6 +225,30 @@ contract IntentSender is Ownable {
         emit AgentSet(newAgent);
     }
 
+    /**
+     * @notice Updates the CCIP destination adapter address.
+     * @param newAdapter New adapter address (cannot be zero).
+     */
+    function setCcipDestinationAdapter(address newAdapter) external onlyOwner {
+        if (newAdapter == address(0)) {
+            revert IntentSenderInvalidReceiver();
+        }
+        ccipDestinationAdapter = newAdapter;
+        emit CcipDestinationAdapterSet(newAdapter);
+    }
+
+    /**
+     * @notice Updates the LayerZero/Stargate destination adapter address.
+     * @param newAdapter New adapter address (cannot be zero).
+     */
+    function setLzDestinationAdapter(address newAdapter) external onlyOwner {
+        if (newAdapter == address(0)) {
+            revert IntentSenderInvalidReceiver();
+        }
+        layerZeroDestinationAdapter = newAdapter;
+        emit LzDestinationAdapterSet(newAdapter);
+    }
+
     // =============================================================
     //                          QUOTE FEES
     // =============================================================
@@ -221,7 +257,7 @@ contract IntentSender is Ownable {
      * @notice Quotes the native fee required to send an intent via CCIP.
      * @param intent The intent to send (will be validated).
      * @param payload ABI-encoded treasury calldata.
-     * @param gasLimit Destination gas limit (0 uses default 500,000).
+     * @param gasLimit Destination gas limit (0 uses default 800,000).
      * @return ccipFee Native fee required by CCIP.
      */
     function quoteFeeCCIP(ICrossChainExecutor.Intent memory intent, bytes calldata payload, uint256 gasLimit)
@@ -236,39 +272,29 @@ contract IntentSender is Ownable {
     }
 
     /**
-     * @notice Quotes the native fee required to send an intent via LayerZero/Stargate.
+     * @notice Quotes the LayerZero/Stargate native fee and OFT transfer details for a send.
      * @param params Stargate send parameters.
      * @param intent The intent to send (will be validated).
      * @param payload ABI-encoded treasury calldata.
      * @return nativeFee Native fee required by LayerZero.
+     * @return limit OFT transfer limits for the route.
+     * @return feeDetails Breakdown of OFT fees.
+     * @return receipt Quote containing amountSentLD and amountReceivedLD.
      */
     function quoteFeeLZStargate(
         LZStargateParams calldata params,
         ICrossChainExecutor.Intent memory intent,
         bytes calldata payload
-    ) external view returns (uint256 nativeFee) {
+    )
+        external
+        view
+        returns (uint256 nativeFee, OFTLimit memory limit, OFTFeeDetail[] memory feeDetails, OFTReceipt memory receipt)
+    {
         _sanitizeIntent(intent, payload);
-        MessagingFee memory lzFee =
-            IStargate(params.stargate).quoteSend(_buildStargateSendParam(params, intent, payload), false);
-        return lzFee.nativeFee;
-    }
-
-    /**
-     * @notice Quotes the OFT transfer details for a LayerZero/Stargate send.
-     * @param params Stargate send parameters.
-     * @param intent The intent to send (will be validated).
-     * @param payload ABI-encoded treasury calldata.
-     * @return limit OFT transfer limits for the route.
-     * @return feeDetails Breakdown of OFT fees.
-     * @return receipt Quote containing amountSentLD and amountReceivedLD.
-     */
-    function quoteLayerZeroStargateOFT(
-        LZStargateParams calldata params,
-        ICrossChainExecutor.Intent memory intent,
-        bytes calldata payload
-    ) external view returns (OFTLimit memory limit, OFTFeeDetail[] memory feeDetails, OFTReceipt memory receipt) {
-        _sanitizeIntent(intent, payload);
-        return IStargate(params.stargate).quoteOFT(_buildStargateSendParam(params, intent, payload));
+        SendParam memory sendParam = _buildStargateSendParam(params, intent, payload);
+        MessagingFee memory lzFee = IStargate(params.stargate).quoteSend(sendParam, false);
+        (limit, feeDetails, receipt) = IStargate(params.stargate).quoteOFT(sendParam);
+        nativeFee = lzFee.nativeFee;
     }
 
     // =============================================================
@@ -281,7 +307,7 @@ contract IntentSender is Ownable {
      *      Excess native fee is refunded to the caller.
      * @param intent The intent to send (status must be None).
      * @param payload ABI-encoded calldata for the treasury function.
-     * @param gasLimit Destination gas limit (0 uses default 500,000).
+     * @param gasLimit Destination gas limit (0 uses default 800,000).
      * @return messageId CCIP message ID for tracking.
      */
     function sendIntentCCIP(ICrossChainExecutor.Intent memory intent, bytes calldata payload, uint256 gasLimit)
@@ -417,7 +443,7 @@ contract IntentSender is Ownable {
         tokenAmounts[0] = Client.EVMTokenAmount({token: intent.token, amount: intent.amount});
 
         return Client.EVM2AnyMessage({
-            receiver: abi.encode(CCIP_DESTINATION_ADAPTER),
+            receiver: abi.encode(ccipDestinationAdapter),
             data: abi.encode(intent, payload),
             tokenAmounts: tokenAmounts,
             feeToken: address(0),
@@ -434,16 +460,14 @@ contract IntentSender is Ownable {
         bytes calldata payload
     ) internal view returns (SendParam memory) {
         uint128 gas = params.gasLimit == 0 ? DEFAULT_GAS_AMOUNT : params.gasLimit;
-        bytes memory extraOptions = OptionsBuilder.newOptions().addExecutorLzComposeOption(0, gas, 0);
-        bytes memory composeMsg =
-            abi.encodePacked(bytes32(uint256(uint160(address(this)))), abi.encode(intent, payload));
+
         return SendParam({
             dstEid: LZ_DESTINATION_EID,
-            to: bytes32(uint256(uint160(LZ_DESTINATION_ADAPTER))),
+            to: bytes32(uint256(uint160(layerZeroDestinationAdapter))),
             amountLD: intent.amount,
             minAmountLD: params.minAmount,
-            extraOptions: extraOptions,
-            composeMsg: composeMsg,
+            extraOptions: OptionsBuilder.newOptions().addExecutorLzComposeOption(0, gas, 0),
+            composeMsg: abi.encode(intent, payload),
             oftCmd: ""
         });
     }
