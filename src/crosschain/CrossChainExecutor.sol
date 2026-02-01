@@ -2,12 +2,12 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {ICrossChainExecutor} from "../interfaces/ICrossChainExecutor.sol";
 import {IChainlinkCCIPAdapter} from "../interfaces/IChainlinkCCIPAdapter.sol";
 import {ILayerZeroStargateAdapter} from "../interfaces/ILayerZeroStargateAdapter.sol";
+import {IGlobalParams} from "../interfaces/IGlobalParams.sol";
 
 /**
  * @title CrossChainExecutor
@@ -21,7 +21,7 @@ import {ILayerZeroStargateAdapter} from "../interfaces/ILayerZeroStargateAdapter
  *      The executor implements a soft-failure pattern where validation errors do not revert
  *      but instead mark the intent as Failed, allowing funds to be refunded to the source chain.
  */
-contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
+contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     using SafeERC20 for IERC20;
 
     /// @notice Bridge identifier for Chainlink CCIP: keccak256("CCIP")
@@ -49,11 +49,14 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     /// @dev Intent storage by intent ID.
     mapping(bytes32 intentId => Intent) private _intents;
 
-    /// @dev Allowlisted function selectors per treasury.
-    mapping(address treasury => mapping(bytes4 selector => bool allowed)) private _allowedSelectors;
+    /// @dev Allowlisted function selectors.
+    mapping(bytes4 selector => bool allowed) private _allowedSelectors;
 
     /// @notice Authorized off-chain agent for executing refunds.
     address public agent;
+
+    /// @notice Global parameters contract for protocol configuration.
+    IGlobalParams public immutable GLOBAL_PARAMS;
 
     /**
      * @notice Validates that caller is the authorized off-chain agent.
@@ -66,10 +69,22 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     }
 
     /**
+     * @notice Validates that caller is the protocol admin from GlobalParams.
+     */
+    modifier onlyProtocolAdmin() {
+        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
+            revert ExecutorUnauthorized();
+        }
+        _;
+    }
+
+    /**
      * @notice Initializes the CrossChainExecutor.
      * @param _agent Address of the authorized off-chain agent for refund operations.
+     * @param globalParams Global parameters contract address.
      */
-    constructor(address _agent) Ownable(msg.sender) {
+    constructor(address _agent, IGlobalParams globalParams) {
+        GLOBAL_PARAMS = globalParams;
         agent = _agent;
     }
 
@@ -210,13 +225,12 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     }
 
     /**
-     * @notice Checks if a function selector is allowlisted for a specific treasury.
-     * @param treasury The treasury address to check.
+     * @notice Checks if a function selector is allowlisted.
      * @param selector Function selector to check.
      * @return True if the selector is allowed.
      */
-    function isSelectorAllowed(address treasury, bytes4 selector) external view returns (bool) {
-        return _allowedSelectors[treasury][selector];
+    function isSelectorAllowed(bytes4 selector) external view returns (bool) {
+        return _allowedSelectors[selector];
     }
 
     // =============================================================
@@ -224,15 +238,14 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     // =============================================================
 
     /**
-     * @notice Allowlists or removes function selectors for a specific treasury.
-     * @param treasury The treasury address to configure.
+     * @notice Allowlists or removes function selectors.
      * @param selectors Array of function selectors to configure.
      * @param allowed Whether the selectors should be allowed.
      */
-    function setSelectors(address treasury, bytes4[] calldata selectors, bool allowed) external onlyOwner {
+    function setSelectors(bytes4[] calldata selectors, bool allowed) external onlyProtocolAdmin {
         for (uint256 i = 0; i < selectors.length;) {
-            _allowedSelectors[treasury][selectors[i]] = allowed;
-            emit SelectorAllowed(treasury, selectors[i], allowed);
+            _allowedSelectors[selectors[i]] = allowed;
+            emit SelectorAllowed(selectors[i], allowed);
 
             unchecked {
                 ++i;
@@ -244,7 +257,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
      * @notice Sets the authorized off-chain agent for refund operations.
      * @param newAgent Address of the new agent.
      */
-    function setAgent(address newAgent) external onlyOwner {
+    function setAgent(address newAgent) external onlyProtocolAdmin {
         if (newAgent == address(0)) {
             revert ExecutorUnauthorized();
         }
@@ -257,7 +270,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
      * @param chainId EVM chain ID of the source chain.
      * @param intentSender Address of the IntentSender contract.
      */
-    function setIntentSender(uint256 chainId, address intentSender) external onlyOwner {
+    function setIntentSender(uint256 chainId, address intentSender) external onlyProtocolAdmin {
         if (intentSender == address(0)) {
             revert ExecutorInvalidSenderConfig(chainId);
         }
@@ -269,7 +282,10 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
      * @param bridgeIds Array of bridge identifiers (e.g., BRIDGE_ID_CCIP).
      * @param adapters Array of corresponding bridge adapter contract addresses.
      */
-    function setBridgeAdapters(bytes32[] calldata bridgeIds, address[] calldata adapters) external onlyOwner {
+    function setBridgeAdapters(bytes32[] calldata bridgeIds, address[] calldata adapters)
+        external
+        onlyProtocolAdmin
+    {
         if (bridgeIds.length != adapters.length) {
             revert ExecutorInvalidData();
         }
@@ -292,7 +308,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
      */
     function setCcipChainSelectors(uint256[] calldata chainIds, uint64[] calldata selectors)
         external
-        onlyOwner
+        onlyProtocolAdmin
     {
         if (chainIds.length != selectors.length) {
             revert ExecutorInvalidData();
@@ -314,7 +330,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
      * @param chainIds Array of EVM chain IDs.
      * @param eids Array of corresponding LayerZero endpoint IDs.
      */
-    function setLayerZeroEids(uint256[] calldata chainIds, uint32[] calldata eids) external onlyOwner {
+    function setLayerZeroEids(uint256[] calldata chainIds, uint32[] calldata eids) external onlyProtocolAdmin {
         if (chainIds.length != eids.length) {
             revert ExecutorInvalidData();
         }
@@ -333,14 +349,14 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
     /**
      * @notice Pauses all executor operations.
      */
-    function pause() external onlyOwner {
+    function pause() external onlyProtocolAdmin {
         _pause();
     }
 
     /**
      * @notice Unpauses executor operations.
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyProtocolAdmin {
         _unpause();
     }
 
@@ -358,7 +374,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
 
         if (_intents[intent.intentId].status != Status.None) {
             errorSelector = ExecutorIntentAlreadyProcessed.selector;
-        } else if (!_allowedSelectors[intent.treasury][bytes4(payload)]) {
+        } else if (!_allowedSelectors[bytes4(payload)]) {
             errorSelector = ExecutorSelectorNotAllowed.selector;
         }
 
@@ -371,14 +387,17 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
 
         IERC20(intent.token).forceApprove(intent.treasury, intent.amount);
 
-        (bool success,) = intent.treasury.call(payload);
+        (bool success, bytes memory returnData) = intent.treasury.call(payload);
 
         IERC20(intent.token).forceApprove(intent.treasury, 0);
 
         if (!success) {
+            bytes4 revertSelector = _extractRevertSelector(returnData);
             intent.status = Status.Failed;
             _intents[intent.intentId] = intent;
-            emit IntentFailed(intent.intentId, ExecutorCallFailed.selector);
+            emit IntentFailed(
+                intent.intentId, revertSelector == bytes4(0) ? ExecutorCallFailed.selector : revertSelector
+            );
             return;
         }
 
@@ -386,5 +405,17 @@ contract CrossChainExecutor is ICrossChainExecutor, Ownable, Pausable {
         _intents[intent.intentId] = intent;
 
         emit IntentExecuted(bridgeId, intent.intentId, intent.account, intent.token, intent.amount, intent.treasury);
+    }
+
+    /**
+     * @dev Extracts the first 4 bytes of revert data (error selector), if present.
+     */
+    function _extractRevertSelector(bytes memory returnData) internal pure returns (bytes4 selector) {
+        if (returnData.length < 4) {
+            return bytes4(0);
+        }
+        assembly {
+            selector := mload(add(returnData, 32))
+        }
     }
 }

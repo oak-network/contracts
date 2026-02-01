@@ -66,6 +66,14 @@ interface ILayerZeroStargateAdapter {
     );
 
     /**
+     * @notice Emitted when protocol admin rescues tokens.
+     * @param token Token address rescued.
+     * @param recipient Address receiving the rescued tokens.
+     * @param amount Amount of tokens rescued.
+     */
+    event TokensRescued(address indexed token, address indexed recipient, uint256 amount);
+
+    /**
      * @notice Sends a token refund to the source chain via LayerZero Stargate.
      * @dev Only callable by the CrossChainExecutor. Excess native fees are handled by Stargate
      *      and returned to feeRefundRecipient.
@@ -102,4 +110,12 @@ interface ILayerZeroStargateAdapter {
         uint256 amount,
         address stargate
     ) external view returns (uint256 fee);
+
+    /**
+     * @notice Rescues tokens held by the adapter.
+     * @param token Token address to rescue.
+     * @param recipient Address receiving the rescued tokens.
+     * @param amount Amount of tokens to rescue.
+     */
+    function rescueTokens(address token, address recipient, uint256 amount) external;
 }

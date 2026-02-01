@@ -85,7 +85,7 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
         }
 
         console2.log("Deploying destination contracts...");
-        crossChainExecutor = address(new CrossChainExecutor(agent));
+        crossChainExecutor = address(new CrossChainExecutor(agent, IGlobalParams(globalParams)));
         ccipAdapter = address(new ChainlinkCCIPAdapter(config.destinationCcipRouter, IGlobalParams(globalParams)));
         lzAdapter = address(new LayerZeroStargateAdapter(config.destinationLzEndpoint, IGlobalParams(globalParams)));
 
@@ -157,28 +157,14 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
 
         executor.setIntentSender(config.sourceChainId, intentSender);
 
-        // Note: These should be updated with actual treasury addresses as needed
-        address paymentTreasury = vm.envOr("PAYMENT_TREASURY_ADDRESS", address(0));
-        address keepWhatsRaised = vm.envOr("KEEP_WHATS_RAISED_ADDRESS", address(0));
-        address allOrNothing = vm.envOr("ALL_OR_NOTHING_ADDRESS", address(0));
-
-        if (paymentTreasury != address(0)) {
-            bytes4[] memory selectors = new bytes4[](1);
-            selectors[0] = SELECTOR_0;
-            executor.setSelectors(paymentTreasury, selectors, true);
-        }
-        if (keepWhatsRaised != address(0)) {
-            bytes4[] memory selectors = new bytes4[](2);
-            selectors[0] = SELECTOR_1;
-            selectors[1] = SELECTOR_2;
-            executor.setSelectors(keepWhatsRaised, selectors, true);
-        }
-        if (allOrNothing != address(0)) {
-            bytes4[] memory selectors = new bytes4[](2);
-            selectors[0] = SELECTOR_3;
-            selectors[1] = SELECTOR_4;
-            executor.setSelectors(allOrNothing, selectors, true);
-        }
+        // Set allowed function selectors
+        bytes4[] memory allowedSelectors = new bytes4[](5);
+        allowedSelectors[0] = SELECTOR_0;
+        allowedSelectors[1] = SELECTOR_1;
+        allowedSelectors[2] = SELECTOR_2;
+        allowedSelectors[3] = SELECTOR_3;
+        allowedSelectors[4] = SELECTOR_4;
+        executor.setSelectors(allowedSelectors, true);
 
         if (!simulate) {
             vm.stopBroadcast();
@@ -216,21 +202,12 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
         console2.log("Registered IntentSender chainId:", config.sourceChainId);
         console2.log("Source CCIP selector:", config.sourceCcipSelector);
         console2.log("Source LZ eid:", config.sourceLzEid);
-        console2.log("Allowed selectors configured for provided treasuries:");
-        if (vm.envAddress("PAYMENT_TREASURY_ADDRESS") != address(0)) {
-            console2.log("  PaymentTreasury:", vm.envAddress("PAYMENT_TREASURY_ADDRESS"));
-            console2.logBytes4(SELECTOR_0);
-        }
-        if (vm.envAddress("KEEP_WHATS_RAISED_ADDRESS") != address(0)) {
-            console2.log("  KeepWhatsRaised:", vm.envAddress("KEEP_WHATS_RAISED_ADDRESS"));
-            console2.logBytes4(SELECTOR_1);
-            console2.logBytes4(SELECTOR_2);
-        }
-        if (vm.envAddress("ALL_OR_NOTHING_ADDRESS") != address(0)) {
-            console2.log("  AllOrNothing:", vm.envAddress("ALL_OR_NOTHING_ADDRESS"));
-            console2.logBytes4(SELECTOR_3);
-            console2.logBytes4(SELECTOR_4);
-        }
+        console2.log("Allowed selectors:");
+        console2.logBytes4(SELECTOR_0);
+        console2.logBytes4(SELECTOR_1);
+        console2.logBytes4(SELECTOR_2);
+        console2.logBytes4(SELECTOR_3);
+        console2.logBytes4(SELECTOR_4);
 
         console2.log("\n===========================================");
         console2.log("Deployment and setup completed successfully!");

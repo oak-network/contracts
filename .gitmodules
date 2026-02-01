@@ -19,3 +19,9 @@
 [submodule "lib/solidity-bytes-utils"]
 	path = lib/solidity-bytes-utils
 	url = https://github.com/GNSPS/solidity-bytes-utils
+[submodule "lib/chainlink-local"]
+	path = lib/chainlink-local
+	url = https://github.com/smartcontractkit/chainlink-local
+[submodule "lib/devtools"]
+	path = lib/devtools
+	url = https://github.com/LayerZero-Labs/devtools

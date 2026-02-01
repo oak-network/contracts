@@ -203,7 +203,7 @@ contract IntentSender is Ownable {
     ) Ownable(msg.sender) {
         agent = _agent;
         CCIP_ROUTER = IRouterClient(ccipRouter);
-        ccipDestinationSelector = ccipDestinationSelector;
+        CCIP_DESTINATION_SELECTOR = ccipDestinationSelector;
         ccipDestinationAdapter = _ccipDestinationAdapter;
         LZ_DESTINATION_EID = lzDestinationEid;
         layerZeroDestinationAdapter = _lzDestinationAdapter;

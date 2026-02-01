@@ -41,6 +41,14 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
     /// @notice Global parameters contract for protocol configuration.
     IGlobalParams public immutable GLOBAL_PARAMS;
 
+    /// @dev Restricts access to protocol admin from GlobalParams.
+    modifier onlyProtocolAdmin() {
+        if (msg.sender != GLOBAL_PARAMS.getProtocolAdminAddress()) {
+            revert LayerZeroStargateAdapterUnauthorized();
+        }
+        _;
+    }
+
     /**
      * @notice Deploys a new LayerZeroStargateAdapter.
      * @param endpoint LayerZero endpoint address on this chain.
@@ -188,5 +196,17 @@ contract LayerZeroStargateAdapter is ILayerZeroComposer, ILayerZeroStargateAdapt
 
         refundId = msgReceipt.guid;
         emit RefundSentLZStargate(refundId, destinationChainId, recipient, token, amount);
+    }
+
+    /**
+     * @notice Rescue tokens held by this adapter.
+     * @dev Only callable by the protocol admin.
+     * @param token Token address to rescue.
+     * @param recipient Address receiving the rescued tokens.
+     * @param amount Amount of tokens to rescue.
+     */
+    function rescueTokens(address token, address recipient, uint256 amount) external onlyProtocolAdmin {
+        IERC20(token).safeTransfer(recipient, amount);
+        emit TokensRescued(token, recipient, amount);
     }
 }
