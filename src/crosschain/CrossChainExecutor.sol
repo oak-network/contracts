@@ -94,9 +94,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
         override
         whenNotPaused
     {
-        address expectedAdapter = _bridgeAdapters[bridgeId];
-
-        if (msg.sender != expectedAdapter) {
+        if (msg.sender != _bridgeAdapters[bridgeId]) {
             revert ExecutorAdapterMismatch(bridgeId, msg.sender);
         }
 

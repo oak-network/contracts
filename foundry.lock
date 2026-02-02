@@ -11,6 +11,9 @@
       "rev": "a3ace4e17336e84c4d1261f2da45d5e8963af714"
     }
   },
+  "lib/devtools": {
+    "rev": "66448662349eb7896dcf30d0ec54331286650fce"
+  },
   "lib/forge-std": {
     "rev": "1d9650e951204a0ddce9ff89c32f1997984cef4d"
   },
