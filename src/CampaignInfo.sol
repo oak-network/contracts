@@ -319,6 +319,10 @@ contract CampaignInfo is
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            // Skip cancelled treasuries
+            if (ICampaignTreasury(tempTreasury).cancelled()) {
+                continue;
+            }
             // Try to call getExpectedAmount - will only work for payment treasuries
             try ICampaignPaymentTreasury(tempTreasury).getExpectedAmount() returns (uint256 expectedAmount) {
                 amount += expectedAmount;
