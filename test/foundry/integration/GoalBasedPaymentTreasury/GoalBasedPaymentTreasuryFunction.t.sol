@@ -9,6 +9,8 @@ import {Constants} from "../../utils/Constants.sol";
 import {Users} from "../../utils/Types.sol";
 import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.sol";
 import {GoalBasedPaymentTreasury} from "src/treasuries/GoalBasedPaymentTreasury.sol";
+import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
+import {CampaignAccessChecker} from "src/utils/CampaignAccessChecker.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../../mocks/TestToken.sol";
 
@@ -346,7 +348,7 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 2);
 
         // Claim refund should revert since goal is met
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer2Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_1);
     }
@@ -369,7 +371,7 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 1);
 
         // Refund should be blocked due to optimistic lock (pending + confirmed >= goal)
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer2Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_1);
     }
@@ -484,7 +486,7 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
         advanceToAfterDeadline();
 
         // Disburse fees should fail since goal not met
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryGoalNotMet.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         goalBasedPaymentTreasury.disburseFees();
     }
 
@@ -507,7 +509,7 @@ contract GoalBasedPaymentTreasuryFunction_Integration_Shared_Test is
     }
 
     function test_cancelTreasury_ByUnauthorized_Reverts() external {
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryUnauthorized.selector);
+        vm.expectRevert(CampaignAccessChecker.AccessCheckerUnauthorized.selector);
         vm.prank(users.backer1Address);
         goalBasedPaymentTreasury.cancelTreasury(keccak256("Test cancellation"));
     }

@@ -125,16 +125,18 @@ contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev Refunds remain available even when treasury is cancelled.
      */
-    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused {
         _checkTimeIsGreater();
         super.claimRefund(paymentId, refundAddress);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev Refunds remain available even when treasury is cancelled.
      */
-    function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId) public override whenNotPaused {
         _checkTimeIsGreater();
         super.claimRefund(paymentId);
     }

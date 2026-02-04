@@ -4,6 +4,8 @@ pragma solidity ^0.8.22;
 import "../integration/GoalBasedPaymentTreasury/GoalBasedPaymentTreasuryFunction.t.sol";
 import "forge-std/Test.sol";
 import {GoalBasedPaymentTreasury} from "src/treasuries/GoalBasedPaymentTreasury.sol";
+import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
+import {CampaignAccessChecker} from "src/utils/CampaignAccessChecker.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
@@ -441,7 +443,7 @@ contract GoalBasedPaymentTreasury_UnitTest is Test, GoalBasedPaymentTreasuryFunc
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 2);
 
         // Refund should fail when goal met
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer2Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_1);
     }
@@ -464,7 +466,7 @@ contract GoalBasedPaymentTreasury_UnitTest is Test, GoalBasedPaymentTreasuryFunc
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 1);
 
         // Refund should fail due to optimistic lock
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer2Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_1);
     }
@@ -598,7 +600,7 @@ contract GoalBasedPaymentTreasury_UnitTest is Test, GoalBasedPaymentTreasuryFunc
         advanceToAfterDeadline();
 
         // Disburse should fail
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryGoalNotMet.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         goalBasedPaymentTreasury.disburseFees();
     }
 
@@ -632,7 +634,7 @@ contract GoalBasedPaymentTreasury_UnitTest is Test, GoalBasedPaymentTreasuryFunc
     }
 
     function testCancelTreasuryByUnauthorizedReverts() public {
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryUnauthorized.selector);
+        vm.expectRevert(CampaignAccessChecker.AccessCheckerUnauthorized.selector);
         vm.prank(users.backer1Address);
         goalBasedPaymentTreasury.cancelTreasury(keccak256("cancel"));
     }
@@ -717,13 +719,13 @@ contract GoalBasedPaymentTreasury_UnitTest is Test, GoalBasedPaymentTreasuryFunc
         // Both refunds should be blocked due to optimistic lock
         vm.prank(users.backer1Address);
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 1);
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer1Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_1);
 
         vm.prank(users.backer2Address);
         CampaignInfo(campaignAddress).approve(address(goalBasedPaymentTreasury), 2);
-        vm.expectRevert(GoalBasedPaymentTreasury.GoalBasedPaymentTreasuryNotRefundable.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasurySuccessConditionNotFulfilled.selector);
         vm.prank(users.backer2Address);
         goalBasedPaymentTreasury.claimRefund(PAYMENT_ID_2);
     }

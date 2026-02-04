@@ -3,28 +3,13 @@ pragma solidity ^0.8.22;
 
 import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
-import {TimestampChecker} from "../utils/TimestampChecker.sol";
 
 /**
  * @title GoalBasedPaymentTreasury
  * @notice A payment treasury with goal-based success conditions.
  */
-contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
-
-    /**
-     * @dev Emitted when the goal has not been met for operations requiring success.
-     */
-    error GoalBasedPaymentTreasuryGoalNotMet();
-
-    /**
-     * @dev Emitted when attempting to refund after goal has been met.
-     */
-    error GoalBasedPaymentTreasuryNotRefundable();
-
-    /**
-     * @dev Emitted when an unauthorized action is attempted.
-     */
-    error GoalBasedPaymentTreasuryUnauthorized();
+contract GoalBasedPaymentTreasury is BasePaymentTreasury {
+    error GoalBasedPaymentTreasuryInvalidTimestamp();
 
     /**
      * @notice Initializes the GoalBasedPaymentTreasury contract.
@@ -36,45 +21,61 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
     }
 
+    function _revertIfCurrentTimeIsNotGreater(uint256 inputTime) private view {
+        if (block.timestamp <= inputTime) {
+            revert GoalBasedPaymentTreasuryInvalidTimestamp();
+        }
+    }
+
+    function _revertIfCurrentTimeIsNotWithinRange(uint256 initialTime, uint256 finalTime) private view {
+        uint256 currentTime = block.timestamp;
+        if (currentTime < initialTime || currentTime > finalTime) {
+            revert GoalBasedPaymentTreasuryInvalidTimestamp();
+        }
+    }
+
     /**
      * @dev Internal function to check if current time is within launchTime → deadline range.
      */
-    function _checkCreateTimeRange() internal view {
+    function _checkCreateTimeRange() private view {
         _revertIfCurrentTimeIsNotWithinRange(INFO.getLaunchTime(), INFO.getDeadline());
     }
 
     /**
      * @dev Internal function to check if current time is within launchTime → deadline + buffer range.
      */
-    function _checkConfirmTimeRange() internal view {
+    function _checkConfirmTimeRange() private view {
         _revertIfCurrentTimeIsNotWithinRange(INFO.getLaunchTime(), INFO.getDeadline() + INFO.getBufferTime());
     }
 
     /**
      * @dev Internal function to check if current time is greater than launchTime.
      */
-    function _checkAfterLaunch() internal view {
+    function _checkAfterLaunch() private view {
         _revertIfCurrentTimeIsNotGreater(INFO.getLaunchTime());
     }
-
+    
     /**
      * @dev Internal function to check if current time is greater than deadline.
      */
-    function _checkAfterDeadline() internal view {
+    function _checkAfterDeadline() private view {
         _revertIfCurrentTimeIsNotGreater(INFO.getDeadline());
     }
-
+    
     /**
      * @dev Internal function to check optimistic lock for refunds.
      * Blocks refunds if the campaign is projected to succeed (Confirmed + Pending >= Goal).
      */
-    function _checkRefundAllowed() internal view {
-        if (block.timestamp >= INFO.getDeadline()) {
-            uint256 progress = block.timestamp > INFO.getDeadline() + INFO.getBufferTime()
-                ? getRaisedAmount()
-                : getRaisedAmount() + getExpectedAmount();
+    function _checkRefundAllowed() private view {
+        _checkAfterLaunch();
+        uint256 deadline = INFO.getDeadline();
+        if (block.timestamp >= deadline) {
+            uint256 raised = INFO.getTotalRaisedAmount();
+            uint256 progress = block.timestamp > deadline + INFO.getBufferTime()
+                ? raised
+                : raised + INFO.getTotalExpectedAmount();
             if (progress >= INFO.getGoalAmount()) {
-                revert GoalBasedPaymentTreasuryNotRefundable();
+                revert PaymentTreasurySuccessConditionNotFulfilled();
             }
         }
     }
@@ -184,9 +185,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         public
         override
         whenNotPaused
-        whenNotCancelled
     {
-        _checkAfterLaunch();
         _checkRefundAllowed();
         super.claimRefund(paymentId, refundAddress);
     }
@@ -199,9 +198,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
         public
         override
         whenNotPaused
-        whenNotCancelled
     {
-        _checkAfterLaunch();
         _checkRefundAllowed();
         super.claimRefund(paymentId);
     }
@@ -222,7 +219,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
     function disburseFees() public override whenNotPaused {
         _checkAfterDeadline();
         if (!_checkSuccessCondition()) {
-            revert GoalBasedPaymentTreasuryGoalNotMet();
+            revert PaymentTreasurySuccessConditionNotFulfilled();
         }
         super.disburseFees();
     }
@@ -250,10 +247,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @inheritdoc BasePaymentTreasury
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
-    function cancelTreasury(bytes32 message) public override {
-        if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
-            revert GoalBasedPaymentTreasuryUnauthorized();
-        }
+    function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
         _cancel(message);
     }
 
@@ -262,7 +256,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
      * @dev Success condition: confirmed raised amount >= goal amount.
      */
     function _checkSuccessCondition() internal view virtual override returns (bool) {
-        return getRaisedAmount() >= INFO.getGoalAmount();
+        return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 }
 
