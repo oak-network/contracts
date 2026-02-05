@@ -155,7 +155,9 @@ contract DeployAllAndSetupExecutor is CrossChainDeployBase {
         eids[0] = config.sourceLzEid;
         executor.setLayerZeroEids(chainIds, eids);
 
-        executor.setIntentSender(config.sourceChainId, intentSender);
+        address[] memory intentSenders = new address[](1);
+        intentSenders[0] = intentSender;
+        executor.setIntentSenders(chainIds, intentSenders);
 
         // Set allowed function selectors
         bytes4[] memory allowedSelectors = new bytes4[](5);

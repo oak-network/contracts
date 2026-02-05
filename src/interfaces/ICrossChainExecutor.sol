@@ -162,6 +162,34 @@ interface ICrossChainExecutor {
      */
     event AgentSet(address indexed agent);
 
+    /**
+     * @notice Emitted when an IntentSender is registered for a source chain.
+     * @param chainId EVM chain ID of the source chain.
+     * @param intentSender Address of the IntentSender contract.
+     */
+    event IntentSenderSet(uint256 indexed chainId, address indexed intentSender);
+
+    /**
+     * @notice Emitted when a bridge adapter is registered.
+     * @param bridgeId Identifier of the bridge.
+     * @param adapter Address of the bridge adapter contract.
+     */
+    event BridgeAdapterSet(bytes32 indexed bridgeId, address indexed adapter);
+
+    /**
+     * @notice Emitted when a CCIP chain selector mapping is set.
+     * @param chainId EVM chain ID.
+     * @param selector CCIP chain selector.
+     */
+    event CcipChainSelectorSet(uint256 indexed chainId, uint64 selector);
+
+    /**
+     * @notice Emitted when a LayerZero endpoint ID mapping is set.
+     * @param chainId EVM chain ID.
+     * @param eid LayerZero endpoint ID.
+     */
+    event LayerZeroEidSet(uint256 indexed chainId, uint32 eid);
+
     // =============================================================
     //                       EXTERNAL FUNCTIONS
     // =============================================================

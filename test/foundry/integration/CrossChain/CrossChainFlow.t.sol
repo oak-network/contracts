@@ -86,10 +86,12 @@ contract CrossChainFlowTest is PaymentTreasury_Integration_Shared_Test {
         adapters[1] = address(lzAdapter);
 
         executor.setBridgeAdapters(bridgeIds, adapters);
-        executor.setIntentSender(block.chainid, address(intentSender));
-
         uint256[] memory chainIds = new uint256[](1);
         chainIds[0] = block.chainid;
+
+        address[] memory intentSenders = new address[](1);
+        intentSenders[0] = address(intentSender);
+        executor.setIntentSenders(chainIds, intentSenders);
 
         uint64[] memory selectors = new uint64[](1);
         selectors[0] = ccipChainSelector;

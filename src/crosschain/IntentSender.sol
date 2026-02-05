@@ -201,6 +201,12 @@ contract IntentSender is Ownable {
         uint32 lzDestinationEid,
         address _lzDestinationAdapter
     ) Ownable(msg.sender) {
+        if (
+            _agent == address(0) || ccipRouter == address(0) || _ccipDestinationAdapter == address(0)
+                || _lzDestinationAdapter == address(0)
+        ) {
+            revert IntentSenderInvalidReceiver();
+        }
         agent = _agent;
         CCIP_ROUTER = IRouterClient(ccipRouter);
         CCIP_DESTINATION_SELECTOR = ccipDestinationSelector;

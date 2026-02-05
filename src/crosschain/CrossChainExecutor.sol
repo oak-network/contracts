@@ -98,6 +98,10 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
             revert ExecutorAdapterMismatch(bridgeId, msg.sender);
         }
 
+        if (_intents[intent.intentId].status != Status.None) {
+            revert ExecutorIntentAlreadyProcessed();
+        }
+
         if (intent.status == Status.Failed) {
             _intents[intent.intentId] = intent;
             return;
@@ -264,15 +268,28 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
     }
 
     /**
-     * @notice Registers an IntentSender contract for a source chain.
-     * @param chainId EVM chain ID of the source chain.
-     * @param intentSender Address of the IntentSender contract.
+     * @notice Batch registers IntentSender contracts for source chains.
+     * @param chainIds Array of EVM chain IDs of the source chains.
+     * @param intentSenders Array of corresponding IntentSender contract addresses.
      */
-    function setIntentSender(uint256 chainId, address intentSender) external onlyProtocolAdmin {
-        if (intentSender == address(0)) {
-            revert ExecutorInvalidSenderConfig(chainId);
+    function setIntentSenders(uint256[] calldata chainIds, address[] calldata intentSenders)
+        external
+        onlyProtocolAdmin
+    {
+        if (chainIds.length != intentSenders.length) {
+            revert ExecutorInvalidData();
         }
-        _intentSenders[chainId] = intentSender;
+        for (uint256 i = 0; i < chainIds.length;) {
+            if (intentSenders[i] == address(0)) {
+                revert ExecutorInvalidSenderConfig(chainIds[i]);
+            }
+            _intentSenders[chainIds[i]] = intentSenders[i];
+            emit IntentSenderSet(chainIds[i], intentSenders[i]);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /**
@@ -292,6 +309,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
                 revert ExecutorInvalidBridgeAdapter(bridgeIds[i]);
             }
             _bridgeAdapters[bridgeIds[i]] = adapters[i];
+            emit BridgeAdapterSet(bridgeIds[i], adapters[i]);
 
             unchecked {
                 ++i;
@@ -316,6 +334,7 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
                 revert ExecutorInvalidChainSelector(chainIds[i]);
             }
             _ccipChainSelectors[chainIds[i]] = selectors[i];
+            emit CcipChainSelectorSet(chainIds[i], selectors[i]);
 
             unchecked {
                 ++i;
@@ -337,7 +356,8 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
                 revert ExecutorInvalidLayerZeroEid(chainIds[i]);
             }
             _layerZeroEids[chainIds[i]] = eids[i];
-            
+            emit LayerZeroEidSet(chainIds[i], eids[i]);
+
             unchecked {
                 ++i;
             }
@@ -368,18 +388,10 @@ contract CrossChainExecutor is ICrossChainExecutor, Pausable {
      *      allowing the funds to be refunded to the source chain.
      */
     function _executeIntent(bytes32 bridgeId, Intent memory intent, bytes calldata payload) internal {
-        bytes4 errorSelector;
-
-        if (_intents[intent.intentId].status != Status.None) {
-            errorSelector = ExecutorIntentAlreadyProcessed.selector;
-        } else if (!_allowedSelectors[bytes4(payload)]) {
-            errorSelector = ExecutorSelectorNotAllowed.selector;
-        }
-
-        if (errorSelector != bytes4(0)) {
+        if (!_allowedSelectors[bytes4(payload)]) {
             intent.status = Status.Failed;
             _intents[intent.intentId] = intent;
-            emit IntentFailed(intent.intentId, errorSelector);
+            emit IntentFailed(intent.intentId, ExecutorSelectorNotAllowed.selector);
             return;
         }
 
