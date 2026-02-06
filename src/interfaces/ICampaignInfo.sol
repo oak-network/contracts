@@ -105,6 +105,21 @@ interface ICampaignInfo is IERC721 {
     function getGoalAmount() external view returns (uint256);
 
     /**
+     * @notice Returns whether the campaign goal outcome has been locked after deadline.
+     * @dev Once locked, `successful` is immutable and should be used for post-deadline settlement.
+     * @return locked True if the outcome has been locked.
+     * @return successful True if the campaign was locked as successful.
+     * @return lockedAt Timestamp when the outcome was locked (0 if not locked).
+     */
+    function getGoalOutcomeLock() external view returns (bool locked, bool successful, uint256 lockedAt);
+
+    /**
+     * @notice Locks the campaign goal outcome after deadline using optimistic progress.
+     * @dev Can only be called by an approved platform treasury.
+     */
+    function lockGoalOutcome() external;
+
+    /**
      * @notice Retrieves the protocol fee percentage for the campaign.
      * @return The protocol fee percentage applied to the campaign.
      */

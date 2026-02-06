@@ -51,6 +51,11 @@ contract CampaignInfo is
     // Lock mechanism - prevents certain operations after treasury deployment
     bool private s_isLocked;
 
+    // Immutable goal outcome after deadline (shared across all platform treasuries)
+    bool private s_goalOutcomeLocked;
+    bool private s_goalOutcomeSuccessful;
+    uint256 private s_goalOutcomeLockedAt;
+
     function getApprovedPlatformHashes() external view returns (bytes32[] memory) {
         return s_approvedPlatformHashes;
     }
@@ -96,6 +101,15 @@ contract CampaignInfo is
     event CampaignInfoPlatformInfoUpdated(bytes32 indexed platformHash, address indexed platformTreasury);
 
     /**
+     * @dev Emitted when the campaign goal outcome is locked after deadline.
+     * @param successful Whether the campaign was locked as successful.
+     * @param confirmed Total confirmed raised amount at lock time.
+     * @param expected Total expected (pending) amount at lock time.
+     * @param lockedAt Timestamp when the lock was recorded.
+     */
+    event CampaignInfoGoalOutcomeLocked(bool successful, uint256 confirmed, uint256 expected, uint256 lockedAt);
+
+    /**
      * @dev Emitted when an invalid platform update is attempted.
      * @param platformHash The bytes32 identifier of the platform.
      * @param selection The selection state (true/false).
@@ -130,6 +144,11 @@ contract CampaignInfo is
     error CampaignInfoIsLocked();
 
     /**
+     * @dev Emitted when trying to lock the goal outcome before deadline.
+     */
+    error CampaignInfoGoalOutcomeNotLockable();
+
+    /**
      * @dev Modifier that checks if the campaign is not locked.
      */
     modifier whenNotLocked() {
@@ -137,6 +156,31 @@ contract CampaignInfo is
             revert CampaignInfoIsLocked();
         }
         _;
+    }
+
+    /**
+     * @dev Returns true if the current campaign progress meets goal without risking uint256 overflow.
+     */
+    function _isGoalMetWithExpected(uint256 confirmed, uint256 expected, uint256 goal) internal pure returns (bool) {
+        if (confirmed >= goal) {
+            return true;
+        }
+        uint256 remaining = goal - confirmed;
+        return expected >= remaining;
+    }
+
+    /**
+     * @dev Returns true if the caller is one of the approved platform treasury contracts.
+     */
+    function _isApprovedTreasury(address caller) internal view returns (bool) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = tempPlatforms.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (s_platformTreasuryAddress[tempPlatforms[i]] == caller) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -215,6 +259,44 @@ contract CampaignInfo is
     }
 
     /**
+     * @dev Internal helper for total confirmed raised amount across non-cancelled treasuries.
+     */
+    function _getTotalRaisedAmountInternal() internal view returns (uint256 amount) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            // Skip cancelled treasuries
+            if (!ICampaignTreasury(tempTreasury).cancelled()) {
+                amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
+            }
+        }
+    }
+
+    /**
+     * @dev Internal helper for total expected (pending) amount across non-cancelled payment treasuries.
+     */
+    function _getTotalExpectedAmountInternal() internal view returns (uint256 amount) {
+        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
+        uint256 length = s_approvedPlatformHashes.length;
+        address tempTreasury;
+        for (uint256 i = 0; i < length; i++) {
+            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
+            // Skip cancelled treasuries
+            if (ICampaignTreasury(tempTreasury).cancelled()) {
+                continue;
+            }
+            // Try to call getExpectedAmount - will only work for payment treasuries
+            try ICampaignPaymentTreasury(tempTreasury).getExpectedAmount() returns (uint256 expectedAmount) {
+                amount += expectedAmount;
+            } catch {
+                // Not a payment treasury or call failed, skip
+            }
+        }
+    }
+
+    /**
      * @inheritdoc ICampaignInfo
      */
     function owner() public view override(ICampaignInfo, Ownable) returns (address account) {
@@ -232,18 +314,7 @@ contract CampaignInfo is
      * @inheritdoc ICampaignInfo
      */
     function getTotalRaisedAmount() external view override returns (uint256) {
-        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
-        uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
-        address tempTreasury;
-        for (uint256 i = 0; i < length; i++) {
-            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
-            // Skip cancelled treasuries
-            if (!ICampaignTreasury(tempTreasury).cancelled()) {
-                amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
-            }
-        }
-        return amount;
+        return _getTotalRaisedAmountInternal();
     }
 
     /**
@@ -313,24 +384,7 @@ contract CampaignInfo is
      * @inheritdoc ICampaignInfo
      */
     function getTotalExpectedAmount() external view returns (uint256) {
-        bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
-        uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
-        address tempTreasury;
-        for (uint256 i = 0; i < length; i++) {
-            tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
-            // Skip cancelled treasuries
-            if (ICampaignTreasury(tempTreasury).cancelled()) {
-                continue;
-            }
-            // Try to call getExpectedAmount - will only work for payment treasuries
-            try ICampaignPaymentTreasury(tempTreasury).getExpectedAmount() returns (uint256 expectedAmount) {
-                amount += expectedAmount;
-            } catch {
-                // Not a payment treasury or call failed, skip
-            }
-        }
-        return amount;
+        return _getTotalExpectedAmountInternal();
     }
 
     /**
@@ -359,6 +413,40 @@ contract CampaignInfo is
      */
     function getGoalAmount() external view override returns (uint256) {
         return s_campaignData.goalAmount;
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getGoalOutcomeLock() external view override returns (bool locked, bool successful, uint256 lockedAt) {
+        return (s_goalOutcomeLocked, s_goalOutcomeSuccessful, s_goalOutcomeLockedAt);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function lockGoalOutcome() external override whenNotPaused {
+        if (!_isApprovedTreasury(_msgSender())) {
+            revert CampaignInfoUnauthorized();
+        }
+
+        if (s_goalOutcomeLocked) {
+            return;
+        }
+
+        if (block.timestamp <= s_campaignData.deadline) {
+            revert CampaignInfoGoalOutcomeNotLockable();
+        }
+
+        uint256 confirmed = _getTotalRaisedAmountInternal();
+        uint256 expected = _getTotalExpectedAmountInternal();
+        uint256 goalAmount = s_campaignData.goalAmount;
+
+        s_goalOutcomeSuccessful = _isGoalMetWithExpected(confirmed, expected, goalAmount);
+        s_goalOutcomeLocked = true;
+        s_goalOutcomeLockedAt = block.timestamp;
+
+        emit CampaignInfoGoalOutcomeLocked(s_goalOutcomeSuccessful, confirmed, expected, block.timestamp);
     }
 
     /**

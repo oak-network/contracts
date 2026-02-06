@@ -61,20 +61,50 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
     function _checkAfterDeadline() private view {
         _revertIfCurrentTimeIsNotGreater(INFO.getDeadline());
     }
-    
+
+    function _isGoalMetWithExpected(uint256 confirmed, uint256 expected, uint256 goal)
+        private
+        pure
+        returns (bool)
+    {
+        if (confirmed >= goal) {
+            return true;
+        }
+        uint256 remaining = goal - confirmed;
+        return expected >= remaining;
+    }
+
     /**
-     * @dev Internal function to check optimistic lock for refunds.
-     * Blocks refunds if the campaign is projected to succeed (Confirmed + Pending >= Goal).
+     * @dev Locks campaign success outcome after deadline using campaign-level optimistic totals.
+     * The lock is shared across all treasuries through CampaignInfo.
      */
-    function _checkRefundAllowed() private view {
+    function _lockGoalOutcomeIfNeeded() private {
+        if (block.timestamp <= INFO.getDeadline()) {
+            return;
+        }
+
+        (bool locked,,) = INFO.getGoalOutcomeLock();
+        if (!locked) {
+            INFO.lockGoalOutcome();
+        }
+    }
+
+    /**
+     * @dev Internal function to check refund eligibility with immutable post-deadline outcome.
+     */
+    function _checkRefundAllowed() private {
         _checkAfterLaunch();
         uint256 deadline = INFO.getDeadline();
-        if (block.timestamp >= deadline) {
-            uint256 raised = INFO.getTotalRaisedAmount();
-            uint256 progress = block.timestamp > deadline + INFO.getBufferTime()
-                ? raised
-                : raised + INFO.getTotalExpectedAmount();
-            if (progress >= INFO.getGoalAmount()) {
+        if (block.timestamp > deadline) {
+            _lockGoalOutcomeIfNeeded();
+            if (_checkSuccessCondition()) {
+                revert PaymentTreasurySuccessConditionNotFulfilled();
+            }
+        } else if (block.timestamp == deadline) {
+            uint256 confirmed = INFO.getTotalRaisedAmount();
+            uint256 expected = INFO.getTotalExpectedAmount();
+            uint256 goalAmount = INFO.getGoalAmount();
+            if (_isGoalMetWithExpected(confirmed, expected, goalAmount)) {
                 revert PaymentTreasurySuccessConditionNotFulfilled();
             }
         }
@@ -146,6 +176,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
         whenNotCancelled
     {
         _checkConfirmTimeRange();
+        _lockGoalOutcomeIfNeeded();
         super.confirmPayment(paymentId, buyerAddress);
     }
 
@@ -160,6 +191,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
         whenNotCancelled
     {
         _checkConfirmTimeRange();
+        _lockGoalOutcomeIfNeeded();
         super.confirmPaymentBatch(paymentIds, buyerAddresses);
     }
 
@@ -174,6 +206,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
         whenNotCancelled
     {
         _checkConfirmTimeRange();
+        _lockGoalOutcomeIfNeeded();
         super.cancelPayment(paymentId);
     }
 
@@ -209,6 +242,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
      */
     function claimExpiredFunds() public override whenNotPaused {
         _checkAfterLaunch();
+        _lockGoalOutcomeIfNeeded();
         super.claimExpiredFunds();
     }
 
@@ -218,6 +252,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
      */
     function disburseFees() public override whenNotPaused {
         _checkAfterDeadline();
+        _lockGoalOutcomeIfNeeded();
         if (!_checkSuccessCondition()) {
             revert PaymentTreasurySuccessConditionNotFulfilled();
         }
@@ -240,6 +275,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
      */
     function withdraw() public override whenNotPaused whenNotCancelled {
         _checkAfterDeadline();
+        _lockGoalOutcomeIfNeeded();
         super.withdraw();
     }
 
@@ -253,10 +289,14 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
 
     /**
      * @inheritdoc BasePaymentTreasury
-     * @dev Success condition: confirmed raised amount >= goal amount.
+     * @dev Before lock: uses confirmed raised amount only.
+     *      After lock: uses immutable campaign-level goal outcome from CampaignInfo.
      */
     function _checkSuccessCondition() internal view virtual override returns (bool) {
+        (bool locked, bool successful,) = INFO.getGoalOutcomeLock();
+        if (locked) {
+            return successful;
+        }
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 }
-
