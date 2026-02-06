@@ -105,16 +105,18 @@ interface ICampaignInfo is IERC721 {
     function getGoalAmount() external view returns (uint256);
 
     /**
-     * @notice Returns whether the campaign goal outcome has been locked after deadline.
-     * @dev Once locked, `successful` is immutable and should be used for post-deadline settlement.
-     * @return locked True if the outcome has been locked.
-     * @return successful True if the campaign was locked as successful.
-     * @return lockedAt Timestamp when the outcome was locked (0 if not locked).
+     * @notice Returns whether campaign success has been latched after deadline.
+     * @dev This is a success-only latch:
+     *      - `locked=true` means success was observed and is immutable.
+     *      - `locked=false` means success was never latched (fallback checks may still apply).
+     * @return locked True if campaign success has been latched.
+     * @return successful True if the campaign was latched as successful.
+     * @return lockedAt Timestamp when success was latched (0 if not latched).
      */
     function getGoalOutcomeLock() external view returns (bool locked, bool successful, uint256 lockedAt);
 
     /**
-     * @notice Locks the campaign goal outcome after deadline using optimistic progress.
+     * @notice Attempts to latch campaign success after deadline using optimistic progress.
      * @dev Can only be called by an approved platform treasury.
      */
     function lockGoalOutcome() external;

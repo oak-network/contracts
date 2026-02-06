@@ -62,6 +62,9 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
         _revertIfCurrentTimeIsNotGreater(INFO.getDeadline());
     }
 
+    /**
+     * @dev Overflow-safe goal comparison for optimistic progress checks.
+     */
     function _isGoalMetWithExpected(uint256 confirmed, uint256 expected, uint256 goal)
         private
         pure
@@ -101,6 +104,7 @@ contract GoalBasedPaymentTreasury is BasePaymentTreasury {
                 revert PaymentTreasurySuccessConditionNotFulfilled();
             }
         } else if (block.timestamp == deadline) {
+            // At exact deadline, keep optimistic protection (confirmed + pending).
             uint256 confirmed = INFO.getTotalRaisedAmount();
             uint256 expected = INFO.getTotalExpectedAmount();
             uint256 goalAmount = INFO.getGoalAmount();

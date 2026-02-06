@@ -51,7 +51,7 @@ contract CampaignInfo is
     // Lock mechanism - prevents certain operations after treasury deployment
     bool private s_isLocked;
 
-    // Immutable goal outcome after deadline (shared across all platform treasuries)
+    // Immutable success latch after deadline (shared across all platform treasuries)
     bool private s_goalOutcomeLocked;
     bool private s_goalOutcomeSuccessful;
     uint256 private s_goalOutcomeLockedAt;
@@ -101,8 +101,8 @@ contract CampaignInfo is
     event CampaignInfoPlatformInfoUpdated(bytes32 indexed platformHash, address indexed platformTreasury);
 
     /**
-     * @dev Emitted when the campaign goal outcome is locked after deadline.
-     * @param successful Whether the campaign was locked as successful.
+     * @dev Emitted when campaign success is latched after deadline.
+     * @param successful Always true for the success-only latch.
      * @param confirmed Total confirmed raised amount at lock time.
      * @param expected Total expected (pending) amount at lock time.
      * @param lockedAt Timestamp when the lock was recorded.
@@ -442,11 +442,15 @@ contract CampaignInfo is
         uint256 expected = _getTotalExpectedAmountInternal();
         uint256 goalAmount = s_campaignData.goalAmount;
 
-        s_goalOutcomeSuccessful = _isGoalMetWithExpected(confirmed, expected, goalAmount);
-        s_goalOutcomeLocked = true;
-        s_goalOutcomeLockedAt = block.timestamp;
+        // Success-only latch: persist success once observed, never persist failure.
+        // This keeps fallback behavior available while still guaranteeing immutable success once latched.
+        if (_isGoalMetWithExpected(confirmed, expected, goalAmount)) {
+            s_goalOutcomeSuccessful = true;
+            s_goalOutcomeLocked = true;
+            s_goalOutcomeLockedAt = block.timestamp;
 
-        emit CampaignInfoGoalOutcomeLocked(s_goalOutcomeSuccessful, confirmed, expected, block.timestamp);
+            emit CampaignInfoGoalOutcomeLocked(true, confirmed, expected, block.timestamp);
+        }
     }
 
     /**
