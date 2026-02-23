@@ -79,7 +79,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     struct Config {
         /// @dev The minimum withdrawal amount required to qualify for fee exemption.
         uint256 minimumWithdrawalForFeeExemption;
-        /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
+        /// @dev Time delay (in timestamp) after the campaign deadline until which the campaign owner may withdraw.
+        ///      Withdrawal is allowed only while current time is less than deadline + withdrawalDelay.
+        ///      After deadline + withdrawalDelay, the withdrawal function is no longer callable.
         uint256 withdrawalDelay;
         /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
         uint256 refundDelay;
@@ -840,7 +842,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *
      * Requirements:
      * - Caller must be authorized.
-     * - Withdrawals must be enabled, not paused, and within the allowed time.
+     * - Withdrawals must be enabled, not paused, and within the withdrawal window (current time < deadline + withdrawalDelay).
      * - Token must be accepted for the campaign.
      * - For partial withdrawals:
      *   - `amount` > 0 and `amount + fees` ≤ available balance.
