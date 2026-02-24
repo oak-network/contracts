@@ -91,6 +91,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
         string calldata _contractURI
     ) internal {
         _validateJsonString(_nftName);
+        _validateJsonString(_imageURI);
         s_nftName = _nftName;
         s_nftSymbol = _nftSymbol;
         s_imageURI = _imageURI;
