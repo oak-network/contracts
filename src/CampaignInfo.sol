@@ -581,6 +581,9 @@ contract CampaignInfo is
                 if (platformDataValue[i] == bytes32(0)) {
                     revert CampaignInfoInvalidInput();
                 }
+                if (globalParams.getPlatformDataOwner(platformDataKey[i]) != platformHash) {
+                    revert CampaignInfoInvalidInput();
+                }
 
                 s_platformData[platformDataKey[i]] = platformDataValue[i];
             }

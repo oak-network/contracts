@@ -128,7 +128,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         }
 
         bool isValid;
-        for (uint256 i = 0; i < platformDataKey.length; i++) {
+        for (uint256 i = 0; i < platformDataKey.length;) {
             isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
             if (!isValid) {
                 revert CampaignInfoFactoryInvalidInput();
@@ -136,6 +136,19 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
             if (platformDataValue[i] == bytes32(0)) {
                 revert CampaignInfoFactoryInvalidInput();
             }
+            bytes32 keyOwner = globalParams.getPlatformDataOwner(platformDataKey[i]);
+            bool ownerIsSelected = false;
+            for (uint256 j = 0; j < selectedPlatformHash.length;) {
+                if (keyOwner == selectedPlatformHash[j]) {
+                    ownerIsSelected = true;
+                    break;
+                }
+                unchecked { ++j; }
+            }
+            if (!ownerIsSelected) {
+                revert CampaignInfoFactoryInvalidInput();
+            }
+            unchecked { ++i; }
         }
         address cloneExists = $.identifierToCampaignInfo[identifierHash];
         if (cloneExists != address(0)) {
