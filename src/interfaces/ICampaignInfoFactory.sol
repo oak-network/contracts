@@ -21,6 +21,12 @@ interface ICampaignInfoFactory is ICampaignData {
     event CampaignInfoFactoryCampaignInitialized();
 
     /**
+     * @notice Emitted when the campaign implementation address is updated.
+     * @param newImplementation The new implementation address.
+     */
+    event CampaignInfoFactoryImplementationUpdated(address indexed newImplementation);
+
+    /**
      * @notice Creates a new campaign information contract with NFT.
      * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
      *      permanently in the campaign contract. Users should verify current fees before
