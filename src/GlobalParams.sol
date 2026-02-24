@@ -438,6 +438,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         $.platformIsListed[platformHash] = false;
         $.platformAdminAddress[platformHash] = address(0);
         $.platformFeePercent[platformHash] = 0;
+        $.platformAdapter[platformHash] = address(0);
         $.numberOfListedPlatforms.decrement();
         emit PlatformDelisted(platformHash);
     }
