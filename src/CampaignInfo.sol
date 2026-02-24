@@ -584,6 +584,14 @@ contract CampaignInfo is
 
                 s_platformData[platformDataKey[i]] = platformDataValue[i];
             }
+        } else {
+            for (uint256 i = 0; i < platformDataKey.length;) {
+                if (globalParams.getPlatformDataOwner(platformDataKey[i]) != platformHash) {
+                    revert CampaignInfoInvalidInput();
+                }
+                s_platformData[platformDataKey[i]] = bytes32(0);
+                unchecked { ++i; }
+            }
         }
 
         s_isSelectedPlatform[platformHash] = selection;
