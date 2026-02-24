@@ -4,6 +4,19 @@ pragma solidity ^0.8.22;
 import "forge-std/Test.sol";
 import {KARMA} from "src/tokens/Karma.sol";
 
+/// @notice Mock treasury that returns a configurable raised amount for claimTokens tests.
+contract MockKarmaTreasury {
+    uint256 public raisedAmount;
+
+    function setRaisedAmount(uint256 _amount) external {
+        raisedAmount = _amount;
+    }
+
+    function getRaisedAmount() external view returns (uint256) {
+        return raisedAmount;
+    }
+}
+
 contract Karma_UnitTest is Test {
     KARMA internal karma;
 
@@ -289,5 +302,143 @@ contract Karma_UnitTest is Test {
         vm.prank(holder);
         vm.expectRevert();
         karma.unpause();
+    }
+
+    // ─── claimTokens & treasury ─────────────────────────────────────────────
+
+    function test_ClaimTokens_WithoutTreasurySet_Reverts() public {
+        vm.prank(minter);
+        vm.expectRevert(KARMA.KarmaTreasuryNotSet.selector);
+        karma.claimTokens(holder);
+    }
+
+    function test_ClaimTokens_ToZeroAddress_Reverts() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(100e18);
+        vm.prank(minter);
+        vm.expectRevert(KARMA.KarmaInvalidMintInput.selector);
+        karma.claimTokens(address(0));
+    }
+
+    function test_ClaimTokens_NothingToClaim_Reverts() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(0);
+        vm.prank(minter);
+        vm.expectRevert(KARMA.KarmaNothingToClaim.selector);
+        karma.claimTokens(holder);
+    }
+
+    function test_ClaimTokens_MintsDelta_FirstClaim() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(300e18); // 100 + 200 as in example
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 300e18);
+        assertEq(karma.totalMintedAgainstRaised(), 300e18);
+    }
+
+    function test_ClaimTokens_MintsOnlyDelta_SecondClaim() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(300e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 300e18);
+        // Simulate more payments: raised goes to 500 (300 + 100 + 100)
+        mockTreasury.setRaisedAmount(500e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 500e18); // 300 + 200 delta
+        assertEq(karma.totalMintedAgainstRaised(), 500e18);
+    }
+
+    function test_ClaimTokens_MultipleCalls_Incremental() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(100e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 100e18);
+        mockTreasury.setRaisedAmount(300e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 300e18);
+        mockTreasury.setRaisedAmount(300e18);
+        vm.prank(minter);
+        vm.expectRevert(KARMA.KarmaNothingToClaim.selector);
+        karma.claimTokens(holder);
+    }
+
+    function test_ClaimTokens_WhenPaused_Reverts() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(100e18);
+        vm.prank(pauser);
+        karma.pause();
+        vm.prank(minter);
+        vm.expectRevert();
+        karma.claimTokens(holder);
+    }
+
+    function test_ClaimTokens_ByNonMinter_Reverts() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(100e18);
+        vm.prank(holder);
+        vm.expectRevert();
+        karma.claimTokens(holder);
+    }
+
+    function test_SetTreasury_ByAdmin_Succeeds() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        assertEq(karma.treasury(), address(0));
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, true);
+        emit KARMA.TreasurySet(address(0), address(mockTreasury));
+        karma.setTreasury(address(mockTreasury));
+        assertEq(karma.treasury(), address(mockTreasury));
+    }
+
+    function test_SetTreasury_EmitsTreasurySet() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        MockKarmaTreasury mockTreasury2 = new MockKarmaTreasury();
+        vm.prank(admin);
+        vm.expectEmit(true, true, false, true);
+        emit KARMA.TreasurySet(address(mockTreasury), address(mockTreasury2));
+        karma.setTreasury(address(mockTreasury2));
+    }
+
+    function test_ClaimTokens_EmitsTokensClaimed() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(admin);
+        karma.setTreasury(address(mockTreasury));
+        mockTreasury.setRaisedAmount(300e18);
+        vm.prank(minter);
+        vm.expectEmit(true, false, false, true);
+        emit KARMA.TokensClaimed(holder, 300e18);
+        karma.claimTokens(holder);
+    }
+
+    function test_SetTreasury_ByNonAdmin_Reverts() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.prank(holder);
+        vm.expectRevert();
+        karma.setTreasury(address(mockTreasury));
+    }
+
+    function test_TotalMintedAgainstRaised_StartsZero() public {
+        assertEq(karma.totalMintedAgainstRaised(), 0);
     }
 }
