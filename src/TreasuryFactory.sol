@@ -118,11 +118,8 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
 
         clone = Clones.clone(implementation);
 
-        // Fetch the platform adapter (trusted forwarder) from GlobalParams
-        address platformAdapter = _getGlobalParams().getPlatformAdapter(platformHash);
-
         (bool success,) = clone.call(
-            abi.encodeWithSignature("initialize(bytes32,address,address)", platformHash, infoAddress, platformAdapter)
+            abi.encodeWithSignature("initialize(bytes32,address)", platformHash, infoAddress)
         );
         if (!success) {
             revert TreasuryFactoryTreasuryInitializationFailed();

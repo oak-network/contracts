@@ -339,6 +339,13 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
+    function getPlatformAdapter(bytes32 platformHash) external view override returns (address) {
+        return _getGlobalParams().getPlatformAdapter(platformHash);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
     function getLaunchTime() public view override returns (uint256) {
         return s_campaignData.launchTime;
     }
