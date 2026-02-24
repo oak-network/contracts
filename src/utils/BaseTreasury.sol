@@ -73,6 +73,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      */
     error TreasuryCampaignInfoIsPaused();
 
+    constructor() {
+        _disableInitializers();
+    }
+
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;

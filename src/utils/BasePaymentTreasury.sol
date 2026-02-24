@@ -267,6 +267,10 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryNoFundsToClaim();
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
      * @param paymentId The external payment ID.
