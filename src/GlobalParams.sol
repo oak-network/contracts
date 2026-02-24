@@ -481,6 +481,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         if (!$.platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataNotSet();
         }
+        if ($.platformDataOwner[platformDataKey] != platformHash) {
+            revert GlobalParamsInvalidInput();
+        }
         $.platformData[platformDataKey] = false;
         $.platformDataOwner[platformDataKey] = ZERO_BYTES;
         emit PlatformDataRemoved(platformHash, platformDataKey);
