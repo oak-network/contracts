@@ -29,7 +29,7 @@ library GlobalParamsStorage {
         bool instantTransfer;
     }
 
-    /// @custom:storage-location erc7201:ccprotocol.storage.GlobalParams
+    /// @custom:storage-location erc7201:oaknetwork.storage.GlobalParams
     struct Storage {
         address protocolAdminAddress;
         uint256 protocolFeePercent;
@@ -48,9 +48,9 @@ library GlobalParamsStorage {
         Counters.Counter numberOfListedPlatforms;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("ccprotocol.storage.GlobalParams")) - 1)) & ~bytes32(uint256(0xff))
+    // keccak256(abi.encode(uint256(keccak256("oaknetwork.storage.GlobalParams")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION =
-        0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00;
+        0xcab368c4291c205bbe63a595130eb08714925d02705f410a55bf1a45b8ddaf00;
 
     function _getGlobalParamsStorage() internal pure returns (Storage storage $) {
         assembly {
