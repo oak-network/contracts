@@ -1250,7 +1250,7 @@ abstract contract BasePaymentTreasury is
         if (!payment.isConfirmed) {
             revert PaymentTreasuryPaymentNotConfirmed(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+        if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
         }
         // This function is for non-NFT payments only
@@ -1392,7 +1392,7 @@ abstract contract BasePaymentTreasury is
         if (buyerAddress == address(0)) {
             revert PaymentTreasuryPaymentNotExist(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+        if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
         }
         // NFT must exist for crypto payments
