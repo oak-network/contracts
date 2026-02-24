@@ -73,6 +73,11 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      */
     error TreasuryCampaignInfoIsPaused();
 
+    /**
+     * @dev Throws when the forwarder appends address(0) as the sender.
+     */
+    error TreasuryInvalidSender();
+
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
@@ -88,6 +93,9 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+            if (sender == address(0)) {
+                revert TreasuryInvalidSender();
             }
         } else {
             sender = msg.sender;
