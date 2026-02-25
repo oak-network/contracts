@@ -243,7 +243,7 @@ interface ICampaignInfo is IERC721 {
 
     /**
      * @notice Mints a pledge NFT for a backer
-     * @dev Can only be called by treasuries with MINTER_ROLE
+     * @dev Can only be called by treasuries with TREASURY_ROLE
      * @param backer The backer address
      * @param reward The reward identifier
      * @param tokenAddress The address of the token used for the pledge
@@ -275,6 +275,7 @@ interface ICampaignInfo is IERC721 {
 
     /**
      * @notice Burns a pledge NFT
+     * @dev Can only be called by treasuries with TREASURY_ROLE
      * @param tokenId The token ID to burn
      */
     function burn(uint256 tokenId) external;
