@@ -340,11 +340,6 @@ abstract contract BasePaymentTreasury is
         }
 
         duration = uint256(maxExpirationBytes);
-
-        if (duration == 0) {
-            return (false, 0);
-        }
-
         hasLimit = true;
     }
 
