@@ -1245,17 +1245,17 @@ abstract contract BasePaymentTreasury is
         uint256 tokenId = s_paymentIdToTokenId[internalPaymentId];
 
         if (payment.buyerId == ZERO_BYTES) {
-            revert PaymentTreasuryPaymentNotExist(internalPaymentId);
+            revert PaymentTreasuryPaymentNotExist(paymentId);
         }
         if (!payment.isConfirmed) {
-            revert PaymentTreasuryPaymentNotConfirmed(internalPaymentId);
+            revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
         if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
-            revert PaymentTreasuryCryptoPayment(internalPaymentId);
+            revert PaymentTreasuryCryptoPayment(paymentId);
         }
 
         // Use snapshots of line item type configuration from payment creation time
@@ -1390,14 +1390,14 @@ abstract contract BasePaymentTreasury is
         uint256 tokenId = s_paymentIdToTokenId[internalPaymentId];
 
         if (buyerAddress == address(0)) {
-            revert PaymentTreasuryPaymentNotExist(internalPaymentId);
+            revert PaymentTreasuryPaymentNotExist(paymentId);
         }
         if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
         // NFT must exist for crypto payments
         if (tokenId == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
 
         // Get NFT owner before burning
@@ -1449,7 +1449,7 @@ abstract contract BasePaymentTreasury is
 
         // For goal line items and base payment, check availableConfirmedPerToken
         if (availablePaymentAmount < (amountToRefund + totalGoalLineItemRefundAmount)) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
 
         // For non-goal line items, check that we have enough claimable balance
@@ -1457,14 +1457,14 @@ abstract contract BasePaymentTreasury is
         if (totalNonGoalLineItemRefundAmount > 0) {
             uint256 availableRefundable = s_refundableNonGoalLineItemPerToken[paymentToken];
             if (availableRefundable < totalNonGoalLineItemRefundAmount) {
-                revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+                revert PaymentTreasuryPaymentNotClaimable(paymentId);
             }
         }
 
         // Check that contract has enough actual balance to perform the transfer
         uint256 contractBalance = IERC20(paymentToken).balanceOf(address(this));
         if (contractBalance < totalRefundAmount) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
 
         // Update state: remove tracking for refundable line items using snapshots
