@@ -130,6 +130,13 @@ contract CampaignInfo is
     error CampaignInfoIsLocked();
 
     /**
+     * @dev Throws when a platform data key is not owned by the platform being updated.
+     * @param platformHash The platform being updated.
+     * @param platformDataKey The key that does not belong to this platform.
+     */
+    error CampaignInfoPlatformDataKeyNotOwnedByPlatform(bytes32 platformHash, bytes32 platformDataKey);
+
+    /**
      * @dev Modifier that checks if the campaign is not locked.
      */
     modifier whenNotLocked() {
@@ -577,6 +584,9 @@ contract CampaignInfo is
                 isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
                 if (!isValid) {
                     revert CampaignInfoInvalidInput();
+                }
+                if (globalParams.getPlatformDataOwner(platformDataKey[i]) != platformHash) {
+                    revert CampaignInfoPlatformDataKeyNotOwnedByPlatform(platformHash, platformDataKey[i]);
                 }
                 if (platformDataValue[i] == bytes32(0)) {
                     revert CampaignInfoInvalidInput();
