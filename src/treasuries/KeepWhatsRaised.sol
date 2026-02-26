@@ -675,6 +675,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         external
         nonReentrant
         onlyPlatformAdmin(PLATFORM_HASH)
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
