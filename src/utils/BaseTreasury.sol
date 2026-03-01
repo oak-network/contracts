@@ -73,6 +73,12 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      */
     error TreasuryCampaignInfoIsPaused();
 
+    /**
+     * @dev Initializes the base treasury with platform and campaign context.
+     * @param platformHash The platform identifier used for fee lookup and access control.
+     * @param infoAddress The CampaignInfo contract address for campaign data and admin lookups.
+     * @param trustedForwarder_ The ERC-2771 adapter address for meta-transaction relay.
+     */
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
