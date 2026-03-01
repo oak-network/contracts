@@ -339,77 +339,77 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() external view override returns (uint256) {
+    function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Lifetime total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view override returns (uint256) {
+    function getLifetimeRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenLifetimeRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view override returns (uint256) {
+    function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
-            uint256 currentAmount = s_tokenRaisedAmounts[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @notice Retrieves the currently available raised amount in the treasury.
-     * @return The current available raised amount as a uint256 value.
+     * @return amount Available raised amount across all tokens, normalized to 18 decimals.
      */
-    function getAvailableRaisedAmount() external view returns (uint256) {
+    function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_availablePerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_availablePerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**

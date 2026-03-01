@@ -346,6 +346,7 @@ abstract contract BasePaymentTreasury is
         }
 
         hasLimit = true;
+        return (hasLimit, duration);
     }
 
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
@@ -410,94 +411,97 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total confirmed payment amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() public view virtual override returns (uint256) {
+    function getRaisedAmount() public view virtual override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_confirmedPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_confirmedPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Available confirmed amount across all tokens, normalized to 18 decimals.
      */
-    function getAvailableRaisedAmount() external view returns (uint256) {
+    function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_availableConfirmedPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_availableConfirmedPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Lifetime total confirmed payments across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view returns (uint256) {
+    function getLifetimeRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_lifetimeConfirmedPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_lifetimeConfirmedPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view returns (uint256) {
+    function getRefundedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_lifetimeConfirmedPaymentPerToken[token];
-            uint256 currentAmount = s_confirmedPaymentPerToken[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_lifetimeConfirmedPaymentPerToken[token] - s_confirmedPaymentPerToken[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total pending payment amount across all tokens, normalized to 18 decimals.
      */
-    function getExpectedAmount() external view returns (uint256) {
+    function getExpectedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+        for (uint256 i = 0; i < acceptedTokens.length;) {
             address token = acceptedTokens[i];
-            uint256 amount = s_pendingPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_pendingPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
+            unchecked { ++i; }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
