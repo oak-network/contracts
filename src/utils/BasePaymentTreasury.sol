@@ -62,6 +62,18 @@ abstract contract BasePaymentTreasury is
         uint256 lineItemCount;
     }
 
+    /**
+     * @dev Struct to hold line item calculation totals to reduce stack depth.
+     */
+    struct LineItemTotals {
+        uint256 totalGoalLineItemAmount;
+        uint256 totalProtocolFeeFromLineItems;
+        uint256 totalNonGoalClaimableAmount;
+        uint256 totalNonGoalRefundableAmount;
+        uint256 totalInstantTransferAmountForCheck;
+        uint256 totalInstantTransferAmount;
+    }
+
     mapping(bytes32 => PaymentInfo) internal s_payment;
 
     // Combined line items with their configuration snapshots per payment ID
@@ -516,18 +528,6 @@ abstract contract BasePaymentTreasury is
         } else {
             return amount / (10 ** (decimals - STANDARD_DECIMALS));
         }
-    }
-
-    /**
-     * @dev Struct to hold line item calculation totals to reduce stack depth.
-     */
-    struct LineItemTotals {
-        uint256 totalGoalLineItemAmount;
-        uint256 totalProtocolFeeFromLineItems;
-        uint256 totalNonGoalClaimableAmount;
-        uint256 totalNonGoalRefundableAmount;
-        uint256 totalInstantTransferAmountForCheck;
-        uint256 totalInstantTransferAmount;
     }
 
     /**
