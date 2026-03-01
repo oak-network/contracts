@@ -97,7 +97,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     error AllOrNothingFeeNotDisbursed();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
+     * @dev Emitted within `disburseFees` after fee is disbursed already.
      */
     error AllOrNothingFeeAlreadyDisbursed();
     /**
