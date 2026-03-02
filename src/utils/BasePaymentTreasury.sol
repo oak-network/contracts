@@ -416,13 +416,12 @@ abstract contract BasePaymentTreasury is
     function getRaisedAmount() public view virtual override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_confirmedPaymentPerToken[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -435,13 +434,12 @@ abstract contract BasePaymentTreasury is
     function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_availableConfirmedPerToken[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -454,13 +452,12 @@ abstract contract BasePaymentTreasury is
     function getLifetimeRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_lifetimeConfirmedPaymentPerToken[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -473,13 +470,12 @@ abstract contract BasePaymentTreasury is
     function getRefundedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 refundedAmount = s_lifetimeConfirmedPaymentPerToken[token] - s_confirmedPaymentPerToken[token];
             if (refundedAmount > 0) {
                 amount += _normalizeAmount(token, refundedAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -492,13 +488,12 @@ abstract contract BasePaymentTreasury is
     function getExpectedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_pendingPaymentPerToken[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;

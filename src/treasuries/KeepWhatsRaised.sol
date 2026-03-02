@@ -344,13 +344,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_tokenRaisedAmounts[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -381,13 +380,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
                 amount += _normalizeAmount(token, refundedAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
@@ -400,13 +398,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
-        for (uint256 i = 0; i < acceptedTokens.length;) {
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
             uint256 tokenAmount = s_availablePerToken[token];
             if (tokenAmount > 0) {
                 amount += _normalizeAmount(token, tokenAmount);
             }
-            unchecked { ++i; }
         }
 
         return amount;
