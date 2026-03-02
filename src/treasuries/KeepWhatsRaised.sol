@@ -765,7 +765,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, reward, tokenSource);
+        uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, tip, reward, tokenSource);
     }
 
     /**
@@ -1107,6 +1108,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         return true;
     }
 
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @param pledgeId Unique identifier for the pledge.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param tip Tip amount in the token's native decimals.
+     * @param rewards Full reward selection (for event).
+     * @param tokenSource Address from which tokens are transferred.
+     */
     function _pledge(
         bytes32 pledgeId,
         address backer,
@@ -1117,37 +1129,25 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         bytes32[] memory rewards,
         address tokenSource
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
 
-        // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
-        // If not for a reward (pledgeWithoutAReward), pledgeAmount is already in token decimals
-        // Tip is always in the pledgeToken's decimals (same token used for payment)
-        uint256 pledgeAmountInTokenDecimals;
-        if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-        } else {
-            // Non-reward pledge: already in token decimals
-            pledgeAmountInTokenDecimals = pledgeAmount;
-        }
-
-        uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
+        // pledgeAmount and tip are always in pledgeToken's native decimals (callers must denormalize)
+        uint256 totalAmount = pledgeAmount + tip;
 
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
 
-        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
+        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmount, 0, tip);
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
+        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
         s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmount;
 
-        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
+        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmount);
         s_availablePerToken[pledgeToken] += netAvailable;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, tip, tokenId, rewards);

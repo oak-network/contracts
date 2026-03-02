@@ -299,7 +299,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+        uint256 shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, reward);
     }
 
     /**
@@ -394,6 +396,15 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param shippingFee Shipping fee in the token's native decimals (must be denormalized by caller; use 0 for non-reward).
+     * @param rewards Full reward selection (for event).
+     */
     function _pledge(
         address backer,
         address pledgeToken,
@@ -402,39 +413,24 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         uint256 shippingFee,
         bytes32[] memory rewards
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
 
-        // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
-        // If not for a reward, amounts are already in token decimals
-        uint256 pledgeAmountInTokenDecimals;
-        uint256 shippingFeeInTokenDecimals;
-
-        if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
-        } else {
-            // Non-reward pledge: already in token decimals
-            pledgeAmountInTokenDecimals = pledgeAmount;
-            shippingFeeInTokenDecimals = shippingFee;
-        }
-
-        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+        // pledgeAmount and shippingFee are always in pledgeToken's native decimals (callers must denormalize)
+        uint256 totalAmount = pledgeAmount + shippingFee;
 
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
 
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
+            backer, reward, pledgeToken, pledgeAmount, shippingFee, 0
         );
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
+        s_tokenToPledgedAmount[tokenId] = pledgeAmount;
         s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += pledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmount;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
     }
