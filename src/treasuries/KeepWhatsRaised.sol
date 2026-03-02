@@ -876,30 +876,32 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 minimumWithdrawalForFeeExemption = _denormalizeAmount(token, s_config.minimumWithdrawalForFeeExemption);
 
         uint256 currentTime = block.timestamp;
-        uint256 withdrawalAmount = s_availablePerToken[token];
+        uint256 available = s_availablePerToken[token];
+        uint256 withdrawalAmount;
         uint256 totalFee = 0;
         address recipient = INFO.owner();
         bool isFinalWithdrawal = (currentTime > getDeadline());
 
         //Main Fees
         if (isFinalWithdrawal) {
-            if (withdrawalAmount == 0) {
+            if (available == 0) {
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
+            withdrawalAmount = available;
             if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
                 s_platformFeePerToken[token] += flatFee;
                 totalFee += flatFee;
             }
         } else {
-            withdrawalAmount = amount;
-            if (withdrawalAmount == 0) {
+            if (amount == 0) {
                 revert KeepWhatsRaisedInvalidInput();
             }
-            if (withdrawalAmount > s_availablePerToken[token]) {
+            if (amount > available) {
                 revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
-                    s_availablePerToken[token], withdrawalAmount, totalFee
+                    available, amount, totalFee
                 );
             }
+            withdrawalAmount = amount;
 
             if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
                 s_platformFeePerToken[token] += cumulativeFee;
@@ -932,9 +934,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             s_availablePerToken[token] = 0;
             IERC20(token).safeTransfer(recipient, withdrawalAmount - totalFee);
         } else {
-            if (s_availablePerToken[token] < (withdrawalAmount + totalFee)) {
+            if (available < (withdrawalAmount + totalFee)) {
                 revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
-                    s_availablePerToken[token], withdrawalAmount, totalFee
+                    available, withdrawalAmount, totalFee
                 );
             }
 
