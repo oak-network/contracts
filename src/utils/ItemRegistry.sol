@@ -11,6 +11,7 @@ import {IItem} from "../interfaces/IItem.sol";
  */
 contract ItemRegistry is IItem, Context {
     mapping(address => mapping(bytes32 => Item)) private Items;
+    mapping(address => mapping(bytes32 => bool)) private s_itemExists;
 
     /**
      * @dev Emitted when a new item is added to the registry.
@@ -21,9 +22,34 @@ contract ItemRegistry is IItem, Context {
     event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
 
     /**
+     * @dev Emitted when an item is removed from the registry.
+     * @param owner The address of the item owner.
+     * @param itemId The unique identifier of the item.
+     */
+    event ItemRemoved(address indexed owner, bytes32 indexed itemId);
+
+    /**
      * @dev Thrown when the input arrays have mismatched lengths.
      */
     error ItemRegistryMismatchedArraysLength();
+
+    /**
+     * @dev Thrown when attempting to add an item that already exists (overwrite not allowed).
+     * @param itemId The item identifier that already exists.
+     */
+    error ItemRegistryItemAlreadyExists(bytes32 itemId);
+
+    /**
+     * @dev Thrown when the batch contains duplicate itemIds.
+     * @param itemId The duplicate item identifier.
+     */
+    error ItemRegistryDuplicateItemId(bytes32 itemId);
+
+    /**
+     * @dev Thrown when attempting to remove an item that does not exist.
+     * @param itemId The item identifier.
+     */
+    error ItemRegistryItemDoesNotExist(bytes32 itemId);
 
     /**
      * @inheritdoc IItem
@@ -36,7 +62,9 @@ contract ItemRegistry is IItem, Context {
      * @inheritdoc IItem
      */
     function addItem(bytes32 itemId, Item calldata item) external override {
+        if (s_itemExists[_msgSender()][itemId]) revert ItemRegistryItemAlreadyExists(itemId);
         Items[_msgSender()][itemId] = item;
+        s_itemExists[_msgSender()][itemId] = true;
         emit ItemAdded(_msgSender(), itemId, item);
     }
 
@@ -50,12 +78,31 @@ contract ItemRegistry is IItem, Context {
             revert ItemRegistryMismatchedArraysLength();
         }
 
+        address owner = _msgSender();
         for (uint256 i = 0; i < itemIds.length; i++) {
             bytes32 itemId = itemIds[i];
-            Item calldata item = items[i];
 
-            Items[_msgSender()][itemId] = item;
-            emit ItemAdded(_msgSender(), itemId, item);
+            if (s_itemExists[owner][itemId]) revert ItemRegistryItemAlreadyExists(itemId);
+
+            for (uint256 j = 0; j < i; j++) {
+                if (itemIds[j] == itemId) revert ItemRegistryDuplicateItemId(itemId);
+            }
+
+            Item calldata item = items[i];
+            Items[owner][itemId] = item;
+            s_itemExists[owner][itemId] = true;
+            emit ItemAdded(owner, itemId, item);
         }
+    }
+
+    /**
+     * @notice Removes an item from the caller's registry.
+     * @param itemId The unique identifier of the item to remove.
+     */
+    function removeItem(bytes32 itemId) external {
+        if (!s_itemExists[_msgSender()][itemId]) revert ItemRegistryItemDoesNotExist(itemId);
+        delete Items[_msgSender()][itemId];
+        s_itemExists[_msgSender()][itemId] = false;
+        emit ItemRemoved(_msgSender(), itemId);
     }
 }
