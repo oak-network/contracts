@@ -877,14 +877,14 @@ abstract contract BasePaymentTreasury is
                 s_lifetimeConfirmedPaymentPerToken[paymentToken] += item.amount;
                 s_availableConfirmedPerToken[paymentToken] += item.amount;
             } else {
-                // Apply protocol fee if applicable
-                uint256 feeAmount = 0;
+                uint256 netAmount;
                 if (applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                    feeAmount += protocolFee;
                     s_protocolFeePerToken[paymentToken] += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
-                uint256 netAmount = item.amount - feeAmount;
 
                 if (instantTransfer) {
                     // Accumulate for batch transfer after loop
@@ -1001,23 +1001,19 @@ abstract contract BasePaymentTreasury is
         for (uint256 i = 0; i < lineItems.length; i++) {
             ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
 
-            bool countsTowardGoal = item.countsTowardGoal;
-            bool applyProtocolFee = item.applyProtocolFee;
-            bool instantTransfer = item.instantTransfer;
-
-            if (countsTowardGoal) {
+            if (item.countsTowardGoal) {
                 totals.totalGoalLineItemAmount += item.amount;
             } else {
-                uint256 feeAmount = 0;
-                if (applyProtocolFee) {
+                uint256 netAmount;
+                if (item.applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
                     totals.totalProtocolFeeFromLineItems += protocolFee;
-                    feeAmount += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
 
-                uint256 netAmount = item.amount - feeAmount;
-
-                if (instantTransfer) {
+                if (item.instantTransfer) {
                     totals.totalInstantTransferAmountForCheck += netAmount;
                 } else if (item.canRefund) {
                     totals.totalNonGoalRefundableAmount += netAmount;
@@ -1069,12 +1065,7 @@ abstract contract BasePaymentTreasury is
         for (uint256 i = 0; i < lineItems.length; i++) {
             ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
 
-            bool countsTowardGoal = item.countsTowardGoal;
-            bool applyProtocolFee = item.applyProtocolFee;
-            bool canRefund = item.canRefund;
-            bool instantTransfer = item.instantTransfer;
-
-            if (countsTowardGoal) {
+            if (item.countsTowardGoal) {
                 s_pendingPaymentPerToken[paymentToken] -= item.amount;
                 s_confirmedPaymentPerToken[paymentToken] += item.amount;
                 s_lifetimeConfirmedPaymentPerToken[paymentToken] += item.amount;
@@ -1082,23 +1073,23 @@ abstract contract BasePaymentTreasury is
             } else {
                 s_nonGoalLineItemPendingPerToken[paymentToken] -= item.amount;
 
-                uint256 feeAmount = 0;
-                if (applyProtocolFee) {
+                uint256 netAmount;
+                if (item.applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                    feeAmount += protocolFee;
                     s_protocolFeePerToken[paymentToken] += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
 
-                uint256 netAmount = item.amount - feeAmount;
-
-                if (instantTransfer) {
+                if (item.instantTransfer) {
                     totalInstantTransferAmount += netAmount;
                     // Instant transfer items are not tracked in s_nonGoalLineItemConfirmedPerToken
                 } else {
                     // Track outstanding non-goal balances using net amounts (after fees)
                     s_nonGoalLineItemConfirmedPerToken[paymentToken] += netAmount;
 
-                    if (canRefund) {
+                    if (item.canRefund) {
                         s_refundableNonGoalLineItemPerToken[paymentToken] += netAmount;
                     } else {
                         s_nonGoalLineItemClaimablePerToken[paymentToken] += netAmount;
