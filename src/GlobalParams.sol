@@ -256,19 +256,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
             revert GlobalParamsCurrencyTokenLengthMismatch();
         }
 
-        for (uint256 i = 0; i < currencyLength;) {
-            for (uint256 j = 0; j < tokensPerCurrency[i].length;) {
+        for (uint256 i = 0; i < currencyLength; i++) {
+            for (uint256 j = 0; j < tokensPerCurrency[i].length; j++) {
                 address token = tokensPerCurrency[i][j];
                 if (token == address(0)) {
                     revert GlobalParamsInvalidInput();
                 }
                 $.currencyToTokens[currencies[i]].push(token);
-                unchecked {
-                    ++j;
-                }
-            }
-            unchecked {
-                ++i;
             }
         }
     }
@@ -592,15 +586,12 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         uint256 length = tokens.length;
         bool found = false;
 
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; i++) {
             if (tokens[i] == token) {
                 tokens[i] = tokens[length - 1];
                 tokens.pop();
                 found = true;
                 break;
-            }
-            unchecked {
-                ++i;
             }
         }
 
