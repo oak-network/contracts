@@ -201,6 +201,29 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     error KeepWhatsRaisedInvalidInput();
 
+    /// @dev Reverts when campaign launch time is in the past.
+    error KeepWhatsRaisedLaunchTimeInPast();
+    /// @dev Reverts when campaign deadline is not after launch time.
+    error KeepWhatsRaisedDeadlineNotAfterLaunch();
+    /// @dev Reverts when reward name is zero bytes.
+    error KeepWhatsRaisedZeroRewardName();
+    /// @dev Reverts when reward value is zero.
+    error KeepWhatsRaisedZeroRewardValue();
+    /// @dev Reverts when reward item arrays have mismatched lengths.
+    error KeepWhatsRaisedRewardItemArrayLengthMismatch();
+    /// @dev Reverts when backer address is zero.
+    error KeepWhatsRaisedZeroBacker();
+    /// @dev Reverts when reward selection length exceeds number of rewards.
+    error KeepWhatsRaisedRewardSelectionLengthMismatch();
+    /// @dev Reverts when first reward is not a reward tier.
+    error KeepWhatsRaisedFirstRewardNotTier();
+    /// @dev Reverts when refund amount is zero.
+    error KeepWhatsRaisedRefundAmountZero();
+    /// @dev Reverts when insufficient available balance for refund.
+    error KeepWhatsRaisedInsufficientAvailableForRefund(uint256 tokenId);
+    /// @dev Reverts when claimFund is called before refund delay (cancelled) or withdrawal delay (not cancelled).
+    error KeepWhatsRaisedClaimFundWindowNotReached();
+
     /**
      * @dev Emitted when a token is not accepted for the campaign.
      */
@@ -516,9 +539,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if (campaignData.launchTime < block.timestamp || campaignData.deadline <= campaignData.launchTime) {
-            revert KeepWhatsRaisedInvalidInput();
-        }
+        if (campaignData.launchTime < block.timestamp) revert KeepWhatsRaisedLaunchTimeInPast();
+        if (campaignData.deadline <= campaignData.launchTime) revert KeepWhatsRaisedDeadlineNotAfterLaunch();
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
             revert KeepWhatsRaisedInvalidInput();
         }
@@ -608,18 +630,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             bytes32 rewardName = rewardNames[i];
             Reward calldata reward = rewards[i];
 
-            // Reward name must not be zero bytes and reward value must be non-zero
-            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
-                revert KeepWhatsRaisedInvalidInput();
-            }
+            if (rewardName == ZERO_BYTES) revert KeepWhatsRaisedZeroRewardName();
+            if (reward.rewardValue == 0) revert KeepWhatsRaisedZeroRewardValue();
 
             // If there are any items, their arrays must match in length
-            if (
-                (reward.itemId.length != reward.itemValue.length)
-                    || (reward.itemId.length != reward.itemQuantity.length)
-            ) {
-                revert KeepWhatsRaisedInvalidInput();
-            }
+            if (reward.itemId.length != reward.itemValue.length) revert KeepWhatsRaisedRewardItemArrayLengthMismatch();
+            if (reward.itemId.length != reward.itemQuantity.length) revert KeepWhatsRaisedRewardItemArrayLengthMismatch();
 
             // Check for duplicate reward
             if (s_reward[rewardName].rewardValue != 0) {
@@ -748,12 +764,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         uint256 rewardLen = reward.length;
         Reward memory tempReward = s_reward[reward[0]];
-        if (
-            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
-                || !tempReward.isRewardTier
-        ) {
-            revert KeepWhatsRaisedInvalidInput();
-        }
+        if (backer == address(0)) revert KeepWhatsRaisedZeroBacker();
+        if (rewardLen > s_rewardCounter.current()) revert KeepWhatsRaisedRewardSelectionLengthMismatch();
+        if (reward[0] == ZERO_BYTES) revert KeepWhatsRaisedInvalidInput();
+        if (!tempReward.isRewardTier) revert KeepWhatsRaisedFirstRewardNotTier();
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
@@ -974,9 +988,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
         uint256 netRefundAmount = amountToRefund - paymentFee;
 
-        if (netRefundAmount == 0 || s_availablePerToken[pledgeToken] < netRefundAmount) {
-            revert KeepWhatsRaisedNotClaimable(tokenId);
-        }
+        if (netRefundAmount == 0) revert KeepWhatsRaisedRefundAmountZero();
+        if (s_availablePerToken[pledgeToken] < netRefundAmount) revert KeepWhatsRaisedInsufficientAvailableForRefund(tokenId);
 
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
@@ -1067,9 +1080,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
-        if ((isCancelled && block.timestamp <= cancelLimit) || (!isCancelled && block.timestamp <= deadlineLimit)) {
-            revert KeepWhatsRaisedNotClaimableAdmin();
-        }
+        if (isCancelled && block.timestamp <= cancelLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
+        if (!isCancelled && block.timestamp <= deadlineLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
 
         if (s_fundClaimed) {
             revert KeepWhatsRaisedAlreadyClaimed();

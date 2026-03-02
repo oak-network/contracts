@@ -174,6 +174,23 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryInvalidInput();
 
+    /// @dev Reverts when paymentId is zero.
+    error PaymentTreasuryZeroPaymentId();
+    /// @dev Reverts when buyerId is zero.
+    error PaymentTreasuryZeroBuyerId();
+    /// @dev Reverts when amount is zero.
+    error PaymentTreasuryZeroAmount();
+    /// @dev Reverts when expiration is not in the future.
+    error PaymentTreasuryExpirationNotInFuture();
+    /// @dev Reverts when itemId is zero.
+    error PaymentTreasuryZeroItemId();
+    /// @dev Reverts when paymentToken is the zero address.
+    error PaymentTreasuryZeroPaymentToken();
+    /// @dev Reverts when buyerAddress is the zero address.
+    error PaymentTreasuryZeroBuyerAddress();
+    /// @dev Reverts when batch array lengths are inconsistent.
+    error PaymentTreasuryBatchArrayLengthMismatch();
+
     /**
      * @dev Throws an error indicating that the payment id already exists.
      */
@@ -598,12 +615,12 @@ abstract contract BasePaymentTreasury is
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public virtual override onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
-        if (
-            buyerId == ZERO_BYTES || amount == 0 || expiration <= block.timestamp || paymentId == ZERO_BYTES
-                || itemId == ZERO_BYTES || paymentToken == address(0)
-        ) {
-            revert PaymentTreasuryInvalidInput();
-        }
+        if (paymentId == ZERO_BYTES) revert PaymentTreasuryZeroPaymentId();
+        if (buyerId == ZERO_BYTES) revert PaymentTreasuryZeroBuyerId();
+        if (itemId == ZERO_BYTES) revert PaymentTreasuryZeroItemId();
+        if (paymentToken == address(0)) revert PaymentTreasuryZeroPaymentToken();
+        if (amount == 0) revert PaymentTreasuryZeroAmount();
+        if (expiration <= block.timestamp) revert PaymentTreasuryExpirationNotInFuture();
 
         // Validate expiration does not exceed maximum allowed expiration time (platform-specific or global)
         (bool hasMaxExpiration, uint256 maxExpirationDuration) = _getMaxExpirationDuration();
@@ -679,13 +696,14 @@ abstract contract BasePaymentTreasury is
     ) public virtual override onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled {
         // Validate array lengths are consistent
         uint256 length = paymentIds.length;
-        if (
-            length == 0 || length != buyerIds.length || length != itemIds.length || length != paymentTokens.length
-                || length != amounts.length || length != expirations.length || length != lineItemsArray.length
-                || length != externalFeesArray.length
-        ) {
-            revert PaymentTreasuryInvalidInput();
-        }
+        if (length == 0) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != buyerIds.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != itemIds.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != paymentTokens.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != amounts.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != expirations.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != lineItemsArray.length) revert PaymentTreasuryBatchArrayLengthMismatch();
+        if (length != externalFeesArray.length) revert PaymentTreasuryBatchArrayLengthMismatch();
 
         // Get max expiration duration once outside the loop for efficiency (platform-specific or global)
         (bool hasMaxExpiration, uint256 maxExpirationDuration) = _getMaxExpirationDuration();
@@ -705,12 +723,12 @@ abstract contract BasePaymentTreasury is
             ICampaignPaymentTreasury.LineItem[] calldata lineItems = lineItemsArray[i];
 
             // Validate individual payment parameters
-            if (
-                buyerId == ZERO_BYTES || amount == 0 || expiration <= block.timestamp || paymentId == ZERO_BYTES
-                    || itemId == ZERO_BYTES || paymentToken == address(0)
-            ) {
-                revert PaymentTreasuryInvalidInput();
-            }
+            if (paymentId == ZERO_BYTES) revert PaymentTreasuryZeroPaymentId();
+            if (buyerId == ZERO_BYTES) revert PaymentTreasuryZeroBuyerId();
+            if (itemId == ZERO_BYTES) revert PaymentTreasuryZeroItemId();
+            if (paymentToken == address(0)) revert PaymentTreasuryZeroPaymentToken();
+            if (amount == 0) revert PaymentTreasuryZeroAmount();
+            if (expiration <= block.timestamp) revert PaymentTreasuryExpirationNotInFuture();
 
             // Validate expiration does not exceed maximum allowed expiration time
             if (hasMaxExpiration && expiration > maxAllowedExpiration) {
@@ -789,12 +807,11 @@ abstract contract BasePaymentTreasury is
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
         ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
     ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
-        if (
-            buyerAddress == address(0) || amount == 0 || paymentId == ZERO_BYTES || itemId == ZERO_BYTES
-                || paymentToken == address(0)
-        ) {
-            revert PaymentTreasuryInvalidInput();
-        }
+        if (paymentId == ZERO_BYTES) revert PaymentTreasuryZeroPaymentId();
+        if (buyerAddress == address(0)) revert PaymentTreasuryZeroBuyerAddress();
+        if (itemId == ZERO_BYTES) revert PaymentTreasuryZeroItemId();
+        if (paymentToken == address(0)) revert PaymentTreasuryZeroPaymentToken();
+        if (amount == 0) revert PaymentTreasuryZeroAmount();
 
         // Validate token is accepted
         if (!INFO.isTokenAccepted(paymentToken)) {
