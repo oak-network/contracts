@@ -46,7 +46,7 @@ contract CampaignInfo is
 
     // Multi-token support
     address[] private s_acceptedTokens; // Accepted tokens for this campaign
-    mapping(address => bool) private s_isAcceptedToken; // O(1) token validation
+    mapping(address => bool) private s_isAcceptedToken; // Tracks whether a specific ERC20 token is accepted for this campaign, allowing O(1) validation during pledges.
 
     // Lock mechanism - prevents certain operations after treasury deployment
     bool private s_isLocked;

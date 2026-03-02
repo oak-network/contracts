@@ -1029,7 +1029,7 @@ abstract contract BasePaymentTreasury is
     }
 
     /**
-     * @dev Checks if there's sufficient balance for payment confirmation.
+     * @dev Checks if the treasury's actual token balance is sufficient to cover the total amount of the payment being confirmed, plus all previously committed funds (available for withdrawal, fees, and refundable items).
      * @param paymentToken The token address.
      * @param paymentAmount The base payment amount.
      * @param totals Line item totals struct.
