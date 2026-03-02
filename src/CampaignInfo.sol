@@ -599,21 +599,21 @@ contract CampaignInfo is
     /**
      * @dev External function to pause the campaign.
      */
-    function _pauseCampaign(bytes32 message) external onlyProtocolAdmin {
+    function pauseCampaign(bytes32 message) external onlyProtocolAdmin {
         _pause(message);
     }
 
     /**
      * @dev External function to unpause the campaign.
      */
-    function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
+    function unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
         _unpause(message);
     }
 
     /**
      * @dev External function to cancel the campaign.
      */
-    function _cancelCampaign(bytes32 message) external {
+    function cancelCampaign(bytes32 message) external {
         if (_msgSender() != getProtocolAdminAddress() && _msgSender() != owner()) {
             revert CampaignInfoUnauthorized();
         }
@@ -670,7 +670,7 @@ contract CampaignInfo is
      * @param platformHash The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
-    function _setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused {
+    function setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused {
         Config memory config = getCampaignConfig();
         if (_msgSender() != config.treasuryFactory) {
             revert CampaignInfoUnauthorized();
