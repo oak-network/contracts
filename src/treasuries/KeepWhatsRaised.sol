@@ -1222,10 +1222,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     {
         uint256 totalFee = 0;
 
-        // Gross Percentage Fee Calculation (correct as-is)
+        // Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
-            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i])) / PERCENT_DIVIDER;
+            uint256 fee = (pledgeAmount * s_grossPercentageFeeValues[i]) / PERCENT_DIVIDER;
             s_platformFeePerToken[pledgeToken] += fee;
             totalFee += fee;
         }
