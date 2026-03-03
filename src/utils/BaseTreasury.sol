@@ -241,14 +241,6 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     /**
-     * @notice Returns true if the treasury has been cancelled.
-     * @return True if cancelled, false otherwise.
-     */
-    function cancelled() public view virtual override(ICampaignTreasury, PausableCancellable) returns (bool) {
-        return super.cancelled();
-    }
-
-    /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
      */
@@ -259,7 +251,7 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     function _revertIfCampaignCancelled() internal view {
-        if (INFO.cancelled()) {
+        if (PausableCancellable(address(INFO)).cancelled()) {
             revert TreasuryCampaignInfoIsPaused();
         }
     }

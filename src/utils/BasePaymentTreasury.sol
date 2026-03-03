@@ -1738,14 +1738,6 @@ abstract contract BasePaymentTreasury is
     }
 
     /**
-     * @notice Returns true if the treasury has been cancelled.
-     * @return True if cancelled, false otherwise.
-     */
-    function cancelled() public view virtual override(ICampaignPaymentTreasury, PausableCancellable) returns (bool) {
-        return super.cancelled();
-    }
-
-    /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with PaymentTreasuryCampaignInfoIsPaused error.
      */
@@ -1756,7 +1748,7 @@ abstract contract BasePaymentTreasury is
     }
 
     function _revertIfCampaignCancelled() internal view {
-        if (INFO.cancelled()) {
+        if (PausableCancellable(address(INFO)).cancelled()) {
             revert PaymentTreasuryCampaignInfoIsPaused();
         }
     }
