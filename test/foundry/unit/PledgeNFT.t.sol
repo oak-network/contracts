@@ -84,8 +84,12 @@ contract PledgeNFT_Test is Base_Test {
         uint256 tokenId2 = campaign.mintNFTForPledge(users.backer1Address, bytes32(0), address(testToken), 100e18, 0, 0);
         assertEq(tokenId2, 2, "Second token ID should be 2");
 
-        // Burn first NFT
+        // Backer approves treasury to burn their NFT (required by ERC721Burnable)
         vm.prank(users.backer1Address);
+        campaign.approve(address(treasury), tokenId1);
+
+        // Burn first NFT — only treasury (TREASURY_ROLE) can burn
+        vm.prank(address(treasury));
         campaign.burn(tokenId1);
 
         // Mint third NFT - should be 3, NOT reusing 1
@@ -104,8 +108,12 @@ contract PledgeNFT_Test is Base_Test {
 
         assertEq(campaign.balanceOf(users.backer1Address), 1, "Backer should have 1 NFT");
 
-        // Burn NFT
+        // Backer approves treasury to burn their NFT (required by ERC721Burnable)
         vm.prank(users.backer1Address);
+        campaign.approve(address(treasury), tokenId);
+
+        // Burn NFT — only treasury (TREASURY_ROLE) can burn
+        vm.prank(address(treasury));
         campaign.burn(tokenId);
 
         // Verify NFT was burned
@@ -114,5 +122,24 @@ contract PledgeNFT_Test is Base_Test {
         // Trying to query owner of burned token should revert
         vm.expectRevert();
         campaign.ownerOf(tokenId);
+    }
+
+    function test_OnlyTreasuryCanBurnNFT() public {
+        // Mint NFT as treasury
+        vm.prank(address(treasury));
+        uint256 tokenId = campaign.mintNFTForPledge(users.backer1Address, bytes32(0), address(testToken), 100e18, 0, 0);
+
+        // Backer (NFT owner) cannot burn — TREASURY_ROLE required
+        vm.expectRevert();
+        vm.prank(users.backer1Address);
+        campaign.burn(tokenId);
+
+        // Unrelated address cannot burn
+        vm.expectRevert();
+        vm.prank(users.creator1Address);
+        campaign.burn(tokenId);
+
+        // NFT still exists
+        assertEq(campaign.ownerOf(tokenId), users.backer1Address, "NFT should still exist after failed burns");
     }
 }
