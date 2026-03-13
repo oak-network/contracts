@@ -16,11 +16,20 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    /// @notice Divisor for fee percentage calculations (basis points: 10000 = 100%).
+    uint256 public constant PERCENT_DIVIDER = 10000;
+
     /**
     * @notice Treasury used to read raised amount for claimTokens (e.g. PaymentTreasury).
     * @dev This is the address of the contract that implements the IKarmaTreasury interface.
     */
     address public treasury;
+
+    /**
+    * @notice Protocol fee percentage in basis points (e.g. 250 = 2.5%).
+    * @dev Deducted from the delta in claimTokens before minting.
+    */
+    uint256 public protocolFeePercent;
 
     /**
     * @notice Total KARMA minted so far against treasury raised amount (for incremental claiming).
@@ -38,9 +47,16 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     /**
      * @notice Emitted when tokens are claimed via claimTokens().
      * @param to The recipient of the minted tokens.
-     * @param amount The amount of KARMA minted (delta since last claim).
+     * @param amount The amount of KARMA minted (net of protocol fee).
      */
     event TokensClaimed(address indexed to, uint256 amount);
+
+    /**
+     * @notice Emitted when the protocol fee percentage is updated.
+     * @param previousFeePercent The previous fee percentage.
+     * @param newFeePercent The new fee percentage.
+     */
+    event ProtocolFeePercentSet(uint256 previousFeePercent, uint256 newFeePercent);
 
     /**
      * @dev Thrown when a holder attempts a wallet-to-wallet transfer.
@@ -68,6 +84,11 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     error KarmaNothingToClaim();
 
     /**
+     * @dev Thrown when the protocol fee percentage exceeds PERCENT_DIVIDER (100%).
+     */
+    error KarmaInvalidFeePercent();
+
+    /**
      * @notice Constructor for the Karma contract.
      * @param admin The address of the admin.
      */
@@ -91,6 +112,19 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     /**
+     * @notice Set the protocol fee percentage (in basis points). Callable by admin only.
+     * @param _protocolFeePercent Fee in basis points (e.g. 250 = 2.5%). Must be < PERCENT_DIVIDER.
+     */
+    function setProtocolFeePercent(uint256 _protocolFeePercent) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_protocolFeePercent >= PERCENT_DIVIDER) {
+            revert KarmaInvalidFeePercent();
+        }
+        uint256 previousFeePercent = protocolFeePercent;
+        protocolFeePercent = _protocolFeePercent;
+        emit ProtocolFeePercentSet(previousFeePercent, _protocolFeePercent);
+    }
+
+    /**
      * @notice Mint points. Callable by treasury or any address with MINTER_ROLE.
      * @param to The address to mint points to.
      * @param amount The amount of points to mint.
@@ -103,10 +137,12 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
     }
 
     /**
-     * @notice Claim KARMA up to the treasury's current raised amount, minus what was already minted.
-     *         Callable multiple times: each call mints only the delta (new raised since last claim).
+     * @notice Claim KARMA up to the treasury's current raised amount, minus what was already minted,
+     *         minus the protocol fee.
+     *         Callable multiple times: each call mints only the net delta (new raised since last claim, minus fee).
      * @param to Recipient of the minted tokens.
-     * @dev Example: raised 100 + 200, claimTokens → mints 300. Then raised +100 +100, claimTokens → mints 200.
+     * @dev Example with 2.5% fee: raised 300, claimTokens → mints 300 - 7.5 = 292.5.
+     *      Then raised to 500, claimTokens → mints (500-300) - 5 = 195.
      */
     function claimTokens(address to) external onlyRole(MINTER_ROLE) whenNotPaused {
         if (treasury == address(0)) {
@@ -121,9 +157,13 @@ contract KARMA is ERC20, ERC20Burnable, ERC20Pausable, AccessControl {
         if (delta == 0) {
             revert KarmaNothingToClaim();
         }
+
         _totalMintedAgainstRaised = totalRaised;
-        _mint(to, delta);
-        emit TokensClaimed(to, delta);
+        uint256 fee = (delta * protocolFeePercent) / PERCENT_DIVIDER;
+        uint256 netDelta = delta - fee;
+        
+        _mint(to, netDelta);
+        emit TokensClaimed(to, netDelta);
     }
 
     /**
