@@ -332,18 +332,19 @@ contract Karma_UnitTest is Test {
         karma.claimTokens(holder);
     }
 
-    function test_ClaimTokens_MintsDelta_FirstClaim() public {
+    function test_ClaimTokens_MintsDelta_FirstClaim_NoFee() public {
         MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
         vm.prank(admin);
         karma.setTreasury(address(mockTreasury));
         mockTreasury.setRaisedAmount(300e18); // 100 + 200 as in example
         vm.prank(minter);
         karma.claimTokens(holder);
+        // No fee set, so full delta is minted
         assertEq(karma.balanceOf(holder), 300e18);
         assertEq(karma.totalMintedAgainstRaised(), 300e18);
     }
 
-    function test_ClaimTokens_MintsOnlyDelta_SecondClaim() public {
+    function test_ClaimTokens_MintsOnlyDelta_SecondClaim_NoFee() public {
         MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
         vm.prank(admin);
         karma.setTreasury(address(mockTreasury));
@@ -431,6 +432,20 @@ contract Karma_UnitTest is Test {
         karma.claimTokens(holder);
     }
 
+    function test_ClaimTokens_EmitsTokensClaimed_WithFee() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.startPrank(admin);
+        karma.setTreasury(address(mockTreasury));
+        karma.setProtocolFeePercent(250); // 2.5%
+        vm.stopPrank();
+        mockTreasury.setRaisedAmount(1000e18);
+        // net = 1000 - (1000 * 250 / 10000) = 1000 - 25 = 975
+        vm.prank(minter);
+        vm.expectEmit(true, false, false, true);
+        emit KARMA.TokensClaimed(holder, 975e18);
+        karma.claimTokens(holder);
+    }
+
     function test_SetTreasury_ByNonAdmin_Reverts() public {
         MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
         vm.prank(holder);
@@ -440,5 +455,111 @@ contract Karma_UnitTest is Test {
 
     function test_TotalMintedAgainstRaised_StartsZero() public {
         assertEq(karma.totalMintedAgainstRaised(), 0);
+    }
+
+    // ─── Protocol Fee ───────────────────────────────────────────────────────
+
+    function test_ProtocolFeePercent_DefaultsToZero() public {
+        assertEq(karma.protocolFeePercent(), 0);
+    }
+
+    function test_SetProtocolFeePercent_ByAdmin_Succeeds() public {
+        vm.prank(admin);
+        vm.expectEmit(false, false, false, true);
+        emit KARMA.ProtocolFeePercentSet(0, 250);
+        karma.setProtocolFeePercent(250);
+        assertEq(karma.protocolFeePercent(), 250);
+    }
+
+    function test_SetProtocolFeePercent_ByNonAdmin_Reverts() public {
+        vm.prank(holder);
+        vm.expectRevert();
+        karma.setProtocolFeePercent(250);
+    }
+
+    function test_SetProtocolFeePercent_AtPercentDivider_Reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(KARMA.KarmaInvalidFeePercent.selector);
+        karma.setProtocolFeePercent(10000);
+    }
+
+    function test_SetProtocolFeePercent_AbovePercentDivider_Reverts() public {
+        vm.prank(admin);
+        vm.expectRevert(KARMA.KarmaInvalidFeePercent.selector);
+        karma.setProtocolFeePercent(10001);
+    }
+
+    function test_ClaimTokens_WithFee_DeductsFeeFromDelta() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.startPrank(admin);
+        karma.setTreasury(address(mockTreasury));
+        karma.setProtocolFeePercent(250); // 2.5%
+        vm.stopPrank();
+
+        mockTreasury.setRaisedAmount(1000e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+
+        // net = 1000 - (1000 * 250 / 10000) = 975
+        assertEq(karma.balanceOf(holder), 975e18);
+        // totalMintedAgainstRaised tracks gross
+        assertEq(karma.totalMintedAgainstRaised(), 1000e18);
+    }
+
+    function test_ClaimTokens_WithFee_SecondClaim_DeductsFeeFromDelta() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.startPrank(admin);
+        karma.setTreasury(address(mockTreasury));
+        karma.setProtocolFeePercent(500); // 5%
+        vm.stopPrank();
+
+        mockTreasury.setRaisedAmount(1000e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        assertEq(karma.balanceOf(holder), 950e18); // 1000 - 50
+
+        mockTreasury.setRaisedAmount(1500e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        // delta = 500, fee = 500 * 500 / 10000 = 25, net = 475
+        assertEq(karma.balanceOf(holder), 1425e18); // 950 + 475
+        assertEq(karma.totalMintedAgainstRaised(), 1500e18);
+    }
+
+    function test_ClaimTokens_WithMaxFee_StillMintsRemaining() public {
+        MockKarmaTreasury mockTreasury = new MockKarmaTreasury();
+        vm.startPrank(admin);
+        karma.setTreasury(address(mockTreasury));
+        karma.setProtocolFeePercent(9999); // 99.99%
+        vm.stopPrank();
+
+        mockTreasury.setRaisedAmount(10000e18);
+        vm.prank(minter);
+        karma.claimTokens(holder);
+        // fee = 10000 * 9999 / 10000 = 9999, net = 1
+        assertEq(karma.balanceOf(holder), 1e18);
+    }
+
+    function test_SetProtocolFeePercent_CanBeUpdated() public {
+        vm.startPrank(admin);
+        karma.setProtocolFeePercent(250);
+        assertEq(karma.protocolFeePercent(), 250);
+        vm.expectEmit(false, false, false, true);
+        emit KARMA.ProtocolFeePercentSet(250, 500);
+        karma.setProtocolFeePercent(500);
+        assertEq(karma.protocolFeePercent(), 500);
+        vm.stopPrank();
+    }
+
+    function test_SetProtocolFeePercent_CanBeSetToZero() public {
+        vm.startPrank(admin);
+        karma.setProtocolFeePercent(250);
+        karma.setProtocolFeePercent(0);
+        assertEq(karma.protocolFeePercent(), 0);
+        vm.stopPrank();
+    }
+
+    function test_PERCENT_DIVIDER_Is10000() public {
+        assertEq(karma.PERCENT_DIVIDER(), 10000);
     }
 }
