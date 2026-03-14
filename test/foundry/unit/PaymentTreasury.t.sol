@@ -7,6 +7,7 @@ import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
 import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Test {
     // Helper function to create payment tokens array with same token for all payments
@@ -467,8 +468,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         deal(address(testToken), users.backer1Address, totalAmount);
 
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -477,7 +479,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             address(testToken),
             PAYMENT_AMOUNT_1,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         uint256 claimableAt = CampaignInfo(campaignAddress).getDeadline() + claimDelay;

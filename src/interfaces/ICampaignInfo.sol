@@ -219,6 +219,12 @@ interface ICampaignInfo is IERC721 {
     function getBufferTime() external view returns (uint256 bufferTime);
 
     /**
+     * @notice Returns the canonical Permit2 contract address from GlobalParams.
+     * @return The Permit2 contract address.
+     */
+    function getPermit2Address() external view returns (address);
+
+    /**
      * @notice Retrieves a platform-specific line item type configuration from GlobalParams.
      * @param platformHash The identifier of the platform.
      * @param typeId The identifier of the line item type.

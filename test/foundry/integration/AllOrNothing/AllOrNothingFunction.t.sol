@@ -156,18 +156,20 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         uint256 usdcShippingFee = getTokenAmount(address(usdcToken), SHIPPING_FEE);
 
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(allOrNothing), usdcPledgeAmount + usdcShippingFee);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcPledgeAmount + usdcShippingFee);
         vm.warp(LAUNCH_TIME);
 
         bytes32[] memory reward1 = new bytes32[](1);
         reward1[0] = REWARD_NAME_1_HASH;
-        allOrNothing.pledgeForAReward(users.backer1Address, address(usdcToken), usdcShippingFee, reward1);
+        PermitData memory permitData1 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeForAReward(users.backer1Address, address(usdcToken), usdcShippingFee, reward1, permitData1);
         vm.stopPrank();
 
         // Pledge with cUSD (18 decimals) - no conversion needed
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
-        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), PLEDGE_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
+        PermitData memory permitData2 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), PLEDGE_AMOUNT, permitData2);
         vm.stopPrank();
 
         // Verify balances
@@ -188,9 +190,10 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         // USDC pledge (6 decimals)
         uint256 usdcAmount = baseAmount / 1e12;
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(allOrNothing), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
         vm.warp(LAUNCH_TIME);
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount);
+        PermitData memory permitData3 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount, permitData3);
         vm.stopPrank();
 
         uint256 raisedAfterUSDC = allOrNothing.getRaisedAmount();
@@ -198,8 +201,9 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
 
         // cUSD pledge (18 decimals)
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(allOrNothing), baseAmount);
-        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), baseAmount);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, baseAmount);
+        PermitData memory permitData4 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), baseAmount, permitData4);
         vm.stopPrank();
 
         uint256 raisedAfterCUSD = allOrNothing.getRaisedAmount();
@@ -212,15 +216,17 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         // Pledge with USDC
         uint256 usdcAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(allOrNothing), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
         vm.warp(LAUNCH_TIME);
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount);
+        PermitData memory permitData5 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount, permitData5);
         vm.stopPrank();
 
         // Pledge with cUSD to meet goal
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(allOrNothing), GOAL_AMOUNT);
-        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), GOAL_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, GOAL_AMOUNT);
+        PermitData memory permitData6 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), GOAL_AMOUNT, permitData6);
         vm.stopPrank();
 
         uint256 protocolBalanceUSDCBefore = usdcToken.balanceOf(users.protocolAdminAddress);
@@ -271,20 +277,23 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         uint256 usdtAmount = getTokenAmount(address(usdtToken), PLEDGE_AMOUNT);
 
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(allOrNothing), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
         vm.warp(LAUNCH_TIME);
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount);
+        PermitData memory permitData7 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount, permitData7);
         vm.stopPrank();
 
         vm.startPrank(users.backer2Address);
-        usdtToken.approve(address(allOrNothing), usdtAmount);
-        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(usdtToken), usdtAmount);
+        usdtToken.approve(CANONICAL_PERMIT2_ADDRESS, usdtAmount);
+        PermitData memory permitData8 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(usdtToken), usdtAmount, permitData8);
         vm.stopPrank();
 
         // Need cUSD pledge to meet goal
         vm.startPrank(users.backer1Address);
-        cUSDToken.approve(address(allOrNothing), GOAL_AMOUNT);
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(cUSDToken), GOAL_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, GOAL_AMOUNT);
+        PermitData memory permitData9 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(cUSDToken), GOAL_AMOUNT, permitData9);
         vm.stopPrank();
 
         // Disburse fees and withdraw
@@ -314,16 +323,18 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         // Backer1 pledges with USDC
         uint256 usdcAmount = getTokenAmount(address(usdcToken), PLEDGE_AMOUNT);
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(allOrNothing), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
         vm.warp(LAUNCH_TIME);
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount);
+        PermitData memory permitData10 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(usdcToken), usdcAmount, permitData10);
         uint256 usdcTokenId = 1; // First pledge
         vm.stopPrank();
 
         // Backer2 pledges with cUSD
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
-        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), PLEDGE_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
+        PermitData memory permitData11 = _buildPermitData(0, block.timestamp + 1 hours);
+        allOrNothing.pledgeWithoutAReward(users.backer2Address, address(cUSDToken), PLEDGE_AMOUNT, permitData11);
         uint256 cUSDTokenId = 2; // Second pledge
         vm.stopPrank();
 
@@ -363,13 +374,14 @@ contract AllOrNothingFunction_Integration_Shared_Test is AllOrNothing_Integratio
         addRewards(users.creator1Address, address(allOrNothing), REWARD_NAMES, REWARDS);
 
         vm.startPrank(users.backer1Address);
-        unacceptedToken.approve(address(allOrNothing), PLEDGE_AMOUNT);
+        unacceptedToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
         vm.warp(LAUNCH_TIME);
 
+        PermitData memory emptyPermit;
         vm.expectRevert(
             abi.encodeWithSelector(AllOrNothing.AllOrNothingTokenNotAccepted.selector, address(unacceptedToken))
         );
-        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(unacceptedToken), PLEDGE_AMOUNT);
+        allOrNothing.pledgeWithoutAReward(users.backer1Address, address(unacceptedToken), PLEDGE_AMOUNT, emptyPermit);
         vm.stopPrank();
     }
 }

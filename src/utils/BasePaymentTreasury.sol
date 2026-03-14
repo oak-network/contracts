@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
+import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
 import {DataRegistryKeys} from "../constants/DataRegistryKeys.sol";
@@ -29,6 +30,24 @@ abstract contract BasePaymentTreasury is
     uint256 internal constant PERCENT_DIVIDER = 10000;
     uint256 internal constant STANDARD_DECIMALS = 18;
     address internal constant ZERO_ADDRESS = address(0);
+
+    // ---------------------------------------------------------------------------
+    // Permit2 witness type for processCryptoPayment
+    // ---------------------------------------------------------------------------
+    // Struct fields (in declaration order):
+    //   bytes32 paymentId  – which payment this authorises
+    //   bytes32 itemId     – item the NFT represents
+    //   address buyerAddress – NFT recipient / token source
+    //   uint256 amount     – NFT-associated amount (not total transfer amount)
+    //   bytes32 lineItemsHash – keccak256(abi.encode(lineItems))
+    bytes32 internal constant CRYPTO_PAYMENT_WITNESS_TYPEHASH = keccak256(
+        "CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)"
+    );
+
+    // Appended to Permit2's _PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB:
+    // "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,"
+    string internal constant CRYPTO_PAYMENT_WITNESS_TYPE_STRING =
+        "CryptoPaymentWitness witness)CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)TokenPermissions(address token,uint256 amount)";
 
     bytes32 internal PLATFORM_HASH;
     uint256 internal PLATFORM_FEE_PERCENT;
@@ -278,11 +297,14 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @dev Scopes a payment ID for on-chain crypto payments (processCryptoPayment).
+     * @dev Scoped by the buyer address (the Permit2 signer) rather than the tx sender,
+     *      so the payment can be looked up by anyone using the stored creator address.
      * @param paymentId The external payment ID.
+     * @param owner     The buyer/signer address.
      * @return The scoped internal payment ID.
      */
-    function _scopePaymentIdForOnChain(bytes32 paymentId) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(paymentId, _msgSender()));
+    function _scopePaymentIdForOnChain(bytes32 paymentId, address owner) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(paymentId, owner));
     }
 
     /**
@@ -787,7 +809,8 @@ abstract contract BasePaymentTreasury is
         address paymentToken,
         uint256 amount,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
-        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees,
+        PermitData calldata permitData
     ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
         if (
             buyerAddress == address(0) || amount == 0 || paymentId == ZERO_BYTES || itemId == ZERO_BYTES
@@ -817,14 +840,17 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryPaymentAlreadyExist(existingPaymentId);
         }
 
-        // Check if an on-chain payment with the same paymentId already exists for this caller
-        bytes32 internalPaymentId = _scopePaymentIdForOnChain(paymentId);
+        // Scope by buyerAddress so any relayer can call on behalf of the same buyer
+        bytes32 internalPaymentId = _scopePaymentIdForOnChain(paymentId, buyerAddress);
         if (
             s_payment[internalPaymentId].buyerAddress != address(0)
                 || s_payment[internalPaymentId].buyerId != ZERO_BYTES
         ) {
             revert PaymentTreasuryPaymentAlreadyExist(internalPaymentId);
         }
+
+        // Compute lineItemsHash to bind line items in the Permit2 witness
+        bytes32 lineItemsHash = keccak256(abi.encode(lineItems));
 
         // Validate, calculate total, store, and process line items
         uint256 totalAmount = amount;
@@ -912,7 +938,31 @@ abstract contract BasePaymentTreasury is
             }
         }
 
-        IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
+        // Build the witness hash that commits to all critical payment parameters.
+        // This ensures the buyer's signature authorises exactly this payment:
+        // - which payment (paymentId), which item (itemId), who receives the NFT
+        //   (buyerAddress), the NFT-associated amount (amount), and the exact set of
+        //   line items (lineItemsHash).  Any attempt to change these values will
+        //   invalidate the signature, preventing both unauthorised execution and
+        //   parameter tampering.
+        bytes32 witness = keccak256(
+            abi.encode(CRYPTO_PAYMENT_WITNESS_TYPEHASH, paymentId, itemId, buyerAddress, amount, lineItemsHash)
+        );
+
+        // Transfer tokens from the buyer via Permit2.  The permit authorises the
+        // exact totalAmount and the witness binds all payment parameters.
+        IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
+            IPermit2.PermitTransferFrom({
+                permitted: IPermit2.TokenPermissions({token: paymentToken, amount: totalAmount}),
+                nonce: permitData.nonce,
+                deadline: permitData.deadline
+            }),
+            IPermit2.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+            buyerAddress,
+            witness,
+            CRYPTO_PAYMENT_WITNESS_TYPE_STRING,
+            permitData.signature
+        );
 
         s_payment[internalPaymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
@@ -926,7 +976,7 @@ abstract contract BasePaymentTreasury is
         });
 
         s_paymentIdToToken[internalPaymentId] = paymentToken;
-        s_paymentIdToCreator[paymentId] = _msgSender(); // Store creator address for getPaymentData lookup
+        s_paymentIdToCreator[paymentId] = buyerAddress; // Scoped by buyer for getPaymentData lookup
         s_confirmedPaymentPerToken[paymentToken] += amount;
         s_lifetimeConfirmedPaymentPerToken[paymentToken] += amount;
         s_availableConfirmedPerToken[paymentToken] += amount;

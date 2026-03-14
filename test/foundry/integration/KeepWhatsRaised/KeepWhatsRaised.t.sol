@@ -9,6 +9,8 @@ import {IReward} from "src/interfaces/IReward.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {Base_Test} from "../../Base.t.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all KeepWhatsRaised integration tests.
 abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder, Base_Test {
@@ -308,13 +310,16 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testToken.approve(keepWhatsRaisedAddress, pledgeAmount + tip);
+        // Approve MockPermit2 (at canonical address) instead of the treasury directly.
+        IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeForAReward(pledgeId, caller, token, tip, reward);
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+
+        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeForAReward(pledgeId, caller, token, tip, reward, permitData);
 
         logs = vm.getRecordedLogs();
 
@@ -344,10 +349,13 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testToken.approve(keepWhatsRaisedAddress, pledgeAmount + tip);
+        // Approve MockPermit2 (at canonical address) instead of the treasury directly.
+        IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
-        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeWithoutAReward(pledgeId, caller, token, pledgeAmount, tip);
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+
+        KeepWhatsRaised(keepWhatsRaisedAddress).pledgeWithoutAReward(pledgeId, caller, token, pledgeAmount, tip, permitData);
 
         logs = vm.getRecordedLogs();
 

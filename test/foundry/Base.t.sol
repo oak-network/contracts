@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {Users} from "./utils/Types.sol";
 import {Defaults} from "./utils/Defaults.sol";
 import {TestToken} from "../mocks/TestToken.sol";
+import {MockPermit2} from "../mocks/MockPermit2.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -12,6 +13,7 @@ import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
+import {IPermit2, PermitData} from "src/interfaces/IPermit2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
@@ -35,6 +37,17 @@ abstract contract Base_Test is Test, Defaults {
     KeepWhatsRaised internal keepWhatsRaisedImplementation;
     CampaignInfo internal campaignInfo;
 
+    /// @dev MockPermit2 deployed at the canonical Permit2 address for all tests.
+    MockPermit2 internal mockPermit2;
+    /// @dev Canonical Permit2 address used by the contracts under test.
+    address internal constant CANONICAL_PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+    /// @dev Helper to build a no-op PermitData that satisfies the signature length check.
+    ///      The MockPermit2 ignores signature content so any non-empty bytes work.
+    function _buildPermitData(uint256 nonce, uint256 deadline) internal pure returns (PermitData memory) {
+        return PermitData({nonce: nonce, deadline: deadline, signature: abi.encodePacked(bytes1(0x01))});
+    }
+
     function setUp() public virtual {
         // Create users for testing.
         users = Users({
@@ -49,6 +62,12 @@ abstract contract Base_Test is Test, Defaults {
         });
 
         vm.startPrank(users.contractOwner);
+
+        // Deploy MockPermit2 at the canonical Permit2 address so that
+        // treasury contracts (which hardcode that address) use our mock.
+        MockPermit2 permit2Impl = new MockPermit2();
+        vm.etch(CANONICAL_PERMIT2_ADDRESS, address(permit2Impl).code);
+        mockPermit2 = MockPermit2(CANONICAL_PERMIT2_ADDRESS);
 
         // Deploy multiple test tokens with different decimals
         usdtToken = new TestToken("Tether USD", "USDT", 6);

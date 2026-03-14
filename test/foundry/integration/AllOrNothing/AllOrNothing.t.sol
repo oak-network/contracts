@@ -9,6 +9,8 @@ import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all AllOrNothing integration tests.
 abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, Base_Test {
@@ -157,13 +159,16 @@ abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, B
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testToken.approve(allOrNothingAddress, pledgeAmount + shippingFee);
+        // Approve MockPermit2 (at canonical address) instead of the treasury directly.
+        IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        AllOrNothing(allOrNothingAddress).pledgeForAReward(caller, address(token), shippingFee, reward);
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+
+        AllOrNothing(allOrNothingAddress).pledgeForAReward(caller, address(token), shippingFee, reward, permitData);
 
         logs = vm.getRecordedLogs();
 
@@ -191,10 +196,13 @@ abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, B
         vm.startPrank(caller);
         vm.recordLogs();
 
-        testToken.approve(allOrNothingAddress, pledgeAmount);
+        // Approve MockPermit2 (at canonical address) instead of the treasury directly.
+        IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
-        AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(caller, address(token), pledgeAmount);
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+
+        AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(caller, address(token), pledgeAmount, permitData);
 
         logs = vm.getRecordedLogs();
 

@@ -9,6 +9,8 @@ import {CampaignInfo} from "src/CampaignInfo.sol";
 import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {TestToken} from "../../../mocks/TestToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all PaymentTreasury integration tests.
 abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Test {
@@ -161,6 +163,8 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
 
     /**
      * @notice Processes a crypto payment
+     * @dev `caller` must have pre-approved MockPermit2 for the token.
+     *      The helper sets up the approval and builds a dummy PermitData automatically.
      */
     function processCryptoPayment(
         address caller,
@@ -172,10 +176,22 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         ICampaignPaymentTreasury.LineItem[] memory lineItems,
         ICampaignPaymentTreasury.ExternalFees[] memory externalFees
     ) internal {
-        vm.prank(caller);
+        // Compute total transfer amount to approve
+        uint256 totalAmount = amount;
+        for (uint256 i = 0; i < lineItems.length; i++) {
+            totalAmount += lineItems[i].amount;
+        }
+
+        vm.startPrank(caller);
+        // Approve MockPermit2 (at canonical address) for the token.
+        IERC20(paymentToken).approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
+
+        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+
         paymentTreasury.processCryptoPayment(
-            paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees
+            paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, permitData
         );
+        vm.stopPrank();
     }
 
     /**

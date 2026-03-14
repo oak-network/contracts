@@ -12,6 +12,7 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
+import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
 
 /**
  * @title KeepWhatsRaised
@@ -96,6 +97,25 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     FeeKeys private s_feeKeys;
     Config private s_config;
     CampaignData private s_campaignData;
+
+    // ---------------------------------------------------------------------------
+    // Permit2 witness types for direct user pledge functions
+    // (setFeeAndPledge is admin-only and uses standard ERC20 transferFrom)
+    // ---------------------------------------------------------------------------
+    // pledgeForAReward witness – binds pledgeId, backer, reward array, and tip
+    bytes32 internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeForRewardWitness witness)KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)TokenPermissions(address token,uint256 amount)";
+
+    // pledgeWithoutAReward witness – binds pledgeId, backer, pledgeAmount, and tip
+    bytes32 internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeWithoutRewardWitness witness)KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)TokenPermissions(address token,uint256 amount)";
+
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -683,29 +703,37 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         //Set Payment Gateway Fee
         setPaymentGatewayFee(pledgeId, fee);
 
+        // Admin flow: empty permitData signals the ERC20 transferFrom path in _pledge.
+        // Tokens are pulled from _msgSender() (the platform admin) who must have
+        // pre-approved this treasury contract via ERC20.approve().
+        PermitData memory emptyPermit;
+
         if (isPledgeForAReward) {
-            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender()); // Pass admin as token source
+            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender(), emptyPermit);
         } else {
-            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender()); // Pass admin as token source
+            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender(), emptyPermit);
         }
     }
 
     /**
-     * @notice Allows a backer to pledge for a reward.
-     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-     *      The non-reward tiers cannot be pledged for without a reward.
+     * @notice Allows a backer to pledge for a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `pledgeId`, `backer`, the reward array hash, and
+     *      `tip`, so the caller cannot tamper with those parameters after the backer has signed.
      * @param pledgeId The unique identifier of the pledge.
-     * @param backer The address of the backer making the pledge.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
     function pledgeForAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 tip,
-        bytes32[] calldata reward
+        bytes32[] calldata reward,
+        PermitData calldata permitData
     )
         public
         nonReentrant
@@ -715,29 +743,30 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, backer); // Pass backer as token source for direct calls
+        _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, backer, permitData);
     }
 
     /**
-     * @notice Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
-     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-     *      The non-reward tiers cannot be pledged for without a reward.
-     *      This function is called internally by both public pledgeForAReward (with backer as token source) and
-     *      setFeeAndPledge (with admin as token source).
+     * @notice Internal function that allows a backer to pledge for a reward.
+     * @dev Called by both the public `pledgeForAReward` (Permit2 transfer) and
+     *      `setFeeAndPledge` (admin ERC20 transfer).  The `permitData` is forwarded
+     *      to `_pledge` which selects the appropriate transfer method.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
      * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
-     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     * @param tokenSource Token source address for the admin (ERC20) path; ignored on Permit2 path.
+     * @param permitData Permit2 data; empty (zero-length signature) triggers the admin ERC20 path.
      */
     function _pledgeForAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 tip,
-        bytes32[] calldata reward,
-        address tokenSource
+        bytes32[] memory reward,
+        address tokenSource,
+        PermitData memory permitData
     ) internal {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
@@ -765,23 +794,27 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, reward, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, reward, tokenSource, permitData);
     }
 
     /**
-     * @notice Allows a backer to pledge without selecting a reward.
+     * @notice Allows a backer to pledge without selecting a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `pledgeId`, `backer`, `pledgeAmount`, and `tip`.
      * @param pledgeId The unique identifier of the pledge.
-     * @param backer The address of the backer making the pledge.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token to use for the pledge.
-     * @param pledgeAmount The amount of the pledge.
-     * @param tip An optional tip can be added during the process.
+     * @param pledgeAmount The amount of the pledge (in token's native decimals).
+     * @param tip An optional tip (in token's native decimals).
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
     function pledgeWithoutAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 pledgeAmount,
-        uint256 tip
+        uint256 tip,
+        PermitData calldata permitData
     )
         public
         nonReentrant
@@ -791,19 +824,20 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, backer); // Pass backer as token source for direct calls
+        _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, backer, permitData);
     }
 
     /**
-     * @notice Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
-     * @dev This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
-     *      setFeeAndPledge (with admin as token source).
+     * @notice Internal function that allows a backer to pledge without a reward.
+     * @dev Called by both the public `pledgeWithoutAReward` (Permit2 transfer) and
+     *      `setFeeAndPledge` (admin ERC20 transfer).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
      * @param pledgeToken The token to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
-     * @param tip An optional tip can be added during the process.
-     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     * @param tip An optional tip.
+     * @param tokenSource Token source address for the admin (ERC20) path; ignored on Permit2 path.
+     * @param permitData Permit2 data; empty (zero-length signature) triggers the admin ERC20 path.
      */
     function _pledgeWithoutAReward(
         bytes32 pledgeId,
@@ -811,7 +845,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         address pledgeToken,
         uint256 pledgeAmount,
         uint256 tip,
-        address tokenSource
+        address tokenSource,
+        PermitData memory permitData
     ) internal {
         bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
 
@@ -822,7 +857,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, emptyByteArray, tokenSource);
+        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, emptyByteArray, tokenSource, permitData);
     }
 
     /**
@@ -1115,7 +1150,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 pledgeAmount,
         uint256 tip,
         bytes32[] memory rewards,
-        address tokenSource
+        address tokenSource,
+        PermitData memory permitData
     ) private {
         // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
@@ -1136,7 +1172,55 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
 
-        IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+        if (permitData.signature.length > 0) {
+            // -------------------------------------------------------------------
+            // User (direct pledge) path: transfer tokens via Permit2.
+            // The witness commits to all pledge parameters so any tampering
+            // (e.g. swapping reward tiers, inflating tips) invalidates the sig.
+            // -------------------------------------------------------------------
+            bytes32 witness;
+            string memory witnessTypeString;
+
+            if (reward != ZERO_BYTES) {
+                bytes32 rewardsHash = keccak256(abi.encodePacked(rewards));
+                witness = keccak256(
+                    abi.encode(KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, pledgeId, backer, rewardsHash, tip)
+                );
+                witnessTypeString = KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING;
+            } else {
+                witness = keccak256(
+                    abi.encode(
+                        KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH,
+                        pledgeId,
+                        backer,
+                        pledgeAmountInTokenDecimals,
+                        tip
+                    )
+                );
+                witnessTypeString = KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING;
+            }
+
+            IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
+                IPermit2.PermitTransferFrom({
+                    permitted: IPermit2.TokenPermissions({token: pledgeToken, amount: totalAmount}),
+                    nonce: permitData.nonce,
+                    deadline: permitData.deadline
+                }),
+                IPermit2.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+                backer,
+                witness,
+                witnessTypeString,
+                permitData.signature
+            );
+        } else {
+            // -------------------------------------------------------------------
+            // Admin (setFeeAndPledge) path: standard ERC20 transfer from the
+            // platform admin who owns the tokens and has pre-approved this
+            // treasury.  This path is only reachable via the onlyPlatformAdmin-
+            // guarded setFeeAndPledge function.
+            // -------------------------------------------------------------------
+            IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+        }
 
         uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
 
