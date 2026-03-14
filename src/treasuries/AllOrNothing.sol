@@ -407,6 +407,11 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
 
+        // Reject treasury address as payer to prevent accounting inflation via self-transfer
+        if (backer == address(this)) {
+            revert AllOrNothingInvalidInput();
+        }
+
         // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
         // If not for a reward, amounts are already in token decimals
         uint256 pledgeAmountInTokenDecimals;
@@ -424,17 +429,24 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
 
+        uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
+        uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
+
+        if (actualReceived < shippingFeeInTokenDecimals) {
+            revert AllOrNothingTransferFailed();
+        }
+        uint256 actualPledgeAmount = actualReceived - shippingFeeInTokenDecimals;
 
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
+            backer, reward, pledgeToken, actualPledgeAmount, shippingFeeInTokenDecimals, 0
         );
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
-        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = actualReceived;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
     }

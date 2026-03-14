@@ -796,6 +796,11 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput();
         }
 
+        // Reject treasury address as payer to prevent accounting inflation via self-transfer
+        if (buyerAddress == address(this)) {
+            revert PaymentTreasuryInvalidInput();
+        }
+
         // Validate token is accepted
         if (!INFO.isTokenAccepted(paymentToken)) {
             revert PaymentTreasuryTokenNotAccepted(paymentToken);
@@ -912,7 +917,11 @@ abstract contract BasePaymentTreasury is
             }
         }
 
+        uint256 balanceBefore = IERC20(paymentToken).balanceOf(address(this));
         IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
+        if (IERC20(paymentToken).balanceOf(address(this)) - balanceBefore < totalAmount) {
+            revert PaymentTreasuryInvalidInput();
+        }
 
         s_payment[internalPaymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
