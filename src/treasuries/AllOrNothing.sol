@@ -283,8 +283,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
         if (
-            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
-                || !tempReward.isRewardTier
+            backer == address(0) || reward[0] == ZERO_BYTES || !tempReward.isRewardTier
         ) {
             revert AllOrNothingInvalidInput();
         }
