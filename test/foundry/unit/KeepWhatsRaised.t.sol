@@ -82,21 +82,11 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
 
     function testConfigureTreasury() public {
-        ICampaignData.CampaignData memory newCampaignData = ICampaignData.CampaignData({
-            launchTime: block.timestamp + 1 days,
-            deadline: block.timestamp + 31 days,
-            goalAmount: 5000,
-            currency: bytes32("USD")
-        });
-
-        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
-
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, newCampaignData, FEE_KEYS, feeValues);
-
-        assertEq(keepWhatsRaised.getLaunchTime(), newCampaignData.launchTime);
-        assertEq(keepWhatsRaised.getDeadline(), newCampaignData.deadline);
-        assertEq(keepWhatsRaised.getGoalAmount(), newCampaignData.goalAmount);
+        // configureTreasury was called once during setUp with CONFIG + CAMPAIGN_DATA.
+        // Verify the stored state reflects that initial configuration.
+        assertEq(keepWhatsRaised.getLaunchTime(), CAMPAIGN_DATA.launchTime);
+        assertEq(keepWhatsRaised.getDeadline(), CAMPAIGN_DATA.deadline);
+        assertEq(keepWhatsRaised.getGoalAmount(), CAMPAIGN_DATA.goalAmount);
 
         // Verify fee values are stored
         assertEq(keepWhatsRaised.getFeeValue(FLAT_FEE_KEY), uint256(FLAT_FEE_VALUE));
@@ -105,18 +95,22 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(keepWhatsRaised.getFeeValue(VAKI_COMMISSION_KEY), uint256(VAKI_COMMISSION_VALUE));
     }
 
+    function testConfigureTreasury_RevertsWhenAlreadyConfigured() public {
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAlreadyConfigured.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
     function testConfigureTreasuryWithColombianCreator() public {
-        ICampaignData.CampaignData memory newCampaignData = ICampaignData.CampaignData({
-            launchTime: block.timestamp + 1 days,
-            deadline: block.timestamp + 31 days,
-            goalAmount: 5000,
-            currency: bytes32("USD")
-        });
+        // Deploy a fresh treasury so configureTreasury can be called for the first time.
+        _resetTreasury();
 
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
 
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, newCampaignData, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
 
         // Test that Colombian creator tax is not applied in pledges
         _setupReward();
@@ -150,6 +144,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testConfigureTreasuryRevertWhenInvalidCampaignData() public {
+        // Deploy a fresh unconfigured treasury so input validation is reachable.
+        _resetTreasury();
+
         // Invalid launch time (in the past)
         ICampaignData.CampaignData memory invalidCampaignData = ICampaignData.CampaignData({
             launchTime: block.timestamp - 1,
@@ -166,6 +163,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testConfigureTreasuryRevertWhenMismatchedFeeArrays() public {
+        // Deploy a fresh unconfigured treasury so input validation is reachable.
+        _resetTreasury();
+
         // Create mismatched fee arrays
         KeepWhatsRaised.FeeKeys memory mismatchedKeys = FEE_KEYS;
         KeepWhatsRaised.FeeValues memory mismatchedValues = _createFeeValues();
@@ -776,7 +776,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testWithdrawWithColombianCreatorTax() public {
-        // Configure with Colombian creator
+        // Deploy a fresh treasury and configure it with Colombian creator settings.
+        _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
@@ -1315,7 +1316,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     function testComplexFeeScenario() public {
         // Testing multiple pledges with different fee structures
 
-        // Configure Colombian creator for complex fee testing
+        // Deploy a fresh treasury and configure with Colombian creator settings.
+        _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
