@@ -90,6 +90,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
             new ERC1967Proxy(address(campaignInfoFactoryImpl), campaignInfoFactoryInitData);
         campaignInfoFactory = CampaignInfoFactory(address(campaignInfoFactoryProxy));
 
+        // Wire campaignInfoFactory into treasuryFactory for validation
+        vm.startPrank(admin);
+        treasuryFactory.setCampaignInfoFactory(address(campaignInfoFactory));
+        vm.stopPrank();
+
         // Create a campaign using the factory
         ICampaignData.CampaignData memory campaignData = ICampaignData.CampaignData({
             launchTime: block.timestamp + 1 days,
