@@ -115,6 +115,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[0] = Reward({
             rewardValue: 1_000e18,
             isRewardTier: true,
+            canBeAddOn: false,
             itemId: itemIds1,
             itemValue: itemValues1,
             itemQuantity: itemQuantities1
@@ -136,6 +137,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[1] = Reward({
             rewardValue: 2_500e18,
             isRewardTier: true,
+            canBeAddOn: true,
             itemId: itemIds2,
             itemValue: itemValues2,
             itemQuantity: itemQuantities2
@@ -151,6 +153,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[2] = Reward({
             rewardValue: 500e18,
             isRewardTier: false,
+            canBeAddOn: true,
             itemId: emptyIds,
             itemValue: emptyValues,
             itemQuantity: emptyQuantities
