@@ -1308,115 +1308,9 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryCryptoPayment(internalPaymentId);
         }
 
-        // Use snapshots of line item type configuration from payment creation time
-        // This prevents issues if line item type configuration changed after payment creation/confirmation
-        ICampaignPaymentTreasury.PaymentLineItem[] storage lineItems = s_paymentLineItems[internalPaymentId];
-        uint256 protocolFeePercent = INFO.getProtocolFeePercent();
-
-        // Calculate total line item refund amount using snapshots
-        uint256 totalGoalLineItemRefundAmount = 0;
-        uint256 totalNonGoalLineItemRefundAmount = 0;
-
-        for (uint256 i = 0; i < lineItems.length; i++) {
-            ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
-
-            // Use snapshot flags instead of current configuration
-            if (!item.canRefund) {
-                continue; // Skip non-refundable line items (based on snapshot at creation time)
-            }
-
-            if (item.countsTowardGoal) {
-                // Goal line items: full amount is refundable from goal tracking
-                totalGoalLineItemRefundAmount += item.amount;
-            } else {
-                // Non-goal line items: handle fees and instant transfers
-                // For instant transfer items, the net amount was already sent to platform admin - don't refund
-                // For non-instant items, only refund the net amount (after fees), not the fees themselves
-                if (item.instantTransfer) {
-                    // Skip instant transfer items - they were already sent to platform admin
-                    continue;
-                }
-
-                uint256 feeAmount = 0;
-                if (item.applyProtocolFee) {
-                    feeAmount = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                }
-                uint256 netAmount = item.amount - feeAmount;
-
-                // Only refund the net amount (fees are not refundable)
-                totalNonGoalLineItemRefundAmount += netAmount;
-            }
-        }
-
-        // Check that we have enough available balance for the total refund (BEFORE modifying state)
-        // Goal line items are in availableConfirmedPerToken, non-goal items need separate check
-        uint256 totalRefundAmount = amountToRefund + totalGoalLineItemRefundAmount + totalNonGoalLineItemRefundAmount;
-
-        // For goal line items and base payment, check availableConfirmedPerToken
-        if (availablePaymentAmount < (amountToRefund + totalGoalLineItemRefundAmount)) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId);
-        }
-
-        // For non-goal line items, check that we have enough claimable balance
-        // (only non-instant transfer items are refundable, and only their net amounts after fees)
-        if (totalNonGoalLineItemRefundAmount > 0) {
-            uint256 availableRefundable = s_refundableNonGoalLineItemPerToken[paymentToken];
-            if (availableRefundable < totalNonGoalLineItemRefundAmount) {
-                revert PaymentTreasuryPaymentNotClaimable(paymentId);
-            }
-        }
-
-        // Check that contract has enough actual balance to perform the transfer
-        uint256 contractBalance = IERC20(paymentToken).balanceOf(address(this));
-        if (contractBalance < totalRefundAmount) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId);
-        }
-
-        // Update state: remove tracking for refundable line items using snapshots
-        for (uint256 i = 0; i < lineItems.length; i++) {
-            ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
-
-            // Use snapshot flags instead of current configuration
-            if (!item.canRefund) {
-                continue; // Skip non-refundable line items (based on snapshot at creation time)
-            }
-
-            if (item.countsTowardGoal) {
-                // Goal line items: remove from goal tracking
-                s_confirmedPaymentPerToken[paymentToken] -= item.amount;
-                s_availableConfirmedPerToken[paymentToken] -= item.amount;
-            } else {
-                // Non-goal line items: remove from non-goal tracking
-                // Note: instantTransfer items are skipped in the refund calculation above
-                if (item.instantTransfer) {
-                    // Instant transfer items were already sent to platform admin; nothing tracked
-                    continue;
-                }
-
-                // Calculate fees and net amount using snapshot
-                uint256 feeAmount = 0;
-                if (item.applyProtocolFee) {
-                    feeAmount = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                    // Fees are NOT refunded - they remain in the protocol fee pool
-                }
-
-                uint256 netAmount = item.amount - feeAmount;
-
-                // Remove net amount from outstanding non-goal tracking
-                s_nonGoalLineItemConfirmedPerToken[paymentToken] -= netAmount;
-
-                // Remove from refundable tracking (only net amount is refundable)
-                s_refundableNonGoalLineItemPerToken[paymentToken] -= netAmount;
-            }
-        }
-
-        delete s_payment[internalPaymentId];
-        delete s_paymentIdToToken[internalPaymentId];
-        delete s_paymentLineItems[internalPaymentId];
-        delete s_paymentExternalFeeMetadata[internalPaymentId];
-
-        s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
-        s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
+        uint256 totalRefundAmount = _executeRefund(
+            internalPaymentId, paymentToken, amountToRefund, availablePaymentAmount, paymentId
+        );
 
         IERC20(paymentToken).safeTransfer(refundAddress, totalRefundAmount);
         emit RefundClaimed(paymentId, totalRefundAmount, refundAddress);
@@ -1453,6 +1347,39 @@ abstract contract BasePaymentTreasury is
         // Get NFT owner before burning
         address nftOwner = INFO.ownerOf(tokenId);
 
+        uint256 totalRefundAmount = _executeRefund(
+            internalPaymentId, paymentToken, amountToRefund, availablePaymentAmount, internalPaymentId
+        );
+
+        // Additional cleanup for NFT payments
+        delete s_paymentIdToTokenId[internalPaymentId];
+        delete s_paymentIdToCreator[paymentId]; // Clean up creator mapping for on-chain payments
+
+        // Burn NFT (requires treasury approval from owner)
+        INFO.burn(tokenId);
+
+        IERC20(paymentToken).safeTransfer(nftOwner, totalRefundAmount);
+        emit RefundClaimed(paymentId, totalRefundAmount, nftOwner);
+    }
+
+    /**
+     * @dev Shared refund logic for both claimRefund overloads.
+     *      Calculates refund amounts from line item snapshots, validates balances,
+     *      updates state, removes common storage entries, and returns the total refund amount.
+     * @param internalPaymentId The scoped internal payment ID.
+     * @param paymentToken The token used for the payment.
+     * @param amountToRefund The base payment amount to refund.
+     * @param availablePaymentAmount The available confirmed amount for this token.
+     * @param revertId The payment ID to use in revert messages (preserves original error context).
+     * @return totalRefundAmount The total amount to transfer to the refund recipient.
+     */
+    function _executeRefund(
+        bytes32 internalPaymentId,
+        address paymentToken,
+        uint256 amountToRefund,
+        uint256 availablePaymentAmount,
+        bytes32 revertId
+    ) private returns (uint256 totalRefundAmount) {
         // Use snapshots of line item type configuration from payment creation time
         // This prevents issues if line item type configuration changed after payment creation/confirmation
         ICampaignPaymentTreasury.PaymentLineItem[] storage lineItems = s_paymentLineItems[internalPaymentId];
@@ -1495,11 +1422,11 @@ abstract contract BasePaymentTreasury is
 
         // Check that we have enough available balance for the total refund (BEFORE modifying state)
         // Goal line items are in availableConfirmedPerToken, non-goal items need separate check
-        uint256 totalRefundAmount = amountToRefund + totalGoalLineItemRefundAmount + totalNonGoalLineItemRefundAmount;
+        totalRefundAmount = amountToRefund + totalGoalLineItemRefundAmount + totalNonGoalLineItemRefundAmount;
 
         // For goal line items and base payment, check availableConfirmedPerToken
         if (availablePaymentAmount < (amountToRefund + totalGoalLineItemRefundAmount)) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(revertId);
         }
 
         // For non-goal line items, check that we have enough claimable balance
@@ -1507,14 +1434,14 @@ abstract contract BasePaymentTreasury is
         if (totalNonGoalLineItemRefundAmount > 0) {
             uint256 availableRefundable = s_refundableNonGoalLineItemPerToken[paymentToken];
             if (availableRefundable < totalNonGoalLineItemRefundAmount) {
-                revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+                revert PaymentTreasuryPaymentNotClaimable(revertId);
             }
         }
 
         // Check that contract has enough actual balance to perform the transfer
         uint256 contractBalance = IERC20(paymentToken).balanceOf(address(this));
         if (contractBalance < totalRefundAmount) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(revertId);
         }
 
         // Update state: remove tracking for refundable line items using snapshots
@@ -1555,21 +1482,14 @@ abstract contract BasePaymentTreasury is
             }
         }
 
+        // Clean up common storage entries
         delete s_payment[internalPaymentId];
         delete s_paymentIdToToken[internalPaymentId];
         delete s_paymentLineItems[internalPaymentId];
         delete s_paymentExternalFeeMetadata[internalPaymentId];
-        delete s_paymentIdToTokenId[internalPaymentId];
-        delete s_paymentIdToCreator[paymentId]; // Clean up creator mapping for on-chain payments
 
         s_confirmedPaymentPerToken[paymentToken] -= amountToRefund;
         s_availableConfirmedPerToken[paymentToken] -= amountToRefund;
-
-        // Burn NFT (requires treasury approval from owner)
-        INFO.burn(tokenId);
-
-        IERC20(paymentToken).safeTransfer(nftOwner, totalRefundAmount);
-        emit RefundClaimed(paymentId, totalRefundAmount, nftOwner);
     }
 
     /**
