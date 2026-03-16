@@ -69,6 +69,11 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     error TreasuryFeeNotDisbursed();
 
     /**
+     * @dev Throws an error indicating that fees have already been disbursed.
+     */
+    error TreasuryFeeAlreadyDisbursed();
+
+    /**
      * @dev Throws an error indicating that the campaign is paused.
      */
     error TreasuryCampaignInfoIsPaused();
@@ -166,6 +171,9 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees() public virtual override whenCampaignNotPaused whenCampaignNotCancelled {
+        if (s_feesDisbursed) {
+            revert TreasuryFeeAlreadyDisbursed();
+        }
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
