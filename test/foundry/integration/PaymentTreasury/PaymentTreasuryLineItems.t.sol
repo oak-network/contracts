@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import "./PaymentTreasury.t.sol";
 import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Tests for PaymentTreasury with line items and expiration
 contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Test {
@@ -228,11 +229,12 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
         lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: SHIPPING_FEE_TYPE_ID, amount: shippingFeeAmount});
 
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, lineItems, 0, block.timestamp + 1 hours);
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -241,7 +243,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             address(testToken),
             PAYMENT_AMOUNT_1,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Payment should be confirmed immediately for crypto payments
@@ -255,13 +258,14 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
         lineItems[0] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
 
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, lineItems, 0, block.timestamp + 1 hours);
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -270,7 +274,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             address(testToken),
             PAYMENT_AMOUNT_1,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Tip doesn't count toward goal, but payment amount does
@@ -289,7 +294,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
         deal(address(testToken), users.backer1Address, totalAmount);
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform1AdminAddress);
         uint256 tipNetAmount = tipAmount; // No protocol fee on tip
@@ -299,6 +304,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         lineItems[1] = ICampaignPaymentTreasury.LineItem({typeId: TIP_TYPE_ID, amount: tipAmount});
         lineItems[2] = ICampaignPaymentTreasury.LineItem({typeId: INTEREST_TYPE_ID, amount: interestAmount});
 
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, PAYMENT_AMOUNT_1, lineItems, 0, block.timestamp + 1 hours);
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -307,7 +313,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             address(testToken),
             PAYMENT_AMOUNT_1,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Only payment amount + shipping fee count toward goal
@@ -520,7 +527,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
         deal(address(testToken), users.backer1Address, totalAmount);
 
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
         ICampaignPaymentTreasury.LineItem[] memory lineItems = new ICampaignPaymentTreasury.LineItem[](1);
         lineItems[0] =
@@ -528,6 +535,7 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
 
         bytes32 paymentId = keccak256("refundableFeePayment");
 
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(users.backer1Address, address(testToken), paymentId, ITEM_ID_1, baseAmount, lineItems, 0, block.timestamp + 1 hours);
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             paymentId,
@@ -536,7 +544,8 @@ contract PaymentTreasuryLineItems_Test is PaymentTreasury_Integration_Shared_Tes
             address(testToken),
             baseAmount,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         uint256 buyerBalanceAfterPayment = testToken.balanceOf(users.backer1Address);

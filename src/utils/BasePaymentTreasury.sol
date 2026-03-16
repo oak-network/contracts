@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
 import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
 import {PausableCancellable} from "./PausableCancellable.sol";
 import {DataRegistryKeys} from "../constants/DataRegistryKeys.sol";
@@ -814,7 +815,7 @@ abstract contract BasePaymentTreasury is
     ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
         if (
             buyerAddress == address(0) || amount == 0 || paymentId == ZERO_BYTES || itemId == ZERO_BYTES
-                || paymentToken == address(0)
+                || paymentToken == address(0) || permitData.signature.length == 0
         ) {
             revert PaymentTreasuryInvalidInput();
         }
@@ -952,12 +953,12 @@ abstract contract BasePaymentTreasury is
         // Transfer tokens from the buyer via Permit2.  The permit authorises the
         // exact totalAmount and the witness binds all payment parameters.
         IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
-            IPermit2.PermitTransferFrom({
-                permitted: IPermit2.TokenPermissions({token: paymentToken, amount: totalAmount}),
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({token: paymentToken, amount: totalAmount}),
                 nonce: permitData.nonce,
                 deadline: permitData.deadline
             }),
-            IPermit2.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
             buyerAddress,
             witness,
             CRYPTO_PAYMENT_WITNESS_TYPE_STRING,

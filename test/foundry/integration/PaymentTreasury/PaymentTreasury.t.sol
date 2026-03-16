@@ -14,6 +14,12 @@ import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all PaymentTreasury integration tests.
 abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Test {
+    bytes32 internal constant CRYPTO_PAYMENT_WITNESS_TYPEHASH = keccak256(
+        "CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)"
+    );
+    string internal constant CRYPTO_PAYMENT_WITNESS_TYPE_STRING =
+        "CryptoPaymentWitness witness)CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)TokenPermissions(address token,uint256 amount)";
+
     address campaignAddress;
     address treasuryAddress;
     PaymentTreasury internal paymentTreasury;
@@ -186,12 +192,36 @@ abstract contract PaymentTreasury_Integration_Shared_Test is LogDecoder, Base_Te
         // Approve MockPermit2 (at canonical address) for the token.
         IERC20(paymentToken).approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(buyerAddress, paymentToken, paymentId, itemId, amount, lineItems, 0, block.timestamp + 1 hours);
 
         paymentTreasury.processCryptoPayment(
             paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees, permitData
         );
         vm.stopPrank();
+    }
+
+    function _buildSignedCryptoPaymentPermitData(
+        address buyer,
+        address paymentToken,
+        bytes32 paymentId,
+        bytes32 itemId,
+        uint256 amount,
+        ICampaignPaymentTreasury.LineItem[] memory lineItems,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 totalAmount = amount;
+        for (uint256 i = 0; i < lineItems.length; i++) {
+            totalAmount += lineItems[i].amount;
+        }
+
+        bytes32 lineItemsHash = keccak256(abi.encode(lineItems));
+        bytes32 witness =
+            keccak256(abi.encode(CRYPTO_PAYMENT_WITNESS_TYPEHASH, paymentId, itemId, buyer, amount, lineItemsHash));
+
+        return _buildSignedPermitData(
+            buyer, treasuryAddress, paymentToken, totalAmount, witness, CRYPTO_PAYMENT_WITNESS_TYPE_STRING, nonce, deadline
+        );
     }
 
     /**

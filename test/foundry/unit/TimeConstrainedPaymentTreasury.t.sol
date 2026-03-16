@@ -226,7 +226,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -303,7 +312,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -336,7 +354,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData1 = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData1 = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -353,7 +380,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_2);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems2 = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData2 = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData2 = _buildSignedCryptoPaymentPermitData(
+            users.backer2Address,
+            address(testToken),
+            PAYMENT_ID_2,
+            ITEM_ID_2,
+            PAYMENT_AMOUNT_2,
+            emptyLineItems2,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_2,
@@ -394,7 +430,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -439,7 +484,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -479,7 +533,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -633,7 +696,16 @@ contract TimeConstrainedPaymentTreasury_UnitTest is
         testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,

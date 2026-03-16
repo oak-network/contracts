@@ -5,11 +5,13 @@ libs = ["lib"]
 via_ir = true
 optimizer = true
 optimizer_runs = 200
-solc_version = "0.8.22"
+auto_detect_solc = true
 
 remappings = [
   "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
-  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+  "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+  "permit2/=lib/permit2/",
+  "solmate/=lib/permit2/lib/solmate/"
 ]
 
 [rpc_endpoints]

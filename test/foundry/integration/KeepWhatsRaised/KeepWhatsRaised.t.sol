@@ -10,10 +10,22 @@ import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {Base_Test} from "../../Base.t.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all KeepWhatsRaised integration tests.
 abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder, Base_Test {
+    bytes32 internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeForRewardWitness witness)KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)TokenPermissions(address token,uint256 amount)";
+    bytes32 internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeWithoutRewardWitness witness)KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)TokenPermissions(address token,uint256 amount)";
+
     address campaignAddress;
     address treasuryAddress;
     KeepWhatsRaised internal keepWhatsRaised;
@@ -317,7 +329,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(caller, address(token), pledgeId, tip, reward, 0, block.timestamp + 1 hours);
 
         KeepWhatsRaised(keepWhatsRaisedAddress).pledgeForAReward(pledgeId, caller, token, tip, reward, permitData);
 
@@ -353,7 +365,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(caller, address(token), pledgeId, pledgeAmount, tip, 0, block.timestamp + 1 hours);
 
         KeepWhatsRaised(keepWhatsRaisedAddress).pledgeWithoutAReward(pledgeId, caller, token, pledgeAmount, tip, permitData);
 
@@ -500,5 +512,68 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         vm.startPrank(caller);
         KeepWhatsRaised(treasury).cancelTreasury(message);
         vm.stopPrank();
+    }
+
+    function _buildSignedKeepWhatsRaisedRewardPermitData(
+        address backer,
+        address token,
+        bytes32 pledgeId,
+        uint256 tip,
+        bytes32[] memory rewardSelection,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 pledgeAmount;
+        for (uint256 i = 0; i < rewardSelection.length; i++) {
+            pledgeAmount += keepWhatsRaised.getReward(rewardSelection[i]).rewardValue;
+        }
+
+        uint256 totalAmount = _denormalizeForToken(token, pledgeAmount) + tip;
+        bytes32 rewardsHash = keccak256(abi.encodePacked(rewardSelection));
+        bytes32 witness = keccak256(
+            abi.encode(KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, pledgeId, backer, rewardsHash, tip)
+        );
+
+        return _buildSignedPermitData(
+            backer, treasuryAddress, token, totalAmount, witness, KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING, nonce, deadline
+        );
+    }
+
+    function _buildSignedKeepWhatsRaisedNoRewardPermitData(
+        address backer,
+        address token,
+        bytes32 pledgeId,
+        uint256 pledgeAmount,
+        uint256 tip,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        bytes32 witness =
+            keccak256(abi.encode(KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH, pledgeId, backer, pledgeAmount, tip));
+
+        return _buildSignedPermitData(
+            backer,
+            treasuryAddress,
+            token,
+            pledgeAmount + tip,
+            witness,
+            KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING,
+            nonce,
+            deadline
+        );
+    }
+
+    function _denormalizeForToken(address token, uint256 amount) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(token).decimals();
+
+        if (decimals == 18) {
+            return amount;
+        }
+
+        if (decimals < 18) {
+            return amount / (10 ** (18 - decimals));
+        }
+
+        return amount * (10 ** (decimals - 18));
     }
 }

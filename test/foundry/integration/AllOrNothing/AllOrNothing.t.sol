@@ -10,13 +10,25 @@ import {CampaignInfo} from "src/CampaignInfo.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /// @notice Common testing logic needed by all AllOrNothing integration tests.
 abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, Base_Test {
+    bytes32 internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH = keccak256(
+        "PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)"
+    );
+    string internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+        "PledgeForRewardWitness witness)PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)TokenPermissions(address token,uint256 amount)";
+    bytes32 internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH =
+        keccak256("PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)");
+    string internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+        "PledgeWithoutRewardWitness witness)PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)TokenPermissions(address token,uint256 amount)";
+
     address campaignAddress;
     address treasuryAddress;
     AllOrNothing internal allOrNothing;
+    mapping(address => uint256) internal aonNonceCounter;
 
     uint256 pledgeForARewardTokenId;
 
@@ -166,7 +178,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, B
         bytes32[] memory reward = new bytes32[](1);
         reward[0] = rewardName;
 
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        uint256 nonce = aonNonceCounter[caller]++;
+        PermitData memory permitData = _buildSignedAllOrNothingRewardPermitData(caller, address(token), shippingFee, reward, nonce, block.timestamp + 1 hours);
 
         AllOrNothing(allOrNothingAddress).pledgeForAReward(caller, address(token), shippingFee, reward, permitData);
 
@@ -200,7 +213,8 @@ abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, B
         IERC20(token).approve(CANONICAL_PERMIT2_ADDRESS, type(uint256).max);
         vm.warp(launchTime);
 
-        PermitData memory permitData = _buildPermitData(0, block.timestamp + 1 hours);
+        uint256 nonce = aonNonceCounter[caller]++;
+        PermitData memory permitData = _buildSignedAllOrNothingNoRewardPermitData(caller, address(token), pledgeAmount, nonce, block.timestamp + 1 hours);
 
         AllOrNothing(allOrNothingAddress).pledgeWithoutAReward(caller, address(token), pledgeAmount, permitData);
 
@@ -290,5 +304,65 @@ abstract contract AllOrNothing_Integration_Shared_Test is IReward, LogDecoder, B
         (to, amount) = abi.decode(data, (address, uint256));
 
         return (logs, to, amount);
+    }
+
+    function _buildSignedAllOrNothingRewardPermitData(
+        address backer,
+        address token,
+        uint256 shippingFee,
+        bytes32[] memory rewardSelection,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 pledgeAmount;
+        for (uint256 i = 0; i < rewardSelection.length; i++) {
+            pledgeAmount += allOrNothing.getReward(rewardSelection[i]).rewardValue;
+        }
+
+        uint256 totalAmount = _denormalizeForToken(token, pledgeAmount) + _denormalizeForToken(token, shippingFee);
+        bytes32 rewardsHash = keccak256(abi.encodePacked(rewardSelection));
+        bytes32 witness = keccak256(
+            abi.encode(AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, backer, rewardsHash, shippingFee)
+        );
+
+        return _buildSignedPermitData(
+            backer, treasuryAddress, token, totalAmount, witness, AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING, nonce, deadline
+        );
+    }
+
+    function _buildSignedAllOrNothingNoRewardPermitData(
+        address backer,
+        address token,
+        uint256 pledgeAmount,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        bytes32 witness =
+            keccak256(abi.encode(AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH, backer, pledgeAmount));
+
+        return _buildSignedPermitData(
+            backer,
+            treasuryAddress,
+            token,
+            pledgeAmount,
+            witness,
+            AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING,
+            nonce,
+            deadline
+        );
+    }
+
+    function _denormalizeForToken(address token, uint256 amount) internal view returns (uint256) {
+        uint8 decimals = IERC20Metadata(token).decimals();
+
+        if (decimals == 18) {
+            return amount;
+        }
+
+        if (decimals < 18) {
+            return amount / (10 ** (18 - decimals));
+        }
+
+        return amount * (10 ** (decimals - 18));
     }
 }

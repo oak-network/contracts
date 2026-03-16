@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import {Users} from "./utils/Types.sol";
 import {Defaults} from "./utils/Defaults.sol";
 import {TestToken} from "../mocks/TestToken.sol";
-import {MockPermit2} from "../mocks/MockPermit2.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
 import {CampaignInfoFactory} from "src/CampaignInfoFactory.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
@@ -19,8 +18,14 @@ import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
 /// @notice Base test contract with common logic needed by all tests.
 abstract contract Base_Test is Test, Defaults {
+    bytes32 internal constant PERMIT2_TOKEN_PERMISSIONS_TYPEHASH =
+        keccak256("TokenPermissions(address token,uint256 amount)");
+    string internal constant PERMIT2_WITNESS_TYPE_STRING_STUB =
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,";
+
     //Variables
     Users internal users;
+    mapping(address => uint256) internal userPrivateKeys;
 
     //Test Contracts - Multiple tokens for multi-token testing
     TestToken internal usdtToken; // 6 decimals - Tether
@@ -37,15 +42,34 @@ abstract contract Base_Test is Test, Defaults {
     KeepWhatsRaised internal keepWhatsRaisedImplementation;
     CampaignInfo internal campaignInfo;
 
-    /// @dev MockPermit2 deployed at the canonical Permit2 address for all tests.
-    MockPermit2 internal mockPermit2;
     /// @dev Canonical Permit2 address used by the contracts under test.
     address internal constant CANONICAL_PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
-    /// @dev Helper to build a no-op PermitData that satisfies the signature length check.
-    ///      The MockPermit2 ignores signature content so any non-empty bytes work.
-    function _buildPermitData(uint256 nonce, uint256 deadline) internal pure returns (PermitData memory) {
-        return PermitData({nonce: nonce, deadline: deadline, signature: abi.encodePacked(bytes1(0x01))});
+    function _buildSignedPermitData(
+        address owner,
+        address spender,
+        address token,
+        uint256 amount,
+        bytes32 witness,
+        string memory witnessTypeString,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 ownerPrivateKey = userPrivateKeys[owner];
+        require(ownerPrivateKey != 0, "missing test private key");
+
+        bytes32 witnessTypeHash =
+            keccak256(bytes(string(abi.encodePacked(PERMIT2_WITNESS_TYPE_STRING_STUB, witnessTypeString))));
+        bytes32 tokenPermissions =
+            keccak256(abi.encode(PERMIT2_TOKEN_PERMISSIONS_TYPEHASH, token, amount));
+        bytes32 structHash = keccak256(abi.encode(witnessTypeHash, tokenPermissions, spender, nonce, deadline, witness));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", IPermit2(CANONICAL_PERMIT2_ADDRESS).DOMAIN_SEPARATOR(), structHash)
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        return PermitData({nonce: nonce, deadline: deadline, signature: abi.encodePacked(r, s, v)});
     }
 
     function setUp() public virtual {
@@ -63,11 +87,9 @@ abstract contract Base_Test is Test, Defaults {
 
         vm.startPrank(users.contractOwner);
 
-        // Deploy MockPermit2 at the canonical Permit2 address so that
-        // treasury contracts (which hardcode that address) use our mock.
-        MockPermit2 permit2Impl = new MockPermit2();
-        vm.etch(CANONICAL_PERMIT2_ADDRESS, address(permit2Impl).code);
-        mockPermit2 = MockPermit2(CANONICAL_PERMIT2_ADDRESS);
+        // Deploy the real Uniswap Permit2 contract at the canonical address
+        // so that treasury contracts (which hardcode that address) use it.
+        deployCodeTo("Permit2.sol:Permit2", CANONICAL_PERMIT2_ADDRESS);
 
         // Deploy multiple test tokens with different decimals
         usdtToken = new TestToken("Tether USD", "USDT", 6);
@@ -176,7 +198,10 @@ abstract contract Base_Test is Test, Defaults {
 
     /// @dev Generates a user, labels its address, and funds it with test assets.
     function createUser(string memory name) internal returns (address payable) {
-        address payable user = payable(makeAddr(name));
+        uint256 privateKey = uint256(keccak256(abi.encodePacked("oak-network-test-user", name)));
+        address payable user = payable(vm.addr(privateKey));
+        userPrivateKeys[user] = privateKey;
+        vm.label(user, name);
         vm.deal({account: user, newBalance: 100 ether});
         return user;
     }

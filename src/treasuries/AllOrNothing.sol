@@ -11,6 +11,7 @@ import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
+import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
 
 /**
  * @title AllOrNothing
@@ -441,6 +442,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
+        if (permitData.signature.length == 0) {
+            revert AllOrNothingInvalidInput();
+        }
 
         // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
         // If not for a reward, amounts are already in token decimals
@@ -483,12 +487,12 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         }
 
         IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
-            IPermit2.PermitTransferFrom({
-                permitted: IPermit2.TokenPermissions({token: pledgeToken, amount: totalAmount}),
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({token: pledgeToken, amount: totalAmount}),
                 nonce: permitData.nonce,
                 deadline: permitData.deadline
             }),
-            IPermit2.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
             backer,
             witness,
             witnessTypeString,
