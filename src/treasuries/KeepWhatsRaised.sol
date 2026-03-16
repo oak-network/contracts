@@ -12,8 +12,7 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
-import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 
 /**
  * @title KeepWhatsRaised

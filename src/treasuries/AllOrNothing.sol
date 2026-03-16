@@ -10,8 +10,7 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
-import {IPermit2, PermitData} from "../interfaces/IPermit2.sol";
-import {ISignatureTransfer} from "permit2/src/interfaces/ISignatureTransfer.sol";
+import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 
 /**
  * @title AllOrNothing

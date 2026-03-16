@@ -13,6 +13,7 @@ import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
 import {IPermit2, PermitData} from "src/interfaces/IPermit2.sol";
+import {MockPermit2} from "../mocks/MockPermit2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
@@ -87,9 +88,9 @@ abstract contract Base_Test is Test, Defaults {
 
         vm.startPrank(users.contractOwner);
 
-        // Deploy the real Uniswap Permit2 contract at the canonical address
-        // so that treasury contracts (which hardcode that address) use it.
-        deployCodeTo("Permit2.sol:Permit2", CANONICAL_PERMIT2_ADDRESS);
+        // Deploy our MockPermit2 (solc 0.8.22 compatible) at the canonical address
+        // so that treasury contracts (which use that address via GlobalParams) work in tests.
+        deployCodeTo("MockPermit2.sol:MockPermit2", CANONICAL_PERMIT2_ADDRESS);
 
         // Deploy multiple test tokens with different decimals
         usdtToken = new TestToken("Tether USD", "USDT", 6);

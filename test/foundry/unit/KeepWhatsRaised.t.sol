@@ -13,7 +13,7 @@ import {Defaults} from "../Base.t.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
-import {SignatureVerification} from "permit2/src/libraries/SignatureVerification.sol";
+import {MockPermit2} from "../../mocks/MockPermit2.sol";
 
 contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Test {
     // Test constants
@@ -585,7 +585,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
             block.timestamp + 1 hours
         );
 
-        vm.expectRevert(SignatureVerification.InvalidSigner.selector);
+        vm.expectRevert(MockPermit2.InvalidSigner.selector);
         keepWhatsRaised.pledgeWithoutAReward(
             keccak256("tamperedPledgeId"),
             users.backer1Address,

@@ -8,7 +8,7 @@ import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {PermitData} from "src/interfaces/IPermit2.sol";
-import {SignatureVerification} from "permit2/src/libraries/SignatureVerification.sol";
+import {MockPermit2} from "../../mocks/MockPermit2.sol";
 
 contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Test {
     // Helper function to create payment tokens array with same token for all payments
@@ -349,7 +349,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, amount, emptyLineItems, 77, block.timestamp + 1 hours
         );
 
-        vm.expectRevert(SignatureVerification.InvalidSigner.selector);
+        vm.expectRevert(MockPermit2.InvalidSigner.selector);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
