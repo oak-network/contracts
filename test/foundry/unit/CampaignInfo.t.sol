@@ -469,6 +469,76 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.stopPrank();
     }
 
+    function test_UpdateLaunchTime_RespectsCampaignLaunchBuffer_Reverts() public {
+        vm.startPrank(admin);
+        globalParams.addToRegistry(
+            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
+            bytes32(uint256(2 days))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        campaignInfo.updateLaunchTime(block.timestamp + 1 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateLaunchTime(block.timestamp + 1 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateDeadline_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateDeadline(block.timestamp + 30 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateGoalAmount_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateGoalAmount(2000 * 10 ** 18);
+        vm.stopPrank();
+    }
+
+    function test_DeployTreasury_AfterDeadline_Reverts() public {
+        _selectPlatform1();
+
+        vm.warp(campaignInfo.getDeadline());
+
+        vm.startPrank(admin);
+        vm.expectRevert(TreasuryFactory.TreasuryFactorySettingPlatformInfoFailed.selector);
+        treasuryFactory.deploy(platformHash1, address(campaignInfo), 1);
+        vm.stopPrank();
+
+        assertFalse(campaignInfo.isLocked());
+        assertFalse(campaignInfo.checkIfPlatformApproved(platformHash1));
+    }
+
+    function test_DeployTreasury_WhenCancelled_Reverts() public {
+        _selectPlatform1();
+
+        vm.prank(campaignOwner);
+        campaignInfo._cancelCampaign(keccak256("test cancel"));
+
+        vm.startPrank(admin);
+        vm.expectRevert(TreasuryFactory.TreasuryFactorySettingPlatformInfoFailed.selector);
+        treasuryFactory.deploy(platformHash1, address(campaignInfo), 1);
+        vm.stopPrank();
+
+        assertFalse(campaignInfo.isLocked());
+        assertFalse(campaignInfo.checkIfPlatformApproved(platformHash1));
+    }
+
     // ============ Transfer Ownership Tests ============
 
     function test_TransferOwnership_Success() public {
@@ -655,7 +725,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Deploy a treasury using the treasury factory - this will call _setPlatformInfo
         vm.startPrank(admin);
-        address treasury = treasuryFactory.deploy(
+        treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
             1 // implementationId
@@ -901,8 +971,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     }
 
     // Helper function to lock the campaign
-    function _lockCampaign() internal {
-        // First select a platform
+    function _selectPlatform1() internal {
         vm.startPrank(campaignOwner);
         bytes32[] memory dataKeys = new bytes32[](1);
         dataKeys[0] = platformDataKey1;
@@ -911,6 +980,10 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
+    }
+
+    function _lockCampaign() internal {
+        _selectPlatform1();
 
         // Then deploy a treasury (this locks the campaign)
         vm.startPrank(admin);
