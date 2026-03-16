@@ -93,6 +93,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
     bool private s_fundClaimed;
+    bool private s_configured;
     FeeKeys private s_feeKeys;
     Config private s_config;
     CampaignData private s_campaignData;
@@ -264,6 +265,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @dev Emitted when a configuration change is attempted during the lock period.
      */
     error KeepWhatsRaisedConfigLocked();
+    /**
+     * @dev Thrown when configureTreasury is called after the treasury has already been configured.
+     */
+    error KeepWhatsRaisedAlreadyConfigured();
 
     /**
      * @dev Emitted when a disbursement is attempted before the refund period has ended.
@@ -516,6 +521,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
+        if (s_configured) {
+            revert KeepWhatsRaisedAlreadyConfigured();
+        }
         if (campaignData.launchTime < block.timestamp || campaignData.deadline <= campaignData.launchTime) {
             revert KeepWhatsRaisedInvalidInput();
         }
@@ -523,6 +531,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedInvalidInput();
         }
 
+        s_configured = true;
         s_config = config;
         s_feeKeys = feeKeys;
         s_campaignData = campaignData;
