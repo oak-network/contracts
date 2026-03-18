@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
@@ -17,7 +16,7 @@ import {ICampaignData} from "../interfaces/ICampaignData.sol";
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, ReentrancyGuard {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
