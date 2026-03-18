@@ -97,10 +97,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     error AllOrNothingFeeNotDisbursed();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
-     */
-    error AllOrNothingFeeAlreadyDisbursed();
-    /**
      * @dev Emitted when a `Reward` already exists for given input.
      */
     error AllOrNothingRewardExists();
@@ -363,9 +359,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) whenNotPaused whenNotCancelled {
-        if (s_feesDisbursed) {
-            revert AllOrNothingFeeAlreadyDisbursed();
-        }
         super.disburseFees();
     }
 
