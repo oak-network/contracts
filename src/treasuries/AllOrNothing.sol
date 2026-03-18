@@ -78,8 +78,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "LENGTH_MISMATCH").
      */
-    error AllOrNothingInvalidInput(bytes32 reason);
+    error AllOrNothingInvalidInput(string reason);
 
     /**
      * @dev Emitted when a token transfer fails.
@@ -113,8 +114,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
+     * @param reason A string code describing why the refund is not claimable (e.g., "CAMPAIGN_SUCCESSFUL", "ZERO_AMOUNT").
      */
-    error AllOrNothingNotClaimable(uint256 tokenId, bytes32 reason);
+    error AllOrNothingNotClaimable(uint256 tokenId, string reason);
 
     /**
      * @dev Constructor for the AllOrNothing contract.
@@ -211,7 +213,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert AllOrNothingInvalidInput("LENGTH_MISMATCH");
+            revert AllOrNothingInvalidInput("REWARD_LENGTH_MISMATCH");
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -228,7 +230,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
                 (reward.itemId.length != reward.itemValue.length)
                     || (reward.itemId.length != reward.itemQuantity.length)
             ) {
-                revert AllOrNothingInvalidInput("ITEM_LENGTH_MISMATCH");
+                revert AllOrNothingInvalidInput("REWARD_ITEM_LENGTH_MISMATCH");
             }
 
             // Check for duplicate reward

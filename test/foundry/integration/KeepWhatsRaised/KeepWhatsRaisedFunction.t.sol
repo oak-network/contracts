@@ -558,7 +558,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         removeReward(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES[1]);
 
         // Verify reward is removed
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
         keepWhatsRaised.getReward(REWARD_NAMES[1]);
     }
 

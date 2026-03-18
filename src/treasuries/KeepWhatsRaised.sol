@@ -198,8 +198,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "INVALID_TIMING").
      */
-    error KeepWhatsRaisedInvalidInput(bytes32 reason);
+    error KeepWhatsRaisedInvalidInput(string reason);
 
     /**
      * @dev Emitted when a token is not accepted for the campaign.
@@ -252,8 +253,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /**
      * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
      * @param tokenId The ID of the token that was attempted to be claimed.
+     * @param reason A string code describing why the claim failed (e.g., "INVALID_REFUND_PERIOD", "ZERO_AMOUNT").
      */
-    error KeepWhatsRaisedNotClaimable(uint256 tokenId, bytes32 reason);
+    error KeepWhatsRaisedNotClaimable(uint256 tokenId, string reason);
 
     /**
      * @dev Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
@@ -520,7 +522,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedInvalidInput("INVALID_TIMING");
         }
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
-            revert KeepWhatsRaisedInvalidInput("LENGTH_MISMATCH");
+            revert KeepWhatsRaisedInvalidInput("FEE_LENGTH_MISMATCH");
         }
 
         s_config = config;
@@ -601,7 +603,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert KeepWhatsRaisedInvalidInput("LENGTH_MISMATCH");
+            revert KeepWhatsRaisedInvalidInput("REWARD_LENGTH_MISMATCH");
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -618,7 +620,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
                 (reward.itemId.length != reward.itemValue.length)
                     || (reward.itemId.length != reward.itemQuantity.length)
             ) {
-                revert KeepWhatsRaisedInvalidInput("ITEM_LENGTH_MISMATCH");
+                revert KeepWhatsRaisedInvalidInput("REWARD_ITEM_LENGTH_MISMATCH");
             }
 
             // Check for duplicate reward
