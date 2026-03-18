@@ -779,6 +779,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev Mints a pledge NFT to `buyerAddress` via `_safeMint`. Reverts if `buyerAddress` is
+     *      a contract that does not implement `IERC721Receiver`.
      */
     function processCryptoPayment(
         bytes32 paymentId,
@@ -1110,6 +1112,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev If `buyerAddress` is non-zero, mints a pledge NFT via `_safeMint`. Reverts if
+     *      `buyerAddress` is a contract that does not implement `IERC721Receiver`.
      */
     function confirmPayment(bytes32 paymentId, address buyerAddress)
         public
@@ -1158,6 +1162,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev For each non-zero `buyerAddress`, mints a pledge NFT via `_safeMint`. Reverts if
+     *      any such address is a contract that does not implement `IERC721Receiver`.
      */
     function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
         public

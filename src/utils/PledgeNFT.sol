@@ -115,7 +115,9 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
 
     /**
      * @notice Mints a pledge NFT (auto-increments counter)
-     * @dev Called by treasuries - returns the new token ID to use as pledge ID
+     * @dev Called by treasuries - returns the new token ID to use as pledge ID.
+     *      Uses `_safeMint`, so `backer` must be an EOA or a contract that implements
+     *      `IERC721Receiver`; otherwise the transaction will revert.
      * @param backer The backer address
      * @param reward The reward identifier
      * @param tokenAddress The address of the token used for the pledge
