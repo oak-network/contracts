@@ -82,11 +82,11 @@ contract ItemRegistry is IItem, Context {
         for (uint256 i = 0; i < itemIds.length; i++) {
             bytes32 itemId = itemIds[i];
 
-            if (s_itemExists[owner][itemId]) revert ItemRegistryItemAlreadyExists(itemId);
-
             for (uint256 j = 0; j < i; j++) {
                 if (itemIds[j] == itemId) revert ItemRegistryDuplicateItemId(itemId);
             }
+
+            if (s_itemExists[owner][itemId]) revert ItemRegistryItemAlreadyExists(itemId);
 
             Item calldata item = items[i];
             Items[owner][itemId] = item;
