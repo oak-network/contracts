@@ -394,6 +394,8 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
+    /// @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract
+    ///      that does not implement `IERC721Receiver`.
     function _pledge(
         address backer,
         address pledgeToken,

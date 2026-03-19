@@ -1156,6 +1156,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         return true;
     }
 
+    /// @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract
+    ///      that does not implement `IERC721Receiver`.
     function _pledge(
         bytes32 pledgeId,
         address backer,
