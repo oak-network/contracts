@@ -11,6 +11,7 @@ library TreasuryFactoryStorage {
     struct Storage {
         mapping(bytes32 => mapping(uint256 => address)) implementationMap;
         mapping(address => bool) approvedImplementations;
+        address campaignInfoFactory;
     }
 
     // keccak256(abi.encode(uint256(keccak256("oaknetwork.storage.TreasuryFactory")) - 1)) & ~bytes32(uint256(0xff))

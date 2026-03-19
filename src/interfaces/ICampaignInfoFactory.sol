@@ -56,4 +56,11 @@ interface ICampaignInfoFactory is ICampaignData {
      * @param newImplementation The address of the camapaignInfo implementation contract.
      */
     function updateImplementation(address newImplementation) external;
+
+    /**
+     * @notice Returns whether the given address is a CampaignInfo contract created by this factory.
+     * @param campaignInfo The address to check.
+     * @return True if the address was deployed through this factory, false otherwise.
+     */
+    function isValidCampaignInfo(address campaignInfo) external view returns (bool);
 }

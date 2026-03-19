@@ -14,8 +14,10 @@ contract UpgradeTreasuryFactory is Script {
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address proxyAddress = vm.envAddress("TREASURY_FACTORY_ADDRESS");
+        address campaignInfoFactoryAddress = vm.envAddress("CAMPAIGN_INFO_FACTORY_ADDRESS");
 
         require(proxyAddress != address(0), "Proxy address must be set");
+        require(campaignInfoFactoryAddress != address(0), "CAMPAIGN_INFO_FACTORY_ADDRESS must be set");
 
         vm.startBroadcast(deployerKey);
 
@@ -30,6 +32,10 @@ contract UpgradeTreasuryFactory is Script {
         console2.log("TreasuryFactory proxy upgraded successfully");
         console2.log("Proxy address:", proxyAddress);
         console2.log("New implementation address:", address(newImplementation));
+
+        // Wire in CampaignInfoFactory so the new validation guard does not brick deploy()
+        proxy.setCampaignInfoFactory(campaignInfoFactoryAddress);
+        console2.log("CampaignInfoFactory wired into TreasuryFactory:", campaignInfoFactoryAddress);
 
         vm.stopBroadcast();
     }
