@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
@@ -14,9 +13,9 @@ import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.s
 
 /**
  * @title AllOrNothing
- * @notice A contract for handling crowdfunding campaigns with rewards.
+ * @notice A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
  */
-contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
+contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -96,8 +95,22 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "LENGTH_MISMATCH").
      */
-    error AllOrNothingInvalidInput();
+    error AllOrNothingInvalidInput(string reason);
+
+    /// @dev Reverts when reward name is zero bytes.
+    error AllOrNothingZeroRewardName();
+    /// @dev Reverts when reward value is zero.
+    error AllOrNothingZeroRewardValue();
+    /// @dev Reverts when reward item arrays have mismatched lengths.
+    error AllOrNothingRewardItemArrayLengthMismatch();
+    /// @dev Reverts when backer address is zero.
+    error AllOrNothingZeroBacker();
+    /// @dev Reverts when reward selection length exceeds number of rewards.
+    error AllOrNothingRewardSelectionLengthMismatch();
+    /// @dev Reverts when first reward is not a reward tier.
+    error AllOrNothingFirstRewardNotTier();
 
     /**
      * @dev Emitted when a token transfer fails.
@@ -115,10 +128,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     error AllOrNothingFeeNotDisbursed();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
-     */
-    error AllOrNothingFeeAlreadyDisbursed();
-    /**
      * @dev Emitted when a `Reward` already exists for given input.
      */
     error AllOrNothingRewardExists();
@@ -131,16 +140,17 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
+     * @param reason A string code describing why the refund is not claimable (e.g., "CAMPAIGN_SUCCESSFUL", "ZERO_AMOUNT").
      */
-    error AllOrNothingNotClaimable(uint256 tokenId);
+    error AllOrNothingNotClaimable(uint256 tokenId, string reason);
 
     /**
      * @dev Constructor for the AllOrNothing contract.
      */
     constructor() {}
 
-    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
+    function initialize(bytes32 _platformHash, address _infoAddress) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress);
     }
 
     /**
@@ -150,65 +160,63 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         return s_reward[rewardName];
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() external view override returns (uint256) {
+    function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Lifetime total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view override returns (uint256) {
+    function getLifetimeRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenLifetimeRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view override returns (uint256) {
+    function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
-            uint256 currentAmount = s_tokenRaisedAmounts[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
@@ -229,25 +237,19 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_LENGTH_MISMATCH");
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
             bytes32 rewardName = rewardNames[i];
             Reward calldata reward = rewards[i];
 
-            // Reward name must not be zero bytes and reward value must be non-zero
-            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
-                revert AllOrNothingInvalidInput();
-            }
+            if (rewardName == ZERO_BYTES) revert AllOrNothingZeroRewardName();
+            if (reward.rewardValue == 0) revert AllOrNothingZeroRewardValue();
 
             // If there are any items, their arrays must match in length
-            if (
-                (reward.itemId.length != reward.itemValue.length)
-                    || (reward.itemId.length != reward.itemQuantity.length)
-            ) {
-                revert AllOrNothingInvalidInput();
-            }
+            if (reward.itemId.length != reward.itemValue.length) revert AllOrNothingRewardItemArrayLengthMismatch();
+            if (reward.itemId.length != reward.itemQuantity.length) revert AllOrNothingRewardItemArrayLengthMismatch();
 
             // Check for duplicate reward
             if (s_reward[rewardName].rewardValue != 0) {
@@ -267,13 +269,14 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
+        currentTimeIsLess(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -308,20 +311,18 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     {
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
-        if (
-            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
-                || !tempReward.isRewardTier
-        ) {
-            revert AllOrNothingInvalidInput();
-        }
+        if (backer == address(0)) revert AllOrNothingZeroBacker();
+        if (rewardLen > s_rewardCounter.current()) revert AllOrNothingRewardSelectionLengthMismatch();
+        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
+        if (!tempReward.isRewardTier) revert AllOrNothingFirstRewardNotTier();
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("ZERO_REWARD_NAME");
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
-                revert AllOrNothingInvalidInput();
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
+                revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
             }
             pledgeAmount += tempReward.rewardValue;
         }
@@ -367,7 +368,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         whenNotPaused
     {
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "CAMPAIGN_SUCCESSFUL");
         }
 
         // Get NFT owner before burning
@@ -378,7 +379,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
 
         if (amountToRefund == 0) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "ZERO_AMOUNT");
         }
 
         s_tokenToTotalCollectedAmount[tokenId] = 0;
@@ -397,9 +398,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) whenNotPaused whenNotCancelled {
-        if (s_feesDisbursed) {
-            revert AllOrNothingFeeAlreadyDisbursed();
-        }
         super.disburseFees();
     }
 
@@ -428,6 +426,16 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param shippingFee Shipping fee in the token's native decimals (must be denormalized by caller; use 0 for non-reward).
+     * @param rewards Full reward selection (for event).
+     */
     function _pledge(
         address backer,
         address pledgeToken,
@@ -437,49 +445,39 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         bytes32[] memory rewards,
         PermitData calldata permitData
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
+        if (backer == address(this)) {
+            revert AllOrNothingInvalidInput("INVALID_BACKER");
+        }
         if (permitData.signature.length == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("EMPTY_SIGNATURE");
         }
 
-        // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
-        // If not for a reward, amounts are already in token decimals
         uint256 pledgeAmountInTokenDecimals;
         uint256 shippingFeeInTokenDecimals;
 
         if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
             pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
             shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
         } else {
-            // Non-reward pledge: already in token decimals
             pledgeAmountInTokenDecimals = pledgeAmount;
             shippingFeeInTokenDecimals = shippingFee;
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
 
-        // Build the Permit2 witness that binds all pledge parameters to the
-        // backer's signature.  Any third party attempting to:
-        //   - redirect tokens from a different backer address,
-        //   - swap reward tiers to avoid a pledge-with-reward check, or
-        //   - alter the shipping fee
-        // will produce a signature mismatch, preventing exploitation.
         bytes32 witness;
         string memory witnessTypeString;
 
         if (reward != ZERO_BYTES) {
-            // For reward pledges, bind backer, the full rewards array hash, and shippingFee
             bytes32 rewardsHash = keccak256(abi.encodePacked(rewards));
             witness = keccak256(
                 abi.encode(AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, backer, rewardsHash, shippingFee)
             );
             witnessTypeString = AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING;
         } else {
-            // For no-reward pledges, bind backer and pledgeAmount
             witness =
                 keccak256(abi.encode(AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH, backer, pledgeAmountInTokenDecimals));
             witnessTypeString = AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING;

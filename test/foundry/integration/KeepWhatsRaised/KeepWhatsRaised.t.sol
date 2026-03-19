@@ -31,6 +31,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
     KeepWhatsRaised internal keepWhatsRaised;
 
     uint256 pledgeForARewardTokenId;
+    uint256 private _resetCounter;
 
     /// @dev Initial dependent functions setup included for KeepWhatsRaised Integration Tests.
     function setUp() public virtual override {
@@ -575,5 +576,41 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         }
 
         return amount * (10 ** (decimals - 18));
+    }
+
+    /**
+     * @notice Deploys a fresh campaign and unconfigured KeepWhatsRaised treasury,
+     *         reassigning campaignAddress, treasuryAddress, and keepWhatsRaised.
+     *         Use this in tests that need to call configureTreasury for the first time.
+     */
+    function _resetTreasury() internal {
+        _resetCounter++;
+        bytes32 newIdentifierHash = keccak256(abi.encodePacked("resetTreasury", _resetCounter));
+        bytes32[] memory selectedPlatformHash = new bytes32[](1);
+        selectedPlatformHash[0] = PLATFORM_2_HASH;
+        bytes32[] memory emptyArray = new bytes32[](0);
+
+        vm.prank(users.creator1Address);
+        campaignInfoFactory.createCampaign(
+            users.creator1Address,
+            newIdentifierHash,
+            selectedPlatformHash,
+            emptyArray,
+            emptyArray,
+            CAMPAIGN_DATA,
+            "Fresh Treasury NFT",
+            "FRESH",
+            "ipfs://QmFresh",
+            "ipfs://QmFreshContract"
+        );
+
+        address newCampaignAddress = campaignInfoFactory.identifierToCampaignInfo(newIdentifierHash);
+
+        vm.prank(users.platform2AdminAddress);
+        address newTreasury = treasuryFactory.deploy(PLATFORM_2_HASH, newCampaignAddress, 1);
+
+        campaignAddress = newCampaignAddress;
+        treasuryAddress = newTreasury;
+        keepWhatsRaised = KeepWhatsRaised(newTreasury);
     }
 }

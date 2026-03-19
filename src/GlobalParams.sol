@@ -22,6 +22,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /// @dev The canonical Permit2 deployment address (same on all EVM chains).
     address private constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
+    /// @dev 100% in basis points; fee percentages must not exceed this and their sum must be below it.
+    uint256 private constant PERCENT_DIVIDER = 10000;
+
     /**
      * @dev Emitted when a platform is enlisted.
      * @param platformHash The identifier of the enlisted platform.
@@ -202,6 +205,16 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typeId);
 
     /**
+     * @dev Throws when a fee percentage exceeds the maximum allowed (PERCENT_DIVIDER / 100%).
+     */
+    error GlobalParamsFeePercentExceedsMax();
+
+    /**
+     * @dev Throws when the sum of protocol and platform fee percentages would exceed 100%.
+     */
+    error GlobalParamsCombinedFeesExceedMax();
+
+    /**
      * @dev Reverts if the input address is zero.
      */
     modifier notAddressZero(address account) {
@@ -249,6 +262,10 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         __Ownable_init(protocolAdminAddress);
         __UUPSUpgradeable_init();
 
+        if (protocolFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
+
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolAdminAddress = protocolAdminAddress;
         $.protocolFeePercent = protocolFeePercent;
@@ -259,19 +276,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
             revert GlobalParamsCurrencyTokenLengthMismatch();
         }
 
-        for (uint256 i = 0; i < currencyLength;) {
-            for (uint256 j = 0; j < tokensPerCurrency[i].length;) {
+        for (uint256 i = 0; i < currencyLength; i++) {
+            for (uint256 j = 0; j < tokensPerCurrency[i].length; j++) {
                 address token = tokensPerCurrency[i][j];
                 if (token == address(0)) {
                     revert GlobalParamsInvalidInput();
                 }
                 $.currencyToTokens[currencies[i]].push(token);
-                unchecked {
-                    ++j;
-                }
-            }
-            unchecked {
-                ++i;
             }
         }
     }
@@ -423,7 +434,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
+        if (platformFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if ($.protocolFeePercent + platformFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsCombinedFeesExceedMax();
+        }
         if ($.platformIsListed[platformHash]) {
             revert GlobalParamsPlatformAlreadyListed(platformHash);
         } else {
@@ -448,6 +465,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         $.platformIsListed[platformHash] = false;
         $.platformAdminAddress[platformHash] = address(0);
         $.platformFeePercent[platformHash] = 0;
+        $.platformAdapter[platformHash] = address(0);
         $.numberOfListedPlatforms.decrement();
         emit PlatformDelisted(platformHash);
     }
@@ -491,6 +509,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         if (!$.platformData[platformDataKey]) {
             revert GlobalParamsPlatformDataNotSet();
         }
+        if ($.platformDataOwner[platformDataKey] != platformHash) {
+            revert GlobalParamsUnauthorized();
+        }
         $.platformData[platformDataKey] = false;
         $.platformDataOwner[platformDataKey] = ZERO_BYTES;
         emit PlatformDataRemoved(platformHash, platformDataKey);
@@ -514,6 +535,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @inheritdoc IGlobalParams
      */
     function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyOwner {
+        if (protocolFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolFeePercent = protocolFeePercent;
         emit ProtocolFeePercentUpdated(protocolFeePercent);
@@ -602,15 +626,12 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         uint256 length = tokens.length;
         bool found = false;
 
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; i++) {
             if (tokens[i] == token) {
                 tokens[i] = tokens[length - 1];
                 tokens.pop();
                 found = true;
                 break;
-            }
-            unchecked {
-                ++i;
             }
         }
 

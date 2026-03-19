@@ -22,6 +22,15 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
      */
     error CampaignInfoFactoryInvalidInput();
 
+    /// @dev Reverts when initialOwner is the zero address.
+    error CampaignInfoFactoryZeroInitialOwner();
+    /// @dev Reverts when globalParams is the zero address.
+    error CampaignInfoFactoryZeroGlobalParams();
+    /// @dev Reverts when campaignImplementation is the zero address.
+    error CampaignInfoFactoryZeroCampaignImplementation();
+    /// @dev Reverts when treasuryFactoryAddress is the zero address.
+    error CampaignInfoFactoryZeroTreasuryFactoryAddress();
+
     /**
      * @dev Emitted when campaign creation fails.
      */
@@ -54,12 +63,10 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         address campaignImplementation,
         address treasuryFactoryAddress
     ) public initializer {
-        if (
-            address(globalParams) == address(0) || campaignImplementation == address(0)
-                || treasuryFactoryAddress == address(0) || initialOwner == address(0)
-        ) {
-            revert CampaignInfoFactoryInvalidInput();
-        }
+        if (initialOwner == address(0)) revert CampaignInfoFactoryZeroInitialOwner();
+        if (address(globalParams) == address(0)) revert CampaignInfoFactoryZeroGlobalParams();
+        if (campaignImplementation == address(0)) revert CampaignInfoFactoryZeroCampaignImplementation();
+        if (treasuryFactoryAddress == address(0)) revert CampaignInfoFactoryZeroTreasuryFactoryAddress();
 
         __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
@@ -195,6 +202,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         }
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         $.implementation = newImplementation;
+        emit CampaignInfoFactoryImplementationUpdated(newImplementation);
     }
 
     /**

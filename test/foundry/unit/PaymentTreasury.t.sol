@@ -292,7 +292,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Pause the campaign
         CampaignInfo actualCampaignInfo = CampaignInfo(campaignAddress);
         vm.prank(users.protocolAdminAddress);
-        actualCampaignInfo._pauseCampaign(keccak256("Pause"));
+        actualCampaignInfo.pauseCampaign(keccak256("Pause"));
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -399,10 +399,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
 
     function testProcessCryptoPaymentRevertWhenZeroBuyerAddress() public {
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        // Build dummy permit data (won't be reached due to input validation)
         PermitData memory permitData = PermitData({nonce: 0, deadline: block.timestamp + 1 hours, signature: new bytes(65)});
 
-        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryInvalidInput.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryZeroBuyerAddress.selector);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -418,10 +417,9 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
 
     function testProcessCryptoPaymentRevertWhenZeroAmount() public {
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        // Build dummy permit data (won't be reached due to input validation)
         PermitData memory permitData = PermitData({nonce: 0, deadline: block.timestamp + 1 hours, signature: new bytes(65)});
 
-        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryInvalidInput.selector);
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryZeroAmount.selector);
         vm.prank(users.platform1AdminAddress);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
