@@ -171,8 +171,9 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @dev Reverts when one or more provided inputs to the payment treasury are invalid.
+     * @param reason A string code describing the specific validation failure.
      */
-    error PaymentTreasuryInvalidInput();
+    error PaymentTreasuryInvalidInput(string reason);
 
     /**
      * @dev Throws an error indicating that the payment id already exists.
@@ -222,8 +223,9 @@ abstract contract BasePaymentTreasury is
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param paymentId The unique identifier of the refundable payment.
+     * @param reason A string code describing why the refund is not claimable.
      */
-    error PaymentTreasuryPaymentNotClaimable(bytes32 paymentId);
+    error PaymentTreasuryPaymentNotClaimable(bytes32 paymentId, string reason);
 
     /**
      * @dev Emitted when an attempt is made to withdraw funds from the treasury but the payment has already been withdrawn.
@@ -546,7 +548,7 @@ abstract contract BasePaymentTreasury is
 
             // Validate line item
             if (item.typeId == ZERO_BYTES || item.amount == 0) {
-                revert PaymentTreasuryInvalidInput();
+                revert PaymentTreasuryInvalidInput("INVALID_LINE_ITEM");
             }
 
             // Get line item type configuration (single call per item)
@@ -560,7 +562,7 @@ abstract contract BasePaymentTreasury is
             ) = INFO.getLineItemType(PLATFORM_HASH, item.typeId);
 
             if (!exists) {
-                revert PaymentTreasuryInvalidInput();
+                revert PaymentTreasuryInvalidInput("LINE_ITEM_TYPE_NOT_FOUND");
             }
 
             // Store line item with configuration snapshot
@@ -602,7 +604,7 @@ abstract contract BasePaymentTreasury is
             buyerId == ZERO_BYTES || amount == 0 || expiration <= block.timestamp || paymentId == ZERO_BYTES
                 || itemId == ZERO_BYTES || paymentToken == address(0)
         ) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("INVALID_PAYMENT_PARAMS");
         }
 
         // Validate expiration does not exceed maximum allowed expiration time (platform-specific or global)
@@ -684,7 +686,7 @@ abstract contract BasePaymentTreasury is
                 || length != amounts.length || length != expirations.length || length != lineItemsArray.length
                 || length != externalFeesArray.length
         ) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("BATCH_LENGTH_MISMATCH");
         }
 
         // Get max expiration duration once outside the loop for efficiency (platform-specific or global)
@@ -709,7 +711,7 @@ abstract contract BasePaymentTreasury is
                 buyerId == ZERO_BYTES || amount == 0 || expiration <= block.timestamp || paymentId == ZERO_BYTES
                     || itemId == ZERO_BYTES || paymentToken == address(0)
             ) {
-                revert PaymentTreasuryInvalidInput();
+                revert PaymentTreasuryInvalidInput("INVALID_PAYMENT_PARAMS");
             }
 
             // Validate expiration does not exceed maximum allowed expiration time
@@ -793,7 +795,7 @@ abstract contract BasePaymentTreasury is
             buyerAddress == address(0) || amount == 0 || paymentId == ZERO_BYTES || itemId == ZERO_BYTES
                 || paymentToken == address(0)
         ) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("INVALID_PAYMENT_PARAMS");
         }
 
         // Validate token is accepted
@@ -837,7 +839,7 @@ abstract contract BasePaymentTreasury is
 
             // Validate line item
             if (item.typeId == ZERO_BYTES || item.amount == 0) {
-                revert PaymentTreasuryInvalidInput();
+                revert PaymentTreasuryInvalidInput("INVALID_LINE_ITEM");
             }
 
             // Get line item type configuration (single call per item)
@@ -851,7 +853,7 @@ abstract contract BasePaymentTreasury is
             ) = INFO.getLineItemType(PLATFORM_HASH, item.typeId);
 
             if (!exists) {
-                revert PaymentTreasuryInvalidInput();
+                revert PaymentTreasuryInvalidInput("LINE_ITEM_TYPE_NOT_FOUND");
             }
 
             // Accumulate total amount
@@ -1170,7 +1172,7 @@ abstract contract BasePaymentTreasury is
     {
         // Validate array lengths must match
         if (buyerAddresses.length != paymentIds.length) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("CONFIRM_BATCH_LENGTH_MISMATCH");
         }
 
         bytes32 currentPaymentId;
@@ -1235,7 +1237,7 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotCancelled
     {
         if (refundAddress == address(0)) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("ZERO_REFUND_ADDRESS");
         }
         bytes32 internalPaymentId = _scopePaymentIdForOffChain(paymentId);
         PaymentInfo memory payment = s_payment[internalPaymentId];
@@ -1250,8 +1252,11 @@ abstract contract BasePaymentTreasury is
         if (!payment.isConfirmed) {
             revert PaymentTreasuryPaymentNotConfirmed(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+        if (amountToRefund == 0) {
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "ZERO_AMOUNT");
+        }
+        if (availablePaymentAmount < amountToRefund) {
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_LIQUIDITY");
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
@@ -1304,7 +1309,7 @@ abstract contract BasePaymentTreasury is
 
         // For goal line items and base payment, check availableConfirmedPerToken
         if (availablePaymentAmount < (amountToRefund + totalGoalLineItemRefundAmount)) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "INSUFFICIENT_GOAL_LIQUIDITY");
         }
 
         // For non-goal line items, check that we have enough claimable balance
@@ -1312,14 +1317,14 @@ abstract contract BasePaymentTreasury is
         if (totalNonGoalLineItemRefundAmount > 0) {
             uint256 availableRefundable = s_refundableNonGoalLineItemPerToken[paymentToken];
             if (availableRefundable < totalNonGoalLineItemRefundAmount) {
-                revert PaymentTreasuryPaymentNotClaimable(paymentId);
+                revert PaymentTreasuryPaymentNotClaimable(paymentId, "INSUFFICIENT_NON_GOAL_LIQUIDITY");
             }
         }
 
         // Check that contract has enough actual balance to perform the transfer
         uint256 contractBalance = IERC20(paymentToken).balanceOf(address(this));
         if (contractBalance < totalRefundAmount) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "INSUFFICIENT_CONTRACT_BALANCE");
         }
 
         // Update state: remove tracking for refundable line items using snapshots
@@ -1392,12 +1397,15 @@ abstract contract BasePaymentTreasury is
         if (buyerAddress == address(0)) {
             revert PaymentTreasuryPaymentNotExist(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+        if (amountToRefund == 0) {
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "ZERO_AMOUNT");
+        }
+        if (availablePaymentAmount < amountToRefund) {
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_LIQUIDITY");
         }
         // NFT must exist for crypto payments
         if (tokenId == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "NOT_NFT_PAYMENT");
         }
 
         // Get NFT owner before burning
@@ -1449,7 +1457,7 @@ abstract contract BasePaymentTreasury is
 
         // For goal line items and base payment, check availableConfirmedPerToken
         if (availablePaymentAmount < (amountToRefund + totalGoalLineItemRefundAmount)) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_GOAL_LIQUIDITY");
         }
 
         // For non-goal line items, check that we have enough claimable balance
@@ -1457,14 +1465,14 @@ abstract contract BasePaymentTreasury is
         if (totalNonGoalLineItemRefundAmount > 0) {
             uint256 availableRefundable = s_refundableNonGoalLineItemPerToken[paymentToken];
             if (availableRefundable < totalNonGoalLineItemRefundAmount) {
-                revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+                revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_NON_GOAL_LIQUIDITY");
             }
         }
 
         // Check that contract has enough actual balance to perform the transfer
         uint256 contractBalance = IERC20(paymentToken).balanceOf(address(this));
         if (contractBalance < totalRefundAmount) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
+            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_CONTRACT_BALANCE");
         }
 
         // Update state: remove tracking for refundable line items using snapshots
@@ -1568,7 +1576,7 @@ abstract contract BasePaymentTreasury is
 
         uint256 claimableAmount = s_nonGoalLineItemClaimablePerToken[token];
         if (claimableAmount == 0) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("ZERO_CLAIMABLE_AMOUNT");
         }
 
         s_nonGoalLineItemClaimablePerToken[token] = 0;
