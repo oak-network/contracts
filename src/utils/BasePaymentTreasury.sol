@@ -1290,17 +1290,20 @@ abstract contract BasePaymentTreasury is
         uint256 tokenId = s_paymentIdToNFTId[internalPaymentId];
 
         if (payment.buyerId == ZERO_BYTES) {
-            revert PaymentTreasuryPaymentNotExist(internalPaymentId);
+            revert PaymentTreasuryPaymentNotExist(paymentId);
         }
         if (!payment.isConfirmed) {
-            revert PaymentTreasuryPaymentNotConfirmed(internalPaymentId);
+            revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
         if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "ZERO_AMOUNT");
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
-            revert PaymentTreasuryCryptoPayment(internalPaymentId);
+            revert PaymentTreasuryCryptoPayment(paymentId);
+        }
+        if (availablePaymentAmount < amountToRefund) {
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "INSUFFICIENT_LIQUIDITY");
         }
 
         // Use snapshots of line item type configuration from payment creation time
