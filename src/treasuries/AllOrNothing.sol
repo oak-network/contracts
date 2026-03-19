@@ -417,9 +417,8 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
             shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
         } else {
-            // Non-reward pledge: already in token decimals
+            // Non-reward pledge: already in token decimals; shippingFee is always 0 (from pledgeWithoutAReward)
             pledgeAmountInTokenDecimals = pledgeAmount;
-            shippingFeeInTokenDecimals = shippingFee;
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
