@@ -693,8 +693,8 @@ contract CampaignInfo is
         s_approvedPlatformHashes.push(platformHash);
         s_isApprovedPlatform[platformHash] = true;
 
-        // Grant MINTER_ROLE to allow treasury to mint pledge NFTs
-        _grantRole(MINTER_ROLE, platformTreasuryAddress);
+        // Grant TREASURY_ROLE to allow treasury to mint and burn pledge NFTs
+        _grantRole(TREASURY_ROLE, platformTreasuryAddress);
         // Lock the campaign after the first treasury deployment
         if (!s_isLocked) {
             s_isLocked = true;

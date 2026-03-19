@@ -18,7 +18,8 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
     using Strings for address;
     using Counters for Counters.Counter;
 
-    bytes32 public constant MINTER_ROLE = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6;
+    /// @dev keccak256(bytes("TREASURY_ROLE"))
+    bytes32 public constant TREASURY_ROLE = 0xe1dcbdb91df27212a29bc27177c840cf2f819ecf2187432e1fac86c2dd5dfca9;
 
     /**
      * @dev Struct to store pledge data for each token
@@ -133,7 +134,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
         uint256 amount,
         uint256 shippingFee,
         uint256 tipAmount
-    ) public virtual onlyRole(MINTER_ROLE) returns (uint256 tokenId) {
+    ) public virtual onlyRole(TREASURY_ROLE) returns (uint256 tokenId) {
         // Increment counter and get new token ID
         s_tokenIdCounter.increment();
         tokenId = s_tokenIdCounter.current();
@@ -161,7 +162,7 @@ abstract contract PledgeNFT is ERC721Burnable, AccessControl {
      * @notice Burns a pledge NFT
      * @param tokenId The token ID to burn
      */
-    function burn(uint256 tokenId) public virtual override {
+    function burn(uint256 tokenId) public virtual override onlyRole(TREASURY_ROLE) {
         delete s_pledgeData[tokenId];
         super.burn(tokenId);
     }
