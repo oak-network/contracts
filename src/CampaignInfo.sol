@@ -497,7 +497,7 @@ contract CampaignInfo is
 
         // Ensure launch time is not in the past and deadline still meets minimum duration requirement
         // Allow moving launch time closer to current time as long as minimum duration is maintained
-        if (launchTime < block.timestamp || deadline <= launchTime || deadline < launchTime + minimumCampaignDuration) {
+        if (launchTime < block.timestamp || deadline < launchTime + minimumCampaignDuration) {
             revert CampaignInfoInvalidInput();
         }
 
@@ -520,7 +520,7 @@ contract CampaignInfo is
         uint256 minimumCampaignDuration =
             uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
 
-        if (deadline <= launchTime || deadline < launchTime + minimumCampaignDuration) {
+        if (deadline < launchTime + minimumCampaignDuration) {
             revert CampaignInfoInvalidInput();
         }
 
