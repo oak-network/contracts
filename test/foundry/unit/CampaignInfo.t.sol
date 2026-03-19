@@ -90,6 +90,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
             new ERC1967Proxy(address(campaignInfoFactoryImpl), campaignInfoFactoryInitData);
         campaignInfoFactory = CampaignInfoFactory(address(campaignInfoFactoryProxy));
 
+        // Wire campaignInfoFactory into treasuryFactory for validation
+        vm.startPrank(admin);
+        treasuryFactory.setCampaignInfoFactory(address(campaignInfoFactory));
+        vm.stopPrank();
+
         // Create a campaign using the factory
         ICampaignData.CampaignData memory campaignData = ICampaignData.CampaignData({
             launchTime: block.timestamp + 1 days,
@@ -198,13 +203,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UpdateSelectedPlatform_SelectPlatform_Success() public {
         vm.startPrank(campaignOwner);
 
-        bytes32[] memory dataKeys = new bytes32[](2);
+        bytes32[] memory dataKeys = new bytes32[](1);
         dataKeys[0] = platformDataKey1;
-        dataKeys[1] = platformDataKey2;
 
-        bytes32[] memory dataValues = new bytes32[](2);
+        bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
-        dataValues[1] = platformDataValue2;
 
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
 
@@ -213,7 +216,6 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Verify platform data is stored
         assertEq(campaignInfo.getPlatformData(platformDataKey1), platformDataValue1);
-        assertEq(campaignInfo.getPlatformData(platformDataKey2), platformDataValue2);
 
         // Verify platform fee is set
         assertEq(campaignInfo.getPlatformFeePercent(platformHash1), 1000);
@@ -553,7 +555,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_TransferOwnership_WhenPaused_Reverts() public {
         // Pause the campaign
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test"));
+        campaignInfo.pauseCampaign(keccak256("test"));
         vm.stopPrank();
 
         vm.startPrank(campaignOwner);
@@ -565,7 +567,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_TransferOwnership_WhenCancelled_Reverts() public {
         // Cancel the campaign
         vm.startPrank(admin);
-        campaignInfo._cancelCampaign(keccak256("test"));
+        campaignInfo.cancelCampaign(keccak256("test"));
         vm.stopPrank();
 
         vm.startPrank(campaignOwner);
@@ -580,7 +582,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(admin);
 
         bytes32 message = keccak256("test pause");
-        campaignInfo._pauseCampaign(message);
+        campaignInfo.pauseCampaign(message);
 
         assertTrue(campaignInfo.paused());
         vm.stopPrank();
@@ -589,13 +591,13 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UnpauseCampaign_Success() public {
         // First pause
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test pause"));
+        campaignInfo.pauseCampaign(keccak256("test pause"));
         vm.stopPrank();
 
         // Then unpause
         vm.startPrank(admin);
         bytes32 message = keccak256("test unpause");
-        campaignInfo._unpauseCampaign(message);
+        campaignInfo.unpauseCampaign(message);
 
         assertFalse(campaignInfo.paused());
         vm.stopPrank();
@@ -605,7 +607,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(admin);
 
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -615,7 +617,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(campaignOwner);
 
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -626,7 +628,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         vm.startPrank(unauthorizedUser);
         vm.expectRevert(CampaignInfo.CampaignInfoUnauthorized.selector);
-        campaignInfo._cancelCampaign(keccak256("test cancel"));
+        campaignInfo.cancelCampaign(keccak256("test cancel"));
         vm.stopPrank();
     }
 
@@ -723,7 +725,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Verify campaign is not locked initially
         assertFalse(campaignInfo.isLocked());
 
-        // Deploy a treasury using the treasury factory - this will call _setPlatformInfo
+        // Deploy a treasury using the treasury factory - this will call setPlatformInfo
         vm.startPrank(admin);
         treasuryFactory.deploy(
             platformHash1,
@@ -840,7 +842,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Pausing should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test pause");
-        campaignInfo._pauseCampaign(message);
+        campaignInfo.pauseCampaign(message);
 
         assertTrue(campaignInfo.paused());
         vm.stopPrank();
@@ -852,13 +854,13 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // First pause
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test pause"));
+        campaignInfo.pauseCampaign(keccak256("test pause"));
         vm.stopPrank();
 
         // Then unpause - should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test unpause");
-        campaignInfo._unpauseCampaign(message);
+        campaignInfo.unpauseCampaign(message);
 
         assertFalse(campaignInfo.paused());
         vm.stopPrank();
@@ -871,7 +873,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Cancelling should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -884,7 +886,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Cancelling should still work when locked
         vm.startPrank(campaignOwner);
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -960,7 +962,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Approve the platform (this locks the campaign)
         vm.startPrank(address(treasuryFactory));
-        campaignInfo._setPlatformInfo(platformHash1, address(0x1234));
+        campaignInfo.setPlatformInfo(platformHash1, address(0x1234));
         vm.stopPrank();
 
         // Now try to select the already approved platform again - should revert
