@@ -497,17 +497,22 @@ contract CampaignInfo is
         external
         override
         onlyOwner
+        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
         whenNotLocked
     {
         uint256 deadline = getDeadline();
+        uint256 campaignLaunchBuffer =
+            uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER));
         uint256 minimumCampaignDuration =
             uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
 
-        // Ensure launch time is not in the past and deadline still meets minimum duration requirement
-        // Allow moving launch time closer to current time as long as minimum duration is maintained
-        if (launchTime < block.timestamp || deadline < launchTime + minimumCampaignDuration) {
+        // Keep launch-time updates aligned with the same creation-time buffer and duration checks.
+        if (
+            launchTime < block.timestamp + campaignLaunchBuffer || deadline <= launchTime
+                || deadline < launchTime + minimumCampaignDuration
+        ) {
             revert CampaignInfoInvalidInput();
         }
 
@@ -522,6 +527,7 @@ contract CampaignInfo is
         external
         override
         onlyOwner
+        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
         whenNotLocked
@@ -545,6 +551,7 @@ contract CampaignInfo is
         external
         override
         onlyOwner
+        currentTimeIsLess(getLaunchTime())
         whenNotPaused
         whenNotCancelled
         whenNotLocked
