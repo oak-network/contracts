@@ -1057,7 +1057,7 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotCancelled
     {
         bytes32 internalPaymentId = _getInternalPaymentIdForOffChain(paymentId);
-        _validatePaymentForAction(internalPaymentId);
+        _validatePaymentForAction(internalPaymentId, paymentId);
 
         address paymentToken = s_paymentIdToToken[internalPaymentId];
         uint256 amount = s_payment[internalPaymentId].amount;
@@ -1210,7 +1210,7 @@ abstract contract BasePaymentTreasury is
         whenCampaignNotCancelled
     {
         bytes32 internalPaymentId = _getInternalPaymentIdForOffChain(paymentId);
-        _validatePaymentForAction(internalPaymentId);
+        _validatePaymentForAction(internalPaymentId, paymentId);
 
         address paymentToken = s_paymentIdToToken[internalPaymentId];
         uint256 paymentAmount = s_payment[internalPaymentId].amount;
@@ -1278,7 +1278,7 @@ abstract contract BasePaymentTreasury is
             currentPaymentId = paymentIds[i];
             bytes32 internalPaymentId = _getInternalPaymentIdForOffChain(currentPaymentId);
 
-            _validatePaymentForAction(internalPaymentId);
+            _validatePaymentForAction(internalPaymentId, currentPaymentId);
 
             currentToken = s_paymentIdToToken[internalPaymentId];
             uint256 amount = s_payment[internalPaymentId].amount;
@@ -1342,7 +1342,7 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
         if (amountToRefund == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "ZERO_AMOUNT");
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "ZERO_AMOUNT");
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
@@ -1378,21 +1378,21 @@ abstract contract BasePaymentTreasury is
         uint256 tokenId = s_paymentIdToNFTId[internalPaymentId];
 
         if (buyerAddress == address(0)) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "ZERO_ADDRESS");
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "ZERO_ADDRESS");
         }
         if (amountToRefund == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "INSUFFICIENT_LIQUIDITY");
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "INSUFFICIENT_LIQUIDITY");
         }
         // NFT must exist for crypto payments
         if (tokenId == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(internalPaymentId, "NOT_NFT_PAYMENT");
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, "NOT_NFT_PAYMENT");
         }
 
         // Get NFT owner before burning
         address nftOwner = INFO.ownerOf(tokenId);
 
         uint256 totalRefundAmount = _executeRefund(
-            internalPaymentId, paymentToken, amountToRefund, availablePaymentAmount, internalPaymentId
+            internalPaymentId, paymentToken, amountToRefund, availablePaymentAmount, paymentId
         );
 
         delete s_paymentIdToCreator[paymentId];
@@ -1773,10 +1773,11 @@ abstract contract BasePaymentTreasury is
      * - The payment has already been confirmed.
      * - The payment has already expired.
      * - The payment is a crypto payment
-     * @param paymentId The unique identifier of the payment to validate.
+     * @param internalPaymentId The scoped internal payment ID used for storage lookup.
+     * @param paymentId The external payment ID used in revert messages for caller clarity.
      */
-    function _validatePaymentForAction(bytes32 paymentId) internal view {
-        PaymentInfo memory payment = s_payment[paymentId];
+    function _validatePaymentForAction(bytes32 internalPaymentId, bytes32 paymentId) internal view {
+        PaymentInfo memory payment = s_payment[internalPaymentId];
 
         if (payment.buyerId == ZERO_BYTES) {
             revert PaymentTreasuryPaymentNotExist(paymentId);
