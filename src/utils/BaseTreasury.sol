@@ -82,11 +82,15 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      * @dev Throws an error indicating that the campaign is paused.
      */
     error TreasuryCampaignInfoIsPaused();
-
+    
     /**
      * @dev Throws when the forwarder appends address(0) as the sender.
      */
     error TreasuryInvalidSender();
+    
+    constructor() {
+        _disableInitializers();
+    }
 
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
         __CampaignAccessChecker_init(infoAddress);

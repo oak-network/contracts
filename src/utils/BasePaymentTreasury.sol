@@ -289,6 +289,10 @@ abstract contract BasePaymentTreasury is
      */
     error PaymentTreasuryNoFundsToClaim();
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
      * @dev Throws when the forwarder appends address(0) as the sender.
      */
