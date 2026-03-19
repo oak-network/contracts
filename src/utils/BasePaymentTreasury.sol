@@ -1261,12 +1261,15 @@ abstract contract BasePaymentTreasury is
         if (!payment.isConfirmed) {
             revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+        if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
             revert PaymentTreasuryCryptoPayment(paymentId);
+        }
+        if (availablePaymentAmount < amountToRefund) {
+            revert PaymentTreasuryPaymentNotClaimable(paymentId);
         }
 
         // Use snapshots of line item type configuration from payment creation time
