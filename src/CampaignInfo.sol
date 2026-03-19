@@ -695,7 +695,12 @@ contract CampaignInfo is
      * @param platformHash The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
-    function setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused {
+    function setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress)
+        external
+        whenNotPaused
+        whenNotCancelled
+        currentTimeIsLess(getDeadline())
+    {
         Config memory config = getCampaignConfig();
         if (_msgSender() != config.treasuryFactory) {
             revert CampaignInfoUnauthorized();
