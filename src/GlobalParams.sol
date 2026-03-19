@@ -19,6 +19,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
 
     bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
 
+    /// @dev The canonical Permit2 deployment address (same on all EVM chains).
+    address private constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
     /// @dev 100% in basis points; fee percentages must not exceed this and their sum must be below it.
     uint256 private constant PERCENT_DIVIDER = 10000;
 
@@ -312,6 +315,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function getFromRegistry(bytes32 key) external view returns (bytes32 value) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         value = $.dataRegistry[key];
+    }
+
+    /**
+     * @inheritdoc IGlobalParams
+     */
+    function getPermit2Address() external pure returns (address) {
+        return PERMIT2_ADDRESS;
     }
 
     /**

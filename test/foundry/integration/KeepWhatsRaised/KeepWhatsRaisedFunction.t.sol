@@ -10,6 +10,7 @@ import {Users} from "../../utils/Types.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Integration_Shared_Test {
     function setUp() public virtual override {
@@ -588,10 +589,11 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         // Verify campaign is cancelled
         vm.startPrank(users.backer2Address);
-        testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
+        PermitData memory emptyPermit1;
         vm.expectRevert();
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0, emptyPermit1
         );
         vm.stopPrank();
     }
@@ -622,10 +624,11 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
 
         // Verify campaign is cancelled
         vm.startPrank(users.backer2Address);
-        testToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
+        PermitData memory emptyPermit2;
         vm.expectRevert();
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID_2, users.backer2Address, address(testToken), PLEDGE_AMOUNT, 0, emptyPermit2
         );
         vm.stopPrank();
     }

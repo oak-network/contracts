@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import {PermitData} from "./IPermit2.sol";
+
 /**
  * @title ICampaignPaymentTreasury
  * @notice An interface for managing campaign payment treasury contracts.
@@ -121,14 +123,18 @@ interface ICampaignPaymentTreasury {
 
     /**
      * @notice Allows a buyer to make a direct crypto payment for an item.
-     * @dev This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
+     * @dev Tokens are transferred from `buyerAddress` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `paymentId`, `itemId`, `buyerAddress`, `amount`, and
+     *      a hash of `lineItems`, ensuring the caller cannot tamper with any of these values
+     *      after the buyer has signed the permit.
      * @param paymentId The unique identifier of the payment.
      * @param itemId The identifier of the item being purchased.
-     * @param buyerAddress The address of the buyer making the payment.
+     * @param buyerAddress The address of the buyer making the payment (must be the permit signer).
      * @param paymentToken The token to use for the payment.
-     * @param amount The amount to be paid for the item.
+     * @param amount The amount to be associated with the NFT (in token's native decimals).
      * @param lineItems Array of line items associated with this payment.
      * @param externalFees Array of external fee metadata captured for this payment (informational only).
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `buyerAddress`.
      */
     function processCryptoPayment(
         bytes32 paymentId,
@@ -137,7 +143,8 @@ interface ICampaignPaymentTreasury {
         address paymentToken,
         uint256 amount,
         LineItem[] calldata lineItems,
-        ExternalFees[] calldata externalFees
+        ExternalFees[] calldata externalFees,
+        PermitData calldata permitData
     ) external;
 
     /**

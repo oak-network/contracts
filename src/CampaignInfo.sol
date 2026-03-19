@@ -461,6 +461,13 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
+    function getPermit2Address() external view override returns (address) {
+        return _getGlobalParams().getPermit2Address();
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
     function getLineItemType(bytes32 platformHash, bytes32 typeId)
         external
         view

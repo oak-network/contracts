@@ -5,6 +5,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 
 import {BasePaymentTreasury} from "../utils/BasePaymentTreasury.sol";
 import {ICampaignPaymentTreasury} from "../interfaces/ICampaignPaymentTreasury.sol";
+import {PermitData} from "../interfaces/IPermit2.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 
 contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker {
@@ -88,10 +89,20 @@ contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker
         address paymentToken,
         uint256 amount,
         ICampaignPaymentTreasury.LineItem[] calldata lineItems,
-        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
+        ICampaignPaymentTreasury.ExternalFees[] calldata externalFees,
+        PermitData calldata permitData
     ) public override whenNotPaused whenNotCancelled {
         _checkTimeWithinCampaignWindow();
-        super.processCryptoPayment(paymentId, itemId, buyerAddress, paymentToken, amount, lineItems, externalFees);
+        super.processCryptoPayment(
+            paymentId,
+            itemId,
+            buyerAddress,
+            paymentToken,
+            amount,
+            lineItems,
+            externalFees,
+            permitData
+        );
     }
 
     /**
