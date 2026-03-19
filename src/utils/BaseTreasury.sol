@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
@@ -16,7 +17,7 @@ import {PausableCancellable} from "./PausableCancellable.sol";
  * @dev Supports ERC-2771 meta-transactions via adapter contracts for platform admin operations.
  * @dev Contracts implementing this base contract should provide specific success conditions.
  */
-abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAccessChecker, PausableCancellable {
+abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAccessChecker, PausableCancellable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 internal constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -188,10 +189,12 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public virtual override whenCampaignNotPaused whenCampaignNotCancelled {
+    function disburseFees() public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
+
+        s_feesDisbursed = true;
 
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
@@ -219,8 +222,6 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
                 emit FeesDisbursed(token, protocolShare, platformShare);
             }
         }
-
-        s_feesDisbursed = true;
     }
 
     /**

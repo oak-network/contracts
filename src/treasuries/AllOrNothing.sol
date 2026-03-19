@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
@@ -15,7 +14,7 @@ import {IReward} from "../interfaces/IReward.sol";
  * @title AllOrNothing
  * @notice A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
  */
-contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
+contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
