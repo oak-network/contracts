@@ -52,9 +52,4 @@ interface ICampaignTreasury {
      */
     function getRefundedAmount() external view returns (uint256);
 
-    /**
-     * @notice Checks if the treasury has been cancelled.
-     * @return True if the treasury is cancelled, false otherwise.
-     */
-    function cancelled() external view returns (bool);
 }

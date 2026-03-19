@@ -90,6 +90,9 @@ contract DeployAll is DeployBase {
         ERC1967Proxy campaignFactoryProxy = new ERC1967Proxy(address(campaignFactoryImpl), campaignFactoryInitData);
         console2.log("CampaignInfoFactory proxy deployed at:", address(campaignFactoryProxy));
 
+        // Wire CampaignInfoFactory into TreasuryFactory so deploy() validation passes
+        TreasuryFactory(address(treasuryFactoryProxy)).setCampaignInfoFactory(address(campaignFactoryProxy));
+
         // Configure registry values
         uint256 bufferTime = vm.envOr("BUFFER_TIME", uint256(0));
         uint256 campaignLaunchBuffer = vm.envOr("CAMPAIGN_LAUNCH_BUFFER", uint256(0));

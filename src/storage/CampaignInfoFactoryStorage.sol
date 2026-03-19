@@ -9,7 +9,7 @@ import {IGlobalParams} from "../interfaces/IGlobalParams.sol";
  * @dev This contract contains the storage layout and accessor functions for CampaignInfoFactory
  */
 library CampaignInfoFactoryStorage {
-    /// @custom:storage-location erc7201:ccprotocol.storage.CampaignInfoFactory
+    /// @custom:storage-location erc7201:oaknetwork.storage.CampaignInfoFactory
     struct Storage {
         IGlobalParams globalParams;
         address treasuryFactoryAddress;
@@ -18,9 +18,9 @@ library CampaignInfoFactoryStorage {
         mapping(bytes32 => address) identifierToCampaignInfo;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("ccprotocol.storage.CampaignInfoFactory")) - 1)) & ~bytes32(uint256(0xff))
+    // keccak256(abi.encode(uint256(keccak256("oaknetwork.storage.CampaignInfoFactory")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant CAMPAIGN_INFO_FACTORY_STORAGE_LOCATION =
-        0x2857858a392b093e1f8b3f368c2276ce911f27cef445605a2932ebe945968d00;
+        0x6dcebba7d782f7ff546a8ee2af2a142213ed91f5c14e411be41cf3be65358c00;
 
     function _getCampaignInfoFactoryStorage() internal pure returns (Storage storage $) {
         assembly {

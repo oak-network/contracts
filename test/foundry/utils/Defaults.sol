@@ -59,7 +59,7 @@ contract Defaults is Constants, ICampaignData, IReward {
 
     // Config values for KeepWhatsRaised
     uint256 public constant MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION = 50_000e18;
-    uint256 public constant WITHDRAWAL_DELAY = 7 days;
+    uint256 public constant WITHDRAWAL_DELAY = 14 days;
     uint256 public constant REFUND_DELAY = 14 days;
     uint256 public constant CONFIG_LOCK_PERIOD = 2 days;
 
@@ -115,6 +115,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[0] = Reward({
             rewardValue: 1_000e18,
             isRewardTier: true,
+            canBeAddOn: false,
             itemId: itemIds1,
             itemValue: itemValues1,
             itemQuantity: itemQuantities1
@@ -136,6 +137,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[1] = Reward({
             rewardValue: 2_500e18,
             isRewardTier: true,
+            canBeAddOn: true,
             itemId: itemIds2,
             itemValue: itemValues2,
             itemQuantity: itemQuantities2
@@ -151,6 +153,7 @@ contract Defaults is Constants, ICampaignData, IReward {
         REWARDS[2] = Reward({
             rewardValue: 500e18,
             isRewardTier: false,
+            canBeAddOn: true,
             itemId: emptyIds,
             itemValue: emptyValues,
             itemQuantity: emptyQuantities
