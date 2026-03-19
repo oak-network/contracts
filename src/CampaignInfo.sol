@@ -234,10 +234,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalRaisedAmount() external view override returns (uint256) {
+    function getTotalRaisedAmount() external view override returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -252,10 +251,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalLifetimeRaisedAmount() external view returns (uint256) {
+    function getTotalLifetimeRaisedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -267,10 +265,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalRefundedAmount() external view returns (uint256) {
+    function getTotalRefundedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -282,10 +279,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalAvailableRaisedAmount() external view returns (uint256) {
+    function getTotalAvailableRaisedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -297,10 +293,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalCancelledAmount() external view returns (uint256) {
+    function getTotalCancelledAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -315,10 +310,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalExpectedAmount() external view returns (uint256) {
+    function getTotalExpectedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
