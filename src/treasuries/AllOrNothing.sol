@@ -244,6 +244,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
+        currentTimeIsLess(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
