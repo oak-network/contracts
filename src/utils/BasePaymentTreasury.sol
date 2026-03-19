@@ -654,11 +654,8 @@ abstract contract BasePaymentTreasury is
         // Store external fee metadata for informational purposes only
         ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
             s_paymentExternalFeeMetadata[internalPaymentId];
-        for (uint256 i = 0; i < externalFees.length;) {
+        for (uint256 i = 0; i < externalFees.length; i++) {
             externalFeeMetadata.push(externalFees[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         s_paymentIdToToken[internalPaymentId] = paymentToken;
@@ -698,7 +695,7 @@ abstract contract BasePaymentTreasury is
         }
 
         // Process each payment in the batch
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; i++) {
             bytes32 paymentId = paymentIds[i];
             bytes32 buyerId = buyerIds[i];
             bytes32 itemId = itemIds[i];
@@ -760,21 +757,14 @@ abstract contract BasePaymentTreasury is
             ICampaignPaymentTreasury.ExternalFees[] calldata externalFees = externalFeesArray[i];
             ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
                 s_paymentExternalFeeMetadata[internalPaymentId];
-            for (uint256 j = 0; j < externalFees.length;) {
+            for (uint256 j = 0; j < externalFees.length; j++) {
                 externalFeeMetadata.push(externalFees[j]);
-                unchecked {
-                    ++j;
-                }
             }
 
             s_paymentIdToToken[internalPaymentId] = paymentToken;
             s_pendingPaymentPerToken[paymentToken] += amount;
 
             emit PaymentCreated(address(0), paymentId, buyerId, itemId, paymentToken, amount, expiration, false);
-
-            unchecked {
-                ++i;
-            }
         }
 
         emit PaymentBatchCreated(paymentIds);
@@ -910,11 +900,8 @@ abstract contract BasePaymentTreasury is
         // Store external fee metadata for informational purposes only
         ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
             s_paymentExternalFeeMetadata[internalPaymentId];
-        for (uint256 i = 0; i < externalFees.length;) {
+        for (uint256 i = 0; i < externalFees.length; i++) {
             externalFeeMetadata.push(externalFees[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
@@ -1188,7 +1175,7 @@ abstract contract BasePaymentTreasury is
         uint256 protocolFeePercent = INFO.getProtocolFeePercent();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
 
-        for (uint256 i = 0; i < paymentIds.length;) {
+        for (uint256 i = 0; i < paymentIds.length; i++) {
             currentPaymentId = paymentIds[i];
             bytes32 internalPaymentId = _scopePaymentIdForOffChain(currentPaymentId);
 
@@ -1221,10 +1208,6 @@ abstract contract BasePaymentTreasury is
                 bytes32 itemId = s_payment[internalPaymentId].itemId;
                 uint256 tokenId = INFO.mintNFTForPledge(buyerAddress, itemId, currentToken, amount, 0, 0);
                 s_paymentIdToTokenId[internalPaymentId] = tokenId;
-            }
-
-            unchecked {
-                ++i;
             }
         }
 
