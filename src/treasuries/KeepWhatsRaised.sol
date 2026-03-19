@@ -639,7 +639,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
-        currentTimeIsLess(INFO.getLaunchTime())
+        currentTimeIsLess(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
