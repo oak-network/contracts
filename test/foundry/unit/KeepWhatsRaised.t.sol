@@ -176,6 +176,55 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, mismatchedKeys, mismatchedValues);
     }
 
+    function testConfigureTreasuryRevertWhenDuplicateFlatKeys() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.flatFeeKey = keys.cumulativeFlatFeeKey; // same key for both flat fees
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenFlatKeyEqualsPercentageKey() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.flatFeeKey = PLATFORM_FEE_KEY; // flat key collides with percentage key
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenDuplicatePercentageKeys() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.grossPercentageFeeKeys[1] = keys.grossPercentageFeeKeys[0]; // duplicate
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenPercentageFeeExceedsMax() public {
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        feeValues.grossPercentageFeeValues[0] = PERCENT_DIVIDER; // 100% not allowed
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedPercentageFeeExceedsMax.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenAggregatePercentageExceedsMax() public {
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        feeValues.grossPercentageFeeValues[0] = 6000; // 60%
+        feeValues.grossPercentageFeeValues[1] = 5000; // 50% -> total 110%
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAggregatePercentageExceedsMax.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         PAYMENT GATEWAY FEES
     //////////////////////////////////////////////////////////////*/

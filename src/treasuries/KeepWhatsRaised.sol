@@ -33,8 +33,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     mapping(bytes32 => bool) public s_processedPledges;
     /// Mapping to store payment gateway fees by unique pledge ID
     mapping(bytes32 => uint256) public s_paymentGatewayFees;
-    /// Mapping that stores fee values indexed by their corresponding fee keys.
-    mapping(bytes32 => uint256) private s_feeValues;
+    /// Flat fee values (token amounts, 18 decimals). Units are unambiguous.
+    uint256 private s_flatFeeValue;
+    uint256 private s_cumulativeFlatFeeValue;
+    /// Gross percentage fee values (basis points, 0 to PERCENT_DIVIDER - 1). Stored in same order as s_feeKeys.grossPercentageFeeKeys.
+    uint256[] private s_grossPercentageFeeValues;
 
     // Multi-token support
     mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each pledge
@@ -202,6 +205,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @dev Emitted when an invalid input is detected.
      */
     error KeepWhatsRaisedInvalidInput();
+
+    /// @dev Emitted when fee keys are not unique (duplicate or overlap between flat and percentage keys).
+    error KeepWhatsRaisedDuplicateFeeKey();
+
+    /// @dev Emitted when a percentage fee value is >= PERCENT_DIVIDER (100%).
+    error KeepWhatsRaisedPercentageFeeExceedsMax();
+
+    /// @dev Emitted when the sum of gross percentage fees is >= PERCENT_DIVIDER (100%).
+    error KeepWhatsRaisedAggregatePercentageExceedsMax();
 
     /**
      * @dev Emitted when a token is not accepted for the campaign.
@@ -449,12 +461,19 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Retrieves the fee value associated with a specific fee key from storage.
-     * @param {bytes32} feeKey - The unique identifier key used to reference a specific fee type.
-     *
-     * @return {uint256} The fee value corresponding to the provided fee key.
+     *      Flat fee keys return token amounts (18 decimals); percentage keys return basis points.
+     * @param feeKey The unique identifier key used to reference a specific fee type.
+     * @return The fee value corresponding to the provided fee key (0 if key is unknown).
      */
     function getFeeValue(bytes32 feeKey) public view returns (uint256) {
-        return s_feeValues[feeKey];
+        if (feeKey == s_feeKeys.flatFeeKey) return s_flatFeeValue;
+        if (feeKey == s_feeKeys.cumulativeFlatFeeKey) return s_cumulativeFlatFeeValue;
+        for (uint256 i = 0; i < s_feeKeys.grossPercentageFeeKeys.length; i++) {
+            if (s_feeKeys.grossPercentageFeeKeys[i] == feeKey) {
+                return s_grossPercentageFeeValues[i];
+            }
+        }
+        return 0;
     }
 
     /**
@@ -525,16 +544,42 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedInvalidInput();
         }
 
+        // Enforce key uniqueness: flat keys must differ and must not appear in percentage keys
+        if (feeKeys.flatFeeKey == feeKeys.cumulativeFlatFeeKey) {
+            revert KeepWhatsRaisedDuplicateFeeKey();
+        }
+        for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
+            bytes32 k = feeKeys.grossPercentageFeeKeys[i];
+            if (k == feeKeys.flatFeeKey || k == feeKeys.cumulativeFlatFeeKey) {
+                revert KeepWhatsRaisedDuplicateFeeKey();
+            }
+            for (uint256 j = i + 1; j < feeKeys.grossPercentageFeeKeys.length; j++) {
+                if (feeKeys.grossPercentageFeeKeys[j] == k) {
+                    revert KeepWhatsRaisedDuplicateFeeKey();
+                }
+            }
+        }
+
+        // Per-fee and aggregate percentage bounds (each and total must be < PERCENT_DIVIDER)
+        uint256 aggregatePercent = 0;
+        for (uint256 i = 0; i < feeValues.grossPercentageFeeValues.length; i++) {
+            uint256 v = feeValues.grossPercentageFeeValues[i];
+            if (v >= PERCENT_DIVIDER) {
+                revert KeepWhatsRaisedPercentageFeeExceedsMax();
+            }
+            aggregatePercent += v;
+        }
+        if (aggregatePercent >= PERCENT_DIVIDER) {
+            revert KeepWhatsRaisedAggregatePercentageExceedsMax();
+        }
+
         s_config = config;
         s_feeKeys = feeKeys;
         s_campaignData = campaignData;
 
-        s_feeValues[feeKeys.flatFeeKey] = feeValues.flatFeeValue;
-        s_feeValues[feeKeys.cumulativeFlatFeeKey] = feeValues.cumulativeFlatFeeValue;
-
-        for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
-            s_feeValues[feeKeys.grossPercentageFeeKeys[i]] = feeValues.grossPercentageFeeValues[i];
-        }
+        s_flatFeeValue = feeValues.flatFeeValue;
+        s_cumulativeFlatFeeValue = feeValues.cumulativeFlatFeeValue;
+        s_grossPercentageFeeValues = feeValues.grossPercentageFeeValues;
 
         emit TreasuryConfigured(config, campaignData, feeKeys, feeValues);
     }
@@ -1180,10 +1225,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     {
         uint256 totalFee = 0;
 
-        // Gross Percentage Fee Calculation (correct as-is)
+        // Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
-            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i])) / PERCENT_DIVIDER;
+            uint256 fee = (pledgeAmount * s_grossPercentageFeeValues[i]) / PERCENT_DIVIDER;
             s_platformFeePerToken[pledgeToken] += fee;
             totalFee += fee;
         }
