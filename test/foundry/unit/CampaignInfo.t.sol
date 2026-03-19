@@ -530,7 +530,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         _selectPlatform1();
 
         vm.prank(campaignOwner);
-        campaignInfo._cancelCampaign(keccak256("test cancel"));
+        campaignInfo.cancelCampaign(keccak256("test cancel"));
 
         vm.startPrank(admin);
         vm.expectRevert(TreasuryFactory.TreasuryFactorySettingPlatformInfoFailed.selector);
