@@ -292,7 +292,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
                 revert AllOrNothingInvalidInput();
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
                 revert AllOrNothingInvalidInput();
             }
             pledgeAmount += tempReward.rewardValue;

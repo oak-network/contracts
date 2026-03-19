@@ -810,7 +810,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
                 revert KeepWhatsRaisedInvalidInput();
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
                 revert KeepWhatsRaisedInvalidInput();
             }
             pledgeAmount += tempReward.rewardValue;
