@@ -179,7 +179,8 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
     }
 
     function test_withdrawWithColombianCreatorTax() external {
-        // Configure with Colombian creator
+        // Deploy a fresh treasury so configureTreasury can be called for the first time.
+        _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = createFeeValues();
         configureTreasury(
             users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues

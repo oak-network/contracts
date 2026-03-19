@@ -216,6 +216,14 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
         }
 
+        // Wire CampaignInfoFactory into TreasuryFactory so deploy() validation passes.
+        // Must run when either contract is freshly deployed: a new TF needs initial wiring,
+        // and a new CIF deployed against a reused TF must update the existing proxy.
+        if (treasuryFactoryDeployed || campaignInfoFactoryDeployed) {
+            TreasuryFactory(treasuryFactory).setCampaignInfoFactory(campaignInfoFactory);
+            console2.log("CampaignInfoFactory wired into TreasuryFactory");
+        }
+
         // Deploy or reuse AllOrNothing implementation
         if (allOrNothingImplementation == address(0)) {
             allOrNothingImplementation = address(new AllOrNothing());

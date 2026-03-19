@@ -110,6 +110,7 @@ abstract contract Base_Test is Test, Defaults {
 
         // Set time constraints in dataRegistry (requires protocol admin)
         vm.startPrank(users.protocolAdminAddress);
+        treasuryFactory.setCampaignInfoFactory(address(campaignInfoFactory));
         globalParams.addToRegistry(
             DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
             bytes32(uint256(0)) // No buffer for most tests
