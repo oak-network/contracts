@@ -101,14 +101,14 @@ contract PaymentTreasury is BasePaymentTreasury {
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused {
         super.claimRefund(paymentId, refundAddress);
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId) public override whenNotPaused {
         super.claimRefund(paymentId);
     }
 
