@@ -180,22 +180,28 @@ contract CampaignInfo is
         s_campaignData = campaignData;
 
         // Store accepted tokens
-        uint256 tokenLen = acceptedTokens.length;
-        for (uint256 i = 0; i < tokenLen; ++i) {
+        uint256 len = acceptedTokens.length;
+        for (uint256 i = 0; i < len;) {
             address token = acceptedTokens[i];
+            if (s_isAcceptedToken[token]) {
+                revert CampaignInfoInvalidInput();
+            }
             s_acceptedTokens.push(token);
             s_isAcceptedToken[token] = true;
+            unchecked { ++i; }
         }
 
-        uint256 len = selectedPlatformHash.length;
-        for (uint256 i = 0; i < len; ++i) {
+        len = selectedPlatformHash.length;
+        for (uint256 i = 0; i < len;) {
             s_platformFeePercent[selectedPlatformHash[i]] =
                 _getGlobalParams().getPlatformFeePercent(selectedPlatformHash[i]);
             s_isSelectedPlatform[selectedPlatformHash[i]] = true;
+            unchecked { ++i; }
         }
         len = platformDataKey.length;
-        for (uint256 i = 0; i < len; ++i) {
+        for (uint256 i = 0; i < len;) {
             s_platformData[platformDataKey[i]] = platformDataValue[i];
+            unchecked { ++i; }
         }
 
         // Initialize NFT metadata
