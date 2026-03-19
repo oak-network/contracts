@@ -93,6 +93,11 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         _disableInitializers();
     }
 
+    /**
+     * @dev Initializes the base treasury with platform and campaign context.
+     * @param platformHash The platform identifier used for fee lookup and access control.
+     * @param infoAddress The CampaignInfo contract address for campaign data and admin lookups.
+     */
     function __BaseContract_init(bytes32 platformHash, address infoAddress) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
