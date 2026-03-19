@@ -268,6 +268,11 @@ abstract contract BasePaymentTreasury is
     error PaymentTreasuryNoFundsToClaim();
 
     /**
+     * @dev Throws when the forwarder appends address(0) as the sender.
+     */
+    error PaymentTreasuryInvalidSender();
+
+    /**
      * @dev Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
      * @param paymentId The external payment ID.
      * @return The scoped internal payment ID.
@@ -358,6 +363,9 @@ abstract contract BasePaymentTreasury is
         if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+            if (sender == address(0)) {
+                revert PaymentTreasuryInvalidSender();
             }
         } else {
             sender = msg.sender;
