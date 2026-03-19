@@ -30,6 +30,13 @@ abstract contract BasePaymentTreasury is
     uint256 internal constant STANDARD_DECIMALS = 18;
     address internal constant ZERO_ADDRESS = address(0);
 
+    /// @dev Maximum number of line items per payment. Ensures confirmPayment can always succeed if createPayment did.
+    uint256 internal constant MAX_LINE_ITEMS = 50;
+    /// @dev Maximum number of external fee entries per payment.
+    uint256 internal constant MAX_EXTERNAL_FEES = 50;
+    /// @dev Maximum number of payments in a single batch call.
+    uint256 internal constant MAX_BATCH_SIZE = 50;
+
     bytes32 internal PLATFORM_HASH;
     /**
      * @dev Snapshot of the platform fee percent captured at treasury initialization via
@@ -299,6 +306,11 @@ abstract contract BasePaymentTreasury is
      * @dev Throws when the forwarder appends address(0) as the sender.
      */
     error PaymentTreasuryInvalidSender();
+
+    /**
+     * @dev Throws when an input array exceeds the maximum allowed length.
+     */
+    error PaymentTreasuryArrayTooLong();
 
     /**
      * @dev Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
@@ -629,6 +641,10 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput("INVALID_PAYMENT_PARAMS");
         }
 
+        if (lineItems.length > MAX_LINE_ITEMS || externalFees.length > MAX_EXTERNAL_FEES) {
+            revert PaymentTreasuryArrayTooLong();
+        }
+
         // Validate expiration does not exceed maximum allowed expiration time (platform-specific or global)
         (bool hasMaxExpiration, uint256 maxExpirationDuration) = _getMaxExpirationDuration();
         if (hasMaxExpiration) {
@@ -708,6 +724,10 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryInvalidInput("BATCH_LENGTH_MISMATCH");
         }
 
+        if (length > MAX_BATCH_SIZE) {
+            revert PaymentTreasuryArrayTooLong();
+        }
+
         // Get max expiration duration once outside the loop for efficiency (platform-specific or global)
         (bool hasMaxExpiration, uint256 maxExpirationDuration) = _getMaxExpirationDuration();
         uint256 maxAllowedExpiration = 0;
@@ -731,6 +751,10 @@ abstract contract BasePaymentTreasury is
                     || itemId == ZERO_BYTES || paymentToken == address(0)
             ) {
                 revert PaymentTreasuryInvalidInput("INVALID_PAYMENT_PARAMS");
+            }
+
+            if (lineItems.length > MAX_LINE_ITEMS || externalFeesArray[i].length > MAX_EXTERNAL_FEES) {
+                revert PaymentTreasuryArrayTooLong();
             }
 
             // Validate expiration does not exceed maximum allowed expiration time
@@ -815,6 +839,10 @@ abstract contract BasePaymentTreasury is
         // Reject treasury address as payer to prevent accounting inflation via self-transfer
         if (buyerAddress == address(this)) {
             revert PaymentTreasuryInvalidInput();
+        }
+
+        if (lineItems.length > MAX_LINE_ITEMS || externalFees.length > MAX_EXTERNAL_FEES) {
+            revert PaymentTreasuryArrayTooLong();
         }
 
         // Validate token is accepted
@@ -1188,6 +1216,10 @@ abstract contract BasePaymentTreasury is
         // Validate array lengths must match
         if (buyerAddresses.length != paymentIds.length) {
             revert PaymentTreasuryInvalidInput("CONFIRM_BATCH_LENGTH_MISMATCH");
+        }
+
+        if (paymentIds.length > MAX_BATCH_SIZE) {
+            revert PaymentTreasuryArrayTooLong();
         }
 
         bytes32 currentPaymentId;
