@@ -178,7 +178,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testConfigureTreasuryRevertWhenDuplicateFlatKeys() public {
         _resetTreasury();
-
         KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
         keys.flatFeeKey = keys.cumulativeFlatFeeKey; // same key for both flat fees
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
@@ -190,7 +189,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testConfigureTreasuryRevertWhenFlatKeyEqualsPercentageKey() public {
         _resetTreasury();
-
         KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
         keys.flatFeeKey = PLATFORM_FEE_KEY; // flat key collides with percentage key
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
@@ -202,7 +200,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testConfigureTreasuryRevertWhenDuplicatePercentageKeys() public {
         _resetTreasury();
-
         KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
         keys.grossPercentageFeeKeys[1] = keys.grossPercentageFeeKeys[0]; // duplicate
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
@@ -214,7 +211,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testConfigureTreasuryRevertWhenPercentageFeeExceedsMax() public {
         _resetTreasury();
-
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         feeValues.grossPercentageFeeValues[0] = PERCENT_DIVIDER; // 100% not allowed
 
@@ -225,7 +221,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testConfigureTreasuryRevertWhenAggregatePercentageExceedsMax() public {
         _resetTreasury();
-
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         feeValues.grossPercentageFeeValues[0] = 6000; // 60%
         feeValues.grossPercentageFeeValues[1] = 5000; // 50% -> total 110%

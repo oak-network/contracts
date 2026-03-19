@@ -899,7 +899,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function withdraw() public view override whenNotPaused whenNotCancelled {
+    function withdraw() public view override whenCampaignNotPaused whenCampaignNotCancelled whenNotPaused whenNotCancelled {
         revert KeepWhatsRaisedDisabled();
     }
 
@@ -961,6 +961,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         public
         onlyPlatformAdminOrCampaignOwner
         currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
+        whenCampaignNotPaused
+        whenCampaignNotCancelled
         whenNotPaused
         whenNotCancelled
         withdrawalEnabled
@@ -1102,7 +1104,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * Requirements:
      * - Only callable when fees are available.
      */
-    function disburseFees() public override whenNotPaused {
+    function disburseFees() public override whenCampaignNotPaused whenNotPaused {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
