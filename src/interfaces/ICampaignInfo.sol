@@ -87,6 +87,13 @@ interface ICampaignInfo is IERC721 {
     function getPlatformAdminAddress(bytes32 platformHash) external view returns (address);
 
     /**
+     * @notice Retrieves the adapter (trusted forwarder) address for a platform from GlobalParams.
+     * @param platformHash The bytes32 identifier of the platform.
+     * @return The adapter address for ERC-2771 meta-transactions, or address(0) if none is set.
+     */
+    function getPlatformAdapter(bytes32 platformHash) external view returns (address);
+
+    /**
      * @notice Retrieves the campaign's launch time.
      * @return The timestamp when the campaign was launched.
      */

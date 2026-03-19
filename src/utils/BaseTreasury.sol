@@ -92,19 +92,20 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         _disableInitializers();
     }
 
-    function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
+    function __BaseContract_init(bytes32 platformHash, address infoAddress) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
-        _trustedForwarder = trustedForwarder_;
     }
 
     /**
      * @dev Override _msgSender to support ERC-2771 meta-transactions.
      * When called by the trusted forwarder (adapter), extracts the actual sender from calldata.
+     * The adapter address is read dynamically from GlobalParams via CampaignInfo so that
+     * adapter rotations take effect immediately for all deployed treasuries.
      */
     function _msgSender() internal view virtual override returns (address sender) {
-        if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
+        if (msg.sender == INFO.getPlatformAdapter(PLATFORM_HASH) && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
             }
