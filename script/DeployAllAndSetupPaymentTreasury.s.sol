@@ -247,6 +247,12 @@ contract DeployAllAndSetupPaymentTreasury is DeployBase {
             console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
         }
 
+        // Wire CampaignInfoFactory into TreasuryFactory so deploy() validation passes
+        if (treasuryFactoryDeployed) {
+            TreasuryFactory(treasuryFactory).setCampaignInfoFactory(campaignInfoFactory);
+            console2.log("CampaignInfoFactory wired into TreasuryFactory");
+        }
+
         // Deploy or reuse PaymentTreasury implementation
         if (paymentTreasuryImplementation == address(0)) {
             paymentTreasuryImplementation = address(new PaymentTreasury());

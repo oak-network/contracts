@@ -212,6 +212,12 @@ contract DeployAllAndSetupKeepWhatsRaised is DeployBase {
             console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
         }
 
+        // Wire CampaignInfoFactory into TreasuryFactory so deploy() validation passes
+        if (treasuryFactoryDeployed) {
+            TreasuryFactory(treasuryFactory).setCampaignInfoFactory(campaignInfoFactory);
+            console2.log("CampaignInfoFactory wired into TreasuryFactory");
+        }
+
         // Deploy or reuse KeepWhatsRaised implementation
         if (keepWhatsRaisedImplementation == address(0)) {
             keepWhatsRaisedImplementation = address(new KeepWhatsRaised());
