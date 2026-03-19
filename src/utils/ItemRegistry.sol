@@ -26,6 +26,12 @@ contract ItemRegistry is IItem, Context {
     error ItemRegistryMismatchedArraysLength();
 
     /**
+     * @dev Thrown when the batch contains duplicate itemIds.
+     * @param itemId The duplicate item identifier.
+     */
+    error ItemRegistryDuplicateItemId(bytes32 itemId);
+
+    /**
      * @inheritdoc IItem
      */
     function getItem(address owner, bytes32 itemId) external view override returns (Item memory) {
@@ -52,8 +58,15 @@ contract ItemRegistry is IItem, Context {
 
         for (uint256 i = 0; i < itemIds.length; i++) {
             bytes32 itemId = itemIds[i];
-            Item calldata item = items[i];
 
+            // Reject duplicate itemIds within the batch to avoid duplicate event emissions
+            for (uint256 j = 0; j < i; j++) {
+                if (itemIds[j] == itemId) {
+                    revert ItemRegistryDuplicateItemId(itemId);
+                }
+            }
+
+            Item calldata item = items[i];
             Items[_msgSender()][itemId] = item;
             emit ItemAdded(_msgSender(), itemId, item);
         }
