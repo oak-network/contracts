@@ -201,11 +201,6 @@ interface ICampaignInfo is IERC721 {
     function paused() external view returns (bool);
 
     /**
-     * @dev Returns true if the campaign is cancelled, and false otherwise.
-     */
-    function cancelled() external view returns (bool);
-
-    /**
      * @notice Retrieves a value from the GlobalParams data registry.
      * @param key The registry key.
      * @return value The registry value.
@@ -243,7 +238,7 @@ interface ICampaignInfo is IERC721 {
 
     /**
      * @notice Mints a pledge NFT for a backer
-     * @dev Can only be called by treasuries with MINTER_ROLE
+     * @dev Can only be called by treasuries with TREASURY_ROLE
      * @param backer The backer address
      * @param reward The reward identifier
      * @param tokenAddress The address of the token used for the pledge
@@ -275,6 +270,7 @@ interface ICampaignInfo is IERC721 {
 
     /**
      * @notice Burns a pledge NFT
+     * @dev Can only be called by treasuries with TREASURY_ROLE
      * @param tokenId The token ID to burn
      */
     function burn(uint256 tokenId) external;

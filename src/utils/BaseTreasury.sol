@@ -24,6 +24,16 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     uint256 internal constant STANDARD_DECIMALS = 18;
 
     bytes32 internal PLATFORM_HASH;
+    /**
+     * @dev Snapshot of the platform fee percent captured at treasury initialization via
+     * INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+     * treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+     *
+     * The protocol fee accessed during disburseFees() via INFO.getProtocolFeePercent() is also
+     * a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+     * likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+     * accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+     */
     uint256 internal PLATFORM_FEE_PERCENT;
 
     bool internal s_feesDisbursed;
@@ -72,7 +82,12 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      * @dev Throws an error indicating that the campaign is paused.
      */
     error TreasuryCampaignInfoIsPaused();
-
+    
+    /**
+     * @dev Throws when the forwarder appends address(0) as the sender.
+     */
+    error TreasuryInvalidSender();
+    
     constructor() {
         _disableInitializers();
     }
@@ -92,6 +107,9 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
         if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+            if (sender == address(0)) {
+                revert TreasuryInvalidSender();
             }
         } else {
             sender = msg.sender;
@@ -182,6 +200,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
             uint256 balance = s_tokenRaisedAmounts[token];
 
             if (balance > 0) {
+                // Both fees are campaign-level snapshots: PLATFORM_FEE_PERCENT is cached
+                // in treasury storage at init; INFO.getProtocolFeePercent() reads the value
+                // stored in the CampaignInfo clone at campaign creation — neither reflects
+                // live GlobalParams state at the time of disbursement.
                 uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
                 uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
 
@@ -245,14 +267,6 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     /**
-     * @notice Returns true if the treasury has been cancelled.
-     * @return True if cancelled, false otherwise.
-     */
-    function cancelled() public view virtual override(ICampaignTreasury, PausableCancellable) returns (bool) {
-        return super.cancelled();
-    }
-
-    /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
      */
@@ -263,7 +277,7 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     function _revertIfCampaignCancelled() internal view {
-        if (INFO.cancelled()) {
+        if (PausableCancellable(address(INFO)).cancelled()) {
             revert TreasuryCampaignInfoIsPaused();
         }
     }

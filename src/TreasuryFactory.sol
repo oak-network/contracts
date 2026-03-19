@@ -8,6 +8,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {ITreasuryFactory} from "./interfaces/ITreasuryFactory.sol";
 import {IGlobalParams, AdminAccessChecker} from "./utils/AdminAccessChecker.sol";
 import {TreasuryFactoryStorage} from "./storage/TreasuryFactoryStorage.sol";
+import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
 
 /**
  * @title TreasuryFactory
@@ -23,6 +24,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
     error TreasuryFactoryImplementationNotSetOrApproved();
     error TreasuryFactoryTreasuryInitializationFailed();
     error TreasuryFactorySettingPlatformInfoFailed();
+    error TreasuryFactoryInvalidCampaignInfo();
 
     /**
      * @dev Constructor that disables initializers to prevent implementation contract initialization
@@ -45,6 +47,19 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
      * @param newImplementation Address of the new implementation
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin {}
+
+    /**
+     * @notice Sets the CampaignInfoFactory address used to validate infoAddress inputs in deploy().
+     * @dev Callable only by the protocol admin.
+     * @param campaignInfoFactory The address of the CampaignInfoFactory contract.
+     */
+    function setCampaignInfoFactory(address campaignInfoFactory) external onlyProtocolAdmin {
+        if (campaignInfoFactory == address(0)) {
+            revert TreasuryFactoryInvalidAddress();
+        }
+        TreasuryFactoryStorage.Storage storage $ = TreasuryFactoryStorage._getTreasuryFactoryStorage();
+        $.campaignInfoFactory = campaignInfoFactory;
+    }
 
     /**
      * @inheritdoc ITreasuryFactory
@@ -116,6 +131,10 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
             revert TreasuryFactoryImplementationNotSetOrApproved();
         }
 
+        if ($.campaignInfoFactory == address(0) || !ICampaignInfoFactory($.campaignInfoFactory).isValidCampaignInfo(infoAddress)) {
+            revert TreasuryFactoryInvalidCampaignInfo();
+        }
+
         clone = Clones.clone(implementation);
 
         // Fetch the platform adapter (trusted forwarder) from GlobalParams
@@ -127,7 +146,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
         if (!success) {
             revert TreasuryFactoryTreasuryInitializationFailed();
         }
-        (success,) = infoAddress.call(abi.encodeWithSignature("_setPlatformInfo(bytes32,address)", platformHash, clone));
+        (success,) = infoAddress.call(abi.encodeWithSignature("setPlatformInfo(bytes32,address)", platformHash, clone));
         if (!success) {
             revert TreasuryFactorySettingPlatformInfoFailed();
         }

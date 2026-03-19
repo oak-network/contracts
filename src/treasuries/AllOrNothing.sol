@@ -13,7 +13,7 @@ import {IReward} from "../interfaces/IReward.sol";
 
 /**
  * @title AllOrNothing
- * @notice A contract for handling crowdfunding campaigns with rewards.
+ * @notice A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
  */
 contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
     using Counters for Counters.Counter;
@@ -97,7 +97,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     error AllOrNothingFeeNotDisbursed();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
+     * @dev Emitted within `disburseFees` after fee is disbursed already.
      */
     error AllOrNothingFeeAlreadyDisbursed();
     /**
@@ -139,58 +139,56 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() external view override returns (uint256) {
+    function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Lifetime total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view override returns (uint256) {
+    function getLifetimeRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenLifetimeRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view override returns (uint256) {
+    function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
-            uint256 currentAmount = s_tokenRaisedAmounts[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
@@ -294,7 +292,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
                 revert AllOrNothingInvalidInput();
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
                 revert AllOrNothingInvalidInput();
             }
             pledgeAmount += tempReward.rewardValue;
@@ -394,6 +392,8 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
+    /// @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract
+    ///      that does not implement `IERC721Receiver`.
     function _pledge(
         address backer,
         address pledgeToken,
@@ -417,9 +417,8 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
             shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
         } else {
-            // Non-reward pledge: already in token decimals
+            // Non-reward pledge: already in token decimals; shippingFee is always 0 (from pledgeWithoutAReward)
             pledgeAmountInTokenDecimals = pledgeAmount;
-            shippingFeeInTokenDecimals = shippingFee;
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;

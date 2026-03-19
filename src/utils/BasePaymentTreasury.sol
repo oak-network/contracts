@@ -31,6 +31,16 @@ abstract contract BasePaymentTreasury is
     address internal constant ZERO_ADDRESS = address(0);
 
     bytes32 internal PLATFORM_HASH;
+    /**
+     * @dev Snapshot of the platform fee percent captured at treasury initialization via
+     * INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+     * treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+     *
+     * The protocol fee accessed during fee calculations via INFO.getProtocolFeePercent() is also
+     * a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+     * likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+     * accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+     */
     uint256 internal PLATFORM_FEE_PERCENT;
 
     // Multi-token support
@@ -60,6 +70,18 @@ abstract contract BasePaymentTreasury is
         bool isConfirmed;
         bool isCryptoPayment;
         uint256 lineItemCount;
+    }
+
+    /**
+     * @dev Struct to hold line item calculation totals to reduce stack depth.
+     */
+    struct LineItemTotals {
+        uint256 totalGoalLineItemAmount;
+        uint256 totalProtocolFeeFromLineItems;
+        uint256 totalNonGoalClaimableAmount;
+        uint256 totalNonGoalRefundableAmount;
+        uint256 totalInstantTransferAmountForCheck;
+        uint256 totalInstantTransferAmount;
     }
 
     mapping(bytes32 => PaymentInfo) internal s_payment;
@@ -272,6 +294,11 @@ abstract contract BasePaymentTreasury is
     }
 
     /**
+     * @dev Throws when the forwarder appends address(0) as the sender.
+     */
+    error PaymentTreasuryInvalidSender();
+
+    /**
      * @dev Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
      * @param paymentId The external payment ID.
      * @return The scoped internal payment ID.
@@ -344,12 +371,8 @@ abstract contract BasePaymentTreasury is
         }
 
         duration = uint256(maxExpirationBytes);
-
-        if (duration == 0) {
-            return (false, 0);
-        }
-
         hasLimit = true;
+        return (hasLimit, duration);
     }
 
     function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
@@ -367,6 +390,9 @@ abstract contract BasePaymentTreasury is
         if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+            if (sender == address(0)) {
+                revert PaymentTreasuryInvalidSender();
             }
         } else {
             sender = msg.sender;
@@ -414,94 +440,92 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total confirmed payment amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() public view virtual override returns (uint256) {
+    function getRaisedAmount() public view virtual override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_confirmedPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_confirmedPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Available confirmed amount across all tokens, normalized to 18 decimals.
      */
-    function getAvailableRaisedAmount() external view returns (uint256) {
+    function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_availableConfirmedPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_availableConfirmedPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Lifetime total confirmed payments across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view returns (uint256) {
+    function getLifetimeRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_lifetimeConfirmedPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_lifetimeConfirmedPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view returns (uint256) {
+    function getRefundedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_lifetimeConfirmedPaymentPerToken[token];
-            uint256 currentAmount = s_confirmedPaymentPerToken[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_lifetimeConfirmedPaymentPerToken[token] - s_confirmedPaymentPerToken[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @return amount Total pending payment amount across all tokens, normalized to 18 decimals.
      */
-    function getExpectedAmount() external view returns (uint256) {
+    function getExpectedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_pendingPaymentPerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_pendingPaymentPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
@@ -520,18 +544,6 @@ abstract contract BasePaymentTreasury is
         } else {
             return amount / (10 ** (decimals - STANDARD_DECIMALS));
         }
-    }
-
-    /**
-     * @dev Struct to hold line item calculation totals to reduce stack depth.
-     */
-    struct LineItemTotals {
-        uint256 totalGoalLineItemAmount;
-        uint256 totalProtocolFeeFromLineItems;
-        uint256 totalNonGoalClaimableAmount;
-        uint256 totalNonGoalRefundableAmount;
-        uint256 totalInstantTransferAmountForCheck;
-        uint256 totalInstantTransferAmount;
     }
 
     /**
@@ -655,11 +667,8 @@ abstract contract BasePaymentTreasury is
         // Store external fee metadata for informational purposes only
         ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
             s_paymentExternalFeeMetadata[internalPaymentId];
-        for (uint256 i = 0; i < externalFees.length;) {
+        for (uint256 i = 0; i < externalFees.length; i++) {
             externalFeeMetadata.push(externalFees[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         s_paymentIdToToken[internalPaymentId] = paymentToken;
@@ -699,7 +708,7 @@ abstract contract BasePaymentTreasury is
         }
 
         // Process each payment in the batch
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; i++) {
             bytes32 paymentId = paymentIds[i];
             bytes32 buyerId = buyerIds[i];
             bytes32 itemId = itemIds[i];
@@ -761,21 +770,14 @@ abstract contract BasePaymentTreasury is
             ICampaignPaymentTreasury.ExternalFees[] calldata externalFees = externalFeesArray[i];
             ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
                 s_paymentExternalFeeMetadata[internalPaymentId];
-            for (uint256 j = 0; j < externalFees.length;) {
+            for (uint256 j = 0; j < externalFees.length; j++) {
                 externalFeeMetadata.push(externalFees[j]);
-                unchecked {
-                    ++j;
-                }
             }
 
             s_paymentIdToToken[internalPaymentId] = paymentToken;
             s_pendingPaymentPerToken[paymentToken] += amount;
 
             emit PaymentCreated(address(0), paymentId, buyerId, itemId, paymentToken, amount, expiration, false);
-
-            unchecked {
-                ++i;
-            }
         }
 
         emit PaymentBatchCreated(paymentIds);
@@ -783,6 +785,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev Mints a pledge NFT to `buyerAddress` via `_safeMint`. Reverts if `buyerAddress` is
+     *      a contract that does not implement `IERC721Receiver`.
      */
     function processCryptoPayment(
         bytes32 paymentId,
@@ -881,14 +885,14 @@ abstract contract BasePaymentTreasury is
                 s_lifetimeConfirmedPaymentPerToken[paymentToken] += item.amount;
                 s_availableConfirmedPerToken[paymentToken] += item.amount;
             } else {
-                // Apply protocol fee if applicable
-                uint256 feeAmount = 0;
+                uint256 netAmount;
                 if (applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                    feeAmount += protocolFee;
                     s_protocolFeePerToken[paymentToken] += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
-                uint256 netAmount = item.amount - feeAmount;
 
                 if (instantTransfer) {
                     // Accumulate for batch transfer after loop
@@ -909,11 +913,8 @@ abstract contract BasePaymentTreasury is
         // Store external fee metadata for informational purposes only
         ICampaignPaymentTreasury.ExternalFees[] storage externalFeeMetadata =
             s_paymentExternalFeeMetadata[internalPaymentId];
-        for (uint256 i = 0; i < externalFees.length;) {
+        for (uint256 i = 0; i < externalFees.length; i++) {
             externalFeeMetadata.push(externalFees[i]);
-            unchecked {
-                ++i;
-            }
         }
 
         IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
@@ -1005,23 +1006,19 @@ abstract contract BasePaymentTreasury is
         for (uint256 i = 0; i < lineItems.length; i++) {
             ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
 
-            bool countsTowardGoal = item.countsTowardGoal;
-            bool applyProtocolFee = item.applyProtocolFee;
-            bool instantTransfer = item.instantTransfer;
-
-            if (countsTowardGoal) {
+            if (item.countsTowardGoal) {
                 totals.totalGoalLineItemAmount += item.amount;
             } else {
-                uint256 feeAmount = 0;
-                if (applyProtocolFee) {
+                uint256 netAmount;
+                if (item.applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
                     totals.totalProtocolFeeFromLineItems += protocolFee;
-                    feeAmount += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
 
-                uint256 netAmount = item.amount - feeAmount;
-
-                if (instantTransfer) {
+                if (item.instantTransfer) {
                     totals.totalInstantTransferAmountForCheck += netAmount;
                 } else if (item.canRefund) {
                     totals.totalNonGoalRefundableAmount += netAmount;
@@ -1033,7 +1030,7 @@ abstract contract BasePaymentTreasury is
     }
 
     /**
-     * @dev Checks if there's sufficient balance for payment confirmation.
+     * @dev Checks if the treasury's actual token balance is sufficient to cover the total amount of the payment being confirmed, plus all previously committed funds (available for withdrawal, fees, and refundable items).
      * @param paymentToken The token address.
      * @param paymentAmount The base payment amount.
      * @param totals Line item totals struct.
@@ -1073,12 +1070,7 @@ abstract contract BasePaymentTreasury is
         for (uint256 i = 0; i < lineItems.length; i++) {
             ICampaignPaymentTreasury.PaymentLineItem memory item = lineItems[i];
 
-            bool countsTowardGoal = item.countsTowardGoal;
-            bool applyProtocolFee = item.applyProtocolFee;
-            bool canRefund = item.canRefund;
-            bool instantTransfer = item.instantTransfer;
-
-            if (countsTowardGoal) {
+            if (item.countsTowardGoal) {
                 s_pendingPaymentPerToken[paymentToken] -= item.amount;
                 s_confirmedPaymentPerToken[paymentToken] += item.amount;
                 s_lifetimeConfirmedPaymentPerToken[paymentToken] += item.amount;
@@ -1086,23 +1078,23 @@ abstract contract BasePaymentTreasury is
             } else {
                 s_nonGoalLineItemPendingPerToken[paymentToken] -= item.amount;
 
-                uint256 feeAmount = 0;
-                if (applyProtocolFee) {
+                uint256 netAmount;
+                if (item.applyProtocolFee) {
                     uint256 protocolFee = (item.amount * protocolFeePercent) / PERCENT_DIVIDER;
-                    feeAmount += protocolFee;
                     s_protocolFeePerToken[paymentToken] += protocolFee;
+                    netAmount = item.amount - protocolFee;
+                } else {
+                    netAmount = item.amount;
                 }
 
-                uint256 netAmount = item.amount - feeAmount;
-
-                if (instantTransfer) {
+                if (item.instantTransfer) {
                     totalInstantTransferAmount += netAmount;
                     // Instant transfer items are not tracked in s_nonGoalLineItemConfirmedPerToken
                 } else {
                     // Track outstanding non-goal balances using net amounts (after fees)
                     s_nonGoalLineItemConfirmedPerToken[paymentToken] += netAmount;
 
-                    if (canRefund) {
+                    if (item.canRefund) {
                         s_refundableNonGoalLineItemPerToken[paymentToken] += netAmount;
                     } else {
                         s_nonGoalLineItemClaimablePerToken[paymentToken] += netAmount;
@@ -1114,6 +1106,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev If `buyerAddress` is non-zero, mints a pledge NFT via `_safeMint`. Reverts if
+     *      `buyerAddress` is a contract that does not implement `IERC721Receiver`.
      */
     function confirmPayment(bytes32 paymentId, address buyerAddress)
         public
@@ -1162,6 +1156,8 @@ abstract contract BasePaymentTreasury is
 
     /**
      * @inheritdoc ICampaignPaymentTreasury
+     * @dev For each non-zero `buyerAddress`, mints a pledge NFT via `_safeMint`. Reverts if
+     *      any such address is a contract that does not implement `IERC721Receiver`.
      */
     function confirmPaymentBatch(bytes32[] calldata paymentIds, address[] calldata buyerAddresses)
         public
@@ -1183,7 +1179,7 @@ abstract contract BasePaymentTreasury is
         uint256 protocolFeePercent = INFO.getProtocolFeePercent();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
 
-        for (uint256 i = 0; i < paymentIds.length;) {
+        for (uint256 i = 0; i < paymentIds.length; i++) {
             currentPaymentId = paymentIds[i];
             bytes32 internalPaymentId = _scopePaymentIdForOffChain(currentPaymentId);
 
@@ -1216,10 +1212,6 @@ abstract contract BasePaymentTreasury is
                 bytes32 itemId = s_payment[internalPaymentId].itemId;
                 uint256 tokenId = INFO.mintNFTForPledge(buyerAddress, itemId, currentToken, amount, 0, 0);
                 s_paymentIdToTokenId[internalPaymentId] = tokenId;
-            }
-
-            unchecked {
-                ++i;
             }
         }
 
@@ -1254,7 +1246,7 @@ abstract contract BasePaymentTreasury is
         if (!payment.isConfirmed) {
             revert PaymentTreasuryPaymentNotConfirmed(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+        if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
         }
         // This function is for non-NFT payments only
@@ -1396,7 +1388,7 @@ abstract contract BasePaymentTreasury is
         if (buyerAddress == address(0)) {
             revert PaymentTreasuryPaymentNotExist(internalPaymentId);
         }
-        if (amountToRefund == 0 || availablePaymentAmount < amountToRefund) {
+        if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(internalPaymentId);
         }
         // NFT must exist for crypto payments
@@ -1742,14 +1734,6 @@ abstract contract BasePaymentTreasury is
     }
 
     /**
-     * @notice Returns true if the treasury has been cancelled.
-     * @return True if cancelled, false otherwise.
-     */
-    function cancelled() public view virtual override(ICampaignPaymentTreasury, PausableCancellable) returns (bool) {
-        return super.cancelled();
-    }
-
-    /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with PaymentTreasuryCampaignInfoIsPaused error.
      */
@@ -1760,7 +1744,7 @@ abstract contract BasePaymentTreasury is
     }
 
     function _revertIfCampaignCancelled() internal view {
-        if (INFO.cancelled()) {
+        if (PausableCancellable(address(INFO)).cancelled()) {
             revert PaymentTreasuryCampaignInfoIsPaused();
         }
     }

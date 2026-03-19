@@ -176,6 +176,55 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, mismatchedKeys, mismatchedValues);
     }
 
+    function testConfigureTreasuryRevertWhenDuplicateFlatKeys() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.flatFeeKey = keys.cumulativeFlatFeeKey; // same key for both flat fees
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenFlatKeyEqualsPercentageKey() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.flatFeeKey = PLATFORM_FEE_KEY; // flat key collides with percentage key
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenDuplicatePercentageKeys() public {
+        KeepWhatsRaised.FeeKeys memory keys = FEE_KEYS;
+        keys.grossPercentageFeeKeys[1] = keys.grossPercentageFeeKeys[0]; // duplicate
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenPercentageFeeExceedsMax() public {
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        feeValues.grossPercentageFeeValues[0] = PERCENT_DIVIDER; // 100% not allowed
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedPercentageFeeExceedsMax.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
+    function testConfigureTreasuryRevertWhenAggregatePercentageExceedsMax() public {
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        feeValues.grossPercentageFeeValues[0] = 6000; // 60%
+        feeValues.grossPercentageFeeValues[1] = 5000; // 50% -> total 110%
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAggregatePercentageExceedsMax.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         PAYMENT GATEWAY FEES
     //////////////////////////////////////////////////////////////*/
@@ -335,7 +384,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
@@ -359,7 +408,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         // Add first time
         vm.prank(users.creator1Address);
@@ -377,7 +426,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
@@ -405,7 +454,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         vm.expectRevert();
         vm.prank(users.creator1Address);
@@ -418,7 +467,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
@@ -491,7 +540,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, false);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, false, false);
 
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
@@ -503,6 +552,34 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
+
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
+        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
+        vm.stopPrank();
+    }
+
+    function testPledgeForARewardRevertWhenAddOnNotAllowed() public {
+        bytes32 addOnRewardName = keccak256(abi.encodePacked("addOnReward"));
+
+        bytes32[] memory rewardNames = new bytes32[](2);
+        rewardNames[0] = TEST_REWARD_NAME;
+        rewardNames[1] = addOnRewardName;
+
+        Reward[] memory rewards = new Reward[](2);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
+        // canBeAddOn: false — should be rejected when used as an add-on
+        rewards[1] = _createTestReward(TEST_PLEDGE_AMOUNT / 2, false, false);
+
+        vm.prank(users.creator1Address);
+        keepWhatsRaised.addRewards(rewardNames, rewards);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT * 2);
+
+        bytes32[] memory rewardSelection = new bytes32[](2);
+        rewardSelection[0] = TEST_REWARD_NAME;
+        rewardSelection[1] = addOnRewardName;
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
         keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
@@ -1429,7 +1506,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
                            HELPER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function _createTestReward(uint256 value, bool isRewardTier) internal pure returns (Reward memory) {
+    function _createTestReward(uint256 value, bool isRewardTier, bool canBeAddOn) internal pure returns (Reward memory) {
         bytes32[] memory itemIds = new bytes32[](1);
         uint256[] memory itemValues = new uint256[](1);
         uint256[] memory itemQuantities = new uint256[](1);
@@ -1441,6 +1518,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         return Reward({
             rewardValue: value,
             isRewardTier: isRewardTier,
+            canBeAddOn: canBeAddOn,
             itemId: itemIds,
             itemValue: itemValues,
             itemQuantity: itemQuantities
@@ -1452,7 +1530,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardNames[0] = TEST_REWARD_NAME;
 
         Reward[] memory rewards = new Reward[](1);
-        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true);
+        rewards[0] = _createTestReward(TEST_PLEDGE_AMOUNT, true, false);
 
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
