@@ -34,6 +34,15 @@ contract CampaignInfo is
 {
     using Counters for Counters.Counter;
 
+    /**
+     * @dev Struct to hold campaign configuration information.
+     */
+    struct Config {
+        address treasuryFactory;
+        uint256 protocolFeePercent;
+        bytes32 identifierHash;
+    }
+
     CampaignData private s_campaignData;
 
     mapping(bytes32 => address) private s_platformTreasuryAddress;
@@ -184,12 +193,6 @@ contract CampaignInfo is
 
         // Initialize NFT metadata
         _initializeNFT(nftName, nftSymbol, nftImageURI, nftContractURI);
-    }
-
-    struct Config {
-        address treasuryFactory;
-        uint256 protocolFeePercent;
-        bytes32 identifierHash;
     }
 
     function getCampaignConfig() public view returns (Config memory config) {
