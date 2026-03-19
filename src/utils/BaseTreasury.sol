@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {CampaignAccessChecker} from "./CampaignAccessChecker.sol";
@@ -16,7 +17,7 @@ import {PausableCancellable} from "./PausableCancellable.sol";
  * @dev Supports ERC-2771 meta-transactions via adapter contracts for platform admin operations.
  * @dev Contracts implementing this base contract should provide specific success conditions.
  */
-abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAccessChecker, PausableCancellable {
+abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAccessChecker, PausableCancellable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 internal constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -24,6 +25,16 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     uint256 internal constant STANDARD_DECIMALS = 18;
 
     bytes32 internal PLATFORM_HASH;
+    /**
+     * @dev Snapshot of the platform fee percent captured at treasury initialization via
+     * INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+     * treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+     *
+     * The protocol fee accessed during disburseFees() via INFO.getProtocolFeePercent() is also
+     * a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+     * likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+     * accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+     */
     uint256 internal PLATFORM_FEE_PERCENT;
 
     bool internal s_feesDisbursed;
@@ -72,28 +83,40 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
      * @dev Throws an error indicating that the campaign is paused.
      */
     error TreasuryCampaignInfoIsPaused();
+    
+    /**
+     * @dev Throws when the forwarder appends address(0) as the sender.
+     */
+    error TreasuryInvalidSender();
+    
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @dev Initializes the base treasury with platform and campaign context.
      * @param platformHash The platform identifier used for fee lookup and access control.
      * @param infoAddress The CampaignInfo contract address for campaign data and admin lookups.
-     * @param trustedForwarder_ The ERC-2771 adapter address for meta-transaction relay.
      */
-    function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal {
+    function __BaseContract_init(bytes32 platformHash, address infoAddress) internal {
         __CampaignAccessChecker_init(infoAddress);
         PLATFORM_HASH = platformHash;
         PLATFORM_FEE_PERCENT = INFO.getPlatformFeePercent(platformHash);
-        _trustedForwarder = trustedForwarder_;
     }
 
     /**
      * @dev Override _msgSender to support ERC-2771 meta-transactions.
      * When called by the trusted forwarder (adapter), extracts the actual sender from calldata.
+     * The adapter address is read dynamically from GlobalParams via CampaignInfo so that
+     * adapter rotations take effect immediately for all deployed treasuries.
      */
     function _msgSender() internal view virtual override returns (address sender) {
-        if (msg.sender == _trustedForwarder && msg.data.length >= 20) {
+        if (msg.sender == INFO.getPlatformAdapter(PLATFORM_HASH) && msg.data.length >= 20) {
             assembly {
                 sender := shr(96, calldataload(sub(calldatasize(), 20)))
+            }
+            if (sender == address(0)) {
+                revert TreasuryInvalidSender();
             }
         } else {
             sender = msg.sender;
@@ -171,10 +194,12 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function disburseFees() public virtual override whenCampaignNotPaused whenCampaignNotCancelled {
+    function disburseFees() public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled {
         if (!_checkSuccessCondition()) {
             revert TreasurySuccessConditionNotFulfilled();
         }
+
+        s_feesDisbursed = true;
 
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
@@ -184,6 +209,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
             uint256 balance = s_tokenRaisedAmounts[token];
 
             if (balance > 0) {
+                // Both fees are campaign-level snapshots: PLATFORM_FEE_PERCENT is cached
+                // in treasury storage at init; INFO.getProtocolFeePercent() reads the value
+                // stored in the CampaignInfo clone at campaign creation — neither reflects
+                // live GlobalParams state at the time of disbursement.
                 uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
                 uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
 
@@ -198,8 +227,6 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
                 emit FeesDisbursed(token, protocolShare, platformShare);
             }
         }
-
-        s_feesDisbursed = true;
     }
 
     /**
@@ -247,14 +274,6 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     /**
-     * @notice Returns true if the treasury has been cancelled.
-     * @return True if cancelled, false otherwise.
-     */
-    function cancelled() public view virtual override(ICampaignTreasury, PausableCancellable) returns (bool) {
-        return super.cancelled();
-    }
-
-    /**
      * @dev Internal function to check if the campaign is paused.
      * If the campaign is paused, it reverts with TreasuryCampaignInfoIsPaused error.
      */
@@ -265,7 +284,7 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     }
 
     function _revertIfCampaignCancelled() internal view {
-        if (INFO.cancelled()) {
+        if (PausableCancellable(address(INFO)).cancelled()) {
             revert TreasuryCampaignInfoIsPaused();
         }
     }

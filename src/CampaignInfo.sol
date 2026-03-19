@@ -34,6 +34,15 @@ contract CampaignInfo is
 {
     using Counters for Counters.Counter;
 
+    /**
+     * @dev Struct to hold campaign configuration information.
+     */
+    struct Config {
+        address treasuryFactory;
+        uint256 protocolFeePercent;
+        bytes32 identifierHash;
+    }
+
     CampaignData private s_campaignData;
 
     mapping(bytes32 => address) private s_platformTreasuryAddress;
@@ -46,7 +55,7 @@ contract CampaignInfo is
 
     // Multi-token support
     address[] private s_acceptedTokens; // Accepted tokens for this campaign
-    mapping(address => bool) private s_isAcceptedToken; // O(1) token validation
+    mapping(address => bool) private s_isAcceptedToken; // Tracks whether a specific ERC20 token is accepted for this campaign, allowing O(1) validation during pledges.
 
     // Lock mechanism - prevents certain operations after treasury deployment
     bool private s_isLocked;
@@ -130,6 +139,13 @@ contract CampaignInfo is
     error CampaignInfoIsLocked();
 
     /**
+     * @dev Throws when a platform data key is not owned by the platform being updated.
+     * @param platformHash The platform being updated.
+     * @param platformDataKey The key that does not belong to this platform.
+     */
+    error CampaignInfoPlatformDataKeyNotOwnedByPlatform(bytes32 platformHash, bytes32 platformDataKey);
+
+    /**
      * @dev Modifier that checks if the campaign is not locked.
      */
     modifier whenNotLocked() {
@@ -164,32 +180,32 @@ contract CampaignInfo is
         s_campaignData = campaignData;
 
         // Store accepted tokens
-        uint256 tokenLen = acceptedTokens.length;
-        for (uint256 i = 0; i < tokenLen; ++i) {
+        uint256 len = acceptedTokens.length;
+        for (uint256 i = 0; i < len;) {
             address token = acceptedTokens[i];
+            if (s_isAcceptedToken[token]) {
+                revert CampaignInfoInvalidInput();
+            }
             s_acceptedTokens.push(token);
             s_isAcceptedToken[token] = true;
+            unchecked { ++i; }
         }
 
-        uint256 len = selectedPlatformHash.length;
-        for (uint256 i = 0; i < len; ++i) {
+        len = selectedPlatformHash.length;
+        for (uint256 i = 0; i < len;) {
             s_platformFeePercent[selectedPlatformHash[i]] =
                 _getGlobalParams().getPlatformFeePercent(selectedPlatformHash[i]);
             s_isSelectedPlatform[selectedPlatformHash[i]] = true;
+            unchecked { ++i; }
         }
         len = platformDataKey.length;
-        for (uint256 i = 0; i < len; ++i) {
+        for (uint256 i = 0; i < len;) {
             s_platformData[platformDataKey[i]] = platformDataValue[i];
+            unchecked { ++i; }
         }
 
         // Initialize NFT metadata
         _initializeNFT(nftName, nftSymbol, nftImageURI, nftContractURI);
-    }
-
-    struct Config {
-        address treasuryFactory;
-        uint256 protocolFeePercent;
-        bytes32 identifierHash;
     }
 
     function getCampaignConfig() public view returns (Config memory config) {
@@ -231,15 +247,14 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalRaisedAmount() external view override returns (uint256) {
+    function getTotalRaisedAmount() external view override returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
             // Skip cancelled treasuries
-            if (!ICampaignTreasury(tempTreasury).cancelled()) {
+            if (!PausableCancellable(tempTreasury).cancelled()) {
                 amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
             }
         }
@@ -249,10 +264,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalLifetimeRaisedAmount() external view returns (uint256) {
+    function getTotalLifetimeRaisedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -264,10 +278,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalRefundedAmount() external view returns (uint256) {
+    function getTotalRefundedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -279,10 +292,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalAvailableRaisedAmount() external view returns (uint256) {
+    function getTotalAvailableRaisedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -294,15 +306,14 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalCancelledAmount() external view returns (uint256) {
+    function getTotalCancelledAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
             // Only include cancelled treasuries
-            if (ICampaignTreasury(tempTreasury).cancelled()) {
+            if (PausableCancellable(tempTreasury).cancelled()) {
                 amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
             }
         }
@@ -312,10 +323,9 @@ contract CampaignInfo is
     /**
      * @inheritdoc ICampaignInfo
      */
-    function getTotalExpectedAmount() external view returns (uint256) {
+    function getTotalExpectedAmount() external view returns (uint256 amount) {
         bytes32[] memory tempPlatforms = s_approvedPlatformHashes;
         uint256 length = s_approvedPlatformHashes.length;
-        uint256 amount;
         address tempTreasury;
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
@@ -334,6 +344,13 @@ contract CampaignInfo is
      */
     function getPlatformAdminAddress(bytes32 platformHash) external view override returns (address) {
         return _getGlobalParams().getPlatformAdminAddress(platformHash);
+    }
+
+    /**
+     * @inheritdoc ICampaignInfo
+     */
+    function getPlatformAdapter(bytes32 platformHash) external view override returns (address) {
+        return _getGlobalParams().getPlatformAdapter(platformHash);
     }
 
     /**
@@ -391,13 +408,6 @@ contract CampaignInfo is
      */
     function paused() public view override(ICampaignInfo, PausableCancellable) returns (bool) {
         return super.paused();
-    }
-
-    /**
-     * @inheritdoc ICampaignInfo
-     */
-    function cancelled() public view override(ICampaignInfo, PausableCancellable) returns (bool) {
-        return super.cancelled();
     }
 
     /**
@@ -497,7 +507,7 @@ contract CampaignInfo is
 
         // Ensure launch time is not in the past and deadline still meets minimum duration requirement
         // Allow moving launch time closer to current time as long as minimum duration is maintained
-        if (launchTime < block.timestamp || deadline <= launchTime || deadline < launchTime + minimumCampaignDuration) {
+        if (launchTime < block.timestamp || deadline < launchTime + minimumCampaignDuration) {
             revert CampaignInfoInvalidInput();
         }
 
@@ -520,7 +530,7 @@ contract CampaignInfo is
         uint256 minimumCampaignDuration =
             uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
 
-        if (deadline <= launchTime || deadline < launchTime + minimumCampaignDuration) {
+        if (deadline < launchTime + minimumCampaignDuration) {
             revert CampaignInfoInvalidInput();
         }
 
@@ -578,6 +588,9 @@ contract CampaignInfo is
                 if (!isValid) {
                     revert CampaignInfoInvalidInput();
                 }
+                if (globalParams.getPlatformDataOwner(platformDataKey[i]) != platformHash) {
+                    revert CampaignInfoPlatformDataKeyNotOwnedByPlatform(platformHash, platformDataKey[i]);
+                }
                 if (platformDataValue[i] == bytes32(0)) {
                     revert CampaignInfoInvalidInput();
                 }
@@ -599,21 +612,21 @@ contract CampaignInfo is
     /**
      * @dev External function to pause the campaign.
      */
-    function _pauseCampaign(bytes32 message) external onlyProtocolAdmin {
+    function pauseCampaign(bytes32 message) external onlyProtocolAdmin {
         _pause(message);
     }
 
     /**
      * @dev External function to unpause the campaign.
      */
-    function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
+    function unpauseCampaign(bytes32 message) external onlyProtocolAdmin {
         _unpause(message);
     }
 
     /**
      * @dev External function to cancel the campaign.
      */
-    function _cancelCampaign(bytes32 message) external {
+    function cancelCampaign(bytes32 message) external {
         if (_msgSender() != getProtocolAdminAddress() && _msgSender() != owner()) {
             revert CampaignInfoUnauthorized();
         }
@@ -631,6 +644,7 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(getLaunchTime())
     {
+        _validateJsonString(newImageURI);
         s_imageURI = newImageURI;
         emit ImageURIUpdated(newImageURI);
     }
@@ -661,6 +675,10 @@ contract CampaignInfo is
         return super.mintNFTForPledge(backer, reward, tokenAddress, amount, shippingFee, tipAmount);
     }
 
+    /**
+     * @inheritdoc ICampaignInfo
+     * @dev Override required: ICampaignInfo and PledgeNFT both define burn(); forwards to PledgeNFT implementation.
+     */
     function burn(uint256 tokenId) public override(ICampaignInfo, PledgeNFT) {
         super.burn(tokenId);
     }
@@ -670,7 +688,7 @@ contract CampaignInfo is
      * @param platformHash The bytes32 identifier of the platform.
      * @param platformTreasuryAddress The address of the platform's treasury.
      */
-    function _setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused {
+    function setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused {
         Config memory config = getCampaignConfig();
         if (_msgSender() != config.treasuryFactory) {
             revert CampaignInfoUnauthorized();
@@ -686,8 +704,8 @@ contract CampaignInfo is
         s_approvedPlatformHashes.push(platformHash);
         s_isApprovedPlatform[platformHash] = true;
 
-        // Grant MINTER_ROLE to allow treasury to mint pledge NFTs
-        _grantRole(MINTER_ROLE, platformTreasuryAddress);
+        // Grant TREASURY_ROLE to allow treasury to mint and burn pledge NFTs
+        _grantRole(TREASURY_ROLE, platformTreasuryAddress);
         // Lock the campaign after the first treasury deployment
         if (!s_isLocked) {
             s_isLocked = true;

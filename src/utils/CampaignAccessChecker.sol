@@ -13,9 +13,6 @@ abstract contract CampaignAccessChecker is Context {
     // Immutable reference to the ICampaignInfo contract, which provides campaign-related information and admin addresses.
     ICampaignInfo internal INFO;
 
-    /// @dev Trusted forwarder address for ERC-2771 meta-transactions (set by derived contracts)
-    address internal _trustedForwarder;
-
     /**
      * @dev Throws when the caller is not authorized.
      */

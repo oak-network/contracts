@@ -40,6 +40,12 @@ abstract contract FiatEnabled {
     error FiatEnabledInvalidTransaction();
 
     /**
+     * @dev Throws when a fiat transaction ID has already been recorded.
+     * @param fiatTransactionId The duplicate fiat transaction identifier.
+     */
+    error FiatEnabledTransactionAlreadyRecorded(bytes32 fiatTransactionId);
+
+    /**
      * @notice Get the total amount of fiat raised.
      * @return The total fiat raised amount.
      */
@@ -73,6 +79,9 @@ abstract contract FiatEnabled {
      * @param fiatTransactionAmount The amount of the fiat transaction.
      */
     function _updateFiatTransaction(bytes32 fiatTransactionId, uint256 fiatTransactionAmount) internal {
+        if (s_fiatAmountById[fiatTransactionId] != 0) {
+            revert FiatEnabledTransactionAlreadyRecorded(fiatTransactionId);
+        }
         s_fiatAmountById[fiatTransactionId] = fiatTransactionAmount;
         s_fiatRaisedAmount += fiatTransactionAmount;
         emit FiatTransactionUpdated(fiatTransactionId, fiatTransactionAmount);
