@@ -299,6 +299,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             }
             pledgeAmount += tempReward.rewardValue;
         }
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
         uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
         uint256 shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
         _pledge(backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, reward);

@@ -765,6 +765,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
             pledgeAmount += tempReward.rewardValue;
         }
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
+        }
         uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
         _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, tip, reward, tokenSource);
     }
