@@ -253,7 +253,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /**
      * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
      * @param tokenId The ID of the token that was attempted to be claimed.
-     * @param reason A string code describing why the claim failed (e.g., "INVALID_REFUND_PERIOD", "ZERO_AMOUNT").
+     * @param reason A string code describing why the claim failed (e.g., "INVALID_REFUND_PERIOD", "ZERO_AMOUNT", "INSUFFICIENT_LIQUIDITY").
      */
     error KeepWhatsRaisedNotClaimable(uint256 tokenId, string reason);
 
@@ -976,8 +976,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
         uint256 netRefundAmount = amountToRefund - paymentFee;
 
-        if (netRefundAmount == 0 || s_availablePerToken[pledgeToken] < netRefundAmount) {
+        if (netRefundAmount == 0) {
             revert KeepWhatsRaisedNotClaimable(tokenId, "ZERO_AMOUNT");
+        }
+        if (s_availablePerToken[pledgeToken] < netRefundAmount) {
+            revert KeepWhatsRaisedNotClaimable(tokenId, "INSUFFICIENT_LIQUIDITY");
         }
 
         s_tokenToPledgedAmount[tokenId] = 0;
