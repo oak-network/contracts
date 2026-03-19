@@ -294,7 +294,12 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
+        uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+        uint256 shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, reward);
     }
 
     /**
@@ -386,8 +391,16 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
-    /// @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract
-    ///      that does not implement `IERC721Receiver`.
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param shippingFee Shipping fee in the token's native decimals (must be denormalized by caller; use 0 for non-reward).
+     * @param rewards Full reward selection (for event).
+     */
     function _pledge(
         address backer,
         address pledgeToken,
@@ -396,43 +409,26 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         uint256 shippingFee,
         bytes32[] memory rewards
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
-
-        // Reject treasury address as payer to prevent accounting inflation via self-transfer
         if (backer == address(this)) {
             revert AllOrNothingInvalidInput("INVALID_BACKER");
         }
-
-        // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
-        // If not for a reward, amounts are already in token decimals
-        uint256 pledgeAmountInTokenDecimals;
-        uint256 shippingFeeInTokenDecimals;
-
-        if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
-        } else {
-            // Non-reward pledge: already in token decimals; shippingFee is always 0 (from pledgeWithoutAReward)
-            pledgeAmountInTokenDecimals = pledgeAmount;
-        }
-
-        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+        // pledgeAmount and shippingFee are always in pledgeToken's native decimals (callers must denormalize)
+        uint256 totalAmount = pledgeAmount + shippingFee;
 
         uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
         uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
 
-        if (actualReceived < shippingFeeInTokenDecimals) {
+        if (actualReceived < shippingFee) {
             revert AllOrNothingTransferFailed();
         }
-        uint256 actualPledgeAmount = actualReceived - shippingFeeInTokenDecimals;
+        uint256 actualPledgeAmount = actualReceived - shippingFee;
 
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, actualPledgeAmount, shippingFeeInTokenDecimals, 0
+            backer, reward, pledgeToken, pledgeAmount, shippingFee, 0
         );
 
         s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
