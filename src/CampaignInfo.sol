@@ -638,6 +638,7 @@ contract CampaignInfo is
         onlyOwner
         currentTimeIsLess(getLaunchTime())
     {
+        _validateJsonString(newImageURI);
         s_imageURI = newImageURI;
         emit ImageURIUpdated(newImageURI);
     }
