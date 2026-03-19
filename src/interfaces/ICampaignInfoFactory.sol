@@ -21,6 +21,12 @@ interface ICampaignInfoFactory is ICampaignData {
     event CampaignInfoFactoryCampaignInitialized();
 
     /**
+     * @notice Emitted when the campaign implementation address is updated.
+     * @param newImplementation The new implementation address.
+     */
+    event CampaignInfoFactoryImplementationUpdated(address indexed newImplementation);
+
+    /**
      * @notice Creates a new campaign information contract with NFT.
      * @dev IMPORTANT: Protocol and platform fees are retrieved at execution time and locked
      *      permanently in the campaign contract. Users should verify current fees before
@@ -56,4 +62,11 @@ interface ICampaignInfoFactory is ICampaignData {
      * @param newImplementation The address of the camapaignInfo implementation contract.
      */
     function updateImplementation(address newImplementation) external;
+
+    /**
+     * @notice Returns whether the given address is a CampaignInfo contract created by this factory.
+     * @param campaignInfo The address to check.
+     * @return True if the address was deployed through this factory, false otherwise.
+     */
+    function isValidCampaignInfo(address campaignInfo) external view returns (bool);
 }
