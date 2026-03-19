@@ -127,7 +127,7 @@ contract TreasuryFactory is Initializable, ITreasuryFactory, AdminAccessChecker,
         if (!success) {
             revert TreasuryFactoryTreasuryInitializationFailed();
         }
-        (success,) = infoAddress.call(abi.encodeWithSignature("_setPlatformInfo(bytes32,address)", platformHash, clone));
+        (success,) = infoAddress.call(abi.encodeWithSignature("setPlatformInfo(bytes32,address)", platformHash, clone));
         if (!success) {
             revert TreasuryFactorySettingPlatformInfoFailed();
         }
