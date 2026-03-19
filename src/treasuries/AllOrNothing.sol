@@ -10,6 +10,7 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
+import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 
 /**
  * @title AllOrNothing
@@ -30,6 +31,23 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
+
+    // ---------------------------------------------------------------------------
+    // Permit2 witness types for pledge functions
+    // ---------------------------------------------------------------------------
+    // pledgeForAReward witness – binds backer, reward array, and shipping fee
+    bytes32 internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH = keccak256(
+        "PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)"
+    );
+    string internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+        "PledgeForRewardWitness witness)PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)TokenPermissions(address token,uint256 amount)";
+
+    // pledgeWithoutAReward witness – binds backer and pledge amount
+    bytes32 internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH =
+        keccak256("PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)");
+    string internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+        "PledgeWithoutRewardWitness witness)PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)TokenPermissions(address token,uint256 amount)";
+
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -263,15 +281,23 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     }
 
     /**
-     * @notice Allows a backer to pledge for a reward.
-     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-     *      The non-reward tiers cannot be pledged for without a reward.
-     * @param backer The address of the backer making the pledge.
+     * @notice Allows a backer to pledge for a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `backer`, the reward array hash, and `shippingFee`,
+     *      so the caller cannot change those values after the backer has signed.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token address to use for the pledge.
      * @param shippingFee The shipping fee amount.
      * @param reward An array of reward names.
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
-    function pledgeForAReward(address backer, address pledgeToken, uint256 shippingFee, bytes32[] calldata reward)
+    function pledgeForAReward(
+        address backer,
+        address pledgeToken,
+        uint256 shippingFee,
+        bytes32[] calldata reward,
+        PermitData calldata permitData
+    )
         external
         nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -299,16 +325,24 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward, permitData);
     }
 
     /**
-     * @notice Allows a backer to pledge without selecting a reward.
-     * @param backer The address of the backer making the pledge.
+     * @notice Allows a backer to pledge without selecting a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `backer` and `pledgeAmount`.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token address to use for the pledge.
-     * @param pledgeAmount The amount of the pledge.
+     * @param pledgeAmount The amount of the pledge (in token's native decimals).
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
-    function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledgeAmount)
+    function pledgeWithoutAReward(
+        address backer,
+        address pledgeToken,
+        uint256 pledgeAmount,
+        PermitData calldata permitData
+    )
         external
         nonReentrant
         currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -319,7 +353,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     {
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray);
+        _pledge(backer, pledgeToken, ZERO_BYTES, pledgeAmount, 0, emptyByteArray, permitData);
     }
 
     /**
@@ -400,11 +434,15 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         bytes32 reward,
         uint256 pledgeAmount,
         uint256 shippingFee,
-        bytes32[] memory rewards
+        bytes32[] memory rewards,
+        PermitData calldata permitData
     ) private {
         // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
+        if (permitData.signature.length == 0) {
+            revert AllOrNothingInvalidInput();
         }
 
         // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
@@ -424,7 +462,41 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
 
-        IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
+        // Build the Permit2 witness that binds all pledge parameters to the
+        // backer's signature.  Any third party attempting to:
+        //   - redirect tokens from a different backer address,
+        //   - swap reward tiers to avoid a pledge-with-reward check, or
+        //   - alter the shipping fee
+        // will produce a signature mismatch, preventing exploitation.
+        bytes32 witness;
+        string memory witnessTypeString;
+
+        if (reward != ZERO_BYTES) {
+            // For reward pledges, bind backer, the full rewards array hash, and shippingFee
+            bytes32 rewardsHash = keccak256(abi.encodePacked(rewards));
+            witness = keccak256(
+                abi.encode(AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, backer, rewardsHash, shippingFee)
+            );
+            witnessTypeString = AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING;
+        } else {
+            // For no-reward pledges, bind backer and pledgeAmount
+            witness =
+                keccak256(abi.encode(AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH, backer, pledgeAmountInTokenDecimals));
+            witnessTypeString = AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING;
+        }
+
+        IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({token: pledgeToken, amount: totalAmount}),
+                nonce: permitData.nonce,
+                deadline: permitData.deadline
+            }),
+            ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+            backer,
+            witness,
+            witnessTypeString,
+            permitData.signature
+        );
 
         uint256 tokenId = INFO.mintNFTForPledge(
             backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0

@@ -13,6 +13,7 @@ import {Defaults} from "../Base.t.sol";
 import {IReward} from "src/interfaces/IReward.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
+import {MockPermit2} from "../../mocks/MockPermit2.sol";
 
 contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Test {
     // Test constants
@@ -124,12 +125,13 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(keepWhatsRaised.getLaunchTime());
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
-        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, 0, rewardSelection, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, permitData);
         vm.stopPrank();
 
         // Available amount should not include Colombian tax deduction at pledge time
@@ -445,13 +447,14 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Pledge
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeForAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData
         );
         vm.stopPrank();
 
@@ -468,20 +471,21 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT * 2);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT * 2);
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
         // First pledge
-        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, 0, rewardSelection, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, permitData1);
 
         // Try to pledge with same ID
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(TEST_PLEDGE_ID, users.backer1Address));
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, 0, rewardSelection, 1, block.timestamp + 1 hours);
         vm.expectRevert(
-            abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedPledgeAlreadyProcessed.selector, internalPledgeId)
+            abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedPledgeAlreadyProcessed.selector, TEST_PLEDGE_ID)
         );
-        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
+        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, permitData2);
         vm.stopPrank();
     }
 
@@ -499,13 +503,14 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Try to pledge
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
+        PermitData memory emptyPermit;
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
-        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
+        keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, emptyPermit);
         vm.stopPrank();
     }
 
@@ -518,9 +523,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Pledge
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), pledgeAmount + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, pledgeAmount + TEST_TIP_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, pledgeAmount, TEST_TIP_AMOUNT, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), pledgeAmount, TEST_TIP_AMOUNT
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), pledgeAmount, TEST_TIP_AMOUNT, permitData
         );
         vm.stopPrank();
 
@@ -536,20 +542,57 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT * 2);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT * 2);
 
         // First pledge
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData1
         );
 
-        // Try to pledge with same ID - internal pledge ID includes caller
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(TEST_PLEDGE_ID, users.backer1Address));
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 1, block.timestamp + 1 hours);
         vm.expectRevert(
-            abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedPledgeAlreadyProcessed.selector, internalPledgeId)
+            abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedPledgeAlreadyProcessed.selector, TEST_PLEDGE_ID)
         );
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData2
+        );
+        vm.stopPrank();
+    }
+
+    function testPledgeWithoutARewardRevertWhenPermitMissing() public {
+        vm.warp(LAUNCH_TIME);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
+        vm.prank(users.backer1Address);
+        PermitData memory emptyPermitData = PermitData({nonce: 0, deadline: 0, signature: ""});
+        keepWhatsRaised.pledgeWithoutAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, emptyPermitData
+        );
+    }
+
+    function testPledgeWithoutARewardRevertWhenSignedPledgeIdIsTampered() public {
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(
+            users.backer1Address,
+            address(testToken),
+            TEST_PLEDGE_ID,
+            TEST_PLEDGE_AMOUNT,
+            0,
+            55,
+            block.timestamp + 1 hours
+        );
+
+        vm.expectRevert(MockPermit2.InvalidSigner.selector);
+        keepWhatsRaised.pledgeWithoutAReward(
+            keccak256("tamperedPledgeId"),
+            users.backer1Address,
+            address(testToken),
+            TEST_PLEDGE_AMOUNT,
+            0,
+            permitData
         );
         vm.stopPrank();
     }
@@ -559,16 +602,18 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.warp(LAUNCH_TIME - 1);
         vm.expectRevert();
         vm.prank(users.backer1Address);
+        PermitData memory emptyPermit1;
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, emptyPermit1
         );
 
         // After deadline
         vm.warp(DEADLINE + 1);
         vm.expectRevert();
         vm.prank(users.backer1Address);
+        PermitData memory emptyPermit2;
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("newPledge"), users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            keccak256("newPledge"), users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, emptyPermit2
         );
     }
 
@@ -581,14 +626,15 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Try to pledge
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
 
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
+        PermitData memory emptyPermit;
         vm.expectRevert();
         keepWhatsRaised.pledgeForAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, emptyPermit
         );
         vm.stopPrank();
     }
@@ -744,8 +790,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), largePledge);
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), largePledge, 0);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, largePledge);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, largePledge, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), largePledge, 0, permitData);
         vm.stopPrank();
 
         uint256 availableAfterPledge = keepWhatsRaised.getAvailableRaisedAmount();
@@ -786,9 +833,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         vm.stopPrank();
 
@@ -829,9 +877,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
@@ -866,9 +915,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
@@ -886,9 +936,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         uint256 tokenId = 1; // First token ID after pledge
         vm.stopPrank();
@@ -925,9 +976,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         uint256 tokenId = 0;
         vm.stopPrank();
@@ -947,9 +999,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         uint256 tokenId = 0;
         vm.stopPrank();
@@ -1146,8 +1199,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.warp(LAUNCH_TIME);
         vm.expectRevert();
         vm.prank(users.backer1Address);
+        PermitData memory emptyPermit1;
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, emptyPermit1
         );
     }
 
@@ -1162,8 +1216,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.warp(LAUNCH_TIME);
         vm.expectRevert();
         vm.prank(users.backer1Address);
+        PermitData memory emptyPermit2;
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, emptyPermit2
         );
     }
 
@@ -1238,8 +1293,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), smallPledge);
-        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), smallPledge, 0);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, smallPledge);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, smallPledge, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), smallPledge, 0, permitData);
         vm.stopPrank();
 
         vm.prank(users.platform2AdminAddress);
@@ -1260,9 +1316,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         vm.stopPrank();
 
@@ -1275,9 +1332,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
         vm.stopPrank();
 
@@ -1329,11 +1387,12 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         );
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), keccak256("pledge1"), TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeForAReward(
-            keccak256("pledge1"), users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection
+            keccak256("pledge1"), users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData1
         );
         vm.stopPrank();
 
@@ -1343,8 +1402,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
             users.platform2AdminAddress, address(keepWhatsRaised), keccak256("pledge2"), differentGatewayFee
         );
         vm.startPrank(users.backer2Address);
-        testToken.approve(address(keepWhatsRaised), 2000e18);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("pledge2"), users.backer2Address, address(testToken), 2000e18, 0);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, 2000e18);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(testToken), keccak256("pledge2"), 2000e18, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("pledge2"), users.backer2Address, address(testToken), 2000e18, 0, permitData2);
         vm.stopPrank();
 
         // Verify total raised and available amounts
@@ -1382,9 +1442,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), smallAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, smallAmount);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(testToken), keccak256("small"), smallAmount, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("small"), users.backer1Address, address(testToken), smallAmount, 0
+            keccak256("small"), users.backer1Address, address(testToken), smallAmount, 0, permitData
         );
         vm.stopPrank();
 
@@ -1474,19 +1535,21 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // Backer 1 pledge with reward
         vm.startPrank(users.backer1Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
+        PermitData memory permitDataBacker1 = _buildSignedKeepWhatsRaisedRewardPermitData(users.backer1Address, address(testToken), keccak256("pledge1"), TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeForAReward(
-            keccak256("pledge1"), users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection
+            keccak256("pledge1"), users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitDataBacker1
         );
         vm.stopPrank();
 
         // Backer 2 pledge without reward
         vm.startPrank(users.backer2Address);
-        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        PermitData memory permitDataBacker2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(testToken), keccak256("pledge2"), TEST_PLEDGE_AMOUNT, TEST_TIP_AMOUNT, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("pledge2"), users.backer2Address, address(testToken), TEST_PLEDGE_AMOUNT, TEST_TIP_AMOUNT
+            keccak256("pledge2"), users.backer2Address, address(testToken), TEST_PLEDGE_AMOUNT, TEST_TIP_AMOUNT, permitDataBacker2
         );
         vm.stopPrank();
     }
@@ -1521,9 +1584,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("usdc_pledge"), usdcAmount, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("usdc_pledge"), users.backer1Address, address(usdcToken), usdcAmount, 0
+            keccak256("usdc_pledge"), users.backer1Address, address(usdcToken), usdcAmount, 0, permitData1
         );
         vm.stopPrank();
 
@@ -1531,9 +1595,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), keccak256("cusd_pledge"), 0);
 
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(cUSDToken), keccak256("cusd_pledge"), TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("cusd_pledge"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, 0
+            keccak256("cusd_pledge"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, 0, permitData2
         );
         vm.stopPrank();
 
@@ -1556,8 +1621,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
         deal(address(usdcToken), users.backer1Address, usdcAmount); // Ensure enough tokens
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdc"), users.backer1Address, address(usdcToken), usdcAmount, 0);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("usdc"), usdcAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdc"), users.backer1Address, address(usdcToken), usdcAmount, 0, permitData1);
         vm.stopPrank();
 
         // Pledge with cUSD
@@ -1565,8 +1631,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.startPrank(users.backer2Address);
         deal(address(cUSDToken), users.backer2Address, cUSDAmount); // Ensure enough tokens
-        cUSDToken.approve(address(keepWhatsRaised), cUSDAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("cusd"), users.backer2Address, address(cUSDToken), cUSDAmount, 0);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, cUSDAmount);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(cUSDToken), keccak256("cusd"), cUSDAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("cusd"), users.backer2Address, address(cUSDToken), cUSDAmount, 0, permitData2);
         vm.stopPrank();
 
         // Approve withdrawal
@@ -1606,21 +1673,24 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // USDC pledge
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdc"), users.backer1Address, address(usdcToken), usdcAmount, 0);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("usdc"), usdcAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdc"), users.backer1Address, address(usdcToken), usdcAmount, 0, permitData1);
         vm.stopPrank();
 
         // USDT pledge
         vm.startPrank(users.backer2Address);
-        usdtToken.approve(address(keepWhatsRaised), usdtAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdt"), users.backer2Address, address(usdtToken), usdtAmount, 0);
+        usdtToken.approve(CANONICAL_PERMIT2_ADDRESS, usdtAmount);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(usdtToken), keccak256("usdt"), usdtAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("usdt"), users.backer2Address, address(usdtToken), usdtAmount, 0, permitData2);
         vm.stopPrank();
 
         // cUSD pledge
         vm.startPrank(users.backer1Address);
-        cUSDToken.approve(address(keepWhatsRaised), PLEDGE_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, PLEDGE_AMOUNT);
+        PermitData memory permitData3 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(cUSDToken), keccak256("cusd"), PLEDGE_AMOUNT, 0, 1, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("cusd"), users.backer1Address, address(cUSDToken), PLEDGE_AMOUNT, 0
+            keccak256("cusd"), users.backer1Address, address(cUSDToken), PLEDGE_AMOUNT, 0, permitData3
         );
         vm.stopPrank();
 
@@ -1675,9 +1745,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("usdc_pledge"), usdcAmount, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("usdc_pledge"), users.backer1Address, address(usdcToken), usdcAmount, 0
+            keccak256("usdc_pledge"), users.backer1Address, address(usdcToken), usdcAmount, 0, permitData1
         );
         uint256 usdcTokenId = 1; // First pledge
         vm.stopPrank();
@@ -1686,9 +1757,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), keccak256("cusd_pledge"), 0);
 
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(cUSDToken), keccak256("cusd_pledge"), TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("cusd_pledge"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, 0
+            keccak256("cusd_pledge"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, 0, permitData2
         );
         uint256 cUSDTokenId = 2; // Second pledge
         vm.stopPrank();
@@ -1729,9 +1801,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.warp(LAUNCH_TIME);
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcPledge + tipAmountUSDC);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcPledge + tipAmountUSDC);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("usdc"), usdcPledge, tipAmountUSDC, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("usdc"), users.backer1Address, address(usdcToken), usdcPledge, tipAmountUSDC
+            keccak256("usdc"), users.backer1Address, address(usdcToken), usdcPledge, tipAmountUSDC, permitData1
         );
         vm.stopPrank();
 
@@ -1739,9 +1812,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), keccak256("cusd"), 0);
 
         vm.startPrank(users.backer2Address);
-        cUSDToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + tipAmountCUSD);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + tipAmountCUSD);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(cUSDToken), keccak256("cusd"), TEST_PLEDGE_AMOUNT, tipAmountCUSD, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("cusd"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, tipAmountCUSD
+            keccak256("cusd"), users.backer2Address, address(cUSDToken), TEST_PLEDGE_AMOUNT, tipAmountCUSD, permitData2
         );
         vm.stopPrank();
 
@@ -1783,8 +1857,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // USDC pledge
         vm.startPrank(users.backer1Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("p1"), users.backer1Address, address(usdcToken), usdcAmount, 0);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdcToken), keccak256("p1"), usdcAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("p1"), users.backer1Address, address(usdcToken), usdcAmount, 0, permitData1);
         vm.stopPrank();
 
         uint256 raisedAfterUSDC = keepWhatsRaised.getRaisedAmount();
@@ -1792,8 +1867,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // USDT pledge
         vm.startPrank(users.backer2Address);
-        usdtToken.approve(address(keepWhatsRaised), usdtAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("p2"), users.backer2Address, address(usdtToken), usdtAmount, 0);
+        usdtToken.approve(CANONICAL_PERMIT2_ADDRESS, usdtAmount);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(usdtToken), keccak256("p2"), usdtAmount, 0, 0, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("p2"), users.backer2Address, address(usdtToken), usdtAmount, 0, permitData2);
         vm.stopPrank();
 
         uint256 raisedAfterUSDT = keepWhatsRaised.getRaisedAmount();
@@ -1801,8 +1877,9 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // cUSD pledge
         vm.startPrank(users.backer1Address);
-        cUSDToken.approve(address(keepWhatsRaised), cUSDAmount);
-        keepWhatsRaised.pledgeWithoutAReward(keccak256("p3"), users.backer1Address, address(cUSDToken), cUSDAmount, 0);
+        cUSDToken.approve(CANONICAL_PERMIT2_ADDRESS, cUSDAmount);
+        PermitData memory permitData3 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(cUSDToken), keccak256("p3"), cUSDAmount, 0, 1, block.timestamp + 1 hours);
+        keepWhatsRaised.pledgeWithoutAReward(keccak256("p3"), users.backer1Address, address(cUSDToken), cUSDAmount, 0, permitData3);
         vm.stopPrank();
 
         uint256 finalRaised = keepWhatsRaised.getRaisedAmount();
@@ -1828,17 +1905,19 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // USDT pledge
         vm.startPrank(users.backer1Address);
-        usdtToken.approve(address(keepWhatsRaised), usdtAmount);
+        usdtToken.approve(CANONICAL_PERMIT2_ADDRESS, usdtAmount);
+        PermitData memory permitData1 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer1Address, address(usdtToken), keccak256("usdt_pledge"), usdtAmount, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("usdt_pledge"), users.backer1Address, address(usdtToken), usdtAmount, 0
+            keccak256("usdt_pledge"), users.backer1Address, address(usdtToken), usdtAmount, 0, permitData1
         );
         vm.stopPrank();
 
         // USDC pledge
         vm.startPrank(users.backer2Address);
-        usdcToken.approve(address(keepWhatsRaised), usdcAmount);
+        usdcToken.approve(CANONICAL_PERMIT2_ADDRESS, usdcAmount);
+        PermitData memory permitData2 = _buildSignedKeepWhatsRaisedNoRewardPermitData(users.backer2Address, address(usdcToken), keccak256("usdc_pledge"), usdcAmount, 0, 0, block.timestamp + 1 hours);
         keepWhatsRaised.pledgeWithoutAReward(
-            keccak256("usdc_pledge"), users.backer2Address, address(usdcToken), usdcAmount, 0
+            keccak256("usdc_pledge"), users.backer2Address, address(usdcToken), usdcAmount, 0, permitData2
         );
         vm.stopPrank();
 

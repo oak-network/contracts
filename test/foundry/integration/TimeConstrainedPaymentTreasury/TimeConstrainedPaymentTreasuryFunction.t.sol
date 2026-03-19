@@ -11,6 +11,8 @@ import {ICampaignPaymentTreasury} from "src/interfaces/ICampaignPaymentTreasury.
 import {TimeConstrainedPaymentTreasury} from "src/treasuries/TimeConstrainedPaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../../mocks/TestToken.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
     TimeConstrainedPaymentTreasury_Integration_Shared_Test
@@ -92,11 +94,21 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
     function test_processCryptoPayment() external {
         advanceToWithinRange();
 
-        // Approve tokens for the treasury
+        // Approve MockPermit2 (at canonical address) for the token.
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -105,7 +117,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Payment processed successfully
@@ -146,9 +159,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment which creates and confirms payment in one step
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
@@ -157,7 +180,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Payment created and confirmed successfully by processCryptoPayment
@@ -174,9 +198,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment for both payments which creates and confirms them
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData1 = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId1,
@@ -185,13 +219,24 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData1
         );
 
         vm.prank(users.backer2Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_2);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_2);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems2 = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData2 = _buildSignedCryptoPaymentPermitData(
+            users.backer2Address,
+            address(testToken),
+            uniquePaymentId2,
+            ITEM_ID_2,
+            PAYMENT_AMOUNT_2,
+            emptyLineItems2,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId2,
@@ -200,7 +245,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_2,
             emptyLineItems2,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData2
         );
 
         // Payments created and confirmed successfully by processCryptoPayment
@@ -217,9 +263,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment which creates and confirms payment in one step
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
@@ -228,7 +284,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Advance to after launch to be able to claim refund
@@ -256,9 +313,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment which creates and confirms payment in one step
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
@@ -267,7 +334,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Advance to after launch to be able to disburse fees
@@ -289,9 +357,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment which creates and confirms payment in one step
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
@@ -300,7 +378,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Advance to after launch to be able to withdraw
@@ -491,9 +570,19 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
 
         // Use processCryptoPayment which creates and confirms payment in one step
         vm.prank(users.backer1Address);
-        testToken.approve(address(timeConstrainedPaymentTreasury), PAYMENT_AMOUNT_1);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, PAYMENT_AMOUNT_1);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            uniquePaymentId,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            emptyLineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.platform1AdminAddress);
         timeConstrainedPaymentTreasury.processCryptoPayment(
             uniquePaymentId,
@@ -502,7 +591,8 @@ contract TimeConstrainedPaymentTreasuryFunction_Integration_Shared_Test is
             address(testToken),
             PAYMENT_AMOUNT_1,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         // Advance to after launch time

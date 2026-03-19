@@ -8,6 +8,7 @@ import "forge-std/Test.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
 import {TestToken} from "../../../mocks/TestToken.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
 
 /**
  * @title PaymentTreasuryFunction_Integration_Test
@@ -512,22 +513,25 @@ contract PaymentTreasuryFunction_Integration_Test is PaymentTreasury_Integration
         uint256 amount = 1000e18;
         rejectedToken.mint(users.backer1Address, amount);
 
-        vm.prank(users.backer1Address);
-        rejectedToken.approve(treasuryAddress, amount);
+        vm.startPrank(users.backer1Address);
+        rejectedToken.approve(CANONICAL_PERMIT2_ADDRESS, amount);
 
-        // Try to process crypto payment with unaccepted token
-        vm.expectRevert();
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(
-            users.backer1Address,
+        PermitData memory emptyPermit;
+
+        // Place vm.expectRevert right before the external call
+        vm.expectRevert();
+        paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(rejectedToken),
             amount,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            emptyPermit
         );
+        vm.stopPrank();
     }
 
     function test_balanceTrackingAcrossMultipleTokens() public {
