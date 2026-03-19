@@ -9,6 +9,7 @@ interface IReward {
     struct Reward {
         uint256 rewardValue;
         bool isRewardTier;
+        bool canBeAddOn;
         bytes32[] itemId;
         uint256[] itemValue;
         uint256[] itemQuantity;
