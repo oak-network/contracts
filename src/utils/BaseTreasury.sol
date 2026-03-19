@@ -24,6 +24,16 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
     uint256 internal constant STANDARD_DECIMALS = 18;
 
     bytes32 internal PLATFORM_HASH;
+    /**
+     * @dev Snapshot of the platform fee percent captured at treasury initialization via
+     * INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+     * treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+     *
+     * The protocol fee accessed during disburseFees() via INFO.getProtocolFeePercent() is also
+     * a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+     * likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+     * accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+     */
     uint256 internal PLATFORM_FEE_PERCENT;
 
     bool internal s_feesDisbursed;
@@ -186,6 +196,10 @@ abstract contract BaseTreasury is Initializable, ICampaignTreasury, CampaignAcce
             uint256 balance = s_tokenRaisedAmounts[token];
 
             if (balance > 0) {
+                // Both fees are campaign-level snapshots: PLATFORM_FEE_PERCENT is cached
+                // in treasury storage at init; INFO.getProtocolFeePercent() reads the value
+                // stored in the CampaignInfo clone at campaign creation — neither reflects
+                // live GlobalParams state at the time of disbursement.
                 uint256 protocolShare = (balance * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
                 uint256 platformShare = (balance * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
 

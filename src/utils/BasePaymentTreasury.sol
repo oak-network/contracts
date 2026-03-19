@@ -31,6 +31,16 @@ abstract contract BasePaymentTreasury is
     address internal constant ZERO_ADDRESS = address(0);
 
     bytes32 internal PLATFORM_HASH;
+    /**
+     * @dev Snapshot of the platform fee percent captured at treasury initialization via
+     * INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+     * treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+     *
+     * The protocol fee accessed during fee calculations via INFO.getProtocolFeePercent() is also
+     * a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+     * likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+     * accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+     */
     uint256 internal PLATFORM_FEE_PERCENT;
 
     // Multi-token support
