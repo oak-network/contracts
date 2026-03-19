@@ -254,7 +254,7 @@ contract CampaignInfo is
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
             // Skip cancelled treasuries
-            if (!ICampaignTreasury(tempTreasury).cancelled()) {
+            if (!PausableCancellable(tempTreasury).cancelled()) {
                 amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
             }
         }
@@ -313,7 +313,7 @@ contract CampaignInfo is
         for (uint256 i = 0; i < length; i++) {
             tempTreasury = s_platformTreasuryAddress[tempPlatforms[i]];
             // Only include cancelled treasuries
-            if (ICampaignTreasury(tempTreasury).cancelled()) {
+            if (PausableCancellable(tempTreasury).cancelled()) {
                 amount += ICampaignTreasury(tempTreasury).getRaisedAmount();
             }
         }
@@ -401,13 +401,6 @@ contract CampaignInfo is
      */
     function paused() public view override(ICampaignInfo, PausableCancellable) returns (bool) {
         return super.paused();
-    }
-
-    /**
-     * @inheritdoc ICampaignInfo
-     */
-    function cancelled() public view override(ICampaignInfo, PausableCancellable) returns (bool) {
-        return super.cancelled();
     }
 
     /**
@@ -675,6 +668,10 @@ contract CampaignInfo is
         return super.mintNFTForPledge(backer, reward, tokenAddress, amount, shippingFee, tipAmount);
     }
 
+    /**
+     * @inheritdoc ICampaignInfo
+     * @dev Override required: ICampaignInfo and PledgeNFT both define burn(); forwards to PledgeNFT implementation.
+     */
     function burn(uint256 tokenId) public override(ICampaignInfo, PledgeNFT) {
         super.burn(tokenId);
     }

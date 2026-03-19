@@ -201,11 +201,6 @@ interface ICampaignInfo is IERC721 {
     function paused() external view returns (bool);
 
     /**
-     * @dev Returns true if the campaign is cancelled, and false otherwise.
-     */
-    function cancelled() external view returns (bool);
-
-    /**
      * @notice Retrieves a value from the GlobalParams data registry.
      * @param key The registry key.
      * @return value The registry value.
