@@ -883,10 +883,38 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
+     * @dev Computes Colombian creator tax with a single accounting model to avoid double-counting.
+     * - Partial withdrawal: `amount` is NET (what the creator receives). Tax is additive (fee on top).
+     *   Formula: tax = ceil(net * 40 / 10000). Rounded up per Colombian Peso precision requirements.
+     * - Final withdrawal: `amount` is GROSS (full remaining balance). Tax is deducted from it.
+     *   Formula: tax = ceil(gross * 40 / 10040) (tax-inclusive rate). Rounded up per Colombian Peso.
+     * @param amount The net amount (partial) or gross amount (final) in token units.
+     * @param isFromGross True for final withdrawal (amount = full balance), false for partial (amount = net to creator).
+     * @return Tax amount in token units (rounded up).
+     */
+    function _colombianCreatorTax(uint256 amount, bool isFromGross) internal pure returns (uint256) {
+        if (amount == 0) return 0;
+        if (isFromGross) {
+            // Gross-including-tax: tax = ceil(gross * 40 / 10040)
+            return (amount * 40 + 10040 - 1) / 10040;
+        } else {
+            // Net amount (additive tax): tax = ceil(net * 40 / 10000)
+            return (amount * 40 + 10000 - 1) / 10000;
+        }
+    }
+
+    /**
      * @dev Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
      *
+     * Accounting model (per product requirement):
+     * - Partial withdrawal: Creator receives the full requested amount; fees (including Colombian tax) are additive
+     *   (deducted from the pool in addition). So: pool -= amount + totalFee, creator gets amount (net).
+     * - Final withdrawal: Fees (including Colombian tax) are cut from the remaining balance; creator receives
+     *   the remainder. So: pool -= withdrawalAmount, creator gets withdrawalAmount - totalFee (net).
+     *
      * @param token The token to withdraw.
-     * @param amount The withdrawal amount (ignored for final withdrawals).
+     * @param amount The withdrawal amount (ignored for final withdrawals). For partial, this is the NET amount
+     *               to transfer to the creator; fees are additive.
      *
      * Requirements:
      * - Caller must be authorized.
@@ -965,16 +993,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
         }
 
-        uint256 availableBeforeTax = withdrawalAmount; //The tax implemented is on the withdrawal amount
-
-        // Colombian creator tax
+        // Colombian creator tax: single accounting model to avoid double-counting.
+        // Partial: withdrawalAmount = NET (amount to creator); tax is additive (fee on top), formula from net.
+        // Final: withdrawalAmount = GROSS (full balance); tax is deducted from it, formula from gross. Rounded up to next unit (e.g. Peso).
         if (s_config.isColombianCreator) {
-            // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
-            uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
-            uint256 numerator = scaled * 40;
-            uint256 denominator = 10040;
-            uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
-
+            uint256 columbianCreatorTax = _colombianCreatorTax(withdrawalAmount, isFinalWithdrawal);
             s_platformFeePerToken[token] += columbianCreatorTax;
             totalFee += columbianCreatorTax;
         }
