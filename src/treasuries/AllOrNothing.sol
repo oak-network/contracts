@@ -81,6 +81,19 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
      */
     error AllOrNothingInvalidInput(string reason);
 
+    /// @dev Reverts when reward name is zero bytes.
+    error AllOrNothingZeroRewardName();
+    /// @dev Reverts when reward value is zero.
+    error AllOrNothingZeroRewardValue();
+    /// @dev Reverts when reward item arrays have mismatched lengths.
+    error AllOrNothingRewardItemArrayLengthMismatch();
+    /// @dev Reverts when backer address is zero.
+    error AllOrNothingZeroBacker();
+    /// @dev Reverts when reward selection length exceeds number of rewards.
+    error AllOrNothingRewardSelectionLengthMismatch();
+    /// @dev Reverts when first reward is not a reward tier.
+    error AllOrNothingFirstRewardNotTier();
+
     /**
      * @dev Emitted when a token transfer fails.
      */
@@ -213,18 +226,12 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
             bytes32 rewardName = rewardNames[i];
             Reward calldata reward = rewards[i];
 
-            // Reward name must not be zero bytes and reward value must be non-zero
-            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
-                revert AllOrNothingInvalidInput("ZERO_NAME_OR_VALUE");
-            }
+            if (rewardName == ZERO_BYTES) revert AllOrNothingZeroRewardName();
+            if (reward.rewardValue == 0) revert AllOrNothingZeroRewardValue();
 
             // If there are any items, their arrays must match in length
-            if (
-                (reward.itemId.length != reward.itemValue.length)
-                    || (reward.itemId.length != reward.itemQuantity.length)
-            ) {
-                revert AllOrNothingInvalidInput("REWARD_ITEM_LENGTH_MISMATCH");
-            }
+            if (reward.itemId.length != reward.itemValue.length) revert AllOrNothingRewardItemArrayLengthMismatch();
+            if (reward.itemId.length != reward.itemQuantity.length) revert AllOrNothingRewardItemArrayLengthMismatch();
 
             // Check for duplicate reward
             if (s_reward[rewardName].rewardValue != 0) {
@@ -278,11 +285,10 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     {
         uint256 rewardLen = reward.length;
         Reward storage tempReward = s_reward[reward[0]];
-        if (
-            backer == address(0) || reward[0] == ZERO_BYTES || !tempReward.isRewardTier
-        ) {
-            revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
-        }
+        if (backer == address(0)) revert AllOrNothingZeroBacker();
+        if (rewardLen > s_rewardCounter.current()) revert AllOrNothingRewardSelectionLengthMismatch();
+        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
+        if (!tempReward.isRewardTier) revert AllOrNothingFirstRewardNotTier();
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {

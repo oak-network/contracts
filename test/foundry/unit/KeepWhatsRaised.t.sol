@@ -157,7 +157,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
 
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_TIMING"));
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedLaunchTimeInPast.selector);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.configureTreasury(CONFIG, invalidCampaignData, FEE_KEYS, feeValues);
     }
@@ -558,7 +558,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         bytes32[] memory rewardSelection = new bytes32[](1);
         rewardSelection[0] = TEST_REWARD_NAME;
 
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_PLEDGE_INPUT"));
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedFirstRewardNotTier.selector);
         keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
         vm.stopPrank();
     }
@@ -1145,7 +1145,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         _setupPledges();
 
         vm.warp(DEADLINE + WITHDRAWAL_DELAY - 1);
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedNotClaimableAdmin.selector);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedClaimFundWindowNotReached.selector);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.claimFund();
     }
