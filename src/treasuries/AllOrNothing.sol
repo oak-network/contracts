@@ -13,7 +13,7 @@ import {IReward} from "../interfaces/IReward.sol";
 
 /**
  * @title AllOrNothing
- * @notice A contract for handling crowdfunding campaigns with rewards.
+ * @notice A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
  */
 contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
     using Counters for Counters.Counter;
