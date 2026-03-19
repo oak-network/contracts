@@ -77,8 +77,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "LENGTH_MISMATCH").
      */
-    error AllOrNothingInvalidInput();
+    error AllOrNothingInvalidInput(string reason);
 
     /**
      * @dev Emitted when a token transfer fails.
@@ -108,8 +109,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
+     * @param reason A string code describing why the refund is not claimable (e.g., "CAMPAIGN_SUCCESSFUL", "ZERO_AMOUNT").
      */
-    error AllOrNothingNotClaimable(uint256 tokenId);
+    error AllOrNothingNotClaimable(uint256 tokenId, string reason);
 
     /**
      * @dev Constructor for the AllOrNothing contract.
@@ -127,7 +129,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         return s_reward[rewardName];
     }
@@ -204,7 +206,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_LENGTH_MISMATCH");
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -213,7 +215,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
 
             // Reward name must not be zero bytes and reward value must be non-zero
             if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("ZERO_NAME_OR_VALUE");
             }
 
             // If there are any items, their arrays must match in length
@@ -221,7 +223,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
                 (reward.itemId.length != reward.itemValue.length)
                     || (reward.itemId.length != reward.itemQuantity.length)
             ) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("REWARD_ITEM_LENGTH_MISMATCH");
             }
 
             // Check for duplicate reward
@@ -248,7 +250,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -278,16 +280,16 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         if (
             backer == address(0) || reward[0] == ZERO_BYTES || !tempReward.isRewardTier
         ) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
         }
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("ZERO_REWARD_NAME");
             }
             tempReward = s_reward[reward[i]];
             if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
             }
             pledgeAmount += tempReward.rewardValue;
         }
@@ -325,7 +327,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotPaused
     {
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "CAMPAIGN_SUCCESSFUL");
         }
 
         // Get NFT owner before burning
@@ -336,7 +338,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
 
         if (amountToRefund == 0) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "ZERO_AMOUNT");
         }
 
         s_tokenToTotalCollectedAmount[tokenId] = 0;
