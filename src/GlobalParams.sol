@@ -19,6 +19,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
 
     bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
 
+    /// @dev 100% in basis points; fee percentages must not exceed this and their sum must be below it.
+    uint256 private constant PERCENT_DIVIDER = 10000;
+
     /**
      * @dev Emitted when a platform is enlisted.
      * @param platformHash The identifier of the enlisted platform.
@@ -199,6 +202,16 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typeId);
 
     /**
+     * @dev Throws when a fee percentage exceeds the maximum allowed (PERCENT_DIVIDER / 100%).
+     */
+    error GlobalParamsFeePercentExceedsMax();
+
+    /**
+     * @dev Throws when the sum of protocol and platform fee percentages would exceed 100%.
+     */
+    error GlobalParamsCombinedFeesExceedMax();
+
+    /**
      * @dev Reverts if the input address is zero.
      */
     modifier notAddressZero(address account) {
@@ -245,6 +258,10 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     ) public initializer {
         __Ownable_init(protocolAdminAddress);
         __UUPSUpgradeable_init();
+
+        if (protocolFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
 
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolAdminAddress = protocolAdminAddress;
@@ -407,7 +424,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
+        if (platformFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if ($.protocolFeePercent + platformFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsCombinedFeesExceedMax();
+        }
         if ($.platformIsListed[platformHash]) {
             revert GlobalParamsPlatformAlreadyListed(platformHash);
         } else {
@@ -498,6 +521,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @inheritdoc IGlobalParams
      */
     function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyOwner {
+        if (protocolFeePercent > PERCENT_DIVIDER) {
+            revert GlobalParamsFeePercentExceedsMax();
+        }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.protocolFeePercent = protocolFeePercent;
         emit ProtocolFeePercentUpdated(protocolFeePercent);
