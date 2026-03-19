@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
@@ -13,9 +12,9 @@ import {IReward} from "../interfaces/IReward.sol";
 
 /**
  * @title AllOrNothing
- * @notice A contract for handling crowdfunding campaigns with rewards.
+ * @notice A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
  */
-contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuard {
+contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -78,8 +77,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "LENGTH_MISMATCH").
      */
-    error AllOrNothingInvalidInput();
+    error AllOrNothingInvalidInput(string reason);
 
     /// @dev Reverts when reward name is zero bytes.
     error AllOrNothingZeroRewardName();
@@ -110,10 +110,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     error AllOrNothingFeeNotDisbursed();
 
     /**
-     * @dev Emitted when `disburseFees` after fee is disbursed already.
-     */
-    error AllOrNothingFeeAlreadyDisbursed();
-    /**
      * @dev Emitted when a `Reward` already exists for given input.
      */
     error AllOrNothingRewardExists();
@@ -126,16 +122,17 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
+     * @param reason A string code describing why the refund is not claimable (e.g., "CAMPAIGN_SUCCESSFUL", "ZERO_AMOUNT").
      */
-    error AllOrNothingNotClaimable(uint256 tokenId);
+    error AllOrNothingNotClaimable(uint256 tokenId, string reason);
 
     /**
      * @dev Constructor for the AllOrNothing contract.
      */
     constructor() {}
 
-    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
+    function initialize(bytes32 _platformHash, address _infoAddress) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress);
     }
 
     /**
@@ -145,65 +142,63 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         return s_reward[rewardName];
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() external view override returns (uint256) {
+    function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Lifetime total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view override returns (uint256) {
+    function getLifetimeRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenLifetimeRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view override returns (uint256) {
+    function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
-            uint256 currentAmount = s_tokenRaisedAmounts[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
@@ -224,7 +219,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_LENGTH_MISMATCH");
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -256,13 +251,14 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
     function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
+        currentTimeIsLess(INFO.getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -291,20 +287,25 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         Reward storage tempReward = s_reward[reward[0]];
         if (backer == address(0)) revert AllOrNothingZeroBacker();
         if (rewardLen > s_rewardCounter.current()) revert AllOrNothingRewardSelectionLengthMismatch();
-        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput();
+        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
         if (!tempReward.isRewardTier) revert AllOrNothingFirstRewardNotTier();
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert AllOrNothingInvalidInput();
+                revert AllOrNothingInvalidInput("ZERO_REWARD_NAME");
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
-                revert AllOrNothingInvalidInput();
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
+                revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(backer, pledgeToken, reward[0], pledgeAmount, shippingFee, reward);
+        if (!INFO.isTokenAccepted(pledgeToken)) {
+            revert AllOrNothingTokenNotAccepted(pledgeToken);
+        }
+        uint256 pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
+        uint256 shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
+        _pledge(backer, pledgeToken, reward[0], pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, reward);
     }
 
     /**
@@ -338,7 +339,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         whenNotPaused
     {
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "CAMPAIGN_SUCCESSFUL");
         }
 
         // Get NFT owner before burning
@@ -349,7 +350,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
 
         if (amountToRefund == 0) {
-            revert AllOrNothingNotClaimable(tokenId);
+            revert AllOrNothingNotClaimable(tokenId, "ZERO_AMOUNT");
         }
 
         s_tokenToTotalCollectedAmount[tokenId] = 0;
@@ -368,9 +369,6 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
      * @inheritdoc ICampaignTreasury
      */
     function disburseFees() public override currentTimeIsGreater(INFO.getDeadline()) whenNotPaused whenNotCancelled {
-        if (s_feesDisbursed) {
-            revert AllOrNothingFeeAlreadyDisbursed();
-        }
         super.disburseFees();
     }
 
@@ -399,6 +397,16 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         return INFO.getTotalRaisedAmount() >= INFO.getGoalAmount();
     }
 
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param shippingFee Shipping fee in the token's native decimals (must be denormalized by caller; use 0 for non-reward).
+     * @param rewards Full reward selection (for event).
+     */
     function _pledge(
         address backer,
         address pledgeToken,
@@ -407,39 +415,33 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker, ReentrancyGuar
         uint256 shippingFee,
         bytes32[] memory rewards
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
-
-        // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
-        // If not for a reward, amounts are already in token decimals
-        uint256 pledgeAmountInTokenDecimals;
-        uint256 shippingFeeInTokenDecimals;
-
-        if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
-            pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
-            shippingFeeInTokenDecimals = _denormalizeAmount(pledgeToken, shippingFee);
-        } else {
-            // Non-reward pledge: already in token decimals
-            pledgeAmountInTokenDecimals = pledgeAmount;
-            shippingFeeInTokenDecimals = shippingFee;
+        if (backer == address(this)) {
+            revert AllOrNothingInvalidInput("INVALID_BACKER");
         }
+        // pledgeAmount and shippingFee are always in pledgeToken's native decimals (callers must denormalize)
+        uint256 totalAmount = pledgeAmount + shippingFee;
 
-        uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
-
+        uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
         IERC20(pledgeToken).safeTransferFrom(backer, address(this), totalAmount);
+        uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
+
+        if (actualReceived < shippingFee) {
+            revert AllOrNothingTransferFailed();
+        }
+        uint256 actualPledgeAmount = actualReceived - shippingFee;
 
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
+            backer, reward, pledgeToken, pledgeAmount, shippingFee, 0
         );
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
-        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = actualReceived;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
     }

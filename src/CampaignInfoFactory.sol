@@ -202,6 +202,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         }
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         $.implementation = newImplementation;
+        emit CampaignInfoFactoryImplementationUpdated(newImplementation);
     }
 
     /**
