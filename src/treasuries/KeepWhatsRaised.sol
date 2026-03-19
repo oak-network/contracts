@@ -264,6 +264,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     error KeepWhatsRaisedAlreadyClaimed();
 
     /**
+     * @dev Emitted when an operation is attempted after the platform admin has already claimed the treasury funds.
+     */
+    error KeepWhatsRaisedFundAlreadyClaimed();
+
+    /**
      * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
      * @param tokenId The ID of the token that was attempted to be claimed.
      */
@@ -911,6 +916,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
         withdrawalEnabled
     {
+        if (s_fundClaimed) {
+            revert KeepWhatsRaisedFundAlreadyClaimed();
+        }
         if (!INFO.isTokenAccepted(token)) {
             revert KeepWhatsRaisedTokenNotAccepted(token);
         }
@@ -1007,6 +1015,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotPaused
         whenNotPaused
     {
+        if (s_fundClaimed) {
+            revert KeepWhatsRaisedFundAlreadyClaimed();
+        }
         if (!_checkRefundPeriodStatus(false)) {
             revert KeepWhatsRaisedNotClaimable(tokenId);
         }
