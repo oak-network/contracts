@@ -434,7 +434,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         uint256 actualPledgeAmount = actualReceived - shippingFee;
 
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmount, shippingFee, 0
+            backer, reward, pledgeToken, actualPledgeAmount, shippingFee, 0
         );
 
         s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
