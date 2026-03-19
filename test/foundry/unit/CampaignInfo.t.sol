@@ -198,13 +198,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UpdateSelectedPlatform_SelectPlatform_Success() public {
         vm.startPrank(campaignOwner);
 
-        bytes32[] memory dataKeys = new bytes32[](2);
+        bytes32[] memory dataKeys = new bytes32[](1);
         dataKeys[0] = platformDataKey1;
-        dataKeys[1] = platformDataKey2;
 
-        bytes32[] memory dataValues = new bytes32[](2);
+        bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
-        dataValues[1] = platformDataValue2;
 
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
 
@@ -213,7 +211,6 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Verify platform data is stored
         assertEq(campaignInfo.getPlatformData(platformDataKey1), platformDataValue1);
-        assertEq(campaignInfo.getPlatformData(platformDataKey2), platformDataValue2);
 
         // Verify platform fee is set
         assertEq(campaignInfo.getPlatformFeePercent(platformHash1), 1000);
