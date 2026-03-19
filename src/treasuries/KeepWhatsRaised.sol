@@ -1205,6 +1205,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
 
+        // Reject treasury address as payer to prevent accounting inflation via self-transfer
+        if (tokenSource == address(this) || backer == address(this)) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+
         // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
         // If not for a reward (pledgeWithoutAReward), pledgeAmount is already in token decimals
         // Tip is always in the pledgeToken's decimals (same token used for payment)
@@ -1219,18 +1224,25 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
 
+        uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
         IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+        uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
 
-        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
+        if (actualReceived < tip) {
+            revert KeepWhatsRaisedInvalidInput();
+        }
+        uint256 actualPledgeAmount = actualReceived - tip;
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
+        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, actualPledgeAmount, 0, tip);
+
+        s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
         s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
-        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
+        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, actualPledgeAmount);
         s_availablePerToken[pledgeToken] += netAvailable;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, tip, tokenId, rewards);
