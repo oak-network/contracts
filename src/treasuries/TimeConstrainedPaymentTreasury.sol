@@ -126,7 +126,7 @@ contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused {
         _checkTimeIsGreater();
         super.claimRefund(paymentId, refundAddress);
     }
@@ -134,7 +134,7 @@ contract TimeConstrainedPaymentTreasury is BasePaymentTreasury, TimestampChecker
     /**
      * @inheritdoc ICampaignPaymentTreasury
      */
-    function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled {
+    function claimRefund(bytes32 paymentId) public override whenNotPaused {
         _checkTimeIsGreater();
         super.claimRefund(paymentId);
     }
