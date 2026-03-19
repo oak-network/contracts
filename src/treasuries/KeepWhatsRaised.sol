@@ -284,6 +284,14 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     error KeepWhatsRaisedConfigLocked();
 
     /**
+     * @dev Reverts when withdrawalDelay is less than refundDelay, which would allow claimFund
+     *      to be callable before the refund window ends (refund window: (deadline, deadline + refundDelay]).
+     * @param withdrawalDelay The configured withdrawal delay.
+     * @param refundDelay The configured refund delay.
+     */
+    error KeepWhatsRaisedWithdrawalBeforeRefundEnd(uint256 withdrawalDelay, uint256 refundDelay);
+
+    /**
      * @dev Emitted when a disbursement is attempted before the refund period has ended.
      */
     error KeepWhatsRaisedDisbursementBlocked();
@@ -521,6 +529,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *
      * @param config The configuration settings including withdrawal delay, refund delay,
      *               fee exemption threshold, and configuration lock period.
+     *               Must satisfy withdrawalDelay >= refundDelay so claimFund is only callable after the refund window ends.
      * @param campaignData The campaign-related metadata such as deadlines and funding goals.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
      * @param feeValues The fee values corresponding to the fee keys.
@@ -543,6 +552,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         }
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
             revert KeepWhatsRaisedInvalidInput();
+        }
+        if (config.withdrawalDelay < config.refundDelay) {
+            revert KeepWhatsRaisedWithdrawalBeforeRefundEnd(config.withdrawalDelay, config.refundDelay);
         }
 
         // Enforce key uniqueness: flat keys must differ and must not appear in percentage keys

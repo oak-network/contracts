@@ -59,7 +59,7 @@ contract Defaults is Constants, ICampaignData, IReward {
 
     // Config values for KeepWhatsRaised
     uint256 public constant MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION = 50_000e18;
-    uint256 public constant WITHDRAWAL_DELAY = 7 days;
+    uint256 public constant WITHDRAWAL_DELAY = 14 days;
     uint256 public constant REFUND_DELAY = 14 days;
     uint256 public constant CONFIG_LOCK_PERIOD = 2 days;
 
