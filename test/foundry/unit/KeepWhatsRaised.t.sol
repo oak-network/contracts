@@ -586,7 +586,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardSelection[0] = TEST_REWARD_NAME;
         rewardSelection[1] = addOnRewardName;
 
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector);
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
         keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection);
         vm.stopPrank();
     }

@@ -838,7 +838,7 @@ abstract contract BasePaymentTreasury is
 
         // Reject treasury address as payer to prevent accounting inflation via self-transfer
         if (buyerAddress == address(this)) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("INVALID_BUYER");
         }
 
         if (lineItems.length > MAX_LINE_ITEMS || externalFees.length > MAX_EXTERNAL_FEES) {
@@ -961,7 +961,7 @@ abstract contract BasePaymentTreasury is
         uint256 balanceBefore = IERC20(paymentToken).balanceOf(address(this));
         IERC20(paymentToken).safeTransferFrom(buyerAddress, address(this), totalAmount);
         if (IERC20(paymentToken).balanceOf(address(this)) - balanceBefore < totalAmount) {
-            revert PaymentTreasuryInvalidInput();
+            revert PaymentTreasuryInvalidInput("INSUFFICIENT_RECEIVED");
         }
 
         s_payment[internalPaymentId] = PaymentInfo({

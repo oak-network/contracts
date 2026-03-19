@@ -1234,7 +1234,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         // Reject treasury address as payer to prevent accounting inflation via self-transfer
         if (tokenSource == address(this) || backer == address(this)) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput("INVALID_BACKER");
         }
 
         // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
@@ -1256,7 +1256,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
 
         if (actualReceived < tip) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput("INSUFFICIENT_RECEIVED");
         }
         uint256 actualPledgeAmount = actualReceived - tip;
 

@@ -402,7 +402,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
 
         // Reject treasury address as payer to prevent accounting inflation via self-transfer
         if (backer == address(this)) {
-            revert AllOrNothingInvalidInput();
+            revert AllOrNothingInvalidInput("INVALID_BACKER");
         }
 
         // If this is for a reward, pledgeAmount and shippingFee are in 18 decimals
