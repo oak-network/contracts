@@ -992,11 +992,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
+     *      Callable before or after cancellation so that accrued fees are never trapped.
      *
      * Requirements:
      * - Only callable when fees are available.
      */
-    function disburseFees() public override whenNotPaused whenNotCancelled {
+    function disburseFees() public override whenNotPaused {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
