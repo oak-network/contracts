@@ -1378,13 +1378,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             );
             actualPledgeAmount = pledgeAmountInTokenDecimals;
         } else {
-            uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
             IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
-            uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
-            if (actualReceived < tip) {
-                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
-            }
-            actualPledgeAmount = actualReceived - tip;
+            actualPledgeAmount = pledgeAmountInTokenDecimals;
         }
 
         uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, actualPledgeAmount, 0, tip);
