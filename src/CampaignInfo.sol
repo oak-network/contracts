@@ -158,7 +158,7 @@ contract CampaignInfo is
     /**
      * @notice Constructor passes empty strings to ERC721
      */
-    constructor() Ownable(_msgSender()) ERC721("", "") {
+    constructor() Ownable(msg.sender) ERC721("", "") {
         _disableInitializers();
     }
 
@@ -641,7 +641,7 @@ contract CampaignInfo is
      * @dev External function to cancel the campaign.
      */
     function cancelCampaign(bytes32 message) external {
-        if (_msgSender() != getProtocolAdminAddress() && _msgSender() != owner()) {
+        if (msg.sender != getProtocolAdminAddress() && msg.sender != owner()) {
             revert CampaignInfoUnauthorized();
         }
         _cancel(message);
@@ -709,7 +709,7 @@ contract CampaignInfo is
         currentTimeIsLess(getDeadline())
     {
         Config memory config = getCampaignConfig();
-        if (_msgSender() != config.treasuryFactory) {
+        if (msg.sender != config.treasuryFactory) {
             revert CampaignInfoUnauthorized();
         }
         bool selected = checkIfPlatformSelected(platformHash);

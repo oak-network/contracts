@@ -28,7 +28,6 @@ contract DeployCampaignInfoFactory is DeployBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            deployer,
             IGlobalParams(globalParams),
             campaignInfo,
             treasuryFactory

@@ -58,7 +58,6 @@ contract Upgrades_Test is Test, Defaults {
         CampaignInfoFactory campaignFactoryImpl = new CampaignInfoFactory();
         bytes memory campaignFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            admin,
             IGlobalParams(address(globalParams)),
             address(campaignInfoImpl),
             address(treasuryFactory)
@@ -294,7 +293,7 @@ contract Upgrades_Test is Test, Defaults {
 
         vm.expectRevert();
         campaignFactory.initialize(
-            admin, IGlobalParams(address(globalParams)), address(campaignInfoImpl), address(treasuryFactory)
+            IGlobalParams(address(globalParams)), address(campaignInfoImpl), address(treasuryFactory)
         );
     }
 

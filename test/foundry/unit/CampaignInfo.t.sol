@@ -81,7 +81,6 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         CampaignInfoFactory campaignInfoFactoryImpl = new CampaignInfoFactory();
         bytes memory campaignInfoFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            admin,
             IGlobalParams(address(globalParams)),
             address(new CampaignInfo()),
             address(treasuryFactory)

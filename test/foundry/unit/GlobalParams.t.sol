@@ -304,6 +304,19 @@ contract GlobalParams_UnitTest is Test, Defaults {
         assertEq(tokens.length, 0);
     }
 
+    function testInitializerRevertOnZeroProtocolAdmin() public {
+        bytes32[] memory currencies = new bytes32[](0);
+        address[][] memory tokensPerCurrency = new address[][](0);
+
+        GlobalParams zeroAdminImpl = new GlobalParams();
+        bytes memory initData = abi.encodeWithSelector(
+            GlobalParams.initialize.selector, address(0), protocolFee, currencies, tokensPerCurrency
+        );
+
+        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        new ERC1967Proxy(address(zeroAdminImpl), initData);
+    }
+
     function testInitializerRevertOnMismatchedArrays() public {
         bytes32[] memory currencies = new bytes32[](2);
         currencies[0] = USD;

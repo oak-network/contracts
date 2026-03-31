@@ -55,7 +55,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         CampaignInfoFactory factoryImpl = new CampaignInfoFactory();
         bytes memory factoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            address(this),
             IGlobalParams(address(globalParams)),
             address(campaignInfoImplementation),
             address(treasuryFactory)
@@ -137,7 +136,8 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
 
-        // Upgrade as owner (address(this))
+        // Upgrade as protocol admin
+        vm.prank(admin);
         factory.upgradeToAndCall(address(newImplementation), "");
 
         // Factory should still work after upgrade
@@ -168,8 +168,8 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
 
-        // Try to upgrade as non-owner (should revert)
-        vm.prank(admin);
+        // Try to upgrade as non-admin (should revert)
+        vm.prank(address(0xDEAD));
         vm.expectRevert();
         factory.upgradeToAndCall(address(newImplementation), "");
     }
@@ -178,7 +178,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Try to initialize again (should revert)
         vm.expectRevert();
         factory.initialize(
-            address(this),
             IGlobalParams(address(globalParams)),
             address(campaignInfoImplementation),
             address(treasuryFactory)

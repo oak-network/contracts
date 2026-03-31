@@ -80,7 +80,6 @@ contract DeployAll is DeployBase {
         // Prepare initialization data for CampaignInfoFactory
         bytes memory campaignFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            deployerAddress,
             IGlobalParams(address(globalParamsProxy)),
             address(campaignInfoImplementation),
             address(treasuryFactoryProxy)
