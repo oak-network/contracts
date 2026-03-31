@@ -11,7 +11,6 @@ import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {IReward} from "src/interfaces/IReward.sol";
-import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {MockPermit2} from "../../mocks/MockPermit2.sol";
 
@@ -101,7 +100,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAlreadyConfigured.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, FEE_KEYS, feeValues);
     }
 
     function testConfigureTreasuryWithColombianCreator() public {
@@ -111,7 +110,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
 
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, FEE_KEYS, feeValues);
 
         // Test that Colombian creator tax is not applied in pledges
         _setupReward();
@@ -142,26 +141,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert();
         vm.prank(users.backer1Address);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
-    }
-
-    function testConfigureTreasuryRevertWhenInvalidCampaignData() public {
-        // Deploy a fresh unconfigured treasury so input validation is reachable.
-        _resetTreasury();
-
-        // Invalid launch time (in the past)
-        ICampaignData.CampaignData memory invalidCampaignData = ICampaignData.CampaignData({
-            launchTime: block.timestamp - 1,
-            deadline: block.timestamp + 31 days,
-            goalAmount: 5000,
-            currency: bytes32("USD")
-        });
-
-        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
-
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedLaunchTimeInPast.selector);
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, invalidCampaignData, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, FEE_KEYS, feeValues);
     }
 
     function testConfigureTreasuryRevertWhenMismatchedFeeArrays() public {
@@ -175,7 +155,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "FEE_LENGTH_MISMATCH"));
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, mismatchedKeys, mismatchedValues);
+        keepWhatsRaised.configureTreasury(CONFIG, mismatchedKeys, mismatchedValues);
     }
 
     function testConfigureTreasuryRevertWhenDuplicateFlatKeys() public {
@@ -186,7 +166,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, keys, feeValues);
     }
 
     function testConfigureTreasuryRevertWhenFlatKeyEqualsPercentageKey() public {
@@ -197,7 +177,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, keys, feeValues);
     }
 
     function testConfigureTreasuryRevertWhenDuplicatePercentageKeys() public {
@@ -208,7 +188,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedDuplicateFeeKey.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, keys, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, keys, feeValues);
     }
 
     function testConfigureTreasuryRevertWhenPercentageFeeExceedsMax() public {
@@ -218,7 +198,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedPercentageFeeExceedsMax.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, FEE_KEYS, feeValues);
     }
 
     function testConfigureTreasuryRevertWhenAggregatePercentageExceedsMax() public {
@@ -229,7 +209,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAggregatePercentageExceedsMax.selector);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG, FEE_KEYS, feeValues);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -283,103 +263,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.expectRevert();
         vm.prank(users.backer1Address);
         keepWhatsRaised.approveWithdrawal();
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        DEADLINE AND GOAL UPDATES
-    //////////////////////////////////////////////////////////////*/
-
-    function testUpdateDeadlineByPlatformAdmin() public {
-        uint256 newDeadline = DEADLINE + 10 days;
-
-        vm.warp(LAUNCH_TIME + 1 days); // Within config lock period
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateDeadline(newDeadline);
-
-        assertEq(keepWhatsRaised.getDeadline(), newDeadline);
-    }
-
-    function testUpdateDeadlineByCampaignOwner() public {
-        uint256 newDeadline = DEADLINE + 10 days;
-        address campaignOwner = CampaignInfo(campaignAddress).owner();
-
-        vm.warp(LAUNCH_TIME + 1 days);
-        vm.prank(campaignOwner);
-        keepWhatsRaised.updateDeadline(newDeadline);
-
-        assertEq(keepWhatsRaised.getDeadline(), newDeadline);
-    }
-
-    function testUpdateDeadlineRevertWhenNotAuthorized() public {
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedUnAuthorized.selector);
-        vm.prank(users.backer1Address);
-        keepWhatsRaised.updateDeadline(DEADLINE + 10 days);
-    }
-
-    function testUpdateDeadlineRevertWhenPastConfigLock() public {
-        // Warp to past config lock period
-        vm.warp(DEADLINE - CONFIG_LOCK_PERIOD + 1);
-
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedConfigLocked.selector);
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateDeadline(DEADLINE + 10 days);
-    }
-
-    function testUpdateDeadlineRevertWhenDeadlineBeforeLaunchTime() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_DEADLINE"));
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateDeadline(LAUNCH_TIME - 1);
-    }
-
-    function testUpdateDeadlineRevertWhenDeadlineBeforeCurrentTime() public {
-        vm.warp(LAUNCH_TIME + 5 days);
-
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_DEADLINE"));
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateDeadline(LAUNCH_TIME + 4 days);
-    }
-
-    function testUpdateDeadlineRevertWhenPaused() public {
-        _pauseTreasury();
-
-        // Try to update deadline
-        vm.warp(LAUNCH_TIME + 1 days);
-        vm.expectRevert();
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateDeadline(DEADLINE + 10 days);
-    }
-
-    function testUpdateGoalAmountByPlatformAdmin() public {
-        uint256 newGoal = GOAL_AMOUNT * 2;
-
-        vm.warp(LAUNCH_TIME + 1 days);
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateGoalAmount(newGoal);
-
-        assertEq(keepWhatsRaised.getGoalAmount(), newGoal);
-    }
-
-    function testUpdateGoalAmountByCampaignOwner() public {
-        uint256 newGoal = GOAL_AMOUNT * 2;
-        address campaignOwner = CampaignInfo(campaignAddress).owner();
-
-        vm.warp(LAUNCH_TIME + 1 days);
-        vm.prank(campaignOwner);
-        keepWhatsRaised.updateGoalAmount(newGoal);
-
-        assertEq(keepWhatsRaised.getGoalAmount(), newGoal);
-    }
-
-    function testUpdateGoalAmountRevertWhenNotAuthorized() public {
-        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedUnAuthorized.selector);
-        vm.prank(users.backer1Address);
-        keepWhatsRaised.updateGoalAmount(GOAL_AMOUNT * 2);
-    }
-
-    function testUpdateGoalAmountRevertWhenZero() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "ZERO_GOAL_AMOUNT"));
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.updateGoalAmount(0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -909,7 +792,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, FEE_KEYS, feeValues);
 
         // Make a pledge
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, PAYMENT_GATEWAY_FEE);
@@ -1460,7 +1343,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, FEE_KEYS, feeValues);
 
         // Add rewards
         _setupReward();

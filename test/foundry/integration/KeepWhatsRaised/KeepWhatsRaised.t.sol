@@ -6,7 +6,6 @@ import "forge-std/console.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {IReward} from "src/interfaces/IReward.sol";
-import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {LogDecoder} from "../../utils/LogDecoder.sol";
 import {Base_Test} from "../../Base.t.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -66,7 +65,7 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         feeValues.grossPercentageFeeValues[1] = uint256(VAKI_COMMISSION_VALUE);
 
         // Configure Treasury with fee values
-        configureTreasury(users.platform2AdminAddress, treasuryAddress, CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        configureTreasury(users.platform2AdminAddress, treasuryAddress, CONFIG, FEE_KEYS, feeValues);
         console.log("configured treasury");
     }
 
@@ -184,12 +183,11 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
         address caller,
         address treasury,
         KeepWhatsRaised.Config memory _config,
-        ICampaignData.CampaignData memory campaignData,
         KeepWhatsRaised.FeeKeys memory _feeKeys,
         KeepWhatsRaised.FeeValues memory _feeValues
     ) internal {
         vm.startPrank(caller);
-        KeepWhatsRaised(treasury).configureTreasury(_config, campaignData, _feeKeys, _feeValues);
+        KeepWhatsRaised(treasury).configureTreasury(_config, _feeKeys, _feeValues);
         vm.stopPrank();
     }
 
@@ -212,24 +210,6 @@ abstract contract KeepWhatsRaised_Integration_Shared_Test is IReward, LogDecoder
     function approveWithdrawal(address caller, address treasury) internal {
         vm.startPrank(caller);
         KeepWhatsRaised(treasury).approveWithdrawal();
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Updates the deadline of the campaign.
-     */
-    function updateDeadline(address caller, address treasury, uint256 newDeadline) internal {
-        vm.startPrank(caller);
-        KeepWhatsRaised(treasury).updateDeadline(newDeadline);
-        vm.stopPrank();
-    }
-
-    /**
-     * @notice Updates the goal amount of the campaign.
-     */
-    function updateGoalAmount(address caller, address treasury, uint256 newGoalAmount) internal {
-        vm.startPrank(caller);
-        KeepWhatsRaised(treasury).updateGoalAmount(newGoalAmount);
         vm.stopPrank();
     }
 

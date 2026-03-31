@@ -61,7 +61,6 @@ contract Defaults is Constants, ICampaignData, IReward {
     uint256 public constant MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION = 50_000e18;
     uint256 public constant WITHDRAWAL_DELAY = 14 days;
     uint256 public constant REFUND_DELAY = 14 days;
-    uint256 public constant CONFIG_LOCK_PERIOD = 2 days;
 
     // Additional constants
     uint256 public constant TIP_AMOUNT = 10e18;
@@ -182,7 +181,6 @@ contract Defaults is Constants, ICampaignData, IReward {
             minimumWithdrawalForFeeExemption: MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION,
             withdrawalDelay: WITHDRAWAL_DELAY,
             refundDelay: REFUND_DELAY,
-            configLockPeriod: CONFIG_LOCK_PERIOD,
             isColombianCreator: false
         });
 
@@ -191,7 +189,6 @@ contract Defaults is Constants, ICampaignData, IReward {
             minimumWithdrawalForFeeExemption: MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION,
             withdrawalDelay: WITHDRAWAL_DELAY,
             refundDelay: REFUND_DELAY,
-            configLockPeriod: CONFIG_LOCK_PERIOD,
             isColombianCreator: true
         });
     }

@@ -10,14 +10,13 @@ import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
-import {ICampaignData} from "../interfaces/ICampaignData.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 
 /**
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -88,8 +87,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 withdrawalDelay;
         /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
         uint256 refundDelay;
-        /// @dev Duration (in timestamp) for which config changes are locked to prevent immediate updates.
-        uint256 configLockPeriod;
         /// @dev True if the creator is Colombian, false otherwise.
         bool isColombianCreator;
     }
@@ -101,8 +98,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     bool private s_configured;
     FeeKeys private s_feeKeys;
     Config private s_config;
-    CampaignData private s_campaignData;
-
     // ---------------------------------------------------------------------------
     // Permit2 witness types for direct user pledge functions
     // (setFeeAndPledge is admin-only and uses standard ERC20 transferFrom)
@@ -161,11 +156,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /**
      * @dev Emitted when the treasury configuration is updated.
      * @param config The updated configuration parameters (e.g., delays, exemptions).
-     * @param campaignData The campaign-related data associated with the treasury setup.
      * @param feeKeys The set of keys used to determine applicable fees.
      * @param feeValues The fee values corresponding to the fee keys.
      */
-    event TreasuryConfigured(Config config, CampaignData campaignData, FeeKeys feeKeys, FeeValues feeValues);
+    event TreasuryConfigured(Config config, FeeKeys feeKeys, FeeValues feeValues);
 
     /**
      * @dev Emitted when a withdrawal is successfully processed along with the applied fee.
@@ -198,18 +192,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     event RefundClaimed(uint256 indexed tokenId, uint256 refundAmount, address indexed claimer);
 
     /**
-     * @dev Emitted when the deadline of the campaign is updated.
-     * @param newDeadline The new deadline.
-     */
-    event KeepWhatsRaisedDeadlineUpdated(uint256 newDeadline);
-
-    /**
-     * @dev Emitted when the goal amount for a campaign is updated.
-     * @param newGoalAmount The new goal amount set for the campaign.
-     */
-    event KeepWhatsRaisedGoalAmountUpdated(uint256 newGoalAmount);
-
-    /**
      * @dev Emitted when a gateway fee is set for a specific pledge.
      * @param pledgeId The unique identifier of the pledge.
      * @param fee The amount of the payment gateway fee set.
@@ -226,7 +208,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "INVALID_TIMING").
      */
     error KeepWhatsRaisedInvalidInput(string reason);
-
     /// @dev Emitted when fee keys are not unique (duplicate or overlap between flat and percentage keys).
     error KeepWhatsRaisedDuplicateFeeKey();
 
@@ -238,8 +219,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /// @dev Reverts when campaign launch time is in the past.
     error KeepWhatsRaisedLaunchTimeInPast();
-    /// @dev Reverts when campaign deadline is not after launch time.
-    error KeepWhatsRaisedDeadlineNotAfterLaunch();
     /// @dev Reverts when reward name is zero bytes.
     error KeepWhatsRaisedZeroRewardName();
     /// @dev Reverts when reward value is zero.
@@ -325,10 +304,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     error KeepWhatsRaisedNotClaimableAdmin();
 
     /**
-     * @dev Emitted when a configuration change is attempted during the lock period.
-     */
-    error KeepWhatsRaisedConfigLocked();
-    /**
      * @dev Thrown when configureTreasury is called after the treasury has already been configured.
      */
     error KeepWhatsRaisedAlreadyConfigured();
@@ -359,18 +334,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     modifier withdrawalEnabled() {
         if (!s_isWithdrawalApproved) {
             revert KeepWhatsRaisedDisabled();
-        }
-        _;
-    }
-
-    /**
-     * @dev Restricts execution to only occur before the configuration lock period.
-     * Reverts with `KeepWhatsRaisedConfigLocked` if called too close to or after the campaign deadline.
-     * The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
-     */
-    modifier onlyBeforeConfigLock() {
-        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
-            revert KeepWhatsRaisedConfigLocked();
         }
         _;
     }
@@ -490,7 +453,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @return The timestamp when the campaign was launched.
      */
     function getLaunchTime() public view returns (uint256) {
-        return s_campaignData.launchTime;
+        return INFO.getLaunchTime();
     }
 
     /**
@@ -498,7 +461,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @return The timestamp when the campaign ends.
      */
     function getDeadline() public view returns (uint256) {
-        return s_campaignData.deadline;
+        return INFO.getDeadline();
     }
 
     /**
@@ -506,7 +469,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @return The funding goal amount of the campaign.
      */
     function getGoalAmount() external view returns (uint256) {
-        return s_campaignData.goalAmount;
+        return INFO.getGoalAmount();
     }
 
     /**
@@ -574,22 +537,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @dev Configures the treasury for a campaign by setting the system parameters,
-     *      campaign-specific data, and fee configuration keys.
+     * @dev Configures the treasury for a campaign by setting the system parameters and fee configuration keys.
      *
      * @param config The configuration settings including withdrawal delay, refund delay,
-     *               fee exemption threshold, and configuration lock period.
-     *               Must satisfy withdrawalDelay >= refundDelay so claimFund is only callable after the refund window ends.
-     * @param campaignData The campaign-related metadata such as deadlines and funding goals.
+     *               fee exemption threshold. Must satisfy withdrawalDelay >= refundDelay so claimFund
+     *               is only callable after the refund window ends.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
      * @param feeValues The fee values corresponding to the fee keys.
      */
-    function configureTreasury(
-        Config memory config,
-        CampaignData memory campaignData,
-        FeeKeys memory feeKeys,
-        FeeValues memory feeValues
-    )
+    function configureTreasury(Config memory config, FeeKeys memory feeKeys, FeeValues memory feeValues)
         external
         onlyPlatformAdmin(PLATFORM_HASH)
         whenCampaignNotPaused
@@ -597,8 +553,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if (campaignData.launchTime < block.timestamp) revert KeepWhatsRaisedLaunchTimeInPast();
-        if (campaignData.deadline <= campaignData.launchTime) revert KeepWhatsRaisedDeadlineNotAfterLaunch();
+        if (INFO.getLaunchTime() < block.timestamp) revert KeepWhatsRaisedLaunchTimeInPast();
         if (s_configured) {
             revert KeepWhatsRaisedAlreadyConfigured();
         }
@@ -641,59 +596,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         s_configured = true;
         s_config = config;
         s_feeKeys = feeKeys;
-        s_campaignData = campaignData;
 
         s_flatFeeValue = feeValues.flatFeeValue;
         s_cumulativeFlatFeeValue = feeValues.cumulativeFlatFeeValue;
         s_grossPercentageFeeValues = feeValues.grossPercentageFeeValues;
 
-        emit TreasuryConfigured(config, campaignData, feeKeys, feeValues);
-    }
-
-    /**
-     * @dev Updates the campaign's deadline.
-     *
-     * @param deadline The new deadline timestamp for the campaign.
-     *
-     * Requirements:
-     * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
-     * - The new deadline must be a future timestamp.
-     */
-    function updateDeadline(uint256 deadline)
-        external
-        onlyPlatformAdminOrCampaignOwner
-        onlyBeforeConfigLock
-        whenNotPaused
-        whenNotCancelled
-    {
-        if (deadline <= getLaunchTime() || deadline <= block.timestamp) {
-            revert KeepWhatsRaisedInvalidInput("INVALID_DEADLINE");
-        }
-
-        s_campaignData.deadline = deadline;
-        emit KeepWhatsRaisedDeadlineUpdated(deadline);
-    }
-
-    /**
-     * @dev Updates the funding goal amount for the campaign.
-     *
-     * @param goalAmount The new goal amount.
-     *
-     * Requirements:
-     * - Must be called before the configuration lock period (see `onlyBeforeConfigLock`).
-     */
-    function updateGoalAmount(uint256 goalAmount)
-        external
-        onlyPlatformAdminOrCampaignOwner
-        onlyBeforeConfigLock
-        whenNotPaused
-        whenNotCancelled
-    {
-        if (goalAmount == 0) {
-            revert KeepWhatsRaisedInvalidInput("ZERO_GOAL_AMOUNT");
-        }
-        s_campaignData.goalAmount = goalAmount;
-        emit KeepWhatsRaisedGoalAmountUpdated(goalAmount);
+        emit TreasuryConfigured(config, feeKeys, feeValues);
     }
 
     /**

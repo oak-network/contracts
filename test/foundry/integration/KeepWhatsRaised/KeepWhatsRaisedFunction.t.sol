@@ -183,9 +183,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Deploy a fresh treasury so configureTreasury can be called for the first time.
         _resetTreasury();
         KeepWhatsRaised.FeeValues memory feeValues = createFeeValues();
-        configureTreasury(
-            users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues
-        );
+        configureTreasury(users.platform2AdminAddress, address(keepWhatsRaised), CONFIG_COLOMBIAN, FEE_KEYS, feeValues);
 
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
@@ -328,52 +326,6 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         );
         assertTrue(protocolShare > 0, "Protocol share should be greater than zero");
         assertTrue(platformShare > 0, "Platform share should be greater than zero");
-    }
-
-    function test_updateDeadlineByPlatformAdmin() external {
-        vm.warp(LAUNCH_TIME + 1 days);
-
-        uint256 originalDeadline = keepWhatsRaised.getDeadline();
-        uint256 newDeadline = originalDeadline + 14 days;
-
-        updateDeadline(users.platform2AdminAddress, address(keepWhatsRaised), newDeadline);
-
-        assertEq(keepWhatsRaised.getDeadline(), newDeadline);
-    }
-
-    function test_updateDeadlineByCampaignOwner() external {
-        vm.warp(LAUNCH_TIME + 1 days);
-
-        uint256 originalDeadline = keepWhatsRaised.getDeadline();
-        uint256 newDeadline = originalDeadline + 14 days;
-
-        address campaignOwner = CampaignInfo(campaignAddress).owner();
-        updateDeadline(campaignOwner, address(keepWhatsRaised), newDeadline);
-
-        assertEq(keepWhatsRaised.getDeadline(), newDeadline);
-    }
-
-    function test_updateGoalAmountByPlatformAdmin() external {
-        vm.warp(LAUNCH_TIME + 1 days);
-
-        uint256 originalGoal = keepWhatsRaised.getGoalAmount();
-        uint256 newGoal = originalGoal * 3;
-
-        updateGoalAmount(users.platform2AdminAddress, address(keepWhatsRaised), newGoal);
-
-        assertEq(keepWhatsRaised.getGoalAmount(), newGoal);
-    }
-
-    function test_updateGoalAmountByCampaignOwner() external {
-        vm.warp(LAUNCH_TIME + 1 days);
-
-        uint256 originalGoal = keepWhatsRaised.getGoalAmount();
-        uint256 newGoal = originalGoal * 3;
-
-        address campaignOwner = CampaignInfo(campaignAddress).owner();
-        updateGoalAmount(campaignOwner, address(keepWhatsRaised), newGoal);
-
-        assertEq(keepWhatsRaised.getGoalAmount(), newGoal);
     }
 
     function test_approveWithdrawal() external {
