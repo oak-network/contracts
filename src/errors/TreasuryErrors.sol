@@ -25,8 +25,7 @@ library TreasuryErrors {
         ZERO_GOAL_AMOUNT,
         INVALID_REWARD_INPUT,
         ZERO_TOKEN_SOURCE,
-        ZERO_AMOUNT,
-        INSUFFICIENT_RECEIVED
+        ZERO_AMOUNT
     }
 
     /// @notice Codes for `NotClaimable` errors (refund / claim-check failures).
