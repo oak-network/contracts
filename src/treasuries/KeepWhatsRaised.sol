@@ -12,6 +12,7 @@ import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
+import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
 
 /**
  * @title KeepWhatsRaised
@@ -223,9 +224,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Emitted when an invalid input is detected.
-     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "INVALID_TIMING").
+     * @param code Error code defined in {TreasuryErrors.InvalidInput}.
      */
-    error KeepWhatsRaisedInvalidInput(string reason);
+    error KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput code);
 
     /// @dev Emitted when fee keys are not unique (duplicate or overlap between flat and percentage keys).
     error KeepWhatsRaisedDuplicateFeeKey();
@@ -315,9 +316,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /**
      * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
      * @param tokenId The ID of the token that was attempted to be claimed.
-     * @param reason A string code describing why the claim failed (e.g., "INVALID_REFUND_PERIOD", "ZERO_AMOUNT", "INSUFFICIENT_LIQUIDITY").
+     * @param code Error code defined in {TreasuryErrors.NotClaimable}.
      */
-    error KeepWhatsRaisedNotClaimable(uint256 tokenId, string reason);
+    error KeepWhatsRaisedNotClaimable(uint256 tokenId, TreasuryErrors.NotClaimable code);
 
     /**
      * @dev Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
@@ -408,7 +409,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert KeepWhatsRaisedInvalidInput("REWARD_NOT_FOUND");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         return s_reward[rewardName];
     }
@@ -603,7 +604,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedAlreadyConfigured();
         }
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
-            revert KeepWhatsRaisedInvalidInput("FEE_LENGTH_MISMATCH");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.FEE_LENGTH_MISMATCH);
         }
         if (config.withdrawalDelay < config.refundDelay) {
             revert KeepWhatsRaisedWithdrawalBeforeRefundEnd(config.withdrawalDelay, config.refundDelay);
@@ -667,7 +668,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (deadline <= getLaunchTime() || deadline <= block.timestamp) {
-            revert KeepWhatsRaisedInvalidInput("INVALID_DEADLINE");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_DEADLINE);
         }
 
         s_campaignData.deadline = deadline;
@@ -690,7 +691,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (goalAmount == 0) {
-            revert KeepWhatsRaisedInvalidInput("ZERO_GOAL_AMOUNT");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_GOAL_AMOUNT);
         }
         s_campaignData.goalAmount = goalAmount;
         emit KeepWhatsRaisedGoalAmountUpdated(goalAmount);
@@ -714,7 +715,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert KeepWhatsRaisedInvalidInput("REWARD_LENGTH_MISMATCH");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_LENGTH_MISMATCH);
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -754,7 +755,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert KeepWhatsRaisedInvalidInput("REWARD_NOT_FOUND");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -831,7 +832,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (permitData.signature.length == 0) {
-            revert KeepWhatsRaisedInvalidInput("EMPTY_SIGNATURE");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
         }
 
         _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, address(0), true, permitData);
@@ -871,17 +872,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         Reward memory tempReward = s_reward[reward[0]];
         if (backer == address(0)) revert KeepWhatsRaisedZeroBacker();
         if (rewardLen > s_rewardCounter.current()) revert KeepWhatsRaisedRewardSelectionLengthMismatch();
-        if (reward[0] == ZERO_BYTES) revert KeepWhatsRaisedInvalidInput("INVALID_REWARD_INPUT");
+        if (reward[0] == ZERO_BYTES) revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_REWARD_INPUT);
         if (!tempReward.isRewardTier) revert KeepWhatsRaisedFirstRewardNotTier();
 
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert KeepWhatsRaisedInvalidInput("ZERO_REWARD_NAME");
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_REWARD_NAME);
             }
             tempReward = s_reward[reward[i]];
             if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
-                revert KeepWhatsRaisedInvalidInput("REWARD_NOT_FOUND");
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
             }
             pledgeAmount += tempReward.rewardValue;
         }
@@ -927,7 +928,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (permitData.signature.length == 0) {
-            revert KeepWhatsRaisedInvalidInput("EMPTY_SIGNATURE");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
         }
 
         _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, address(0), true, permitData);
@@ -1081,7 +1082,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
         } else {
             if (amount == 0) {
-                revert KeepWhatsRaisedInvalidInput("ZERO_AMOUNT");
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_AMOUNT);
             }
             if (amount > available) {
                 revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
@@ -1150,7 +1151,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedFundAlreadyClaimed();
         }
         if (!_checkRefundPeriodStatus(false)) {
-            revert KeepWhatsRaisedNotClaimable(tokenId, "INVALID_REFUND_PERIOD");
+            revert KeepWhatsRaisedNotClaimable(tokenId, TreasuryErrors.NotClaimable.INVALID_REFUND_PERIOD);
         }
 
         // Get NFT owner before burning
@@ -1321,13 +1322,13 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
         if (tokenSource == address(this) || backer == address(this)) {
-            revert KeepWhatsRaisedInvalidInput("INVALID_BACKER");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_BACKER);
         }
         if (usePermit2 && permitData.signature.length == 0) {
-            revert KeepWhatsRaisedInvalidInput("EMPTY_SIGNATURE");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
         }
         if (!usePermit2 && tokenSource == address(0)) {
-            revert KeepWhatsRaisedInvalidInput("ZERO_TOKEN_SOURCE");
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_TOKEN_SOURCE);
         }
 
         uint256 pledgeAmountInTokenDecimals;
@@ -1381,7 +1382,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
             uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
             if (actualReceived < tip) {
-                revert KeepWhatsRaisedInvalidInput("INSUFFICIENT_RECEIVED");
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
             }
             actualPledgeAmount = actualReceived - tip;
         }
