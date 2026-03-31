@@ -11,6 +11,7 @@ import {IReward} from "src/interfaces/IReward.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {PermitData} from "src/interfaces/IPermit2.sol";
+import {TreasuryErrors} from "src/errors/TreasuryErrors.sol";
 
 contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Integration_Shared_Test {
     function setUp() public virtual override {
@@ -560,7 +561,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         removeReward(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES[1]);
 
         // Verify reward is removed
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.REWARD_NOT_FOUND));
         keepWhatsRaised.getReward(REWARD_NAMES[1]);
     }
 

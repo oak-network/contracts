@@ -14,6 +14,7 @@ import {IReward} from "src/interfaces/IReward.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {MockPermit2} from "../../mocks/MockPermit2.sol";
+import {TreasuryErrors} from "src/errors/TreasuryErrors.sol";
 
 contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Test {
     // Test constants
@@ -173,7 +174,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         KeepWhatsRaised.FeeValues memory mismatchedValues = _createFeeValues();
         mismatchedValues.grossPercentageFeeValues = new uint256[](1); // Wrong length
 
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "FEE_LENGTH_MISMATCH"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.FEE_LENGTH_MISMATCH));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, mismatchedKeys, mismatchedValues);
     }
@@ -326,7 +327,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testUpdateDeadlineRevertWhenDeadlineBeforeLaunchTime() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_DEADLINE"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.INVALID_DEADLINE));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.updateDeadline(LAUNCH_TIME - 1);
     }
@@ -334,7 +335,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     function testUpdateDeadlineRevertWhenDeadlineBeforeCurrentTime() public {
         vm.warp(LAUNCH_TIME + 5 days);
 
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "INVALID_DEADLINE"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.INVALID_DEADLINE));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.updateDeadline(LAUNCH_TIME + 4 days);
     }
@@ -377,7 +378,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testUpdateGoalAmountRevertWhenZero() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "ZERO_GOAL_AMOUNT"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.ZERO_GOAL_AMOUNT));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.updateGoalAmount(0);
     }
@@ -405,7 +406,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         bytes32[] memory rewardNames = new bytes32[](2);
         Reward[] memory rewards = new Reward[](1);
 
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_LENGTH_MISMATCH"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.REWARD_LENGTH_MISMATCH));
         vm.prank(users.creator1Address);
         keepWhatsRaised.addRewards(rewardNames, rewards);
     }
@@ -443,12 +444,12 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.removeReward(TEST_REWARD_NAME);
 
         // Verify removal
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.REWARD_NOT_FOUND));
         keepWhatsRaised.getReward(TEST_REWARD_NAME);
     }
 
     function testRemoveRewardRevertWhenRewardDoesNotExist() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.REWARD_NOT_FOUND));
         vm.prank(users.creator1Address);
         keepWhatsRaised.removeReward(TEST_REWARD_NAME);
     }
@@ -563,7 +564,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardSelection[0] = TEST_REWARD_NAME;
 
         PermitData memory emptyPermit;
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "EMPTY_SIGNATURE"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.EMPTY_SIGNATURE));
         keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, emptyPermit);
         vm.stopPrank();
     }
@@ -591,7 +592,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         rewardSelection[1] = addOnRewardName;
 
         PermitData memory emptyPermit2;
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "EMPTY_SIGNATURE"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.EMPTY_SIGNATURE));
         keepWhatsRaised.pledgeForAReward(TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, rewardSelection, emptyPermit2);
         vm.stopPrank();
     }
@@ -644,7 +645,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testPledgeWithoutARewardRevertWhenPermitMissing() public {
         vm.warp(LAUNCH_TIME);
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "EMPTY_SIGNATURE"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.EMPTY_SIGNATURE));
         vm.prank(users.backer1Address);
         PermitData memory emptyPermitData = PermitData({nonce: 0, deadline: 0, signature: ""});
         keepWhatsRaised.pledgeWithoutAReward(
@@ -1434,7 +1435,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testGetRewardRevertWhenNotExists() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, "REWARD_NOT_FOUND"));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedInvalidInput.selector, TreasuryErrors.InvalidInput.REWARD_NOT_FOUND));
         keepWhatsRaised.getReward(keccak256("nonexistent"));
     }
 

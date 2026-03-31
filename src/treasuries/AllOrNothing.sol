@@ -10,6 +10,7 @@ import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
+import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
 
 /**
  * @title AllOrNothing
@@ -95,9 +96,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
 
     /**
      * @dev Emitted when an invalid input is detected.
-     * @param reason A string code describing the specific validation failure (e.g., "REWARD_NOT_FOUND", "LENGTH_MISMATCH").
+     * @param code Error code defined in {TreasuryErrors.InvalidInput}.
      */
-    error AllOrNothingInvalidInput(string reason);
+    error AllOrNothingInvalidInput(TreasuryErrors.InvalidInput code);
 
     /// @dev Reverts when reward name is zero bytes.
     error AllOrNothingZeroRewardName();
@@ -140,9 +141,9 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
     /**
      * @dev Emitted when claiming an unclaimable refund.
      * @param tokenId The ID of the token representing the pledge.
-     * @param reason A string code describing why the refund is not claimable (e.g., "CAMPAIGN_SUCCESSFUL", "ZERO_AMOUNT").
+     * @param code Error code defined in {TreasuryErrors.NotClaimable}.
      */
-    error AllOrNothingNotClaimable(uint256 tokenId, string reason);
+    error AllOrNothingNotClaimable(uint256 tokenId, TreasuryErrors.NotClaimable code);
 
     /**
      * @dev Constructor for the AllOrNothing contract.
@@ -160,7 +161,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         return s_reward[rewardName];
     }
@@ -237,7 +238,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert AllOrNothingInvalidInput("REWARD_LENGTH_MISMATCH");
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.REWARD_LENGTH_MISMATCH);
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -276,7 +277,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -313,16 +314,16 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         Reward storage tempReward = s_reward[reward[0]];
         if (backer == address(0)) revert AllOrNothingZeroBacker();
         if (rewardLen > s_rewardCounter.current()) revert AllOrNothingRewardSelectionLengthMismatch();
-        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput("INVALID_PLEDGE_INPUT");
+        if (reward[0] == ZERO_BYTES) revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.INVALID_PLEDGE_INPUT);
         if (!tempReward.isRewardTier) revert AllOrNothingFirstRewardNotTier();
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert AllOrNothingInvalidInput("ZERO_REWARD_NAME");
+                revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.ZERO_REWARD_NAME);
             }
             tempReward = s_reward[reward[i]];
             if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
-                revert AllOrNothingInvalidInput("REWARD_NOT_FOUND");
+                revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
             }
             pledgeAmount += tempReward.rewardValue;
         }
@@ -368,7 +369,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         whenNotPaused
     {
         if (block.timestamp >= INFO.getDeadline() && _checkSuccessCondition()) {
-            revert AllOrNothingNotClaimable(tokenId, "CAMPAIGN_SUCCESSFUL");
+            revert AllOrNothingNotClaimable(tokenId, TreasuryErrors.NotClaimable.CAMPAIGN_SUCCESSFUL);
         }
 
         // Get NFT owner before burning
@@ -379,7 +380,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
 
         if (amountToRefund == 0) {
-            revert AllOrNothingNotClaimable(tokenId, "ZERO_AMOUNT");
+            revert AllOrNothingNotClaimable(tokenId, TreasuryErrors.NotClaimable.REFUND_ZERO_AMOUNT);
         }
 
         s_tokenToTotalCollectedAmount[tokenId] = 0;
@@ -449,10 +450,10 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
             revert AllOrNothingTokenNotAccepted(pledgeToken);
         }
         if (backer == address(this)) {
-            revert AllOrNothingInvalidInput("INVALID_BACKER");
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.INVALID_BACKER);
         }
         if (permitData.signature.length == 0) {
-            revert AllOrNothingInvalidInput("EMPTY_SIGNATURE");
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
         }
 
         uint256 pledgeAmountInTokenDecimals;
