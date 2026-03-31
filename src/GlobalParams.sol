@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import {ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -14,7 +13,7 @@ import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
  * @notice Manages global parameters and platform information.
  * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
-contract GlobalParams is Initializable, IGlobalParams, ContextUpgradeable, UUPSUpgradeable {
+contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
     using Counters for Counters.Counter;
 
     bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -783,7 +782,7 @@ contract GlobalParams is Initializable, IGlobalParams, ContextUpgradeable, UUPSU
 
     function _onlyProtocolAdmin() private view {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
-        if (_msgSender() != $.protocolAdminAddress) {
+        if (msg.sender != $.protocolAdminAddress) {
             revert GlobalParamsUnauthorized();
         }
     }
@@ -795,7 +794,7 @@ contract GlobalParams is Initializable, IGlobalParams, ContextUpgradeable, UUPSU
      */
     function _onlyPlatformAdmin(bytes32 platformHash) private view {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
-        if (_msgSender() != $.platformAdminAddress[platformHash]) {
+        if (msg.sender != $.platformAdminAddress[platformHash]) {
             revert GlobalParamsUnauthorized();
         }
     }
