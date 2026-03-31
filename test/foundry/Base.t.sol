@@ -137,7 +137,6 @@ abstract contract Base_Test is Test, Defaults {
         CampaignInfoFactory campaignFactoryImpl = new CampaignInfoFactory();
         bytes memory campaignFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            users.contractOwner,
             IGlobalParams(address(globalParams)),
             address(campaignInfo),
             address(treasuryFactory)

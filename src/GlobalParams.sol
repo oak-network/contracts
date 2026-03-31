@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -14,7 +14,7 @@ import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
  * @notice Manages global parameters and platform information.
  * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
-contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSUpgradeable {
+contract GlobalParams is Initializable, IGlobalParams, ContextUpgradeable, UUPSUpgradeable {
     using Counters for Counters.Counter;
 
     bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -239,6 +239,11 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         _;
     }
 
+    modifier onlyProtocolAdmin() {
+        _onlyProtocolAdmin();
+        _;
+    }
+
     /**
      * @dev Constructor that disables initializers to prevent implementation contract initialization
      */
@@ -259,8 +264,9 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         bytes32[] memory currencies,
         address[][] memory tokensPerCurrency
     ) public initializer {
-        __Ownable_init(protocolAdminAddress);
         __UUPSUpgradeable_init();
+
+        _revertIfAddressZero(protocolAdminAddress);
 
         if (protocolFeePercent > PERCENT_DIVIDER) {
             revert GlobalParamsFeePercentExceedsMax();
@@ -291,14 +297,14 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @dev Function that authorizes an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin {}
 
     /**
      * @notice Adds a key-value pair to the data registry.
      * @param key The registry key.
      * @param value The registry value.
      */
-    function addToRegistry(bytes32 key, bytes32 value) external onlyOwner {
+    function addToRegistry(bytes32 key, bytes32 value) external onlyProtocolAdmin {
         if (key == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -430,7 +436,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
         address platformAdminAddress,
         uint256 platformFeePercent,
         address platformAdapter
-    ) external onlyOwner notAddressZero(platformAdminAddress) {
+    ) external onlyProtocolAdmin notAddressZero(platformAdminAddress) {
         if (platformHash == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -460,7 +466,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
      * @notice Delists a platform.
      * @param platformHash The platform's identifier.
      */
-    function delistPlatform(bytes32 platformHash) external onlyOwner platformIsListed(platformHash) {
+    function delistPlatform(bytes32 platformHash) external onlyProtocolAdmin platformIsListed(platformHash) {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.platformIsListed[platformHash] = false;
         $.platformAdminAddress[platformHash] = address(0);
@@ -523,7 +529,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function updateProtocolAdminAddress(address protocolAdminAddress)
         external
         override
-        onlyOwner
+        onlyProtocolAdmin
         notAddressZero(protocolAdminAddress)
     {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
@@ -534,7 +540,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyOwner {
+    function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyProtocolAdmin {
         if (protocolFeePercent > PERCENT_DIVIDER) {
             revert GlobalParamsFeePercentExceedsMax();
         }
@@ -549,7 +555,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminAddress)
         external
         override
-        onlyOwner
+        onlyProtocolAdmin
         platformIsListed(platformHash)
         notAddressZero(platformAdminAddress)
     {
@@ -592,7 +598,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function setPlatformAdapter(bytes32 platformHash, address adapter)
         external
         override
-        onlyOwner
+        onlyProtocolAdmin
         platformIsListed(platformHash)
     {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
@@ -603,7 +609,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     /**
      * @inheritdoc IGlobalParams
      */
-    function addTokenToCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token) {
+    function addTokenToCurrency(bytes32 currency, address token) external override onlyProtocolAdmin notAddressZero(token) {
         if (currency == ZERO_BYTES) {
             revert GlobalParamsInvalidInput();
         }
@@ -618,7 +624,7 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function removeTokenFromCurrency(bytes32 currency, address token)
         external
         override
-        onlyOwner
+        onlyProtocolAdmin
         notAddressZero(token)
     {
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
@@ -772,6 +778,13 @@ contract GlobalParams is Initializable, IGlobalParams, OwnableUpgradeable, UUPSU
     function _revertIfAddressZero(address account) internal pure {
         if (account == address(0)) {
             revert GlobalParamsInvalidInput();
+        }
+    }
+
+    function _onlyProtocolAdmin() private view {
+        GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
+        if (_msgSender() != $.protocolAdminAddress) {
+            revert GlobalParamsUnauthorized();
         }
     }
 
