@@ -11,6 +11,7 @@ library TreasuryErrors {
         INVALID_LINE_ITEM,
         LINE_ITEM_TYPE_NOT_FOUND,
         EMPTY_SIGNATURE,
+        INVALID_BUYER,
         INVALID_BACKER,
         CONFIRM_BATCH_LENGTH_MISMATCH,
         ZERO_REFUND_ADDRESS,
@@ -30,9 +31,9 @@ library TreasuryErrors {
 
     /// @notice Codes for `NotClaimable` errors (refund / claim-check failures).
     enum NotClaimable {
-        REFUND_ZERO_AMOUNT,
+        ZERO_REFUND_AMOUNT,
         INSUFFICIENT_LIQUIDITY,
-        REFUND_ZERO_ADDRESS,
+        ZERO_REFUND_ADDRESS,
         NOT_NFT_PAYMENT,
         INSUFFICIENT_GOAL_LIQUIDITY,
         INSUFFICIENT_NON_GOAL_LIQUIDITY,

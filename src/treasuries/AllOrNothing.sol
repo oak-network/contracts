@@ -380,7 +380,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         address pledgeToken = s_tokenIdToPledgeToken[tokenId];
 
         if (amountToRefund == 0) {
-            revert AllOrNothingNotClaimable(tokenId, TreasuryErrors.NotClaimable.REFUND_ZERO_AMOUNT);
+            revert AllOrNothingNotClaimable(tokenId, TreasuryErrors.NotClaimable.ZERO_REFUND_AMOUNT);
         }
 
         s_tokenToTotalCollectedAmount[tokenId] = 0;

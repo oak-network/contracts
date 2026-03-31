@@ -871,7 +871,7 @@ abstract contract BasePaymentTreasury is
         if (permitData.signature.length == 0) revert PaymentTreasuryInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
 
         if (buyerAddress == address(this)) {
-            revert PaymentTreasuryInvalidInput(TreasuryErrors.InvalidInput.INVALID_BACKER);
+            revert PaymentTreasuryInvalidInput(TreasuryErrors.InvalidInput.INVALID_BUYER);
         }
 
         if (lineItems.length > MAX_LINE_ITEMS || externalFees.length > MAX_EXTERNAL_FEES) {
@@ -1343,7 +1343,7 @@ abstract contract BasePaymentTreasury is
             revert PaymentTreasuryPaymentNotConfirmed(paymentId);
         }
         if (amountToRefund == 0) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId, TreasuryErrors.NotClaimable.REFUND_ZERO_AMOUNT);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, TreasuryErrors.NotClaimable.ZERO_REFUND_AMOUNT);
         }
         // This function is for non-NFT payments only
         if (tokenId != 0) {
@@ -1379,7 +1379,7 @@ abstract contract BasePaymentTreasury is
         uint256 tokenId = s_paymentIdToNFTId[internalPaymentId];
 
         if (buyerAddress == address(0)) {
-            revert PaymentTreasuryPaymentNotClaimable(paymentId, TreasuryErrors.NotClaimable.REFUND_ZERO_ADDRESS);
+            revert PaymentTreasuryPaymentNotClaimable(paymentId, TreasuryErrors.NotClaimable.ZERO_REFUND_ADDRESS);
         }
         if (amountToRefund == 0) {
             revert PaymentTreasuryPaymentNotClaimable(paymentId, TreasuryErrors.NotClaimable.INSUFFICIENT_LIQUIDITY);
