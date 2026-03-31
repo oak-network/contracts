@@ -1339,7 +1339,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
-        uint256 actualPledgeAmount;
+        uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
 
         if (usePermit2) {
             bytes32 witness;
@@ -1376,16 +1376,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
                 witnessTypeString,
                 permitData.signature
             );
-            actualPledgeAmount = pledgeAmountInTokenDecimals;
         } else {
-            uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
             IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
-            uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
-            if (actualReceived < tip) {
-                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
-            }
-            actualPledgeAmount = actualReceived - tip;
         }
+
+        uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
+        if (actualReceived < tip) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
+        }
+        uint256 actualPledgeAmount = actualReceived - tip;
 
         uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, actualPledgeAmount, 0, tip);
 

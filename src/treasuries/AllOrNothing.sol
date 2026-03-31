@@ -468,6 +468,7 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + shippingFeeInTokenDecimals;
+        uint256 balanceBefore = IERC20(pledgeToken).balanceOf(address(this));
 
         bytes32 witness;
         string memory witnessTypeString;
@@ -497,15 +498,21 @@ contract AllOrNothing is IReward, BaseTreasury, TimestampChecker {
             permitData.signature
         );
 
+        uint256 actualReceived = IERC20(pledgeToken).balanceOf(address(this)) - balanceBefore;
+        if (actualReceived < shippingFeeInTokenDecimals) {
+            revert AllOrNothingInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
+        }
+        uint256 actualPledgeAmount = actualReceived - shippingFeeInTokenDecimals;
+
         uint256 tokenId = INFO.mintNFTForPledge(
-            backer, reward, pledgeToken, pledgeAmountInTokenDecimals, shippingFeeInTokenDecimals, 0
+            backer, reward, pledgeToken, actualPledgeAmount, shippingFeeInTokenDecimals, 0
         );
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
-        s_tokenToTotalCollectedAmount[tokenId] = totalAmount;
+        s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
+        s_tokenToTotalCollectedAmount[tokenId] = actualReceived;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, shippingFee, tokenId, rewards);
     }

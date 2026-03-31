@@ -998,6 +998,7 @@ abstract contract BasePaymentTreasury is
             abi.encode(CRYPTO_PAYMENT_WITNESS_TYPEHASH, paymentId, itemId, buyerAddress, amount, lineItemsHash)
         );
 
+        uint256 balanceBefore = IERC20(paymentToken).balanceOf(address(this));
         IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
             ISignatureTransfer.PermitTransferFrom({
                 permitted: ISignatureTransfer.TokenPermissions({token: paymentToken, amount: totalAmount}),
@@ -1010,12 +1011,18 @@ abstract contract BasePaymentTreasury is
             CRYPTO_PAYMENT_WITNESS_TYPE_STRING,
             permitData.signature
         );
+        uint256 actualReceived = IERC20(paymentToken).balanceOf(address(this)) - balanceBefore;
+        uint256 lineItemTotal = totalAmount - amount;
+        if (actualReceived < lineItemTotal) {
+            revert PaymentTreasuryInvalidInput(TreasuryErrors.InvalidInput.INSUFFICIENT_RECEIVED);
+        }
+        uint256 actualAmount = actualReceived - lineItemTotal;
 
         s_payment[internalPaymentId] = PaymentInfo({
             buyerId: ZERO_BYTES,
             buyerAddress: buyerAddress,
             itemId: itemId,
-            amount: amount, // Amount in token's native decimals
+            amount: actualAmount,
             expiration: 0,
             isConfirmed: true,
             isCryptoPayment: true,
@@ -1024,9 +1031,9 @@ abstract contract BasePaymentTreasury is
 
         s_paymentIdToToken[internalPaymentId] = paymentToken;
         s_paymentIdToCreator[paymentId] = buyerAddress; // Scoped by buyer for getPaymentData lookup
-        s_confirmedPaymentPerToken[paymentToken] += amount;
-        s_lifetimeConfirmedPaymentPerToken[paymentToken] += amount;
-        s_availableConfirmedPerToken[paymentToken] += amount;
+        s_confirmedPaymentPerToken[paymentToken] += actualAmount;
+        s_lifetimeConfirmedPaymentPerToken[paymentToken] += actualAmount;
+        s_availableConfirmedPerToken[paymentToken] += actualAmount;
 
         // Perform single batch transfer if there are any instant transfer amounts
         if (totalInstantTransferAmount > 0) {
@@ -1037,13 +1044,13 @@ abstract contract BasePaymentTreasury is
             buyerAddress,
             itemId, // Using itemId as the reward identifier
             paymentToken,
-            amount,
+            actualAmount,
             0, // shippingFee (0 for payment treasuries)
             0 // tipAmount (0 for payment treasuries)
         );
         s_paymentIdToNFTId[internalPaymentId] = tokenId;
 
-        emit PaymentCreated(buyerAddress, paymentId, ZERO_BYTES, itemId, paymentToken, amount, 0, true);
+        emit PaymentCreated(buyerAddress, paymentId, ZERO_BYTES, itemId, paymentToken, actualAmount, 0, true);
     }
 
     /**
