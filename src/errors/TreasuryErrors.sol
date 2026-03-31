@@ -4,9 +4,6 @@ pragma solidity ^0.8.22;
 /**
  * @title TreasuryErrors
  * @notice Shared error-code enums for all treasury contracts
- *         (BasePaymentTreasury, AllOrNothing, KeepWhatsRaised).
- * @dev Enums compile to uint8 under the hood, eliminating the string
- *      literals that would otherwise inflate deployed bytecode.
  */
 library TreasuryErrors {
     /// @notice Codes for `InvalidInput` errors (input-validation failures).
