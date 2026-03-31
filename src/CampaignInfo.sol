@@ -17,6 +17,7 @@ import {PausableCancellable} from "./utils/PausableCancellable.sol";
 import {PledgeNFT} from "./utils/PledgeNFT.sol";
 import {Counters} from "./utils/Counters.sol";
 import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "./errors/ProtocolErrors.sol";
 
 /**
  * @title CampaignInfo
@@ -118,8 +119,9 @@ contract CampaignInfo is
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param code Which validation failed.
      */
-    error CampaignInfoInvalidInput();
+    error CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput code);
 
     /**
      * @dev Emitted when a platform is not selected for the campaign.
@@ -184,7 +186,7 @@ contract CampaignInfo is
         for (uint256 i = 0; i < len;) {
             address token = acceptedTokens[i];
             if (s_isAcceptedToken[token]) {
-                revert CampaignInfoInvalidInput();
+                revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.DUPLICATE_ACCEPTED_TOKEN);
             }
             s_acceptedTokens.push(token);
             s_isAcceptedToken[token] = true;
@@ -430,7 +432,7 @@ contract CampaignInfo is
     function getPlatformData(bytes32 platformDataKey) external view override returns (bytes32) {
         bytes32 platformDataValue = s_platformData[platformDataKey];
         if (platformDataValue == bytes32(0)) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_NOT_SET);
         }
         return platformDataValue;
     }
@@ -520,7 +522,7 @@ contract CampaignInfo is
             launchTime < block.timestamp + campaignLaunchBuffer || deadline <= launchTime
                 || deadline < launchTime + minimumCampaignDuration
         ) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME);
         }
 
         s_campaignData.launchTime = launchTime;
@@ -544,7 +546,7 @@ contract CampaignInfo is
             uint256(_getGlobalParams().getFromRegistry(DataRegistryKeys.MINIMUM_CAMPAIGN_DURATION));
 
         if (deadline < launchTime + minimumCampaignDuration) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.INVALID_DEADLINE);
         }
 
         s_campaignData.deadline = deadline;
@@ -564,7 +566,7 @@ contract CampaignInfo is
         whenNotLocked
     {
         if (goalAmount == 0) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.ZERO_GOAL_AMOUNT);
         }
         s_campaignData.goalAmount = goalAmount;
         emit CampaignInfoGoalAmountUpdated(goalAmount);
@@ -580,7 +582,7 @@ contract CampaignInfo is
         bytes32[] calldata platformDataValue
     ) external override onlyOwner currentTimeIsLess(getLaunchTime()) whenNotPaused whenNotCancelled {
         if (checkIfPlatformSelected(platformHash) == selection) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_SELECTION_UNCHANGED);
         }
 
         IGlobalParams globalParams = _getGlobalParams();
@@ -592,7 +594,7 @@ contract CampaignInfo is
             revert CampaignInfoPlatformAlreadyApproved(platformHash);
         }
         if (platformDataKey.length != platformDataValue.length) {
-            revert CampaignInfoInvalidInput();
+            revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_LENGTH_MISMATCH);
         }
 
         if (selection) {
@@ -600,13 +602,13 @@ contract CampaignInfo is
             for (uint256 i = 0; i < platformDataKey.length; i++) {
                 isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
                 if (!isValid) {
-                    revert CampaignInfoInvalidInput();
+                    revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.INVALID_PLATFORM_DATA_KEY);
                 }
                 if (globalParams.getPlatformDataOwner(platformDataKey[i]) != platformHash) {
                     revert CampaignInfoPlatformDataKeyNotOwnedByPlatform(platformHash, platformDataKey[i]);
                 }
                 if (platformDataValue[i] == bytes32(0)) {
-                    revert CampaignInfoInvalidInput();
+                    revert CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput.ZERO_PLATFORM_DATA_VALUE);
                 }
 
                 s_platformData[platformDataKey[i]] = platformDataValue[i];

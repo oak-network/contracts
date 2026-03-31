@@ -5,6 +5,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
+import {ProtocolErrors} from "./errors/ProtocolErrors.sol";
 import {Counters} from "./utils/Counters.sol";
 import {GlobalParamsStorage} from "./storage/GlobalParamsStorage.sol";
 
@@ -130,9 +131,10 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
     event PlatformLineItemTypeRemoved(bytes32 indexed platformHash, bytes32 indexed typeId);
 
     /**
-     * @dev Throws when the input address is zero.
+     * @dev Throws when input validation fails.
+     * @param code Which validation failed.
      */
-    error GlobalParamsInvalidInput();
+    error GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput code);
 
     /**
      * @dev Throws when the platform is not listed.
@@ -285,7 +287,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
             for (uint256 j = 0; j < tokensPerCurrency[i].length; j++) {
                 address token = tokensPerCurrency[i][j];
                 if (token == address(0)) {
-                    revert GlobalParamsInvalidInput();
+                    revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_TOKEN);
                 }
                 $.currencyToTokens[currencies[i]].push(token);
             }
@@ -305,7 +307,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
      */
     function addToRegistry(bytes32 key, bytes32 value) external onlyProtocolAdmin {
         if (key == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_REGISTRY_KEY);
         }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.dataRegistry[key] = value;
@@ -437,7 +439,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
         address platformAdapter
     ) external onlyProtocolAdmin notAddressZero(platformAdminAddress) {
         if (platformHash == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_PLATFORM_HASH);
         }
         if (platformFeePercent > PERCENT_DIVIDER) {
             revert GlobalParamsFeePercentExceedsMax();
@@ -486,7 +488,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
         onlyPlatformAdmin(platformHash)
     {
         if (platformDataKey == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_PLATFORM_DATA_KEY);
         }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         if ($.platformData[platformDataKey]) {
@@ -508,7 +510,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
         onlyPlatformAdmin(platformHash)
     {
         if (platformDataKey == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_PLATFORM_DATA_KEY);
         }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         if (!$.platformData[platformDataKey]) {
@@ -610,7 +612,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
      */
     function addTokenToCurrency(bytes32 currency, address token) external override onlyProtocolAdmin notAddressZero(token) {
         if (currency == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_CURRENCY);
         }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         $.currencyToTokens[currency].push(token);
@@ -679,25 +681,25 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
         bool instantTransfer
     ) external platformIsListed(platformHash) onlyPlatformAdmin(platformHash) {
         if (typeId == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_LINE_ITEM_TYPE_ID);
         }
 
         // Validation constraint 1: If countsTowardGoal is true, then applyProtocolFee must be false, canRefund must be true, and instantTransfer must be false
         if (countsTowardGoal) {
             if (applyProtocolFee) {
-                revert GlobalParamsInvalidInput();
+                revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_GOAL_APPLIES_PROTOCOL_FEE);
             }
             if (!canRefund) {
-                revert GlobalParamsInvalidInput();
+                revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_GOAL_NOT_REFUNDABLE);
             }
             if (instantTransfer) {
-                revert GlobalParamsInvalidInput();
+                revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_GOAL_INSTANT_TRANSFER);
             }
         }
 
         // Validation constraint 2: Non-goal instant transfer items cannot be refundable
         if (!countsTowardGoal && instantTransfer && canRefund) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_NON_GOAL_INSTANT_REFUNDABLE);
         }
 
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
@@ -726,7 +728,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
         onlyPlatformAdmin(platformHash)
     {
         if (typeId == ZERO_BYTES) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_LINE_ITEM_TYPE_ID);
         }
         GlobalParamsStorage.Storage storage $ = GlobalParamsStorage._getGlobalParamsStorage();
         if (!$.platformLineItemTypes[platformHash][typeId].exists) {
@@ -776,7 +778,7 @@ contract GlobalParams is Initializable, IGlobalParams, UUPSUpgradeable {
      */
     function _revertIfAddressZero(address account) internal pure {
         if (account == address(0)) {
-            revert GlobalParamsInvalidInput();
+            revert GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput.ZERO_ADDRESS);
         }
     }
 

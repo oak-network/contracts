@@ -13,6 +13,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "src/errors/ProtocolErrors.sol";
 
 contract CampaignInfo_UnitTest is Test, Defaults {
     CampaignInfo internal campaignInfo;
@@ -172,7 +173,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     }
 
     function test_GetPlatformData_NotSet() public {
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_NOT_SET
+            )
+        );
         campaignInfo.getPlatformData(platformDataKey1);
     }
 
@@ -252,7 +257,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
 
         // Try to select again - should revert
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_SELECTION_UNCHANGED
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -267,7 +277,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_LENGTH_MISMATCH
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -281,7 +296,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.INVALID_PLATFORM_DATA_KEY
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -295,7 +315,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = bytes32(0);
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.ZERO_PLATFORM_DATA_VALUE
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -335,7 +360,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(campaignOwner);
 
         // Launch time in the past
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
         campaignInfo.updateLaunchTime(block.timestamp - 1);
 
         vm.stopPrank();
@@ -359,7 +388,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // the duration would be less than 1 day, which violates the minimum
         uint256 newLaunchTime = currentDeadline - 12 hours; // Only 12 hours duration, less than 1 day minimum
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
         campaignInfo.updateLaunchTime(newLaunchTime);
 
         vm.stopPrank();
@@ -464,7 +497,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UpdateGoalAmount_ZeroAmount_Reverts() public {
         vm.startPrank(campaignOwner);
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.ZERO_GOAL_AMOUNT
+            )
+        );
         campaignInfo.updateGoalAmount(0);
 
         vm.stopPrank();
@@ -479,7 +516,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.stopPrank();
 
         vm.startPrank(campaignOwner);
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
         campaignInfo.updateLaunchTime(block.timestamp + 1 days);
         vm.stopPrank();
     }
@@ -966,7 +1007,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Now try to select the already approved platform again - should revert
         vm.startPrank(campaignOwner);
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_SELECTION_UNCHANGED
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }

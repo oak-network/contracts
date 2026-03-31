@@ -12,6 +12,7 @@ import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "src/errors/ProtocolErrors.sol";
 
 contract CampaignInfoFactory_UnitTest is Test, Defaults {
     CampaignInfoFactory internal factory;
@@ -202,7 +203,12 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         });
 
         vm.prank(admin);
-        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector,
+                ProtocolErrors.CampaignInfoFactoryInvalidInput.LAUNCH_TIME_TOO_SOON
+            )
+        );
         factory.createCampaign(
             creator,
             CAMPAIGN_1_IDENTIFIER_HASH,
@@ -235,7 +241,12 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         });
 
         vm.prank(admin);
-        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector,
+                ProtocolErrors.CampaignInfoFactoryInvalidInput.DEADLINE_TOO_SOON
+            )
+        );
         factory.createCampaign(
             creator,
             CAMPAIGN_1_IDENTIFIER_HASH,

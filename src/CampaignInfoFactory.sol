@@ -9,6 +9,7 @@ import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
 import {CampaignInfoFactoryStorage} from "./storage/CampaignInfoFactoryStorage.sol";
 import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "./errors/ProtocolErrors.sol";
 
 /**
  * @title CampaignInfoFactory
@@ -18,8 +19,9 @@ import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
 contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, UUPSUpgradeable {
     /**
      * @dev Emitted when invalid input is provided.
+     * @param code Which validation failed.
      */
-    error CampaignInfoFactoryInvalidInput();
+    error CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput code);
 
     /// @dev Reverts when the caller is not the protocol admin.
     error CampaignInfoFactoryUnauthorized();
@@ -113,10 +115,10 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, UUPSUpgrade
         string calldata contractURI
     ) external override {
         if (creator == address(0)) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_CREATOR);
         }
         if (platformDataKey.length != platformDataValue.length) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.PLATFORM_DATA_LENGTH_MISMATCH);
         }
 
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
@@ -131,20 +133,20 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, UUPSUpgrade
 
         // Validate campaign timing constraints
         if (campaignData.launchTime < block.timestamp + campaignLaunchBuffer) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.LAUNCH_TIME_TOO_SOON);
         }
         if (campaignData.deadline < campaignData.launchTime + minimumCampaignDuration) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.DEADLINE_TOO_SOON);
         }
 
         bool isValid;
         for (uint256 i = 0; i < platformDataKey.length; i++) {
             isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
             if (!isValid) {
-                revert CampaignInfoFactoryInvalidInput();
+                revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.INVALID_PLATFORM_DATA_KEY);
             }
             if (platformDataValue[i] == bytes32(0)) {
-                revert CampaignInfoFactoryInvalidInput();
+                revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_PLATFORM_DATA_VALUE);
             }
         }
         address cloneExists = $.identifierToCampaignInfo[identifierHash];
@@ -201,7 +203,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, UUPSUpgrade
      */
     function updateImplementation(address newImplementation) external override onlyProtocolAdmin {
         if (newImplementation == address(0)) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_IMPLEMENTATION);
         }
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         $.implementation = newImplementation;
