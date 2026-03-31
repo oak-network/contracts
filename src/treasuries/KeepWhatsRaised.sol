@@ -83,7 +83,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         /// @dev The minimum withdrawal amount required to qualify for fee exemption.
         uint256 minimumWithdrawalForFeeExemption;
         /// @dev Time delay (in timestamp) after the campaign deadline until which the campaign owner may withdraw.
-        ///      Withdrawal is allowed only while current time is less than deadline + withdrawalDelay.
+        ///      Withdrawal is allowed only while current time is less than or equal to deadline + withdrawalDelay.
         ///      After deadline + withdrawalDelay, the withdrawal function is no longer callable.
         uint256 withdrawalDelay;
         /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
@@ -334,12 +334,14 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     error KeepWhatsRaisedAlreadyConfigured();
 
     /**
-     * @dev Reverts when withdrawalDelay is less than refundDelay, which would allow claimFund
-     *      to be callable before the refund window ends (refund window: (deadline, deadline + refundDelay]).
+     * @dev Reverts when withdrawalDelay does not extend past refundDelay, which would leave no
+     *      creator withdrawal window after the refund period ends.
      * @param withdrawalDelay The configured withdrawal delay.
      * @param refundDelay The configured refund delay.
      */
     error KeepWhatsRaisedWithdrawalBeforeRefundEnd(uint256 withdrawalDelay, uint256 refundDelay);
+    /// @dev Reverts when creator withdrawal is attempted before the refund window has ended.
+    error KeepWhatsRaisedWithdrawalWindowNotReached();
 
     /**
      * @dev Emitted when a disbursement is attempted before the refund period has ended.
@@ -579,7 +581,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *
      * @param config The configuration settings including withdrawal delay, refund delay,
      *               fee exemption threshold, and configuration lock period.
-     *               Must satisfy withdrawalDelay >= refundDelay so claimFund is only callable after the refund window ends.
+     *               Must satisfy withdrawalDelay > refundDelay (when refundDelay > 0) so the creator
+     *               has a withdrawal window after the refund period ends.
      * @param campaignData The campaign-related metadata such as deadlines and funding goals.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
      * @param feeValues The fee values corresponding to the fee keys.
@@ -605,7 +608,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
             revert KeepWhatsRaisedInvalidInput("FEE_LENGTH_MISMATCH");
         }
-        if (config.withdrawalDelay < config.refundDelay) {
+        if (config.refundDelay > 0 && config.withdrawalDelay <= config.refundDelay) {
             revert KeepWhatsRaisedWithdrawalBeforeRefundEnd(config.withdrawalDelay, config.refundDelay);
         }
 
@@ -1022,9 +1025,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *
      * Requirements:
      * - Caller must be authorized.
-     * - Withdrawals must be enabled, not paused, and within the withdrawal window (current time < deadline + withdrawalDelay).
+     * - Withdrawals must be enabled, not paused, and within the withdrawal window.
+     * - If `refundDelay > 0`, creator withdrawals are blocked until after `deadline + refundDelay`.
      * - Token must be accepted for the campaign.
-     * - For partial withdrawals:
+     * - For partial withdrawals (reachable only when `refundDelay == 0`):
      *   - `amount` > 0 and `amount + fees` ≤ available balance.
      * - For final withdrawals:
      *   - Available balance > 0 and fees ≤ available balance.
@@ -1043,7 +1047,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function withdraw(address token, uint256 amount)
         public
         onlyPlatformAdminOrCampaignOwner
-        currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
         whenCampaignNotPaused
         whenCampaignNotCancelled
         whenNotPaused
@@ -1063,11 +1066,20 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 minimumWithdrawalForFeeExemption = _denormalizeAmount(token, s_config.minimumWithdrawalForFeeExemption);
 
         uint256 currentTime = block.timestamp;
+        uint256 deadline = getDeadline();
+        uint256 withdrawalDeadline = deadline + s_config.withdrawalDelay;
         uint256 available = s_availablePerToken[token];
         uint256 withdrawalAmount;
         uint256 totalFee = 0;
         address recipient = INFO.owner();
-        bool isFinalWithdrawal = (currentTime > getDeadline());
+        bool isFinalWithdrawal = (currentTime > deadline);
+
+        if (currentTime > withdrawalDeadline) {
+            revert CurrentTimeIsGreater(withdrawalDeadline, currentTime);
+        }
+        if (s_config.refundDelay > 0 && currentTime <= deadline + s_config.refundDelay) {
+            revert KeepWhatsRaisedWithdrawalWindowNotReached();
+        }
 
         //Main Fees
         if (isFinalWithdrawal) {

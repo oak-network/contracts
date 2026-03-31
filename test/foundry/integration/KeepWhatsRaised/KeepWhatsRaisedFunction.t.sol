@@ -224,7 +224,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 ownerBalanceBefore = testToken.balanceOf(actualOwner);
 
         (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + 1 days);
+            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + REFUND_DELAY + 1);
 
         uint256 ownerBalanceAfter = testToken.balanceOf(actualOwner);
 
@@ -307,9 +307,9 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Approve and withdraw (as platform admin)
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
 
-        vm.warp(DEADLINE - 1 days);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.withdraw(address(testToken), PLEDGE_AMOUNT);
+        keepWhatsRaised.withdraw(address(testToken), 0);
 
         uint256 protocolAdminBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
         uint256 platformAdminBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
@@ -422,7 +422,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         uint256 ownerBalanceBefore = testToken.balanceOf(actualOwner);
 
         (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + 1 days);
+            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), 0, DEADLINE + REFUND_DELAY + 1);
 
         uint256 ownerBalanceAfter = testToken.balanceOf(actualOwner);
 
@@ -432,7 +432,7 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         assertEq(keepWhatsRaised.getAvailableRaisedAmount(), 0, "Available amount should be zero");
     }
 
-    function test_withdrawPartial() external {
+    function test_withdrawRevertBeforeRefundEnd() external {
         addRewards(users.creator1Address, address(keepWhatsRaised), REWARD_NAMES, REWARDS);
 
         setPaymentGatewayFee(
@@ -451,24 +451,12 @@ contract KeepWhatsRaisedFunction_Integration_Shared_Test is KeepWhatsRaised_Inte
         // Approve withdrawal
         approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
 
-        uint256 availableBefore = keepWhatsRaised.getAvailableRaisedAmount();
-
-        // Calculate safe withdrawal amount that accounts for cumulative fee
-        // For small withdrawals, cumulative fee (200e18) is applied
-        // So we need available >= withdrawalAmount + cumulativeFee
         uint256 partialAmount = 300e18; // Small amount to ensure we have enough for fees
 
-        (Vm.Log[] memory logs, address to, uint256 withdrawalAmount, uint256 fee) =
-            withdraw(users.platform2AdminAddress, address(keepWhatsRaised), partialAmount, DEADLINE - 1 days);
-
-        uint256 availableAfter = keepWhatsRaised.getAvailableRaisedAmount();
-
-        // For partial withdrawals, the full amount requested is transferred
-        assertEq(withdrawalAmount, partialAmount, "Incorrect partial withdrawal");
-        // Available amount is reduced by withdrawal amount plus fees
-        assertEq(
-            availableBefore - availableAfter, partialAmount + fee, "Available should be reduced by withdrawal plus fee"
-        );
+        vm.warp(DEADLINE - 1 days);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedWithdrawalWindowNotReached.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.withdraw(address(testToken), partialAmount);
     }
 
     function test_claimTip() external {

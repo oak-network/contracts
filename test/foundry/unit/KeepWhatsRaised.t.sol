@@ -232,6 +232,23 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.configureTreasury(CONFIG, CAMPAIGN_DATA, FEE_KEYS, feeValues);
     }
 
+    function testConfigureTreasuryRevertWhenWithdrawalDelayDoesNotExtendPastRefundDelay() public {
+        _resetTreasury();
+        KeepWhatsRaised.Config memory config = CONFIG;
+        config.withdrawalDelay = config.refundDelay;
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                KeepWhatsRaised.KeepWhatsRaisedWithdrawalBeforeRefundEnd.selector,
+                config.withdrawalDelay,
+                config.refundDelay
+            )
+        );
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(config, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         PAYMENT GATEWAY FEES
     //////////////////////////////////////////////////////////////*/
@@ -770,8 +787,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         address owner = CampaignInfo(campaignAddress).owner();
         uint256 ownerBalanceBefore = testToken.balanceOf(owner);
 
-        // Withdraw after deadline (as platform admin)
-        vm.warp(DEADLINE + 1);
+        // Withdraw after refund period ends (as platform admin)
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -782,25 +799,34 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(keepWhatsRaised.getAvailableRaisedAmount(), 0);
     }
 
-    function testWithdrawPartialAmountBeforeDeadline() public {
-        // Setup pledges
+    function testWithdrawRevertBeforeRefundEnd() public {
         _setupPledges();
 
-        // Approve withdrawal
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.approveWithdrawal();
+
+        vm.warp(LAUNCH_TIME + 1 days);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedWithdrawalWindowNotReached.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.withdraw(address(testToken), 500e18);
+    }
+
+    function testWithdrawPartialAmountBeforeDeadlineWhenRefundsDisabled() public {
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(false));
+        _setupPledges();
+
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
 
         uint256 partialAmount = 500e18;
         uint256 availableBefore = keepWhatsRaised.getAvailableRaisedAmount();
 
-        // Withdraw partial amount before deadline (as platform admin)
         vm.warp(LAUNCH_TIME + 1 days);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), partialAmount);
 
         uint256 availableAfter = keepWhatsRaised.getAvailableRaisedAmount();
 
-        // Verify - available is reduced by withdrawal plus fees
         assertTrue(availableAfter < availableBefore - partialAmount);
     }
 
@@ -814,6 +840,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testWithdrawRevertWhenAmountExceedsAvailable() public {
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(false));
         _setupPledges();
 
         vm.prank(users.platform2AdminAddress);
@@ -833,8 +860,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
 
-        // First withdrawal
-        vm.warp(DEADLINE + 1);
+        // First withdrawal (after refund period)
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -852,8 +879,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         _pauseTreasury();
 
-        // Try to withdraw
-        vm.warp(DEADLINE + 1);
+        // Try to withdraw (after refund period)
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.expectRevert();
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
@@ -892,7 +919,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         address owner = CampaignInfo(campaignAddress).owner();
         uint256 ownerBalanceBefore = testToken.balanceOf(owner);
 
-        vm.warp(DEADLINE + 1);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -931,8 +958,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         uint256 ownerBalanceBefore = testToken.balanceOf(owner);
         uint256 availableBeforeWithdraw = keepWhatsRaised.getAvailableRaisedAmount();
 
-        // Withdraw after deadline
-        vm.warp(DEADLINE + 1);
+        // Withdraw after refund period ends
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -1076,7 +1103,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.claimRefund(tokenId);
     }
 
-    function testClaimRefundRevertWhenInsufficientFunds() public {
+    function testWithdrawRevertDuringRefundPeriod() public {
         // Make pledge
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
 
@@ -1087,21 +1114,16 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.pledgeWithoutAReward(
             TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
         );
-        uint256 tokenId = 0;
         vm.stopPrank();
 
-        // Withdraw all funds
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
+
+        // Final withdrawal during refund period must be blocked
         vm.warp(DEADLINE + 1);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedWithdrawalWindowNotReached.selector);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
-
-        // Try to claim refund
-        vm.warp(DEADLINE + 1 days);
-        vm.expectRevert();
-        vm.prank(users.backer1Address);
-        keepWhatsRaised.claimRefund(tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1238,7 +1260,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
 
-        vm.warp(DEADLINE + 1);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -1258,7 +1280,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         _setupPledges();
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
-        vm.warp(DEADLINE + 1);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
 
@@ -1316,6 +1338,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     //////////////////////////////////////////////////////////////*/
 
     function testMultiplePartialWithdrawals() public {
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(false));
         _setupPledges();
 
         vm.prank(users.platform2AdminAddress);
@@ -1370,6 +1393,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     function testWithdrawalRevertWhenFeesExceedAmount() public {
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(false));
+
         // Make a small pledge
         uint256 smallPledge = 300e18; // Small enough that fees might exceed available
         setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
@@ -1443,7 +1468,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
 
-        vm.warp(DEADLINE + 1);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedAlreadyWithdrawn.selector);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(testToken), 0);
@@ -1457,10 +1482,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Testing multiple pledges with different fee structures
 
         // Deploy a fresh treasury and configure with Colombian creator settings.
-        _resetTreasury();
-        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
-        vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(true));
 
         // Add rewards
         _setupReward();
@@ -1519,6 +1541,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     function testWithdrawalFeeStructure() public {
         // Testing different withdrawal scenarios and their fee implications
+        _resetAndConfigureTreasury(_configWithoutRefundDelay(false));
 
         // Small withdrawal (below exemption) before deadline
         uint256 smallAmount = 1000e18;
@@ -1646,6 +1669,22 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.pauseTreasury(message);
     }
 
+    function _configWithoutRefundDelay(bool isColombian)
+        internal
+        view
+        returns (KeepWhatsRaised.Config memory config)
+    {
+        config = isColombian ? CONFIG_COLOMBIAN : CONFIG;
+        config.refundDelay = 0;
+    }
+
+    function _resetAndConfigureTreasury(KeepWhatsRaised.Config memory config) internal {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(config, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+    }
+
     function _createFeeValues() internal pure returns (KeepWhatsRaised.FeeValues memory) {
         KeepWhatsRaised.FeeValues memory feeValues;
         feeValues.flatFeeValue = uint256(FLAT_FEE_VALUE);
@@ -1729,8 +1768,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         uint256 ownerUSDCBefore = usdcToken.balanceOf(owner);
         uint256 ownerCUSDBefore = cUSDToken.balanceOf(owner);
 
-        // Withdraw USDC
-        vm.warp(DEADLINE + 1);
+        // Withdraw USDC (after refund period)
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(usdcToken), 0);
 
@@ -1783,7 +1822,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.approveWithdrawal();
 
-        vm.warp(DEADLINE + 1);
+        vm.warp(DEADLINE + REFUND_DELAY + 1);
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.withdraw(address(cUSDToken), 0);
 
