@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
@@ -12,12 +11,14 @@ import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
+import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
+import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
 
 /**
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, ReentrancyGuard {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -29,12 +30,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     mapping(uint256 => uint256) private s_tokenToPaymentFee;
     // Mapping to store reward details by name
     mapping(bytes32 => Reward) private s_reward;
-    /// Tracks whether a pledge with a specific ID has already been processed
+    /// Tracks whether an external pledge ID has already been processed.
     mapping(bytes32 => bool) public s_processedPledges;
     /// Mapping to store payment gateway fees by unique pledge ID
     mapping(bytes32 => uint256) public s_paymentGatewayFees;
-    /// Mapping that stores fee values indexed by their corresponding fee keys.
-    mapping(bytes32 => uint256) private s_feeValues;
+    /// Flat fee values (token amounts, 18 decimals). Units are unambiguous.
+    uint256 private s_flatFeeValue;
+    uint256 private s_cumulativeFlatFeeValue;
+    /// Gross percentage fee values (basis points, 0 to PERCENT_DIVIDER - 1). Stored in same order as s_feeKeys.grossPercentageFeeKeys.
+    uint256[] private s_grossPercentageFeeValues;
 
     // Multi-token support
     mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each pledge
@@ -79,7 +83,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     struct Config {
         /// @dev The minimum withdrawal amount required to qualify for fee exemption.
         uint256 minimumWithdrawalForFeeExemption;
-        /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
+        /// @dev Time delay (in timestamp) after the campaign deadline until which the campaign owner may withdraw.
+        ///      Withdrawal is allowed only while current time is less than deadline + withdrawalDelay.
+        ///      After deadline + withdrawalDelay, the withdrawal function is no longer callable.
         uint256 withdrawalDelay;
         /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
         uint256 refundDelay;
@@ -93,9 +99,29 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
     bool private s_fundClaimed;
+    bool private s_configured;
     FeeKeys private s_feeKeys;
     Config private s_config;
     CampaignData private s_campaignData;
+
+    // ---------------------------------------------------------------------------
+    // Permit2 witness types for direct user pledge functions
+    // (setFeeAndPledge is admin-only and uses standard ERC20 transferFrom)
+    // ---------------------------------------------------------------------------
+    // pledgeForAReward witness – binds pledgeId, backer, reward array, and tip
+    bytes32 internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeForRewardWitness witness)KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)TokenPermissions(address token,uint256 amount)";
+
+    // pledgeWithoutAReward witness – binds pledgeId, backer, pledgeAmount, and tip
+    bytes32 internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH = keccak256(
+        "KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)"
+    );
+    string internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+        "KWRPledgeWithoutRewardWitness witness)KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)TokenPermissions(address token,uint256 amount)";
+
 
     /**
      * @dev Emitted when a backer makes a pledge.
@@ -198,8 +224,41 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Emitted when an invalid input is detected.
+     * @param code Error code defined in {TreasuryErrors.InvalidInput}.
      */
-    error KeepWhatsRaisedInvalidInput();
+    error KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput code);
+
+    /// @dev Emitted when fee keys are not unique (duplicate or overlap between flat and percentage keys).
+    error KeepWhatsRaisedDuplicateFeeKey();
+
+    /// @dev Emitted when a percentage fee value is >= PERCENT_DIVIDER (100%).
+    error KeepWhatsRaisedPercentageFeeExceedsMax();
+
+    /// @dev Emitted when the sum of gross percentage fees is >= PERCENT_DIVIDER (100%).
+    error KeepWhatsRaisedAggregatePercentageExceedsMax();
+
+    /// @dev Reverts when campaign launch time is in the past.
+    error KeepWhatsRaisedLaunchTimeInPast();
+    /// @dev Reverts when campaign deadline is not after launch time.
+    error KeepWhatsRaisedDeadlineNotAfterLaunch();
+    /// @dev Reverts when reward name is zero bytes.
+    error KeepWhatsRaisedZeroRewardName();
+    /// @dev Reverts when reward value is zero.
+    error KeepWhatsRaisedZeroRewardValue();
+    /// @dev Reverts when reward item arrays have mismatched lengths.
+    error KeepWhatsRaisedRewardItemArrayLengthMismatch();
+    /// @dev Reverts when backer address is zero.
+    error KeepWhatsRaisedZeroBacker();
+    /// @dev Reverts when reward selection length exceeds number of rewards.
+    error KeepWhatsRaisedRewardSelectionLengthMismatch();
+    /// @dev Reverts when first reward is not a reward tier.
+    error KeepWhatsRaisedFirstRewardNotTier();
+    /// @dev Reverts when refund amount is zero.
+    error KeepWhatsRaisedRefundAmountZero();
+    /// @dev Reverts when insufficient available balance for refund.
+    error KeepWhatsRaisedInsufficientAvailableForRefund(uint256 tokenId);
+    /// @dev Reverts when claimFund is called before refund delay (cancelled) or withdrawal delay (not cancelled).
+    error KeepWhatsRaisedClaimFundWindowNotReached();
 
     /**
      * @dev Emitted when a token is not accepted for the campaign.
@@ -250,10 +309,16 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     error KeepWhatsRaisedAlreadyClaimed();
 
     /**
+     * @dev Emitted when an operation is attempted after the platform admin has already claimed the treasury funds.
+     */
+    error KeepWhatsRaisedFundAlreadyClaimed();
+
+    /**
      * @dev Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
      * @param tokenId The ID of the token that was attempted to be claimed.
+     * @param code Error code defined in {TreasuryErrors.NotClaimable}.
      */
-    error KeepWhatsRaisedNotClaimable(uint256 tokenId);
+    error KeepWhatsRaisedNotClaimable(uint256 tokenId, TreasuryErrors.NotClaimable code);
 
     /**
      * @dev Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
@@ -264,6 +329,18 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @dev Emitted when a configuration change is attempted during the lock period.
      */
     error KeepWhatsRaisedConfigLocked();
+    /**
+     * @dev Thrown when configureTreasury is called after the treasury has already been configured.
+     */
+    error KeepWhatsRaisedAlreadyConfigured();
+
+    /**
+     * @dev Reverts when withdrawalDelay is less than refundDelay, which would allow claimFund
+     *      to be callable before the refund window ends (refund window: (deadline, deadline + refundDelay]).
+     * @param withdrawalDelay The configured withdrawal delay.
+     * @param refundDelay The configured refund delay.
+     */
+    error KeepWhatsRaisedWithdrawalBeforeRefundEnd(uint256 withdrawalDelay, uint256 refundDelay);
 
     /**
      * @dev Emitted when a disbursement is attempted before the refund period has ended.
@@ -314,8 +391,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     constructor() {}
 
-    function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer {
-        __BaseContract_init(_platformHash, _infoAddress, _trustedForwarder);
+    function initialize(bytes32 _platformHash, address _infoAddress) external initializer {
+        __BaseContract_init(_platformHash, _infoAddress);
     }
 
     /**
@@ -332,84 +409,81 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function getReward(bytes32 rewardName) external view returns (Reward memory reward) {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         return s_reward[rewardName];
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getRaisedAmount() external view override returns (uint256) {
+    function getRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Lifetime total raised amount across all tokens, normalized to 18 decimals.
      */
-    function getLifetimeRaisedAmount() external view override returns (uint256) {
+    function getLifetimeRaisedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_tokenLifetimeRaisedAmounts[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_tokenLifetimeRaisedAmounts[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @inheritdoc ICampaignTreasury
+     * @return amount Total refunded amount across all tokens, normalized to 18 decimals.
      */
-    function getRefundedAmount() external view override returns (uint256) {
+    function getRefundedAmount() external view override returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 lifetimeAmount = s_tokenLifetimeRaisedAmounts[token];
-            uint256 currentAmount = s_tokenRaisedAmounts[token];
-            uint256 refundedAmount = lifetimeAmount - currentAmount;
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
             if (refundedAmount > 0) {
-                totalNormalized += _normalizeAmount(token, refundedAmount);
+                amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
      * @notice Retrieves the currently available raised amount in the treasury.
-     * @return The current available raised amount as a uint256 value.
+     * @return amount Available raised amount across all tokens, normalized to 18 decimals.
      */
-    function getAvailableRaisedAmount() external view returns (uint256) {
+    function getAvailableRaisedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        uint256 totalNormalized = 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 amount = s_availablePerToken[token];
-            if (amount > 0) {
-                totalNormalized += _normalizeAmount(token, amount);
+            uint256 tokenAmount = s_availablePerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
             }
         }
 
-        return totalNormalized;
+        return amount;
     }
 
     /**
@@ -447,12 +521,19 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Retrieves the fee value associated with a specific fee key from storage.
-     * @param {bytes32} feeKey - The unique identifier key used to reference a specific fee type.
-     *
-     * @return {uint256} The fee value corresponding to the provided fee key.
+     *      Flat fee keys return token amounts (18 decimals); percentage keys return basis points.
+     * @param feeKey The unique identifier key used to reference a specific fee type.
+     * @return The fee value corresponding to the provided fee key (0 if key is unknown).
      */
     function getFeeValue(bytes32 feeKey) public view returns (uint256) {
-        return s_feeValues[feeKey];
+        if (feeKey == s_feeKeys.flatFeeKey) return s_flatFeeValue;
+        if (feeKey == s_feeKeys.cumulativeFlatFeeKey) return s_cumulativeFlatFeeValue;
+        for (uint256 i = 0; i < s_feeKeys.grossPercentageFeeKeys.length; i++) {
+            if (s_feeKeys.grossPercentageFeeKeys[i] == feeKey) {
+                return s_grossPercentageFeeValues[i];
+            }
+        }
+        return 0;
     }
 
     /**
@@ -499,6 +580,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *
      * @param config The configuration settings including withdrawal delay, refund delay,
      *               fee exemption threshold, and configuration lock period.
+     *               Must satisfy withdrawalDelay >= refundDelay so claimFund is only callable after the refund window ends.
      * @param campaignData The campaign-related metadata such as deadlines and funding goals.
      * @param feeKeys The set of keys used to reference applicable flat and percentage-based fees.
      * @param feeValues The fee values corresponding to the fee keys.
@@ -516,23 +598,55 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        if (campaignData.launchTime < block.timestamp || campaignData.deadline <= campaignData.launchTime) {
-            revert KeepWhatsRaisedInvalidInput();
+        if (campaignData.launchTime < block.timestamp) revert KeepWhatsRaisedLaunchTimeInPast();
+        if (campaignData.deadline <= campaignData.launchTime) revert KeepWhatsRaisedDeadlineNotAfterLaunch();
+        if (s_configured) {
+            revert KeepWhatsRaisedAlreadyConfigured();
         }
         if (feeKeys.grossPercentageFeeKeys.length != feeValues.grossPercentageFeeValues.length) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.FEE_LENGTH_MISMATCH);
+        }
+        if (config.withdrawalDelay < config.refundDelay) {
+            revert KeepWhatsRaisedWithdrawalBeforeRefundEnd(config.withdrawalDelay, config.refundDelay);
         }
 
+        // Enforce key uniqueness: flat keys must differ and must not appear in percentage keys
+        if (feeKeys.flatFeeKey == feeKeys.cumulativeFlatFeeKey) {
+            revert KeepWhatsRaisedDuplicateFeeKey();
+        }
+        for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
+            bytes32 k = feeKeys.grossPercentageFeeKeys[i];
+            if (k == feeKeys.flatFeeKey || k == feeKeys.cumulativeFlatFeeKey) {
+                revert KeepWhatsRaisedDuplicateFeeKey();
+            }
+            for (uint256 j = i + 1; j < feeKeys.grossPercentageFeeKeys.length; j++) {
+                if (feeKeys.grossPercentageFeeKeys[j] == k) {
+                    revert KeepWhatsRaisedDuplicateFeeKey();
+                }
+            }
+        }
+
+        // Per-fee and aggregate percentage bounds (each and total must be < PERCENT_DIVIDER)
+        uint256 aggregatePercent = 0;
+        for (uint256 i = 0; i < feeValues.grossPercentageFeeValues.length; i++) {
+            uint256 v = feeValues.grossPercentageFeeValues[i];
+            if (v >= PERCENT_DIVIDER) {
+                revert KeepWhatsRaisedPercentageFeeExceedsMax();
+            }
+            aggregatePercent += v;
+        }
+        if (aggregatePercent >= PERCENT_DIVIDER) {
+            revert KeepWhatsRaisedAggregatePercentageExceedsMax();
+        }
+
+        s_configured = true;
         s_config = config;
         s_feeKeys = feeKeys;
         s_campaignData = campaignData;
 
-        s_feeValues[feeKeys.flatFeeKey] = feeValues.flatFeeValue;
-        s_feeValues[feeKeys.cumulativeFlatFeeKey] = feeValues.cumulativeFlatFeeValue;
-
-        for (uint256 i = 0; i < feeKeys.grossPercentageFeeKeys.length; i++) {
-            s_feeValues[feeKeys.grossPercentageFeeKeys[i]] = feeValues.grossPercentageFeeValues[i];
-        }
+        s_flatFeeValue = feeValues.flatFeeValue;
+        s_cumulativeFlatFeeValue = feeValues.cumulativeFlatFeeValue;
+        s_grossPercentageFeeValues = feeValues.grossPercentageFeeValues;
 
         emit TreasuryConfigured(config, campaignData, feeKeys, feeValues);
     }
@@ -554,7 +668,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (deadline <= getLaunchTime() || deadline <= block.timestamp) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_DEADLINE);
         }
 
         s_campaignData.deadline = deadline;
@@ -577,7 +691,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (goalAmount == 0) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_GOAL_AMOUNT);
         }
         s_campaignData.goalAmount = goalAmount;
         emit KeepWhatsRaisedGoalAmountUpdated(goalAmount);
@@ -601,7 +715,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenNotCancelled
     {
         if (rewardNames.length != rewards.length) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_LENGTH_MISMATCH);
         }
 
         for (uint256 i = 0; i < rewardNames.length; i++) {
@@ -609,17 +723,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             Reward calldata reward = rewards[i];
 
             // Reward name must not be zero bytes and reward value must be non-zero
-            if (rewardName == ZERO_BYTES || reward.rewardValue == 0) {
-                revert KeepWhatsRaisedInvalidInput();
-            }
+            if (rewardName == ZERO_BYTES) revert KeepWhatsRaisedZeroRewardName();
+            if (reward.rewardValue == 0) revert KeepWhatsRaisedZeroRewardValue();
 
             // If there are any items, their arrays must match in length
-            if (
-                (reward.itemId.length != reward.itemValue.length)
-                    || (reward.itemId.length != reward.itemQuantity.length)
-            ) {
-                revert KeepWhatsRaisedInvalidInput();
-            }
+            if (reward.itemId.length != reward.itemValue.length) revert KeepWhatsRaisedRewardItemArrayLengthMismatch();
+            if (reward.itemId.length != reward.itemQuantity.length) revert KeepWhatsRaisedRewardItemArrayLengthMismatch();
 
             // Check for duplicate reward
             if (s_reward[rewardName].rewardValue != 0) {
@@ -639,13 +748,14 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function removeReward(bytes32 rewardName)
         external
         onlyCampaignOwner
+        currentTimeIsLess(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
         whenNotCancelled
     {
         if (s_reward[rewardName].rewardValue == 0) {
-            revert KeepWhatsRaisedInvalidInput();
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
         }
         delete s_reward[rewardName];
         s_rewardCounter.decrement();
@@ -675,6 +785,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         external
         nonReentrant
         onlyPlatformAdmin(PLATFORM_HASH)
+        currentTimeIsWithinRange(getLaunchTime(), getDeadline())
         whenCampaignNotPaused
         whenNotPaused
         whenCampaignNotCancelled
@@ -683,29 +794,34 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         //Set Payment Gateway Fee
         setPaymentGatewayFee(pledgeId, fee);
 
+        PermitData memory emptyPermitData = PermitData({nonce: 0, deadline: 0, signature: ""});
+
         if (isPledgeForAReward) {
-            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender()); // Pass admin as token source
+            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender(), false, emptyPermitData);
         } else {
-            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender()); // Pass admin as token source
+            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender(), false, emptyPermitData);
         }
     }
 
     /**
-     * @notice Allows a backer to pledge for a reward.
-     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-     *      The non-reward tiers cannot be pledged for without a reward.
+     * @notice Allows a backer to pledge for a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `pledgeId`, `backer`, the reward array hash, and
+     *      `tip`, so the caller cannot tamper with those parameters after the backer has signed.
      * @param pledgeId The unique identifier of the pledge.
-     * @param backer The address of the backer making the pledge.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
     function pledgeForAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 tip,
-        bytes32[] calldata reward
+        bytes32[] calldata reward,
+        PermitData calldata permitData
     )
         public
         nonReentrant
@@ -715,31 +831,37 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, backer); // Pass backer as token source for direct calls
+        if (permitData.signature.length == 0) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
+        }
+
+        _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, address(0), true, permitData);
     }
 
     /**
-     * @notice Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
-     * @dev The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-     *      The non-reward tiers cannot be pledged for without a reward.
-     *      This function is called internally by both public pledgeForAReward (with backer as token source) and
-     *      setFeeAndPledge (with admin as token source).
+     * @notice Internal function that allows a backer to pledge for a reward.
+     * @dev Called by both the public `pledgeForAReward` (Permit2 transfer) and
+     *      `setFeeAndPledge` (admin ERC20 transfer).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
      * @param pledgeToken The token to use for the pledge.
      * @param tip An optional tip can be added during the process.
      * @param reward An array of reward names.
-     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     * @param tokenSource Token source address for the admin (ERC20) path.
+     * @param usePermit2 Whether to transfer tokens via Permit2 or direct ERC20 transfer.
+     * @param permitData Permit2 data for the direct user path.
      */
     function _pledgeForAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 tip,
-        bytes32[] calldata reward,
-        address tokenSource
+        bytes32[] memory reward,
+        address tokenSource,
+        bool usePermit2,
+        PermitData memory permitData
     ) internal {
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
+        bytes32 internalPledgeId = pledgeId;
 
         if (s_processedPledges[internalPledgeId]) {
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
@@ -748,40 +870,54 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         uint256 rewardLen = reward.length;
         Reward memory tempReward = s_reward[reward[0]];
-        if (
-            backer == address(0) || rewardLen > s_rewardCounter.current() || reward[0] == ZERO_BYTES
-                || !tempReward.isRewardTier
-        ) {
-            revert KeepWhatsRaisedInvalidInput();
-        }
+        if (backer == address(0)) revert KeepWhatsRaisedZeroBacker();
+        if (rewardLen > s_rewardCounter.current()) revert KeepWhatsRaisedRewardSelectionLengthMismatch();
+        if (reward[0] == ZERO_BYTES) revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_REWARD_INPUT);
+        if (!tempReward.isRewardTier) revert KeepWhatsRaisedFirstRewardNotTier();
+
         uint256 pledgeAmount = tempReward.rewardValue;
         for (uint256 i = 1; i < rewardLen; i++) {
             if (reward[i] == ZERO_BYTES) {
-                revert KeepWhatsRaisedInvalidInput();
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_REWARD_NAME);
             }
             tempReward = s_reward[reward[i]];
-            if (tempReward.rewardValue == 0) {
-                revert KeepWhatsRaisedInvalidInput();
+            if (tempReward.rewardValue == 0 || !tempReward.canBeAddOn) {
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.REWARD_NOT_FOUND);
             }
             pledgeAmount += tempReward.rewardValue;
         }
-        _pledge(pledgeId, backer, pledgeToken, reward[0], pledgeAmount, tip, reward, tokenSource);
+        _pledge(
+            pledgeId,
+            backer,
+            pledgeToken,
+            reward[0],
+            pledgeAmount,
+            tip,
+            reward,
+            tokenSource,
+            usePermit2,
+            permitData
+        );
     }
 
     /**
-     * @notice Allows a backer to pledge without selecting a reward.
+     * @notice Allows a backer to pledge without selecting a reward using a Permit2 signature.
+     * @dev Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+     *      The permit's witness commits to `pledgeId`, `backer`, `pledgeAmount`, and `tip`.
      * @param pledgeId The unique identifier of the pledge.
-     * @param backer The address of the backer making the pledge.
+     * @param backer The address of the backer making the pledge (must be the permit signer).
      * @param pledgeToken The token to use for the pledge.
-     * @param pledgeAmount The amount of the pledge.
-     * @param tip An optional tip can be added during the process.
+     * @param pledgeAmount The amount of the pledge (in token's native decimals).
+     * @param tip An optional tip (in token's native decimals).
+     * @param permitData Permit2 permit data (nonce, deadline, signature) signed by `backer`.
      */
     function pledgeWithoutAReward(
         bytes32 pledgeId,
         address backer,
         address pledgeToken,
         uint256 pledgeAmount,
-        uint256 tip
+        uint256 tip,
+        PermitData calldata permitData
     )
         public
         nonReentrant
@@ -791,19 +927,25 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, backer); // Pass backer as token source for direct calls
+        if (permitData.signature.length == 0) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
+        }
+
+        _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, address(0), true, permitData);
     }
 
     /**
-     * @notice Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
-     * @dev This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
-     *      setFeeAndPledge (with admin as token source).
+     * @notice Internal function that allows a backer to pledge without a reward.
+     * @dev Called by both the public `pledgeWithoutAReward` (Permit2 transfer) and
+     *      `setFeeAndPledge` (admin ERC20 transfer).
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge (receives the NFT).
      * @param pledgeToken The token to use for the pledge.
      * @param pledgeAmount The amount of the pledge.
-     * @param tip An optional tip can be added during the process.
-     * @param tokenSource The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).
+     * @param tip An optional tip.
+     * @param tokenSource Token source address for the admin (ERC20) path.
+     * @param usePermit2 Whether to transfer tokens via Permit2 or direct ERC20 transfer.
+     * @param permitData Permit2 data for the direct user path.
      */
     function _pledgeWithoutAReward(
         bytes32 pledgeId,
@@ -811,9 +953,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         address pledgeToken,
         uint256 pledgeAmount,
         uint256 tip,
-        address tokenSource
+        address tokenSource,
+        bool usePermit2,
+        PermitData memory permitData
     ) internal {
-        bytes32 internalPledgeId = keccak256(abi.encodePacked(pledgeId, _msgSender()));
+        bytes32 internalPledgeId = pledgeId;
 
         if (s_processedPledges[internalPledgeId]) {
             revert KeepWhatsRaisedPledgeAlreadyProcessed(internalPledgeId);
@@ -822,25 +966,64 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         bytes32[] memory emptyByteArray = new bytes32[](0);
 
-        _pledge(pledgeId, backer, pledgeToken, ZERO_BYTES, pledgeAmount, tip, emptyByteArray, tokenSource);
+        _pledge(
+            pledgeId,
+            backer,
+            pledgeToken,
+            ZERO_BYTES,
+            pledgeAmount,
+            tip,
+            emptyByteArray,
+            tokenSource,
+            usePermit2,
+            permitData
+        );
     }
 
     /**
      * @inheritdoc ICampaignTreasury
      */
-    function withdraw() public view override whenNotPaused whenNotCancelled {
+    function withdraw() public view override whenCampaignNotPaused whenCampaignNotCancelled whenNotPaused whenNotCancelled {
         revert KeepWhatsRaisedDisabled();
+    }
+
+    /**
+     * @dev Computes Colombian creator tax with a single accounting model to avoid double-counting.
+     * - Partial withdrawal: `amount` is NET (what the creator receives). Tax is additive (fee on top).
+     *   Formula: tax = ceil(net * 40 / 10000). Rounded up per Colombian Peso precision requirements.
+     * - Final withdrawal: `amount` is GROSS (full remaining balance). Tax is deducted from it.
+     *   Formula: tax = ceil(gross * 40 / 10040) (tax-inclusive rate). Rounded up per Colombian Peso.
+     * @param amount The net amount (partial) or gross amount (final) in token units.
+     * @param isFromGross True for final withdrawal (amount = full balance), false for partial (amount = net to creator).
+     * @return Tax amount in token units (rounded up).
+     */
+    function _colombianCreatorTax(uint256 amount, bool isFromGross) internal pure returns (uint256) {
+        if (amount == 0) return 0;
+        if (isFromGross) {
+            // Gross-including-tax: tax = ceil(gross * 40 / 10040)
+            return (amount * 40 + 10040 - 1) / 10040;
+        } else {
+            // Net amount (additive tax): tax = ceil(net * 40 / 10000)
+            return (amount * 40 + 10000 - 1) / 10000;
+        }
     }
 
     /**
      * @dev Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
      *
+     * Accounting model (per product requirement):
+     * - Partial withdrawal: Creator receives the full requested amount; fees (including Colombian tax) are additive
+     *   (deducted from the pool in addition). So: pool -= amount + totalFee, creator gets amount (net).
+     * - Final withdrawal: Fees (including Colombian tax) are cut from the remaining balance; creator receives
+     *   the remainder. So: pool -= withdrawalAmount, creator gets withdrawalAmount - totalFee (net).
+     *
      * @param token The token to withdraw.
-     * @param amount The withdrawal amount (ignored for final withdrawals).
+     * @param amount The withdrawal amount (ignored for final withdrawals). For partial, this is the NET amount
+     *               to transfer to the creator; fees are additive.
      *
      * Requirements:
      * - Caller must be authorized.
-     * - Withdrawals must be enabled, not paused, and within the allowed time.
+     * - Withdrawals must be enabled, not paused, and within the withdrawal window (current time < deadline + withdrawalDelay).
      * - Token must be accepted for the campaign.
      * - For partial withdrawals:
      *   - `amount` > 0 and `amount + fees` ≤ available balance.
@@ -862,10 +1045,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         public
         onlyPlatformAdminOrCampaignOwner
         currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
+        whenCampaignNotPaused
+        whenCampaignNotCancelled
         whenNotPaused
         whenNotCancelled
         withdrawalEnabled
     {
+        if (s_fundClaimed) {
+            revert KeepWhatsRaisedFundAlreadyClaimed();
+        }
         if (!INFO.isTokenAccepted(token)) {
             revert KeepWhatsRaisedTokenNotAccepted(token);
         }
@@ -876,30 +1064,32 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 minimumWithdrawalForFeeExemption = _denormalizeAmount(token, s_config.minimumWithdrawalForFeeExemption);
 
         uint256 currentTime = block.timestamp;
-        uint256 withdrawalAmount = s_availablePerToken[token];
+        uint256 available = s_availablePerToken[token];
+        uint256 withdrawalAmount;
         uint256 totalFee = 0;
         address recipient = INFO.owner();
         bool isFinalWithdrawal = (currentTime > getDeadline());
 
         //Main Fees
         if (isFinalWithdrawal) {
-            if (withdrawalAmount == 0) {
+            if (available == 0) {
                 revert KeepWhatsRaisedAlreadyWithdrawn();
             }
+            withdrawalAmount = available;
             if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
                 s_platformFeePerToken[token] += flatFee;
                 totalFee += flatFee;
             }
         } else {
-            withdrawalAmount = amount;
-            if (withdrawalAmount == 0) {
-                revert KeepWhatsRaisedInvalidInput();
+            if (amount == 0) {
+                revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_AMOUNT);
             }
-            if (withdrawalAmount > s_availablePerToken[token]) {
+            if (amount > available) {
                 revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
-                    s_availablePerToken[token], withdrawalAmount, totalFee
+                    available, amount, totalFee
                 );
             }
+            withdrawalAmount = amount;
 
             if (withdrawalAmount < minimumWithdrawalForFeeExemption) {
                 s_platformFeePerToken[token] += cumulativeFee;
@@ -910,16 +1100,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             }
         }
 
-        uint256 availableBeforeTax = withdrawalAmount; //The tax implemented is on the withdrawal amount
-
-        // Colombian creator tax
+        // Colombian creator tax: single accounting model to avoid double-counting.
+        // Partial: withdrawalAmount = NET (amount to creator); tax is additive (fee on top), formula from net.
+        // Final: withdrawalAmount = GROSS (full balance); tax is deducted from it, formula from gross. Rounded up to next unit (e.g. Peso).
         if (s_config.isColombianCreator) {
-            // Formula: (availableBeforeTax * 0.004) / 1.004 ≈ ((availableBeforeTax * 40) / 10040)
-            uint256 scaled = availableBeforeTax * PERCENT_DIVIDER;
-            uint256 numerator = scaled * 40;
-            uint256 denominator = 10040;
-            uint256 columbianCreatorTax = numerator / (denominator * PERCENT_DIVIDER);
-
+            uint256 columbianCreatorTax = _colombianCreatorTax(withdrawalAmount, isFinalWithdrawal);
             s_platformFeePerToken[token] += columbianCreatorTax;
             totalFee += columbianCreatorTax;
         }
@@ -932,9 +1117,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             s_availablePerToken[token] = 0;
             IERC20(token).safeTransfer(recipient, withdrawalAmount - totalFee);
         } else {
-            if (s_availablePerToken[token] < (withdrawalAmount + totalFee)) {
+            if (available < (withdrawalAmount + totalFee)) {
                 revert KeepWhatsRaisedInsufficientFundsForWithdrawalAndFee(
-                    s_availablePerToken[token], withdrawalAmount, totalFee
+                    available, withdrawalAmount, totalFee
                 );
             }
 
@@ -962,8 +1147,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotPaused
         whenNotPaused
     {
+        if (s_fundClaimed) {
+            revert KeepWhatsRaisedFundAlreadyClaimed();
+        }
         if (!_checkRefundPeriodStatus(false)) {
-            revert KeepWhatsRaisedNotClaimable(tokenId);
+            revert KeepWhatsRaisedNotClaimable(tokenId, TreasuryErrors.NotClaimable.INVALID_REFUND_PERIOD);
         }
 
         // Get NFT owner before burning
@@ -974,9 +1162,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 paymentFee = s_tokenToPaymentFee[tokenId];
         uint256 netRefundAmount = amountToRefund - paymentFee;
 
-        if (netRefundAmount == 0 || s_availablePerToken[pledgeToken] < netRefundAmount) {
-            revert KeepWhatsRaisedNotClaimable(tokenId);
-        }
+        if (netRefundAmount == 0) revert KeepWhatsRaisedRefundAmountZero();
+        if (s_availablePerToken[pledgeToken] < netRefundAmount) revert KeepWhatsRaisedInsufficientAvailableForRefund(tokenId);
 
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
@@ -992,11 +1179,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
+     *      Callable before or after cancellation so that accrued fees are never trapped.
      *
      * Requirements:
      * - Only callable when fees are available.
      */
-    function disburseFees() public override whenNotPaused whenNotCancelled {
+    function disburseFees() public override whenCampaignNotPaused whenNotPaused {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
@@ -1067,9 +1255,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
-        if ((isCancelled && block.timestamp <= cancelLimit) || (!isCancelled && block.timestamp <= deadlineLimit)) {
-            revert KeepWhatsRaisedNotClaimableAdmin();
-        }
+        if (isCancelled && block.timestamp <= cancelLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
+        if (!isCancelled && block.timestamp <= deadlineLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
 
         if (s_fundClaimed) {
             revert KeepWhatsRaisedAlreadyClaimed();
@@ -1107,6 +1294,18 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         return true;
     }
 
+    /**
+     * @dev Processes a pledge: transfers tokens, mints NFT, and updates state.
+     * @dev Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+     * @param pledgeId Unique identifier for the pledge.
+     * @param backer Recipient of the pledge NFT.
+     * @param pledgeToken Token used for the pledge.
+     * @param reward First reward tier (ZERO_BYTES for non-reward pledges).
+     * @param pledgeAmount Pledge amount in the token's native decimals (must be denormalized by caller).
+     * @param tip Tip amount in the token's native decimals.
+     * @param rewards Full reward selection (for event).
+     * @param tokenSource Address from which tokens are transferred.
+     */
     function _pledge(
         bytes32 pledgeId,
         address backer,
@@ -1115,39 +1314,84 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 pledgeAmount,
         uint256 tip,
         bytes32[] memory rewards,
-        address tokenSource
+        address tokenSource,
+        bool usePermit2,
+        PermitData memory permitData
     ) private {
-        // Validate token is accepted
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
+        if (tokenSource == address(this) || backer == address(this)) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.INVALID_BACKER);
+        }
+        if (usePermit2 && permitData.signature.length == 0) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.EMPTY_SIGNATURE);
+        }
+        if (!usePermit2 && tokenSource == address(0)) {
+            revert KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput.ZERO_TOKEN_SOURCE);
+        }
 
-        // If this is for a reward, pledgeAmount is in 18 decimals and needs to be denormalized
-        // If not for a reward (pledgeWithoutAReward), pledgeAmount is already in token decimals
-        // Tip is always in the pledgeToken's decimals (same token used for payment)
         uint256 pledgeAmountInTokenDecimals;
         if (reward != ZERO_BYTES) {
-            // Reward pledge: denormalize from 18 decimals to token decimals
             pledgeAmountInTokenDecimals = _denormalizeAmount(pledgeToken, pledgeAmount);
         } else {
-            // Non-reward pledge: already in token decimals
             pledgeAmountInTokenDecimals = pledgeAmount;
         }
 
         uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
+        uint256 actualPledgeAmount;
 
-        IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+        if (usePermit2) {
+            bytes32 witness;
+            string memory witnessTypeString;
 
-        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, pledgeAmountInTokenDecimals, 0, tip);
+            if (reward != ZERO_BYTES) {
+                bytes32 rewardsHash = keccak256(abi.encodePacked(rewards));
+                witness = keccak256(
+                    abi.encode(KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, pledgeId, backer, rewardsHash, tip)
+                );
+                witnessTypeString = KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING;
+            } else {
+                witness = keccak256(
+                    abi.encode(
+                        KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH,
+                        pledgeId,
+                        backer,
+                        pledgeAmountInTokenDecimals,
+                        tip
+                    )
+                );
+                witnessTypeString = KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING;
+            }
 
-        s_tokenToPledgedAmount[tokenId] = pledgeAmountInTokenDecimals;
+            IPermit2(INFO.getPermit2Address()).permitWitnessTransferFrom(
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: pledgeToken, amount: totalAmount}),
+                    nonce: permitData.nonce,
+                    deadline: permitData.deadline
+                }),
+                ISignatureTransfer.SignatureTransferDetails({to: address(this), requestedAmount: totalAmount}),
+                backer,
+                witness,
+                witnessTypeString,
+                permitData.signature
+            );
+            actualPledgeAmount = pledgeAmountInTokenDecimals;
+        } else {
+            IERC20(pledgeToken).safeTransferFrom(tokenSource, address(this), totalAmount);
+            actualPledgeAmount = pledgeAmountInTokenDecimals;
+        }
+
+        uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, actualPledgeAmount, 0, tip);
+
+        s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
         s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
         s_tipPerToken[pledgeToken] += tip;
-        s_tokenRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
-        s_tokenLifetimeRaisedAmounts[pledgeToken] += pledgeAmountInTokenDecimals;
+        s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
-        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, pledgeAmountInTokenDecimals);
+        uint256 netAvailable = _calculateNetAvailable(pledgeId, pledgeToken, tokenId, actualPledgeAmount);
         s_availablePerToken[pledgeToken] += netAvailable;
 
         emit Receipt(backer, pledgeToken, reward, pledgeAmount, tip, tokenId, rewards);
@@ -1177,10 +1421,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     {
         uint256 totalFee = 0;
 
-        // Gross Percentage Fee Calculation (correct as-is)
+        // Gross Percentage Fee Calculation
         uint256 len = s_feeKeys.grossPercentageFeeKeys.length;
         for (uint256 i = 0; i < len; i++) {
-            uint256 fee = (pledgeAmount * getFeeValue(s_feeKeys.grossPercentageFeeKeys[i])) / PERCENT_DIVIDER;
+            uint256 fee = (pledgeAmount * s_grossPercentageFeeValues[i]) / PERCENT_DIVIDER;
             s_platformFeePerToken[pledgeToken] += fee;
             totalFee += fee;
         }

@@ -12,13 +12,21 @@ import {TreasuryFactory} from "src/TreasuryFactory.sol";
 import {AllOrNothing} from "src/treasuries/AllOrNothing.sol";
 import {KeepWhatsRaised} from "src/treasuries/KeepWhatsRaised.sol";
 import {IGlobalParams} from "src/interfaces/IGlobalParams.sol";
+import {IPermit2, PermitData} from "src/interfaces/IPermit2.sol";
+import {MockPermit2} from "../mocks/MockPermit2.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
 
 /// @notice Base test contract with common logic needed by all tests.
 abstract contract Base_Test is Test, Defaults {
+    bytes32 internal constant PERMIT2_TOKEN_PERMISSIONS_TYPEHASH =
+        keccak256("TokenPermissions(address token,uint256 amount)");
+    string internal constant PERMIT2_WITNESS_TYPE_STRING_STUB =
+        "PermitWitnessTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline,";
+
     //Variables
     Users internal users;
+    mapping(address => uint256) internal userPrivateKeys;
 
     //Test Contracts - Multiple tokens for multi-token testing
     TestToken internal usdtToken; // 6 decimals - Tether
@@ -35,6 +43,36 @@ abstract contract Base_Test is Test, Defaults {
     KeepWhatsRaised internal keepWhatsRaisedImplementation;
     CampaignInfo internal campaignInfo;
 
+    /// @dev Canonical Permit2 address used by the contracts under test.
+    address internal constant CANONICAL_PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+    function _buildSignedPermitData(
+        address owner,
+        address spender,
+        address token,
+        uint256 amount,
+        bytes32 witness,
+        string memory witnessTypeString,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 ownerPrivateKey = userPrivateKeys[owner];
+        require(ownerPrivateKey != 0, "missing test private key");
+
+        bytes32 witnessTypeHash =
+            keccak256(bytes(string(abi.encodePacked(PERMIT2_WITNESS_TYPE_STRING_STUB, witnessTypeString))));
+        bytes32 tokenPermissions =
+            keccak256(abi.encode(PERMIT2_TOKEN_PERMISSIONS_TYPEHASH, token, amount));
+        bytes32 structHash = keccak256(abi.encode(witnessTypeHash, tokenPermissions, spender, nonce, deadline, witness));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", IPermit2(CANONICAL_PERMIT2_ADDRESS).DOMAIN_SEPARATOR(), structHash)
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        return PermitData({nonce: nonce, deadline: deadline, signature: abi.encodePacked(r, s, v)});
+    }
+
     function setUp() public virtual {
         // Create users for testing.
         users = Users({
@@ -49,6 +87,10 @@ abstract contract Base_Test is Test, Defaults {
         });
 
         vm.startPrank(users.contractOwner);
+
+        // Deploy our MockPermit2 (solc 0.8.22 compatible) at the canonical address
+        // so that treasury contracts (which use that address via GlobalParams) work in tests.
+        deployCodeTo("MockPermit2.sol:MockPermit2", CANONICAL_PERMIT2_ADDRESS);
 
         // Deploy multiple test tokens with different decimals
         usdtToken = new TestToken("Tether USD", "USDT", 6);
@@ -95,7 +137,6 @@ abstract contract Base_Test is Test, Defaults {
         CampaignInfoFactory campaignFactoryImpl = new CampaignInfoFactory();
         bytes memory campaignFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            users.contractOwner,
             IGlobalParams(address(globalParams)),
             address(campaignInfo),
             address(treasuryFactory)
@@ -110,6 +151,7 @@ abstract contract Base_Test is Test, Defaults {
 
         // Set time constraints in dataRegistry (requires protocol admin)
         vm.startPrank(users.protocolAdminAddress);
+        treasuryFactory.setCampaignInfoFactory(address(campaignInfoFactory));
         globalParams.addToRegistry(
             DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
             bytes32(uint256(0)) // No buffer for most tests
@@ -157,7 +199,10 @@ abstract contract Base_Test is Test, Defaults {
 
     /// @dev Generates a user, labels its address, and funds it with test assets.
     function createUser(string memory name) internal returns (address payable) {
-        address payable user = payable(makeAddr(name));
+        uint256 privateKey = uint256(keccak256(abi.encodePacked("oak-network-test-user", name)));
+        address payable user = payable(vm.addr(privateKey));
+        userPrivateKeys[user] = privateKey;
+        vm.label(user, name);
         vm.deal({account: user, newBalance: 100 ether});
         return user;
     }

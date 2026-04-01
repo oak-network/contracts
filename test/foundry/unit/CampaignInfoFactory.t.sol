@@ -12,6 +12,7 @@ import {Defaults} from "../Base.t.sol";
 import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "src/errors/ProtocolErrors.sol";
 
 contract CampaignInfoFactory_UnitTest is Test, Defaults {
     CampaignInfoFactory internal factory;
@@ -55,7 +56,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         CampaignInfoFactory factoryImpl = new CampaignInfoFactory();
         bytes memory factoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            address(this),
             IGlobalParams(address(globalParams)),
             address(campaignInfoImplementation),
             address(treasuryFactory)
@@ -137,7 +137,8 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
 
-        // Upgrade as owner (address(this))
+        // Upgrade as protocol admin
+        vm.prank(admin);
         factory.upgradeToAndCall(address(newImplementation), "");
 
         // Factory should still work after upgrade
@@ -168,8 +169,8 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Deploy new implementation
         CampaignInfoFactory newImplementation = new CampaignInfoFactory();
 
-        // Try to upgrade as non-owner (should revert)
-        vm.prank(admin);
+        // Try to upgrade as non-admin (should revert)
+        vm.prank(address(0xDEAD));
         vm.expectRevert();
         factory.upgradeToAndCall(address(newImplementation), "");
     }
@@ -178,7 +179,6 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         // Try to initialize again (should revert)
         vm.expectRevert();
         factory.initialize(
-            address(this),
             IGlobalParams(address(globalParams)),
             address(campaignInfoImplementation),
             address(treasuryFactory)
@@ -203,7 +203,12 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         });
 
         vm.prank(admin);
-        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector,
+                ProtocolErrors.CampaignInfoFactoryInvalidInput.LAUNCH_TIME_TOO_SOON
+            )
+        );
         factory.createCampaign(
             creator,
             CAMPAIGN_1_IDENTIFIER_HASH,
@@ -236,7 +241,12 @@ contract CampaignInfoFactory_UnitTest is Test, Defaults {
         });
 
         vm.prank(admin);
-        vm.expectRevert(CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfoFactory.CampaignInfoFactoryInvalidInput.selector,
+                ProtocolErrors.CampaignInfoFactoryInvalidInput.DEADLINE_TOO_SOON
+            )
+        );
         factory.createCampaign(
             creator,
             CAMPAIGN_1_IDENTIFIER_HASH,

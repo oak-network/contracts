@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -10,17 +9,28 @@ import {IGlobalParams} from "./interfaces/IGlobalParams.sol";
 import {ICampaignInfoFactory} from "./interfaces/ICampaignInfoFactory.sol";
 import {CampaignInfoFactoryStorage} from "./storage/CampaignInfoFactoryStorage.sol";
 import {DataRegistryKeys} from "./constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "./errors/ProtocolErrors.sol";
 
 /**
  * @title CampaignInfoFactory
  * @notice Factory contract for creating campaign information contracts.
  * @dev UUPS Upgradeable contract with ERC-7201 namespaced storage
  */
-contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgradeable, UUPSUpgradeable {
+contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, UUPSUpgradeable {
     /**
      * @dev Emitted when invalid input is provided.
+     * @param code Which validation failed.
      */
-    error CampaignInfoFactoryInvalidInput();
+    error CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput code);
+
+    /// @dev Reverts when the caller is not the protocol admin.
+    error CampaignInfoFactoryUnauthorized();
+    /// @dev Reverts when globalParams is the zero address.
+    error CampaignInfoFactoryZeroGlobalParams();
+    /// @dev Reverts when campaignImplementation is the zero address.
+    error CampaignInfoFactoryZeroCampaignImplementation();
+    /// @dev Reverts when treasuryFactoryAddress is the zero address.
+    error CampaignInfoFactoryZeroTreasuryFactoryAddress();
 
     /**
      * @dev Emitted when campaign creation fails.
@@ -34,6 +44,14 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
      */
     error CampaignInfoInvalidTokenList();
 
+    modifier onlyProtocolAdmin() {
+        CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
+        if (msg.sender != $.globalParams.getProtocolAdminAddress()) {
+            revert CampaignInfoFactoryUnauthorized();
+        }
+        _;
+    }
+
     /**
      * @dev Constructor that disables initializers to prevent implementation contract initialization
      */
@@ -43,25 +61,19 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
 
     /**
      * @notice Initializes the CampaignInfoFactory contract.
-     * @param initialOwner The address that will own the factory
      * @param globalParams The address of the global parameters contract.
      * @param campaignImplementation The address of the campaign implementation contract.
      * @param treasuryFactoryAddress The address of the treasury factory contract.
      */
     function initialize(
-        address initialOwner,
         IGlobalParams globalParams,
         address campaignImplementation,
         address treasuryFactoryAddress
     ) public initializer {
-        if (
-            address(globalParams) == address(0) || campaignImplementation == address(0)
-                || treasuryFactoryAddress == address(0) || initialOwner == address(0)
-        ) {
-            revert CampaignInfoFactoryInvalidInput();
-        }
+        if (address(globalParams) == address(0)) revert CampaignInfoFactoryZeroGlobalParams();
+        if (campaignImplementation == address(0)) revert CampaignInfoFactoryZeroCampaignImplementation();
+        if (treasuryFactoryAddress == address(0)) revert CampaignInfoFactoryZeroTreasuryFactoryAddress();
 
-        __Ownable_init(initialOwner);
         __UUPSUpgradeable_init();
 
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
@@ -74,7 +86,7 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
      * @dev Function that authorizes an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
      */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin {}
 
     /**
      * @inheritdoc ICampaignInfoFactory
@@ -103,10 +115,10 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
         string calldata contractURI
     ) external override {
         if (creator == address(0)) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_CREATOR);
         }
         if (platformDataKey.length != platformDataValue.length) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.PLATFORM_DATA_LENGTH_MISMATCH);
         }
 
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
@@ -121,20 +133,20 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
 
         // Validate campaign timing constraints
         if (campaignData.launchTime < block.timestamp + campaignLaunchBuffer) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.LAUNCH_TIME_TOO_SOON);
         }
         if (campaignData.deadline < campaignData.launchTime + minimumCampaignDuration) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.DEADLINE_TOO_SOON);
         }
 
         bool isValid;
         for (uint256 i = 0; i < platformDataKey.length; i++) {
             isValid = globalParams.checkIfPlatformDataKeyValid(platformDataKey[i]);
             if (!isValid) {
-                revert CampaignInfoFactoryInvalidInput();
+                revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.INVALID_PLATFORM_DATA_KEY);
             }
             if (platformDataValue[i] == bytes32(0)) {
-                revert CampaignInfoFactoryInvalidInput();
+                revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_PLATFORM_DATA_VALUE);
             }
         }
         address cloneExists = $.identifierToCampaignInfo[identifierHash];
@@ -189,12 +201,13 @@ contract CampaignInfoFactory is Initializable, ICampaignInfoFactory, OwnableUpgr
     /**
      * @inheritdoc ICampaignInfoFactory
      */
-    function updateImplementation(address newImplementation) external override onlyOwner {
+    function updateImplementation(address newImplementation) external override onlyProtocolAdmin {
         if (newImplementation == address(0)) {
-            revert CampaignInfoFactoryInvalidInput();
+            revert CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput.ZERO_IMPLEMENTATION);
         }
         CampaignInfoFactoryStorage.Storage storage $ = CampaignInfoFactoryStorage._getCampaignInfoFactoryStorage();
         $.implementation = newImplementation;
+        emit CampaignInfoFactoryImplementationUpdated(newImplementation);
     }
 
     /**

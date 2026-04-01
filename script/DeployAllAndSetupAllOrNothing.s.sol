@@ -202,7 +202,6 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             campaignInfoFactoryImplementation = address(campaignFactoryImpl);
             bytes memory campaignFactoryInitData = abi.encodeWithSelector(
                 CampaignInfoFactory.initialize.selector,
-                deployerAddress,
                 IGlobalParams(globalParams),
                 campaignInfoImplementation,
                 treasuryFactory
@@ -214,6 +213,14 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             console2.log("  Implementation:", campaignInfoFactoryImplementation);
         } else {
             console2.log("Reusing CampaignInfoFactory at:", campaignInfoFactory);
+        }
+
+        // Wire CampaignInfoFactory into TreasuryFactory so deploy() validation passes.
+        // Must run when either contract is freshly deployed: a new TF needs initial wiring,
+        // and a new CIF deployed against a reused TF must update the existing proxy.
+        if (treasuryFactoryDeployed || campaignInfoFactoryDeployed) {
+            TreasuryFactory(treasuryFactory).setCampaignInfoFactory(campaignInfoFactory);
+            console2.log("CampaignInfoFactory wired into TreasuryFactory");
         }
 
         // Deploy or reuse AllOrNothing implementation
@@ -350,13 +357,7 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
             console2.log("Transferring protocol admin rights to:", finalProtocolAdmin);
             GlobalParams(globalParams).updateProtocolAdminAddress(finalProtocolAdmin);
 
-            //Transfer admin rights to the final protocol admin
-            GlobalParams(globalParams).transferOwnership(finalProtocolAdmin);
-            console2.log("GlobalParams transferred to:", finalProtocolAdmin);
-            if (campaignInfoFactoryDeployed) {
-                CampaignInfoFactory(campaignInfoFactory).transferOwnership(finalProtocolAdmin);
-                console2.log("CampaignInfoFactory transferred to:", finalProtocolAdmin);
-            }
+            // CampaignInfoFactory reads admin from GlobalParams, no separate transfer needed
         }
 
         if (simulate) {
@@ -428,8 +429,7 @@ contract DeployAllAndSetupAllOrNothing is DeployBase {
         console2.log("Protocol Admin:", finalProtocolAdmin);
         console2.log("Platform Admin:", finalPlatformAdmin);
         console2.log("Platform Adapter (Trusted Forwarder):", platformAdapter);
-        console2.log("GlobalParams owner:", GlobalParams(globalParams).owner());
-        console2.log("CampaignInfoFactory owner:", CampaignInfoFactory(campaignInfoFactory).owner());
+        console2.log("Protocol Admin (GlobalParams):", GlobalParams(globalParams).getProtocolAdminAddress());
 
         console2.log("\n--- Supported Currencies & Tokens ---");
         string memory currenciesConfig = vm.envOr("CURRENCIES", string(""));

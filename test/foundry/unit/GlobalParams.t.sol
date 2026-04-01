@@ -3,6 +3,7 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import {GlobalParams} from "src/GlobalParams.sol";
+import {ProtocolErrors} from "src/errors/ProtocolErrors.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Defaults} from "../Base.t.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
@@ -214,7 +215,12 @@ contract GlobalParams_UnitTest is Test, Defaults {
         vm.prank(admin);
         globalParams.enlistPlatform(platformHash, platformAdmin, 400, address(0));
 
-        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GlobalParams.GlobalParamsInvalidInput.selector,
+                ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_GOAL_APPLIES_PROTOCOL_FEE
+            )
+        );
         vm.prank(platformAdmin);
         globalParams.setPlatformLineItemType(
             platformHash,
@@ -235,7 +241,12 @@ contract GlobalParams_UnitTest is Test, Defaults {
         vm.prank(admin);
         globalParams.enlistPlatform(platformHash, platformAdmin, 450, address(0));
 
-        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GlobalParams.GlobalParamsInvalidInput.selector,
+                ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_GOAL_NOT_REFUNDABLE
+            )
+        );
         vm.prank(platformAdmin);
         globalParams.setPlatformLineItemType(
             platformHash,
@@ -256,7 +267,12 @@ contract GlobalParams_UnitTest is Test, Defaults {
         vm.prank(admin);
         globalParams.enlistPlatform(platformHash, platformAdmin, 300, address(0));
 
-        vm.expectRevert(GlobalParams.GlobalParamsInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GlobalParams.GlobalParamsInvalidInput.selector,
+                ProtocolErrors.GlobalParamsInvalidInput.LINE_ITEM_NON_GOAL_INSTANT_REFUNDABLE
+            )
+        );
         vm.prank(platformAdmin);
         globalParams.setPlatformLineItemType(
             platformHash,
@@ -302,6 +318,24 @@ contract GlobalParams_UnitTest is Test, Defaults {
 
         address[] memory tokens = emptyGlobalParams.getTokensForCurrency(USD);
         assertEq(tokens.length, 0);
+    }
+
+    function testInitializerRevertOnZeroProtocolAdmin() public {
+        bytes32[] memory currencies = new bytes32[](0);
+        address[][] memory tokensPerCurrency = new address[][](0);
+
+        GlobalParams zeroAdminImpl = new GlobalParams();
+        bytes memory initData = abi.encodeWithSelector(
+            GlobalParams.initialize.selector, address(0), protocolFee, currencies, tokensPerCurrency
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GlobalParams.GlobalParamsInvalidInput.selector,
+                ProtocolErrors.GlobalParamsInvalidInput.ZERO_ADDRESS
+            )
+        );
+        new ERC1967Proxy(address(zeroAdminImpl), initData);
     }
 
     function testInitializerRevertOnMismatchedArrays() public {

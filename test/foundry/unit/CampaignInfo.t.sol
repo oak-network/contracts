@@ -13,6 +13,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 import {TestToken} from "../../mocks/TestToken.sol";
 import {Defaults} from "../Base.t.sol";
 import {DataRegistryKeys} from "src/constants/DataRegistryKeys.sol";
+import {ProtocolErrors} from "src/errors/ProtocolErrors.sol";
 
 contract CampaignInfo_UnitTest is Test, Defaults {
     CampaignInfo internal campaignInfo;
@@ -81,7 +82,6 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         CampaignInfoFactory campaignInfoFactoryImpl = new CampaignInfoFactory();
         bytes memory campaignInfoFactoryInitData = abi.encodeWithSelector(
             CampaignInfoFactory.initialize.selector,
-            admin,
             IGlobalParams(address(globalParams)),
             address(new CampaignInfo()),
             address(treasuryFactory)
@@ -89,6 +89,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         ERC1967Proxy campaignInfoFactoryProxy =
             new ERC1967Proxy(address(campaignInfoFactoryImpl), campaignInfoFactoryInitData);
         campaignInfoFactory = CampaignInfoFactory(address(campaignInfoFactoryProxy));
+
+        // Wire campaignInfoFactory into treasuryFactory for validation
+        vm.startPrank(admin);
+        treasuryFactory.setCampaignInfoFactory(address(campaignInfoFactory));
+        vm.stopPrank();
 
         // Create a campaign using the factory
         ICampaignData.CampaignData memory campaignData = ICampaignData.CampaignData({
@@ -168,7 +173,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     }
 
     function test_GetPlatformData_NotSet() public {
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_NOT_SET
+            )
+        );
         campaignInfo.getPlatformData(platformDataKey1);
     }
 
@@ -198,13 +207,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UpdateSelectedPlatform_SelectPlatform_Success() public {
         vm.startPrank(campaignOwner);
 
-        bytes32[] memory dataKeys = new bytes32[](2);
+        bytes32[] memory dataKeys = new bytes32[](1);
         dataKeys[0] = platformDataKey1;
-        dataKeys[1] = platformDataKey2;
 
-        bytes32[] memory dataValues = new bytes32[](2);
+        bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
-        dataValues[1] = platformDataValue2;
 
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
 
@@ -213,7 +220,6 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Verify platform data is stored
         assertEq(campaignInfo.getPlatformData(platformDataKey1), platformDataValue1);
-        assertEq(campaignInfo.getPlatformData(platformDataKey2), platformDataValue2);
 
         // Verify platform fee is set
         assertEq(campaignInfo.getPlatformFeePercent(platformHash1), 1000);
@@ -251,7 +257,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
 
         // Try to select again - should revert
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_SELECTION_UNCHANGED
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -266,7 +277,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_DATA_LENGTH_MISMATCH
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -280,7 +296,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = platformDataValue1;
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.INVALID_PLATFORM_DATA_KEY
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -294,7 +315,12 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         bytes32[] memory dataValues = new bytes32[](1);
         dataValues[0] = bytes32(0);
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.ZERO_PLATFORM_DATA_VALUE
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
@@ -334,7 +360,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(campaignOwner);
 
         // Launch time in the past
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
         campaignInfo.updateLaunchTime(block.timestamp - 1);
 
         vm.stopPrank();
@@ -358,7 +388,11 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // the duration would be less than 1 day, which violates the minimum
         uint256 newLaunchTime = currentDeadline - 12 hours; // Only 12 hours duration, less than 1 day minimum
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
         campaignInfo.updateLaunchTime(newLaunchTime);
 
         vm.stopPrank();
@@ -463,10 +497,88 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UpdateGoalAmount_ZeroAmount_Reverts() public {
         vm.startPrank(campaignOwner);
 
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.ZERO_GOAL_AMOUNT
+            )
+        );
         campaignInfo.updateGoalAmount(0);
 
         vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_RespectsCampaignLaunchBuffer_Reverts() public {
+        vm.startPrank(admin);
+        globalParams.addToRegistry(
+            DataRegistryKeys.CAMPAIGN_LAUNCH_BUFFER,
+            bytes32(uint256(2 days))
+        );
+        vm.stopPrank();
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector, ProtocolErrors.CampaignInfoInvalidInput.INVALID_LAUNCH_TIME
+            )
+        );
+        campaignInfo.updateLaunchTime(block.timestamp + 1 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateLaunchTime_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateLaunchTime(block.timestamp + 1 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateDeadline_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateDeadline(block.timestamp + 30 days);
+        vm.stopPrank();
+    }
+
+    function test_UpdateGoalAmount_AfterLaunch_Reverts() public {
+        vm.warp(campaignInfo.getLaunchTime());
+
+        vm.startPrank(campaignOwner);
+        vm.expectRevert();
+        campaignInfo.updateGoalAmount(2000 * 10 ** 18);
+        vm.stopPrank();
+    }
+
+    function test_DeployTreasury_AfterDeadline_Reverts() public {
+        _selectPlatform1();
+
+        vm.warp(campaignInfo.getDeadline());
+
+        vm.startPrank(admin);
+        vm.expectRevert(TreasuryFactory.TreasuryFactorySettingPlatformInfoFailed.selector);
+        treasuryFactory.deploy(platformHash1, address(campaignInfo), 1);
+        vm.stopPrank();
+
+        assertFalse(campaignInfo.isLocked());
+        assertFalse(campaignInfo.checkIfPlatformApproved(platformHash1));
+    }
+
+    function test_DeployTreasury_WhenCancelled_Reverts() public {
+        _selectPlatform1();
+
+        vm.prank(campaignOwner);
+        campaignInfo.cancelCampaign(keccak256("test cancel"));
+
+        vm.startPrank(admin);
+        vm.expectRevert(TreasuryFactory.TreasuryFactorySettingPlatformInfoFailed.selector);
+        treasuryFactory.deploy(platformHash1, address(campaignInfo), 1);
+        vm.stopPrank();
+
+        assertFalse(campaignInfo.isLocked());
+        assertFalse(campaignInfo.checkIfPlatformApproved(platformHash1));
     }
 
     // ============ Transfer Ownership Tests ============
@@ -483,7 +595,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_TransferOwnership_WhenPaused_Reverts() public {
         // Pause the campaign
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test"));
+        campaignInfo.pauseCampaign(keccak256("test"));
         vm.stopPrank();
 
         vm.startPrank(campaignOwner);
@@ -495,7 +607,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_TransferOwnership_WhenCancelled_Reverts() public {
         // Cancel the campaign
         vm.startPrank(admin);
-        campaignInfo._cancelCampaign(keccak256("test"));
+        campaignInfo.cancelCampaign(keccak256("test"));
         vm.stopPrank();
 
         vm.startPrank(campaignOwner);
@@ -510,7 +622,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(admin);
 
         bytes32 message = keccak256("test pause");
-        campaignInfo._pauseCampaign(message);
+        campaignInfo.pauseCampaign(message);
 
         assertTrue(campaignInfo.paused());
         vm.stopPrank();
@@ -519,13 +631,13 @@ contract CampaignInfo_UnitTest is Test, Defaults {
     function test_UnpauseCampaign_Success() public {
         // First pause
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test pause"));
+        campaignInfo.pauseCampaign(keccak256("test pause"));
         vm.stopPrank();
 
         // Then unpause
         vm.startPrank(admin);
         bytes32 message = keccak256("test unpause");
-        campaignInfo._unpauseCampaign(message);
+        campaignInfo.unpauseCampaign(message);
 
         assertFalse(campaignInfo.paused());
         vm.stopPrank();
@@ -535,7 +647,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(admin);
 
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -545,7 +657,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         vm.startPrank(campaignOwner);
 
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -556,7 +668,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         vm.startPrank(unauthorizedUser);
         vm.expectRevert(CampaignInfo.CampaignInfoUnauthorized.selector);
-        campaignInfo._cancelCampaign(keccak256("test cancel"));
+        campaignInfo.cancelCampaign(keccak256("test cancel"));
         vm.stopPrank();
     }
 
@@ -653,9 +765,9 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Verify campaign is not locked initially
         assertFalse(campaignInfo.isLocked());
 
-        // Deploy a treasury using the treasury factory - this will call _setPlatformInfo
+        // Deploy a treasury using the treasury factory - this will call setPlatformInfo
         vm.startPrank(admin);
-        address treasury = treasuryFactory.deploy(
+        treasuryFactory.deploy(
             platformHash1,
             address(campaignInfo),
             1 // implementationId
@@ -770,7 +882,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Pausing should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test pause");
-        campaignInfo._pauseCampaign(message);
+        campaignInfo.pauseCampaign(message);
 
         assertTrue(campaignInfo.paused());
         vm.stopPrank();
@@ -782,13 +894,13 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // First pause
         vm.startPrank(admin);
-        campaignInfo._pauseCampaign(keccak256("test pause"));
+        campaignInfo.pauseCampaign(keccak256("test pause"));
         vm.stopPrank();
 
         // Then unpause - should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test unpause");
-        campaignInfo._unpauseCampaign(message);
+        campaignInfo.unpauseCampaign(message);
 
         assertFalse(campaignInfo.paused());
         vm.stopPrank();
@@ -801,7 +913,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Cancelling should still work when locked
         vm.startPrank(admin);
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -814,7 +926,7 @@ contract CampaignInfo_UnitTest is Test, Defaults {
         // Cancelling should still work when locked
         vm.startPrank(campaignOwner);
         bytes32 message = keccak256("test cancel");
-        campaignInfo._cancelCampaign(message);
+        campaignInfo.cancelCampaign(message);
 
         assertTrue(campaignInfo.cancelled());
         vm.stopPrank();
@@ -890,19 +1002,23 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         // Approve the platform (this locks the campaign)
         vm.startPrank(address(treasuryFactory));
-        campaignInfo._setPlatformInfo(platformHash1, address(0x1234));
+        campaignInfo.setPlatformInfo(platformHash1, address(0x1234));
         vm.stopPrank();
 
         // Now try to select the already approved platform again - should revert
         vm.startPrank(campaignOwner);
-        vm.expectRevert(CampaignInfo.CampaignInfoInvalidInput.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CampaignInfo.CampaignInfoInvalidInput.selector,
+                ProtocolErrors.CampaignInfoInvalidInput.PLATFORM_SELECTION_UNCHANGED
+            )
+        );
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
     }
 
     // Helper function to lock the campaign
-    function _lockCampaign() internal {
-        // First select a platform
+    function _selectPlatform1() internal {
         vm.startPrank(campaignOwner);
         bytes32[] memory dataKeys = new bytes32[](1);
         dataKeys[0] = platformDataKey1;
@@ -911,6 +1027,10 @@ contract CampaignInfo_UnitTest is Test, Defaults {
 
         campaignInfo.updateSelectedPlatform(platformHash1, true, dataKeys, dataValues);
         vm.stopPrank();
+    }
+
+    function _lockCampaign() internal {
+        _selectPlatform1();
 
         // Then deploy a treasury (this locks the campaign)
         vm.startPrank(admin);

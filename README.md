@@ -179,7 +179,7 @@ Before contributing, please read our detailed [Contributing Guidelines](./CONTRI
 
 ### Community
 
-Join our community on [Discord](https://discord.gg/tnBhVxSDDS) for questions and discussions.
+Join our community on [Discord](https://discord.gg/NnPKaB2Qdr) for questions and discussions.
 
 Read our [Code of Conduct](./CODE_OF_CONDUCT.md) to keep our community approachable and respectful.
 

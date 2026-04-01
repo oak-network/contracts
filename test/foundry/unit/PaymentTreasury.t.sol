@@ -7,6 +7,8 @@ import {PaymentTreasury} from "src/treasuries/PaymentTreasury.sol";
 import {BasePaymentTreasury} from "src/utils/BasePaymentTreasury.sol";
 import {CampaignInfo} from "src/CampaignInfo.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
+import {PermitData} from "src/interfaces/IPermit2.sol";
+import {MockPermit2} from "../../mocks/MockPermit2.sol";
 
 contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Test {
     // Helper function to create payment tokens array with same token for all payments
@@ -290,7 +292,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         // Pause the campaign
         CampaignInfo actualCampaignInfo = CampaignInfo(campaignAddress);
         vm.prank(users.protocolAdminAddress);
-        actualCampaignInfo._pauseCampaign(keccak256("Pause"));
+        actualCampaignInfo.pauseCampaign(keccak256("Pause"));
 
         vm.expectRevert();
         vm.prank(users.platform1AdminAddress);
@@ -335,6 +337,32 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         assertEq(testToken.balanceOf(treasuryAddress), amount);
     }
 
+    function testProcessCryptoPaymentRevertWhenSignedItemIdIsTampered() public {
+        uint256 amount = 1500e18;
+        deal(address(testToken), users.backer1Address, amount);
+
+        vm.prank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, amount);
+
+        ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, amount, emptyLineItems, 77, block.timestamp + 1 hours
+        );
+
+        vm.expectRevert(MockPermit2.InvalidSigner.selector);
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.processCryptoPayment(
+            PAYMENT_ID_1,
+            ITEM_ID_2,
+            users.backer1Address,
+            address(testToken),
+            amount,
+            emptyLineItems,
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
+        );
+    }
+
     function testProcessCryptoPaymentStoresExternalFees() public {
         uint256 amount = 1000e18;
         deal(address(testToken), users.backer1Address, amount);
@@ -370,32 +398,38 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
     }
 
     function testProcessCryptoPaymentRevertWhenZeroBuyerAddress() public {
-        vm.expectRevert();
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(
-            users.platform1AdminAddress,
+        PermitData memory permitData = PermitData({nonce: 0, deadline: block.timestamp + 1 hours, signature: new bytes(65)});
+
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryZeroBuyerAddress.selector);
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
             ITEM_ID_1,
             address(0),
             address(testToken),
             1000e18,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
     }
 
     function testProcessCryptoPaymentRevertWhenZeroAmount() public {
-        vm.expectRevert();
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
-        processCryptoPayment(
-            users.platform1AdminAddress,
+        PermitData memory permitData = PermitData({nonce: 0, deadline: block.timestamp + 1 hours, signature: new bytes(65)});
+
+        vm.expectRevert(BasePaymentTreasury.PaymentTreasuryZeroAmount.selector);
+        vm.prank(users.platform1AdminAddress);
+        paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
             0,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
     }
 
@@ -404,7 +438,7 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         deal(address(testToken), users.backer1Address, amount * 2);
 
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, amount * 2);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, amount * 2);
 
         ICampaignPaymentTreasury.LineItem[] memory emptyLineItems = new ICampaignPaymentTreasury.LineItem[](0);
         processCryptoPayment(
@@ -418,16 +452,23 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             new ICampaignPaymentTreasury.ExternalFees[](0)
         );
 
+        // Build permit data with a unique nonce so Permit2 doesn't reject the nonce
+        // before reaching the "payment exists" check in the contract
+        PermitData memory permitData2 = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address, address(testToken), PAYMENT_ID_1, ITEM_ID_1, amount, emptyLineItems, 1, block.timestamp + 1 hours
+        );
+
         vm.expectRevert();
-        processCryptoPayment(
-            users.backer1Address,
+        vm.prank(users.backer1Address);
+        paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
             ITEM_ID_1,
             users.backer1Address,
             address(testToken),
             amount,
             emptyLineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData2
         );
     }
 
@@ -467,8 +508,18 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
         deal(address(testToken), users.backer1Address, totalAmount);
 
         vm.prank(users.backer1Address);
-        testToken.approve(treasuryAddress, totalAmount);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, totalAmount);
 
+        PermitData memory permitData = _buildSignedCryptoPaymentPermitData(
+            users.backer1Address,
+            address(testToken),
+            PAYMENT_ID_1,
+            ITEM_ID_1,
+            PAYMENT_AMOUNT_1,
+            lineItems,
+            0,
+            block.timestamp + 1 hours
+        );
         vm.prank(users.backer1Address);
         paymentTreasury.processCryptoPayment(
             PAYMENT_ID_1,
@@ -477,7 +528,8 @@ contract PaymentTreasury_UnitTest is Test, PaymentTreasury_Integration_Shared_Te
             address(testToken),
             PAYMENT_AMOUNT_1,
             lineItems,
-            new ICampaignPaymentTreasury.ExternalFees[](0)
+            new ICampaignPaymentTreasury.ExternalFees[](0),
+            permitData
         );
 
         uint256 claimableAt = CampaignInfo(campaignAddress).getDeadline() + claimDelay;
