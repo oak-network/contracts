@@ -757,6 +757,215 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     /*//////////////////////////////////////////////////////////////
+                    TIP FORWARDING IN setFeeAndPledge
+    //////////////////////////////////////////////////////////////*/
+
+    function testSetFeeAndPledge_TipForwardedToPlatformAdmin() public {
+        _setupReward();
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, TEST_TIP_AMOUNT, PAYMENT_GATEWAY_FEE, rewardSelection, true
+        );
+        vm.stopPrank();
+
+        uint256 platformBalanceAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Platform admin spent (pledge + tip) as token source but received tip back as platform admin
+        // Net cost to admin: pledgeAmount only (tip is forwarded back to themselves as platform admin)
+        // Since platform admin IS the caller AND the tip recipient, net outflow = pledgeAmount
+        assertEq(
+            platformBalanceBefore - platformBalanceAfter,
+            TEST_PLEDGE_AMOUNT,
+            "Platform admin net outflow should be pledge amount only (tip returned to self)"
+        );
+    }
+
+    function testSetFeeAndPledge_TipNotStoredInTreasury() public {
+        _setupReward();
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, TEST_TIP_AMOUNT, 0, rewardSelection, true
+        );
+        vm.stopPrank();
+
+        uint256 treasuryBalance = testToken.balanceOf(address(keepWhatsRaised));
+        uint256 raisedAmount = keepWhatsRaised.getRaisedAmount();
+
+        // Tip should NOT be in the treasury balance — only pledge amount (minus fees that stay as fee pools)
+        assertEq(raisedAmount, TEST_PLEDGE_AMOUNT, "Raised amount should be pledge only, no tip");
+        assertTrue(treasuryBalance <= TEST_PLEDGE_AMOUNT, "Treasury should not hold the tip");
+    }
+
+    function testSetFeeAndPledge_TipForwardedEventEmitted() public {
+        _setupReward();
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        vm.recordLogs();
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, TEST_TIP_AMOUNT, PAYMENT_GATEWAY_FEE, rewardSelection, true
+        );
+        vm.stopPrank();
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        bool foundTipForwarded = false;
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("TipForwarded(bytes32,address,address,uint256)")) {
+                assertEq(entries[i].topics[1], TEST_PLEDGE_ID, "TipForwarded pledgeId mismatch");
+                assertEq(
+                    address(uint160(uint256(entries[i].topics[2]))),
+                    users.backer1Address,
+                    "TipForwarded backer mismatch"
+                );
+                assertEq(
+                    address(uint160(uint256(entries[i].topics[3]))),
+                    address(testToken),
+                    "TipForwarded pledgeToken mismatch"
+                );
+                uint256 tipAmount = abi.decode(entries[i].data, (uint256));
+                assertEq(tipAmount, TEST_TIP_AMOUNT, "TipForwarded amount mismatch");
+                foundTipForwarded = true;
+                break;
+            }
+        }
+        assertTrue(foundTipForwarded, "TipForwarded event should be emitted");
+    }
+
+    function testSetFeeAndPledge_ZeroTipNoForwarding() public {
+        _setupReward();
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), TEST_PLEDGE_AMOUNT);
+
+        vm.recordLogs();
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), 0, 0, PAYMENT_GATEWAY_FEE, rewardSelection, true
+        );
+        vm.stopPrank();
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            assertTrue(
+                entries[i].topics[0] != keccak256("TipForwarded(bytes32,address,address,uint256)"),
+                "TipForwarded should not be emitted when tip is 0"
+            );
+        }
+
+        assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT);
+    }
+
+    function testSetFeeAndPledge_TipForwardedWithoutReward() public {
+        vm.warp(LAUNCH_TIME);
+
+        uint256 pledgeAmount = 500e18;
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount + TEST_TIP_AMOUNT);
+
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), pledgeAmount + TEST_TIP_AMOUNT);
+
+        vm.recordLogs();
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), pledgeAmount, TEST_TIP_AMOUNT, 0, emptyReward, false
+        );
+        vm.stopPrank();
+
+        // Verify tip was forwarded
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bool foundTipForwarded = false;
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("TipForwarded(bytes32,address,address,uint256)")) {
+                foundTipForwarded = true;
+                break;
+            }
+        }
+        assertTrue(foundTipForwarded, "TipForwarded event should be emitted for non-reward pledge");
+
+        // Platform admin net outflow should be pledgeAmount only
+        assertEq(
+            platformBalanceBefore - testToken.balanceOf(users.platform2AdminAddress),
+            pledgeAmount,
+            "Net outflow should be pledge amount only"
+        );
+
+        assertEq(keepWhatsRaised.getRaisedAmount(), pledgeAmount, "Raised should be pledge only");
+    }
+
+    function testSetFeeAndPledge_TipDoesNotAffectRefund() public {
+        vm.warp(LAUNCH_TIME);
+
+        uint256 pledgeAmount = 1000e18;
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount + TEST_TIP_AMOUNT);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), pledgeAmount + TEST_TIP_AMOUNT);
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), pledgeAmount, TEST_TIP_AMOUNT, PAYMENT_GATEWAY_FEE, emptyReward, false
+        );
+        vm.stopPrank();
+
+        uint256 tokenId = 1;
+
+        uint256 backerBalanceBefore = testToken.balanceOf(users.backer1Address);
+
+        // Claim refund after deadline
+        vm.warp(DEADLINE + 1);
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        vm.prank(users.backer1Address);
+        keepWhatsRaised.claimRefund(tokenId);
+
+        uint256 platformFee = (pledgeAmount * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 vakiCommission = (pledgeAmount * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
+        uint256 protocolFee = (pledgeAmount * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedRefund = pledgeAmount - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission - protocolFee;
+
+        assertEq(
+            testToken.balanceOf(users.backer1Address) - backerBalanceBefore,
+            expectedRefund,
+            "Refund should be based on pledge only, unaffected by forwarded tip"
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             WITHDRAWALS
     //////////////////////////////////////////////////////////////*/
 
