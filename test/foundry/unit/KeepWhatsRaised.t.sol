@@ -1270,6 +1270,134 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.disburseFees();
     }
 
+    function testDisburseFeesAfterCancellation_AllFeesToPlatformAdmin() public {
+        _setupPledges();
+
+        uint256 protocolBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.cancelTreasury(keccak256("fraud"));
+
+        keepWhatsRaised.disburseFees();
+
+        uint256 protocolReceived = testToken.balanceOf(users.protocolAdminAddress) - protocolBalanceBefore;
+        uint256 platformReceived = testToken.balanceOf(users.platform2AdminAddress) - platformBalanceBefore;
+
+        assertEq(protocolReceived, 0, "Protocol should receive nothing on cancelled treasury");
+        assertTrue(platformReceived > 0, "Platform admin should receive all fees");
+    }
+
+    function testDisburseFeesAfterCancellation_PlatformReceivesBothShares() public {
+        _setupPledges();
+
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Disburse without cancellation first to know expected split
+        // Instead, compute expected fees from pledge amounts
+        // Each pledge is TEST_PLEDGE_AMOUNT = 1000e18, two pledges total
+        uint256 totalPledged = TEST_PLEDGE_AMOUNT * 2;
+        uint256 expectedProtocolFee = (totalPledged * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedPlatformPercentFee = (totalPledged * uint256(PLATFORM_FEE_VALUE)) / PERCENT_DIVIDER;
+        uint256 expectedVakiCommission = (totalPledged * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
+        uint256 expectedPaymentGatewayFees = PAYMENT_GATEWAY_FEE * 2;
+        uint256 expectedTotalPlatformFee = expectedPlatformPercentFee + expectedVakiCommission + expectedPaymentGatewayFees;
+        uint256 expectedTotalFees = expectedProtocolFee + expectedTotalPlatformFee;
+
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.cancelTreasury(keccak256("fraud"));
+
+        keepWhatsRaised.disburseFees();
+
+        uint256 platformReceived = testToken.balanceOf(users.platform2AdminAddress) - platformBalanceBefore;
+
+        assertEq(platformReceived, expectedTotalFees, "Platform should receive protocol + platform fees combined");
+    }
+
+    function testDisburseFeesWithoutCancellation_NormalSplit() public {
+        _setupPledges();
+
+        uint256 protocolBalanceBefore = testToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+
+        keepWhatsRaised.disburseFees();
+
+        uint256 protocolReceived = testToken.balanceOf(users.protocolAdminAddress) - protocolBalanceBefore;
+        uint256 platformReceived = testToken.balanceOf(users.platform2AdminAddress) - platformBalanceBefore;
+
+        assertTrue(protocolReceived > 0, "Protocol should receive fees on non-cancelled treasury");
+        assertTrue(platformReceived > 0, "Platform should receive fees on non-cancelled treasury");
+
+        uint256 totalPledged = TEST_PLEDGE_AMOUNT * 2;
+        uint256 expectedProtocolFee = (totalPledged * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        assertEq(protocolReceived, expectedProtocolFee, "Protocol share should match expected percentage");
+    }
+
+    function testDisburseFeesAfterCancellation_EventEmitsZeroProtocol() public {
+        _setupPledges();
+
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.cancelTreasury(keccak256("fraud"));
+
+        vm.recordLogs();
+        keepWhatsRaised.disburseFees();
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        bool foundEvent = false;
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("FeesDisbursed(address,uint256,uint256)")) {
+                (uint256 protocolShare, uint256 platformShare) = abi.decode(entries[i].data, (uint256, uint256));
+                assertEq(protocolShare, 0, "Event protocolShare should be 0 for cancelled treasury");
+                assertTrue(platformShare > 0, "Event platformShare should include all fees");
+                foundEvent = true;
+                break;
+            }
+        }
+        assertTrue(foundEvent, "FeesDisbursed event should be emitted");
+    }
+
+    function testDisburseFeesAfterCancellation_BackerRefundUnaffected() public {
+        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, PAYMENT_GATEWAY_FEE);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT);
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedNoRewardPermitData(
+            users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_PLEDGE_AMOUNT, 0, 0, block.timestamp + 1 hours
+        );
+        keepWhatsRaised.pledgeWithoutAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, 0, permitData
+        );
+        vm.stopPrank();
+
+        uint256 tokenId = 1;
+
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.cancelTreasury(keccak256("fraud"));
+
+        // Disburse fees (all go to platform admin now)
+        keepWhatsRaised.disburseFees();
+
+        uint256 balanceBefore = testToken.balanceOf(users.backer1Address);
+
+        vm.warp(block.timestamp + 1);
+        vm.prank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        vm.prank(users.backer1Address);
+        keepWhatsRaised.claimRefund(tokenId);
+
+        uint256 platformFee = (TEST_PLEDGE_AMOUNT * PLATFORM_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 vakiCommission = (TEST_PLEDGE_AMOUNT * uint256(VAKI_COMMISSION_VALUE)) / PERCENT_DIVIDER;
+        uint256 protocolFee = (TEST_PLEDGE_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;
+        uint256 expectedRefund = TEST_PLEDGE_AMOUNT - PAYMENT_GATEWAY_FEE - platformFee - vakiCommission - protocolFee;
+
+        assertEq(
+            testToken.balanceOf(users.backer1Address) - balanceBefore,
+            expectedRefund,
+            "Backer refund should be unaffected by cancelled fee disbursement"
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                           CANCEL TREASURY
     //////////////////////////////////////////////////////////////*/
