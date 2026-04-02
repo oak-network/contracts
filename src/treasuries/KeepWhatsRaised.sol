@@ -1178,16 +1178,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
+     * @dev Disburses all accumulated fees.
+     *      - Normal (not cancelled): protocol fees → protocol admin, platform fees → platform admin.
+     *      - Cancelled: all fees (protocol + platform) → platform admin, so the protocol is not
+     *        paid on contributions that are being reversed via payment gateways.
      *      Callable before or after cancellation so that accrued fees are never trapped.
-     *
-     * Requirements:
-     * - Only callable when fees are available.
      */
     function disburseFees() public override whenCampaignNotPaused whenNotPaused {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        bool isCancelled = s_cancellationTime > 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
@@ -1198,15 +1199,18 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
                 s_protocolFeePerToken[token] = 0;
                 s_platformFeePerToken[token] = 0;
 
-                if (protocolShare > 0) {
-                    IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                if (isCancelled) {
+                    IERC20(token).safeTransfer(platformAdmin, protocolShare + platformShare);
+                    emit FeesDisbursed(token, 0, protocolShare + platformShare);
+                } else {
+                    if (protocolShare > 0) {
+                        IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                    }
+                    if (platformShare > 0) {
+                        IERC20(token).safeTransfer(platformAdmin, platformShare);
+                    }
+                    emit FeesDisbursed(token, protocolShare, platformShare);
                 }
-
-                if (platformShare > 0) {
-                    IERC20(token).safeTransfer(platformAdmin, platformShare);
-                }
-
-                emit FeesDisbursed(token, protocolShare, platformShare);
             }
         }
     }
