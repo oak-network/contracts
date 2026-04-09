@@ -218,16 +218,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     event KeepWhatsRaisedPaymentGatewayFeeSet(bytes32 indexed pledgeId, uint256 fee);
 
     /**
-     * @dev Emitted when a tip is forwarded directly to the platform admin
-     *      during a setFeeAndPledge call, instead of being stored in the treasury.
-     * @param pledgeId The unique identifier of the pledge this tip is linked to.
-     * @param backer The address of the backer who contributed the tip.
-     * @param pledgeToken The token used for the tip.
-     * @param amount The tip amount forwarded.
-     */
-    event TipForwarded(bytes32 indexed pledgeId, address indexed backer, address indexed pledgeToken, uint256 amount);
-
-    /**
      * @dev Emitted when an unauthorized action is attempted.
      */
     error KeepWhatsRaisedUnAuthorized();
@@ -774,15 +764,13 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /**
      * @notice Sets the payment gateway fee and executes a pledge in a single transaction.
-     *         When tip > 0, the tip is forwarded directly to the platform admin within this
-     *         transaction and never enters the treasury balance.
      * @param pledgeId The unique identifier of the pledge.
      * @param backer The address of the backer making the pledge.
      * @param pledgeAmount The amount of the pledge.
-     * @param tip The tip amount to forward to the platform admin (0 if no tip).
+     * @param tip An optional tip can be added during the process.
      * @param fee The payment gateway fee to associate with this pledge.
      * @param reward An array of reward names.
-     * @param isPledgeForAReward A boolean indicating whether this pledge is for a reward or without.
+     * @param isPledgeForAReward A boolean indicating whether this pledge is for a reward or without..
      */
     function setFeeAndPledge(
         bytes32 pledgeId,
@@ -803,20 +791,15 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
+        //Set Payment Gateway Fee
         setPaymentGatewayFee(pledgeId, fee);
-
-        if (tip > 0) {
-            address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-            IERC20(pledgeToken).safeTransferFrom(_msgSender(), platformAdmin, tip);
-            emit TipForwarded(pledgeId, backer, pledgeToken, tip);
-        }
 
         PermitData memory emptyPermitData = PermitData({nonce: 0, deadline: 0, signature: ""});
 
         if (isPledgeForAReward) {
-            _pledgeForAReward(pledgeId, backer, pledgeToken, 0, reward, _msgSender(), false, emptyPermitData);
+            _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender(), false, emptyPermitData);
         } else {
-            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, 0, _msgSender(), false, emptyPermitData);
+            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender(), false, emptyPermitData);
         }
     }
 
