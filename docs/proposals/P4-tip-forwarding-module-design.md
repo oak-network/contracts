@@ -13,7 +13,7 @@ The `tip` parameter in `setFeeAndPledge()` always passes as `0` on-chain, creati
 
 ## 2. Decision: Module via Hook Pattern
 
-After analysis from 10 independent perspectives (security, gas, proxy compatibility, Permit2, accounting, factory architecture, testing, off-chain alternatives, integration, and audit), the recommendation is:
+After thorough analysis across security, gas, proxy compatibility, Permit2, accounting, factory architecture, testing, off-chain alternatives, integration, and audit perspectives, the recommendation is:
 
 **Implement tip forwarding as an optional child contract (`KeepWhatsRaisedWithTipForwarding`) using an internal virtual hook extracted from `_pledge()`.**
 
