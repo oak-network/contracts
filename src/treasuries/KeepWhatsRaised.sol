@@ -108,6 +108,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     FeeKeys private s_feeKeys;
     Config private s_config;
     CampaignData private s_campaignData;
+    /// @dev Cumulative tips received by the platform admin per token (forwarded or claimed via claimTip)
+    mapping(address => uint256) private s_tipClaimedPerToken;
 
     // ---------------------------------------------------------------------------
     // Permit2 witness types for direct user pledge functions
@@ -535,6 +537,33 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
+     * @notice Retrieves the cumulative tip amount received by the platform admin for a specific token.
+     * @dev Includes tips forwarded immediately during pledges and tips claimed via claimTip().
+     * @param token The token address to query.
+     * @return The total tip amount received for the specified token.
+     */
+    function getTipClaimedPerToken(address token) external view returns (uint256) {
+        return s_tipClaimedPerToken[token];
+    }
+
+    /**
+     * @notice Retrieves the total tip amount received by the platform admin across all tokens,
+     *         normalized to 18 decimals.
+     * @dev Includes tips forwarded immediately during pledges and tips claimed via claimTip().
+     * @return amount Total tip amount in 18-decimal normalized form.
+     */
+    function getTotalTipClaimed() external view returns (uint256 amount) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 tokenAmount = s_tipClaimedPerToken[token];
+            if (tokenAmount > 0) {
+                amount += _normalizeAmount(token, tokenAmount);
+            }
+        }
+    }
+
+    /**
      * @notice Retrieves the payment gateway fee for a given pledge ID.
      * @param pledgeId The unique identifier of the pledge.
      * @return The fixed gateway fee amount associated with the pledge ID.
@@ -822,11 +851,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (isPledgeForAReward) {
             _pledgeForAReward(pledgeId, backer, pledgeToken, tip, reward, _msgSender(), false, emptyPermitData);
         } else {
-            if (s_config.forwardTipsImmediately && tip > 0) {
-                _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount - tip, tip, _msgSender(), false, emptyPermitData);
-            } else {
-                _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender(), false, emptyPermitData);
-            }
+            _pledgeWithoutAReward(pledgeId, backer, pledgeToken, pledgeAmount, tip, _msgSender(), false, emptyPermitData);
         }
     }
 
@@ -1268,6 +1293,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
             if (tip > 0) {
                 s_tipPerToken[token] = 0;
+                s_tipClaimedPerToken[token] += tip;
                 IERC20(token).safeTransfer(platformAdmin, tip);
                 emit TipClaimed(tip, platformAdmin);
             }
@@ -1369,7 +1395,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             pledgeAmountInTokenDecimals = pledgeAmount;
         }
 
-        uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        // When tip forwarding is enabled and the token source is the platform admin, the tip
+        // already resides in the admin's wallet — only the pledge amount is transferred.
+        bool tipFundedByAdmin = s_config.forwardTipsImmediately && tip > 0 && tokenSource == platformAdmin;
+        uint256 totalAmount = tipFundedByAdmin ? pledgeAmountInTokenDecimals : pledgeAmountInTokenDecimals + tip;
         uint256 actualPledgeAmount;
 
         if (usePermit2) {
@@ -1421,8 +1451,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         s_tokenToTippedAmount[tokenId] = tip;
 
         if (s_config.forwardTipsImmediately && tip > 0) {
-            if (usePermit2) {
-                address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+            s_tipClaimedPerToken[pledgeToken] += tip;
+            // Transfer tip only when it arrived in the treasury (non-admin token source).
+            if (!tipFundedByAdmin) {
                 IERC20(pledgeToken).safeTransfer(platformAdmin, tip);
             }
             emit TipForwarded(pledgeId, backer, pledgeToken, tip, tokenId);
