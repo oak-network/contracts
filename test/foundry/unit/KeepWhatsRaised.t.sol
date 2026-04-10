@@ -1228,6 +1228,617 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     /*//////////////////////////////////////////////////////////////
+                    FORWARD TIPS IMMEDIATELY (CONFIG_COLOMBIAN)
+    //////////////////////////////////////////////////////////////*/
+
+    function testClaimTipRevertsWhenForwardTipsImmediately() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        _setupReward();
+        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(
+            users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours
+        );
+        keepWhatsRaised.pledgeForAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData
+        );
+        vm.stopPrank();
+
+        // Tip was forwarded at pledge time, so claimTip must revert
+        assertEq(keepWhatsRaised.getTipClaimedPerToken(address(testToken)), TEST_TIP_AMOUNT, "Tip tracked as forwarded");
+
+        vm.warp(DEADLINE + 1);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedTipsAlreadyForwarded.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimTip();
+    }
+
+    function testTipForwardedToPlatformAdminAtPledgeTime() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        _setupReward();
+        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
+
+        uint256 adminBalanceBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBalanceBefore = testToken.balanceOf(treasuryAddress);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(
+            users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours
+        );
+        keepWhatsRaised.pledgeForAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData
+        );
+        vm.stopPrank();
+
+        assertEq(
+            testToken.balanceOf(users.platform2AdminAddress),
+            adminBalanceBefore + TEST_TIP_AMOUNT,
+            "Platform admin should receive tip at pledge time"
+        );
+        assertEq(
+            testToken.balanceOf(treasuryAddress),
+            treasuryBalanceBefore + TEST_PLEDGE_AMOUNT,
+            "Treasury should hold pledge amount only (tip forwarded to admin)"
+        );
+        assertEq(
+            keepWhatsRaised.getTipClaimedPerToken(address(testToken)),
+            TEST_TIP_AMOUNT,
+            "Tip tracked as forwarded"
+        );
+    }
+
+    function testSetFeeAndPledgeSplitsPledgeAndTipWithForwarding() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        uint256 adminBalanceBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBalanceBefore = testToken.balanceOf(treasuryAddress);
+
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(treasuryAddress, TEST_PLEDGE_AMOUNT);
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID,
+            users.backer1Address,
+            address(testToken),
+            TEST_PLEDGE_AMOUNT,
+            TEST_TIP_AMOUNT,
+            0,
+            emptyReward,
+            false
+        );
+        vm.stopPrank();
+
+        assertEq(
+            testToken.balanceOf(users.platform2AdminAddress),
+            adminBalanceBefore - TEST_PLEDGE_AMOUNT,
+            "Admin transfers pledgeAmount; tip stays in admin wallet"
+        );
+        assertEq(
+            testToken.balanceOf(treasuryAddress),
+            treasuryBalanceBefore + TEST_PLEDGE_AMOUNT,
+            "Treasury receives pledgeAmount"
+        );
+        assertEq(
+            keepWhatsRaised.getRaisedAmount(),
+            TEST_PLEDGE_AMOUNT,
+            "Raised amount equals pledgeAmount (tip tracked separately)"
+        );
+        assertEq(
+            keepWhatsRaised.getTipClaimedPerToken(address(testToken)),
+            TEST_TIP_AMOUNT,
+            "Tip tracked as forwarded immediately"
+        );
+    }
+
+      /// @notice Helper that builds a signed Permit2 no-reward permit for any treasury address
+    function _buildSignedPermitDataForTreasury(
+        address backer,
+        address _treasuryAddress,
+        address token,
+        bytes32 pledgeId,
+        uint256 pledgeAmount,
+        uint256 tip,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        bytes32 witness =
+            keccak256(abi.encode(KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH, pledgeId, backer, pledgeAmount, tip));
+
+        return _buildSignedPermitData(
+            backer,
+            _treasuryAddress,
+            token,
+            pledgeAmount + tip,
+            witness,
+            KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING,
+            nonce,
+            deadline
+        );
+    }
+
+    /// @notice Builds a signed Permit2 reward permit for any treasury address
+    function _buildSignedRewardPermitDataForTreasury(
+        address backer,
+        address _treasuryAddress,
+        address token,
+        bytes32 pledgeId,
+        uint256 tip,
+        bytes32[] memory rewardSelection,
+        uint256 rewardValue,
+        uint256 nonce,
+        uint256 deadline
+    ) internal returns (PermitData memory) {
+        uint256 totalAmount = rewardValue + tip;
+        bytes32 rewardsHash = keccak256(abi.encodePacked(rewardSelection));
+        bytes32 witness =
+            keccak256(abi.encode(KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH, pledgeId, backer, rewardsHash, tip));
+
+        return _buildSignedPermitData(
+            backer, _treasuryAddress, token, totalAmount, witness, KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING, nonce, deadline
+        );
+    }
+
+    /// @notice Deploys and fully configures a fresh treasury with forwardTipsImmediately = true
+    function _createTreasuryWithTipForwarding() internal returns (KeepWhatsRaised) {
+        bytes32 newIdentifierHash = keccak256(abi.encodePacked("tipForwardingCampaign", block.timestamp));
+        bytes32[] memory selectedPlatformHash = new bytes32[](1);
+        selectedPlatformHash[0] = PLATFORM_2_HASH;
+
+        bytes32[] memory emptyKey = new bytes32[](0);
+        bytes32[] memory emptyVal = new bytes32[](0);
+
+        vm.prank(users.creator1Address);
+        campaignInfoFactory.createCampaign(
+            users.creator1Address,
+            newIdentifierHash,
+            selectedPlatformHash,
+            emptyKey,
+            emptyVal,
+            CAMPAIGN_DATA,
+            "Tip Forward Campaign",
+            "TFC",
+            "ipfs://image",
+            "ipfs://contract"
+        );
+
+        address newCampaignAddress = campaignInfoFactory.identifierToCampaignInfo(newIdentifierHash);
+
+        vm.prank(users.platform2AdminAddress);
+        address newTreasuryAddress = treasuryFactory.deploy(PLATFORM_2_HASH, newCampaignAddress, 1);
+
+        KeepWhatsRaised newTreasury = KeepWhatsRaised(newTreasuryAddress);
+
+        KeepWhatsRaised.Config memory tipConfig = KeepWhatsRaised.Config({
+            minimumWithdrawalForFeeExemption: MINIMUM_WITHDRAWAL_FOR_FEE_EXEMPTION,
+            withdrawalDelay: WITHDRAWAL_DELAY,
+            refundDelay: REFUND_DELAY,
+            configLockPeriod: CONFIG_LOCK_PERIOD,
+            isColombianCreator: false,
+            forwardTipsImmediately: true
+        });
+
+        KeepWhatsRaised.FeeValues memory feeValues = KeepWhatsRaised.FeeValues({
+            flatFeeValue: uint256(FLAT_FEE_VALUE),
+            cumulativeFlatFeeValue: uint256(CUMULATIVE_FLAT_FEE_VALUE),
+            grossPercentageFeeValues: new uint256[](2)
+        });
+        feeValues.grossPercentageFeeValues[0] = uint256(PLATFORM_FEE_VALUE);
+        feeValues.grossPercentageFeeValues[1] = uint256(VAKI_COMMISSION_VALUE);
+
+        vm.prank(users.platform2AdminAddress);
+        newTreasury.configureTreasury(tipConfig, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        return newTreasury;
+    }
+
+    // ─── setFeeAndPledge (admin path) ────────────────────────────────────────
+
+    /// Admin transfers pledgeAmount to treasury; tip stays in admin wallet and is tracked.
+    function test_TipForwarding_SetFeeAndPledge_WithoutReward_OnlyPledgeAmountTransferred() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip         = 100e18;
+        uint256 fee         = 40e18;
+        bytes32 pledgeId    = keccak256("tipFwdAdminNoReward");
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount);
+
+        uint256 adminBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBefore = testToken.balanceOf(address(tipTreasury));
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), pledgeAmount);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, fee, emptyReward, false);
+        vm.stopPrank();
+
+        uint256 adminAfter    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryAfter = testToken.balanceOf(address(tipTreasury));
+
+        assertEq(adminBefore - adminAfter, pledgeAmount, "Admin transfers pledgeAmount; tip stays in admin wallet");
+        assertEq(treasuryAfter - treasuryBefore, pledgeAmount, "Treasury receives pledgeAmount");
+
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip, "Tip tracked immediately");
+        assertEq(tipTreasury.getTotalTipClaimed(), tip, "getTotalTipClaimed equals tip");
+    }
+
+    /// For pledgeForAReward: admin transfers only rewardValue; tip is NOT pulled from admin
+    function test_TipForwarding_SetFeeAndPledge_WithReward_OnlyRewardValueTransferred() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        bytes32 rewardName = keccak256("tipFwdReward");
+        bytes32[] memory rewardNames = new bytes32[](1);
+        rewardNames[0] = rewardName;
+        uint256 rewardValue = 500e18;
+        Reward[] memory rewards = new Reward[](1);
+        rewards[0] = Reward({
+            rewardValue: rewardValue,
+            isRewardTier: true,
+            canBeAddOn: false,
+            itemId: new bytes32[](0),
+            itemValue: new uint256[](0),
+            itemQuantity: new uint256[](0)
+        });
+        vm.prank(users.creator1Address);
+        tipTreasury.addRewards(rewardNames, rewards);
+
+        uint256 tip  = 50e18;
+        uint256 fee  = 20e18;
+        bytes32 pledgeId = keccak256("tipFwdAdminReward");
+
+        // Admin only needs rewardValue in wallet (tip stays with admin — not transferred)
+        deal(address(testToken), users.platform2AdminAddress, rewardValue);
+
+        uint256 adminBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBefore  = testToken.balanceOf(address(tipTreasury));
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), rewardValue);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = rewardName;
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), 0, tip, fee, rewardSelection, true);
+        vm.stopPrank();
+
+        uint256 adminAfter    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryAfter  = testToken.balanceOf(address(tipTreasury));
+
+        // Only rewardValue transferred; tip stays with admin
+        assertEq(adminBefore - adminAfter, rewardValue, "Admin should only transfer rewardValue");
+        assertEq(treasuryAfter - treasuryBefore, rewardValue, "Treasury receives rewardValue only");
+
+        // Tip tracked even though no transfer occurred
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip, "Tip should be tracked");
+    }
+
+    // ─── pledgeWithoutAReward (Permit2 / user path) ───────────────────────────
+
+    /// Backer pays pledge + tip; treasury keeps pledge, tip is forwarded to platform admin
+    function test_TipForwarding_PledgeWithoutReward_Permit2_ForwardsTipToPlatformAdmin() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip          = 100e18;
+        bytes32 pledgeId     = keccak256("tipFwdPermit2NoReward");
+
+        deal(address(testToken), users.backer1Address, pledgeAmount + tip);
+
+        uint256 backerBefore  = testToken.balanceOf(users.backer1Address);
+        uint256 adminBefore   = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBefore = testToken.balanceOf(address(tipTreasury));
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, pledgeAmount + tip);
+
+        PermitData memory permitData = _buildSignedPermitDataForTreasury(
+            users.backer1Address, address(tipTreasury), address(testToken),
+            pledgeId, pledgeAmount, tip, 0, block.timestamp + 1 hours
+        );
+        tipTreasury.pledgeWithoutAReward(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, permitData);
+        vm.stopPrank();
+
+        assertEq(backerBefore  - testToken.balanceOf(users.backer1Address),  pledgeAmount + tip, "Backer pays pledge + tip");
+        assertEq(testToken.balanceOf(users.platform2AdminAddress) - adminBefore, tip,            "Admin receives tip");
+        assertEq(testToken.balanceOf(address(tipTreasury)) - treasuryBefore, pledgeAmount,       "Treasury receives pledge only");
+
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip, "Tip tracked");
+    }
+
+    // ─── claimTip() guard ─────────────────────────────────────────────────────
+
+    /// claimTip() must revert when forwardTipsImmediately is enabled
+    function test_TipForwarding_ClaimTip_RevertsWhenForwardingEnabled() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        vm.warp(DEADLINE + 1);
+        vm.prank(users.platform2AdminAddress);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedTipsAlreadyForwarded.selector);
+        tipTreasury.claimTip();
+    }
+
+    // ─── TipForwarded event ───────────────────────────────────────────────────
+
+    /// TipForwarded event is emitted with correct values on admin path
+    function test_TipForwarding_EmitsTipForwardedEvent() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip          = 100e18;
+        bytes32 pledgeId     = keccak256("tipFwdEvent");
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), pledgeAmount);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        vm.recordLogs();
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, 40e18, emptyReward, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("TipForwarded(bytes32,address,address,uint256,uint256)")) {
+                found = true;
+                assertEq(logs[i].topics[1], pledgeId,                                                  "pledgeId indexed");
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), users.backer1Address,            "backer indexed");
+                assertEq(address(uint160(uint256(logs[i].topics[3]))), address(testToken),              "token indexed");
+                (uint256 tipAmt,) = abi.decode(logs[i].data, (uint256, uint256));
+                assertEq(tipAmt, tip, "tip amount in event");
+                break;
+            }
+        }
+        assertTrue(found, "TipForwarded event should be emitted");
+    }
+
+    // ─── Receipt event tip field ──────────────────────────────────────────────
+
+    /// Receipt event must contain the original tip value even when forwarding is enabled
+    function test_TipForwarding_ReceiptEventHasOriginalTip() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip          = 100e18;
+        bytes32 pledgeId     = keccak256("tipFwdReceipt");
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), pledgeAmount);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        vm.recordLogs();
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, 40e18, emptyReward, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        bool receiptFound;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("Receipt(address,address,bytes32,uint256,uint256,uint256,bytes32[])")) {
+                receiptFound = true;
+                (, , uint256 tipInEvent,,) =
+                    abi.decode(logs[i].data, (bytes32, uint256, uint256, uint256, bytes32[]));
+                assertEq(tipInEvent, tip, "Receipt event tip must equal original tip");
+                break;
+            }
+        }
+        assertTrue(receiptFound, "Receipt event should be emitted");
+    }
+
+    // ─── Cumulative tip tracking ──────────────────────────────────────────────
+
+    /// Multiple pledges accumulate tip correctly in s_tipClaimedPerToken
+    function test_TipForwarding_CumulativeTipTracking() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip1 = 50e18;
+        uint256 tip2 = 75e18;
+        uint256 fee  = 40e18;
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount * 2);
+
+        vm.warp(LAUNCH_TIME);
+        bytes32[] memory emptyReward = new bytes32[](0);
+
+        vm.startPrank(users.platform2AdminAddress);
+
+        testToken.approve(address(tipTreasury), pledgeAmount);
+        tipTreasury.setFeeAndPledge(keccak256("cum1"), users.backer1Address, address(testToken), pledgeAmount, tip1, fee, emptyReward, false);
+
+        testToken.approve(address(tipTreasury), pledgeAmount);
+        tipTreasury.setFeeAndPledge(keccak256("cum2"), users.backer2Address, address(testToken), pledgeAmount, tip2, fee, emptyReward, false);
+
+        vm.stopPrank();
+
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip1 + tip2, "Cumulative tip per token");
+        assertEq(tipTreasury.getTotalTipClaimed(), tip1 + tip2, "getTotalTipClaimed cumulative");
+    }
+
+    // ─── Forwarding disabled — original claimTip() flow intact ───────────────
+
+    /// When forwardTipsImmediately = false, tip is stored and claimTip() works as before
+    function test_TipForwarding_Disabled_ClaimTipWorkAsOriginal() public {
+        // keepWhatsRaised fixture has forwardTipsImmediately = false (default)
+        uint256 pledgeAmount = 1000e18;
+        uint256 tip          = 100e18;
+        bytes32 pledgeId     = keccak256("noFwdTip");
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount + tip);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(keepWhatsRaised), pledgeAmount + tip);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        keepWhatsRaised.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, 40e18, emptyReward, false);
+        vm.stopPrank();
+
+        // s_tipClaimedPerToken must still be 0 — tip not yet forwarded/claimed
+        assertEq(keepWhatsRaised.getTipClaimedPerToken(address(testToken)), 0, "Tip not claimed yet");
+
+        // claimTip() should work after deadline
+        vm.warp(DEADLINE + 1);
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimTip();
+
+        assertEq(testToken.balanceOf(users.platform2AdminAddress) - adminBefore, tip, "Admin receives tip via claimTip");
+
+        // Now tracked
+        assertEq(keepWhatsRaised.getTipClaimedPerToken(address(testToken)), tip, "Tip tracked after claimTip");
+    }
+
+    // ─── pledgeForAReward (Permit2 / user path) ───────────────────────────────
+
+    /// Backer pays rewardValue + tip; treasury keeps rewardValue, tip is forwarded to platform admin
+    function test_TipForwarding_PledgeForReward_Permit2_ForwardsTipToPlatformAdmin() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        bytes32 rewardName = keccak256("fwdReward");
+        bytes32[] memory rewardNames = new bytes32[](1);
+        rewardNames[0] = rewardName;
+        uint256 rewardValue = 500e18;
+        Reward[] memory rewards = new Reward[](1);
+        rewards[0] = Reward({
+            rewardValue: rewardValue,
+            isRewardTier: true,
+            canBeAddOn: false,
+            itemId: new bytes32[](0),
+            itemValue: new uint256[](0),
+            itemQuantity: new uint256[](0)
+        });
+        vm.prank(users.creator1Address);
+        tipTreasury.addRewards(rewardNames, rewards);
+
+        uint256 tip      = 50e18;
+        bytes32 pledgeId = keccak256("tipFwdPermit2Reward");
+
+        deal(address(testToken), users.backer1Address, rewardValue + tip);
+
+        uint256 backerBefore   = testToken.balanceOf(users.backer1Address);
+        uint256 adminBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBefore = testToken.balanceOf(address(tipTreasury));
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, rewardValue + tip);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = rewardName;
+
+        PermitData memory permitData = _buildSignedRewardPermitDataForTreasury(
+            users.backer1Address, address(tipTreasury), address(testToken),
+            pledgeId, tip, rewardSelection, rewardValue, 0, block.timestamp + 1 hours
+        );
+        tipTreasury.pledgeForAReward(pledgeId, users.backer1Address, address(testToken), tip, rewardSelection, permitData);
+        vm.stopPrank();
+
+        assertEq(backerBefore - testToken.balanceOf(users.backer1Address),              rewardValue + tip, "Backer pays rewardValue + tip");
+        assertEq(testToken.balanceOf(users.platform2AdminAddress) - adminBefore,        tip,              "Admin receives tip immediately");
+        assertEq(testToken.balanceOf(address(tipTreasury)) - treasuryBefore,            rewardValue,      "Treasury holds rewardValue only");
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)),                 tip,              "Tip tracked as forwarded");
+    }
+
+    // ─── Security edge cases ─────────────────────────────────────────────────
+
+    /// When tip == 0 and forwarding is enabled, no TipForwarded event is emitted and
+    /// s_tipClaimedPerToken remains zero — the feature must not fire spuriously.
+    function test_TipForwarding_ZeroTip_SkipsForwardingLogic() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 1000e18;
+        bytes32 pledgeId     = keccak256("zeroTipFwd");
+
+        deal(address(testToken), users.platform2AdminAddress, pledgeAmount);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), pledgeAmount);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        vm.recordLogs();
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), pledgeAmount, 0, 0, emptyReward, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        vm.stopPrank();
+
+        // No TipForwarded event should be emitted
+        bytes32 tipForwardedSig = keccak256("TipForwarded(bytes32,address,address,uint256,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertFalse(logs[i].topics[0] == tipForwardedSig, "TipForwarded must not fire on zero tip");
+        }
+
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), 0, "No tip tracked for zero-tip pledge");
+        assertEq(tipTreasury.getRaisedAmount(), pledgeAmount,             "Full pledgeAmount counts as raised");
+    }
+
+    /// When tip > pledgeAmount on the Permit2 path, token accounting stays correct with no underflow.
+    function test_TipForwarding_LargeTip_ExceedsPledgeAmount_Permit2() public {
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 pledgeAmount = 100e18;
+        uint256 tip          = 400e18;   // tip intentionally larger than pledgeAmount
+        bytes32 pledgeId     = keccak256("largeTipPermit2");
+
+        deal(address(testToken), users.backer1Address, pledgeAmount + tip);
+
+        uint256 backerBefore   = testToken.balanceOf(users.backer1Address);
+        uint256 adminBefore    = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBefore = testToken.balanceOf(address(tipTreasury));
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, pledgeAmount + tip);
+
+        PermitData memory permitData = _buildSignedPermitDataForTreasury(
+            users.backer1Address, address(tipTreasury), address(testToken),
+            pledgeId, pledgeAmount, tip, 0, block.timestamp + 1 hours
+        );
+        tipTreasury.pledgeWithoutAReward(pledgeId, users.backer1Address, address(testToken), pledgeAmount, tip, permitData);
+        vm.stopPrank();
+
+        assertEq(backerBefore - testToken.balanceOf(users.backer1Address),             pledgeAmount + tip, "Backer pays full amount");
+        assertEq(testToken.balanceOf(users.platform2AdminAddress) - adminBefore,       tip,               "Admin receives large tip");
+        assertEq(testToken.balanceOf(address(tipTreasury)) - treasuryBefore,           pledgeAmount,      "Treasury holds only pledgeAmount");
+        assertEq(tipTreasury.getRaisedAmount(),                                        pledgeAmount,      "Raised amount unaffected by large tip");
+        assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)),                tip,               "Large tip tracked correctly");
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             FEE DISBURSEMENT
     //////////////////////////////////////////////////////////////*/
 
