@@ -1228,6 +1228,124 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     }
 
     /*//////////////////////////////////////////////////////////////
+                    FORWARD TIPS IMMEDIATELY (CONFIG_COLOMBIAN)
+    //////////////////////////////////////////////////////////////*/
+
+    function testClaimTipRevertsWhenForwardTipsImmediately() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        _setupReward();
+        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(
+            users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours
+        );
+        keepWhatsRaised.pledgeForAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData
+        );
+        vm.stopPrank();
+
+        vm.warp(DEADLINE + 1);
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedTipsAlreadyForwarded.selector);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimTip();
+    }
+
+    function testTipForwardedToPlatformAdminAtPledgeTime() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        _setupReward();
+        setPaymentGatewayFee(users.platform2AdminAddress, address(keepWhatsRaised), TEST_PLEDGE_ID, 0);
+
+        uint256 adminBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBalanceBefore = testToken.balanceOf(treasuryAddress);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.backer1Address);
+        testToken.approve(CANONICAL_PERMIT2_ADDRESS, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT);
+
+        bytes32[] memory rewardSelection = new bytes32[](1);
+        rewardSelection[0] = TEST_REWARD_NAME;
+
+        PermitData memory permitData = _buildSignedKeepWhatsRaisedRewardPermitData(
+            users.backer1Address, address(testToken), TEST_PLEDGE_ID, TEST_TIP_AMOUNT, rewardSelection, 0, block.timestamp + 1 hours
+        );
+        keepWhatsRaised.pledgeForAReward(
+            TEST_PLEDGE_ID, users.backer1Address, address(testToken), TEST_TIP_AMOUNT, rewardSelection, permitData
+        );
+        vm.stopPrank();
+
+        assertEq(
+            testToken.balanceOf(users.platform2AdminAddress),
+            adminBalanceBefore + TEST_TIP_AMOUNT,
+            "Platform admin should receive tip at pledge time"
+        );
+        assertEq(
+            testToken.balanceOf(treasuryAddress),
+            treasuryBalanceBefore + TEST_PLEDGE_AMOUNT,
+            "Treasury should hold pledge amount only (tip forwarded to admin)"
+        );
+    }
+
+    function testSetFeeAndPledgeSplitsPledgeAndTipWithForwarding() public {
+        _resetTreasury();
+        KeepWhatsRaised.FeeValues memory feeValues = _createFeeValues();
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.configureTreasury(CONFIG_COLOMBIAN, CAMPAIGN_DATA, FEE_KEYS, feeValues);
+
+        uint256 adminBalanceBefore = testToken.balanceOf(users.platform2AdminAddress);
+        uint256 treasuryBalanceBefore = testToken.balanceOf(treasuryAddress);
+
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(treasuryAddress, TEST_PLEDGE_AMOUNT);
+        keepWhatsRaised.setFeeAndPledge(
+            TEST_PLEDGE_ID,
+            users.backer1Address,
+            address(testToken),
+            TEST_PLEDGE_AMOUNT,
+            TEST_TIP_AMOUNT,
+            0,
+            emptyReward,
+            false
+        );
+        vm.stopPrank();
+
+        uint256 expectedPledge = TEST_PLEDGE_AMOUNT - TEST_TIP_AMOUNT;
+
+        assertEq(
+            testToken.balanceOf(users.platform2AdminAddress),
+            adminBalanceBefore - TEST_PLEDGE_AMOUNT,
+            "Admin should transfer full pledgeAmount to treasury"
+        );
+        assertEq(
+            testToken.balanceOf(treasuryAddress),
+            treasuryBalanceBefore + TEST_PLEDGE_AMOUNT,
+            "Treasury should receive full pledgeAmount from admin"
+        );
+        assertEq(
+            keepWhatsRaised.getRaisedAmount(),
+            expectedPledge,
+            "Raised amount should be pledgeAmount minus tip"
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             FEE DISBURSEMENT
     //////////////////////////////////////////////////////////////*/
 
