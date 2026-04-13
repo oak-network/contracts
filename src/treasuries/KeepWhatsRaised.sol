@@ -13,12 +13,13 @@ import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
+import {VoidablePledge} from "../utils/VoidablePledge.sol";
 
 /**
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, VoidablePledge {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -485,13 +486,33 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
+            // Exclude voided amounts so they are not misreported as refunds.
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token]
+                - s_tokenRaisedAmounts[token]
+                - s_tokenVoidedAmounts[token];
             if (refundedAmount > 0) {
                 amount += _normalizeAmount(token, refundedAmount);
             }
         }
 
         return amount;
+    }
+
+    /**
+     * @notice Retrieves the total voided pledge amount across all tokens, normalized to 18 decimals.
+     * @dev Voided pledges are neither refunds nor active raises; this getter exposes the
+     *      voided total separately for off-chain accounting and auditing.
+     * @return amount Total voided amount in 18-decimal normalized form.
+     */
+    function getVoidedAmount() external view returns (uint256 amount) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 voided = s_tokenVoidedAmounts[token];
+            if (voided > 0) {
+                amount += _normalizeAmount(token, voided);
+            }
+        }
     }
 
     /**
@@ -1195,6 +1216,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function claimRefund(uint256 tokenId)
         external
+        whenPledgeNotVoided(tokenId)
         currentTimeIsGreater(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
@@ -1514,8 +1536,118 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         s_tokenToPaymentFee[tokenId] = totalFee;
 
+        // Record per-pledge fee split for potential future void reversal.
+        _recordPledgeFees(tokenId, protocolFee, totalFee - protocolFee);
+
         return pledgeAmount - totalFee;
     }
+
+    // ── VoidablePledge hook implementations ──────────────────────────────────
+
+    /// @inheritdoc VoidablePledge
+    function _getVoidablePledgeAmount(uint256 tokenId) internal view override returns (uint256) {
+        return s_tokenToPledgedAmount[tokenId];
+    }
+
+    /// @inheritdoc VoidablePledge
+    function _getVoidablePledgeToken(uint256 tokenId) internal view override returns (address) {
+        return s_tokenIdToPledgeToken[tokenId];
+    }
+
+    /**
+     * @inheritdoc VoidablePledge
+     * @dev Returns the stored tip for the tokenId. For pledges where tips were forwarded
+     *      immediately (`forwardTipsImmediately = true`), the tip is already gone from the
+     *      treasury; `voidPledge` will detect this and skip tip reversal.
+     */
+    function _getVoidablePledgeTip(uint256 tokenId) internal view override returns (uint256) {
+        return s_tokenToTippedAmount[tokenId];
+    }
+
+    // ── voidPledge ────────────────────────────────────────────────────────────
+
+    /**
+     * @notice Voids a single pledge, reversing its accounting and recovering funds.
+     *
+     * @dev Platform admin-only emergency function for fraud/dispute resolution.
+     *      Designed to work at any point in the campaign lifecycle — before deadline,
+     *      during or after the refund window, after cancellation, etc.
+     *
+     *      What this function does:
+     *       1. Delegates validation and flag-setting to `VoidablePledge._prepareVoid`.
+     *       2. Reverses fee accruals in `s_protocolFeePerToken` / `s_platformFeePerToken`
+     *          up to the amount still in each bucket (partial if fees were already disbursed).
+     *       3. Reverses un-claimed tip in `s_tipPerToken` (skipped if tips are forwarded
+     *          immediately or `claimTip` was already called).
+     *       4. Decrements `s_tokenRaisedAmounts` by the full pledge amount.
+     *       5. Decrements `s_availablePerToken` by the net pledge amount, capped to avoid
+     *          underflow when funds were partially withdrawn beforehand.
+     *       6. Clears all per-pledge storage.
+     *       7. Transfers all recoverable tokens to the platform admin.
+     *       8. Emits `PledgeVoided`.
+     *
+     *      The NFT receipt is NOT burned — it is marked unusable via the `s_isVoided`
+     *      flag in `VoidablePledge`. Forced burn is not possible without backer approval
+     *      under ERC721Burnable semantics.
+     *
+     * @param tokenId The NFT token ID of the pledge to void.
+     * @param reason  An arbitrary bytes32 reason code (e.g. keccak256("FRAUD")).
+     */
+    function voidPledge(uint256 tokenId, bytes32 reason)
+        external
+        nonReentrant
+        onlyPlatformAdmin(PLATFORM_HASH)
+    {
+        // Validate, mark voided, accumulate s_tokenVoidedAmounts, return amounts.
+        VoidAmounts memory v = _prepareVoid(tokenId);
+
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+
+        // ── Reverse fee accruals (capped: fees may have been disbursed already) ──
+        uint256 protocolFeeReversed = _min(v.protocolFee, s_protocolFeePerToken[v.pledgeToken]);
+        uint256 platformFeeReversed = _min(v.platformFee, s_platformFeePerToken[v.pledgeToken]);
+        s_protocolFeePerToken[v.pledgeToken] -= protocolFeeReversed;
+        s_platformFeePerToken[v.pledgeToken] -= platformFeeReversed;
+
+        // ── Reverse un-claimed tip ────────────────────────────────────────────
+        // Skip if tips are forwarded immediately (already sent to admin during pledge)
+        // or if claimTip() was already called (s_tipClaimed = true).
+        uint256 tipReversed = 0;
+        if (!s_config.forwardTipsImmediately && !s_tipClaimed && v.tip > 0) {
+            tipReversed = _min(v.tip, s_tipPerToken[v.pledgeToken]);
+            s_tipPerToken[v.pledgeToken] -= tipReversed;
+        }
+
+        // ── Reverse raised amount ─────────────────────────────────────────────
+        s_tokenRaisedAmounts[v.pledgeToken] -= v.pledgeAmount;
+
+        // ── Reverse available amount (capped to prevent underflow) ────────────
+        // Net pledge = pledge minus all fees. Available may be lower than net if
+        // the creator already made partial withdrawals.
+        uint256 netPledgeAmount = v.pledgeAmount - v.totalFee;
+        uint256 availableReversed = _min(netPledgeAmount, s_availablePerToken[v.pledgeToken]);
+        s_availablePerToken[v.pledgeToken] -= availableReversed;
+
+        // ── Clear treasury-owned per-pledge storage ───────────────────────────
+        s_tokenToPledgedAmount[tokenId] = 0;
+        s_tokenToPaymentFee[tokenId] = 0;
+        s_tokenToTippedAmount[tokenId] = 0;
+
+        // ── Transfer all recoverable tokens to platform admin ─────────────────
+        uint256 totalRecoverable = availableReversed + protocolFeeReversed + platformFeeReversed + tipReversed;
+        if (totalRecoverable > 0) {
+            IERC20(v.pledgeToken).safeTransfer(platformAdmin, totalRecoverable);
+        }
+
+        emit PledgeVoided(tokenId, v.pledgeToken, totalRecoverable, reason);
+    }
+
+    /// @dev Returns the smaller of two uint256 values.
+    function _min(uint256 a, uint256 b) private pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    // ── _checkRefundPeriodStatus ──────────────────────────────────────────────
 
     /**
      * @dev Checks the refund period status based on campaign state
