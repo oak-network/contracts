@@ -23,9 +23,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     using SafeERC20 for IERC20;
 
     // Mapping to store the pledged amount per token ID
-    mapping(uint256 => uint256) private s_tokenToPledgedAmount;
+    mapping(uint256 => uint256) internal s_tokenToPledgedAmount;
     // Mapping to store the tipped amount per token ID
-    mapping(uint256 => uint256) private s_tokenToTippedAmount;
+    mapping(uint256 => uint256) internal s_tokenToTippedAmount;
     // Mapping to store the payment fee per token ID
     mapping(uint256 => uint256) private s_tokenToPaymentFee;
     // Mapping to store reward details by name
@@ -41,11 +41,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     uint256[] private s_grossPercentageFeeValues;
 
     // Multi-token support
-    mapping(uint256 => address) private s_tokenIdToPledgeToken; // Token used for each pledge
+    mapping(uint256 => address) internal s_tokenIdToPledgeToken; // Token used for each pledge
     mapping(address => uint256) private s_protocolFeePerToken; // Protocol fees per token
     mapping(address => uint256) private s_platformFeePerToken; // Platform fees per token
-    mapping(address => uint256) private s_tipPerToken; // Tips per token
-    mapping(address => uint256) private s_availablePerToken; // Available amount per token
+    mapping(address => uint256) internal s_tipPerToken; // Tips per token
+    mapping(address => uint256) internal s_availablePerToken; // Available amount per token
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
@@ -1374,7 +1374,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         address tokenSource,
         bool usePermit2,
         PermitData memory permitData
-    ) private {
+    ) internal virtual {
         if (!INFO.isTokenAccepted(pledgeToken)) {
             revert KeepWhatsRaisedTokenNotAccepted(pledgeToken);
         }
