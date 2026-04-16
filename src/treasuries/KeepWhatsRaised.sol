@@ -13,12 +13,13 @@ import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
+import {VoidablePledge} from "../utils/VoidablePledge.sol";
 
 /**
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, VoidablePledge {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -241,6 +242,22 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     );
 
     /**
+     * @dev Emitted when a pledge is voided by the platform admin (e.g., fraud, lost dispute).
+     * @param tokenId The NFT token ID of the voided pledge.
+     * @param pledgeToken The ERC20 token address used for the pledge.
+     * @param pledgeAmount The original gross pledge amount.
+     * @param recoveredAmount The total amount recovered from the contract and sent to platform admin.
+     * @param tipAmount The tip amount associated with the voided pledge.
+     */
+    event PledgeVoided(
+        uint256 indexed tokenId,
+        address indexed pledgeToken,
+        uint256 pledgeAmount,
+        uint256 recoveredAmount,
+        uint256 tipAmount
+    );
+
+    /**
      * @dev Emitted when an unauthorized action is attempted.
      */
     error KeepWhatsRaisedUnAuthorized();
@@ -378,6 +395,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
     /// @dev Reverts when claimTip() is called but tips are configured to be forwarded immediately.
     error KeepWhatsRaisedTipsAlreadyForwarded();
+
+    /// @dev Reverts when voidPledge is called but the pledge has no recorded amount (already refunded or does not exist).
+    error KeepWhatsRaisedVoidPledgeNotFound(uint256 tokenId);
+
+    /// @dev Reverts when voidPledge is called but insufficient available balance exists to cover the net amount.
+    error KeepWhatsRaisedVoidInsufficientAvailable(uint256 tokenId, uint256 required, uint256 available);
 
     /**
      * @dev Ensures that withdrawals are currently enabled.
@@ -1195,6 +1218,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function claimRefund(uint256 tokenId)
         external
+        notVoided(tokenId)
         currentTimeIsGreater(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
@@ -1342,6 +1366,107 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
         s_cancellationTime = block.timestamp;
         _cancel(message);
+    }
+
+    /**
+     * @notice Voids a pledge, reversing all accounting as if it never happened.
+     * @dev Called by platform admin when a pledge is determined to be fraud or a payment dispute is lost.
+     *      The NFT is NOT burned — it stays in the backer's wallet but is marked as voided.
+     *      Recoverable funds (net available + any undisbursed fees + tip if still in contract)
+     *      are sent to the platform admin.
+     *      Fee accumulators are decremented, clamped to zero if fees were already disbursed.
+     *      Both current and lifetime raised amounts are decremented.
+     * @param tokenId The NFT token ID representing the pledge to void.
+     */
+    function voidPledge(uint256 tokenId)
+        external
+        nonReentrant
+        onlyPlatformAdmin(PLATFORM_HASH)
+    {
+        if (s_fundClaimed) {
+            revert KeepWhatsRaisedFundAlreadyClaimed();
+        }
+
+        uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
+        if (pledgeAmount == 0) {
+            revert KeepWhatsRaisedVoidPledgeNotFound(tokenId);
+        }
+
+        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
+        uint256 totalFee = s_tokenToPaymentFee[tokenId];
+        uint256 tipAmount = s_tokenToTippedAmount[tokenId];
+        uint256 netAvailable = pledgeAmount - totalFee;
+
+        // Mark as voided (reverts if already voided)
+        _markPledgeVoided(tokenId);
+
+        // --- Zero per-tokenId state ---
+        s_tokenToPledgedAmount[tokenId] = 0;
+        s_tokenToPaymentFee[tokenId] = 0;
+        s_tokenToTippedAmount[tokenId] = 0;
+
+        // --- Reverse raised amounts (both current and lifetime — pledge "never happened") ---
+        s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
+        s_tokenLifetimeRaisedAmounts[pledgeToken] -= pledgeAmount;
+
+        // --- Reverse available balance ---
+        if (s_availablePerToken[pledgeToken] < netAvailable) {
+            revert KeepWhatsRaisedVoidInsufficientAvailable(
+                tokenId, netAvailable, s_availablePerToken[pledgeToken]
+            );
+        }
+        s_availablePerToken[pledgeToken] -= netAvailable;
+
+        // --- Reverse fee accumulators (clamped to prevent underflow if already disbursed) ---
+        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+        uint256 platformFee = totalFee - protocolFee;
+
+        uint256 actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
+            ? protocolFee
+            : s_protocolFeePerToken[pledgeToken];
+        uint256 actualPlatformFeeReversed = platformFee <= s_platformFeePerToken[pledgeToken]
+            ? platformFee
+            : s_platformFeePerToken[pledgeToken];
+
+        s_protocolFeePerToken[pledgeToken] -= actualProtocolFeeReversed;
+        s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
+
+        // --- Reverse tip accounting ---
+        uint256 tipRecoveredFromContract = 0;
+        if (tipAmount > 0) {
+            if (s_config.forwardTipsImmediately) {
+                // Tip was already transferred to platform admin during pledge.
+                // Decrement the tracking counter; no ERC20 transfer needed.
+                uint256 clampedTip = tipAmount <= s_tipClaimedPerToken[pledgeToken]
+                    ? tipAmount
+                    : s_tipClaimedPerToken[pledgeToken];
+                s_tipClaimedPerToken[pledgeToken] -= clampedTip;
+            } else if (!s_tipClaimed) {
+                // Tips are deferred and have NOT been claimed yet — tip is still in the contract.
+                uint256 clampedTip = tipAmount <= s_tipPerToken[pledgeToken]
+                    ? tipAmount
+                    : s_tipPerToken[pledgeToken];
+                s_tipPerToken[pledgeToken] -= clampedTip;
+                tipRecoveredFromContract = clampedTip;
+            } else {
+                // Tips are deferred but have already been claimed by platform admin.
+                // Decrement the tracking counter; no ERC20 transfer needed.
+                uint256 clampedTip = tipAmount <= s_tipClaimedPerToken[pledgeToken]
+                    ? tipAmount
+                    : s_tipClaimedPerToken[pledgeToken];
+                s_tipClaimedPerToken[pledgeToken] -= clampedTip;
+            }
+        }
+
+        // --- Transfer recoverable amount to platform admin ---
+        uint256 totalRecovered = netAvailable + actualProtocolFeeReversed + actualPlatformFeeReversed + tipRecoveredFromContract;
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+
+        if (totalRecovered > 0) {
+            IERC20(pledgeToken).safeTransfer(platformAdmin, totalRecovered);
+        }
+
+        emit PledgeVoided(tokenId, pledgeToken, pledgeAmount, totalRecovered, tipAmount);
     }
 
     /**
