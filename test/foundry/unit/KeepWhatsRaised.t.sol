@@ -15,6 +15,7 @@ import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {MockPermit2} from "../../mocks/MockPermit2.sol";
 import {TreasuryErrors} from "src/errors/TreasuryErrors.sol";
+import {VoidablePledge} from "src/utils/VoidablePledge.sol";
 
 contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Test {
     // Test constants
@@ -2643,5 +2644,459 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(
             availableAmount, expectedAvailable, "Available amount should account for properly denormalized gateway fees"
         );
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            VOID PLEDGE
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Fee math reference (18-decimal token, PLEDGE_AMOUNT = 1000e18, GATEWAY = 40e18) ──
+    //   Protocol fee  (20%)            = 200e18
+    //   Platform gross (10% + 6% = 16%) = 160e18
+    //   Gateway fee                     =  40e18
+    //   Total fee                       = 400e18
+    //   Net available                   = 600e18
+
+    uint256 internal constant VOID_PROTOCOL_FEE  = (TEST_PLEDGE_AMOUNT * PROTOCOL_FEE_PERCENT) / PERCENT_DIVIDER;   // 200e18
+    uint256 internal constant VOID_PLATFORM_FEE  = (TEST_PLEDGE_AMOUNT * (uint256(PLATFORM_FEE_VALUE) + uint256(VAKI_COMMISSION_VALUE))) / PERCENT_DIVIDER + PAYMENT_GATEWAY_FEE; // 160 + 40 = 200e18
+    uint256 internal constant VOID_TOTAL_FEE     = VOID_PROTOCOL_FEE + VOID_PLATFORM_FEE; // 400e18
+    uint256 internal constant VOID_NET_AVAILABLE  = TEST_PLEDGE_AMOUNT - VOID_TOTAL_FEE;   // 600e18
+
+    bytes32 internal constant VOID_PLEDGE_ID_A = keccak256("voidPledgeA");
+    bytes32 internal constant VOID_PLEDGE_ID_B = keccak256("voidPledgeB");
+    bytes32 internal constant VOID_REASON      = keccak256("FRAUD");
+
+    /// @dev Makes a pledge via admin setFeeAndPledge path. Returns the minted tokenId.
+    function _voidTestPledge(bytes32 pledgeId, address backer, uint256 amount, uint256 tip)
+        internal
+        returns (uint256 tokenId)
+    {
+        bytes32[] memory emptyReward = new bytes32[](0);
+        (, tokenId,) = setFeeAndPledge(
+            users.platform2AdminAddress,
+            address(keepWhatsRaised),
+            pledgeId,
+            backer,
+            amount,
+            tip,
+            PAYMENT_GATEWAY_FEE,
+            emptyReward,
+            false
+        );
+    }
+
+    /// @dev Calls voidPledge as platform admin.
+    function _void(uint256 tokenId) internal {
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+    }
+
+    // ── Access control ──────────────────────────────────────────────────────
+
+    function testVoidPledge_RevertsIfNotPlatformAdmin() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        vm.expectRevert();
+        vm.prank(users.backer1Address);
+        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+    }
+
+    function testVoidPledge_RevertsIfCampaignOwner() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        vm.expectRevert();
+        vm.prank(users.creator1Address);
+        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+    }
+
+    // ── Validation ──────────────────────────────────────────────────────────
+
+    function testVoidPledge_RevertsOnNonExistentToken() public {
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, 999));
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.voidPledge(999, VOID_REASON);
+    }
+
+    function testVoidPledge_RevertsOnAlreadyVoided() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        _void(tokenId);
+
+        // Second void: pledgeAmount is 0 now → VoidPledgeNotFound
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+    }
+
+    function testVoidPledge_RevertsOnAlreadyRefundedPledge() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Refund after deadline
+        vm.warp(DEADLINE + 1);
+        vm.startPrank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        keepWhatsRaised.claimRefund(tokenId);
+        vm.stopPrank();
+
+        // Void should fail: pledgeAmount is 0
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+    }
+
+    // ── Basic void (no prior drain) ─────────────────────────────────────────
+
+    function testVoidPledge_SetsVoidedFlag() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        assertFalse(keepWhatsRaised.isVoided(tokenId));
+        _void(tokenId);
+        assertTrue(keepWhatsRaised.isVoided(tokenId));
+    }
+
+    function testVoidPledge_FullRecovery_NoTip() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Full pledge recovered: net + protocol fee + platform fee
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT, "full pledge amount recovered");
+        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0, "treasury empty after void");
+    }
+
+    function testVoidPledge_DecrementsRaisedAmount() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT);
+        _void(tokenId);
+        assertEq(keepWhatsRaised.getRaisedAmount(), 0);
+    }
+
+    function testVoidPledge_LifetimeRaisedStaysMonotonic() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        uint256 lifetimeBefore = keepWhatsRaised.getLifetimeRaisedAmount();
+        _void(tokenId);
+        uint256 lifetimeAfter = keepWhatsRaised.getLifetimeRaisedAmount();
+
+        assertEq(lifetimeAfter, lifetimeBefore, "lifetime raised unchanged after void");
+        assertEq(lifetimeAfter, TEST_PLEDGE_AMOUNT, "lifetime still shows original pledge");
+    }
+
+    function testVoidPledge_DecrementsAvailableAmount() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        assertTrue(keepWhatsRaised.getAvailableRaisedAmount() > 0);
+        _void(tokenId);
+        assertEq(keepWhatsRaised.getAvailableRaisedAmount(), 0);
+    }
+
+    function testVoidPledge_IncrementsVoidedAmount() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        assertEq(keepWhatsRaised.getVoidedAmount(), 0);
+        _void(tokenId);
+        assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT);
+    }
+
+    function testVoidPledge_RefundedAmountUnaffected() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenIdVoid = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+        uint256 tokenIdRefund = _voidTestPledge(VOID_PLEDGE_ID_B, users.backer2Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Void A
+        _void(tokenIdVoid);
+
+        // Refund B
+        vm.warp(DEADLINE + 1);
+        vm.startPrank(users.backer2Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenIdRefund);
+        keepWhatsRaised.claimRefund(tokenIdRefund);
+        vm.stopPrank();
+
+        // Refunded amount only counts the actual refund, not the void
+        assertEq(keepWhatsRaised.getRefundedAmount(), TEST_PLEDGE_AMOUNT, "refunded = only the actual refund");
+        assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT, "voided = only the void");
+    }
+
+    function testVoidPledge_EmitsEvent() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        vm.expectEmit(true, true, false, true, address(keepWhatsRaised));
+        emit KeepWhatsRaised.PledgeVoided(tokenId, address(testToken), TEST_PLEDGE_AMOUNT, TEST_PLEDGE_AMOUNT, 0, VOID_REASON);
+
+        _void(tokenId);
+    }
+
+    function testVoidPledge_ContractBalanceZeroAfterFullRecovery() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        _void(tokenId);
+        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0);
+    }
+
+    // ── Void blocks refund ──────────────────────────────────────────────────
+
+    function testClaimRefund_RevertsForVoidedPledge() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        _void(tokenId);
+
+        vm.warp(DEADLINE + 1);
+        vm.startPrank(users.backer1Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
+        vm.expectRevert(abi.encodeWithSelector(VoidablePledge.VoidablePledgeAlreadyVoided.selector, tokenId));
+        keepWhatsRaised.claimRefund(tokenId);
+        vm.stopPrank();
+    }
+
+    // ── Void after disburseFees ─────────────────────────────────────────────
+
+    function testVoidPledge_PartialRecovery_AfterDisburseFees() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Disburse fees — empties fee accumulators
+        keepWhatsRaised.disburseFees();
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Fee buckets were zeroed by disbursement, so only net available recovered
+        assertEq(adminAfter - adminBefore, VOID_NET_AVAILABLE, "only net available recovered after disbursement");
+    }
+
+    // ── Void after partial withdrawal ───────────────────────────────────────
+
+    function testVoidPledge_CapsAvailableAfterPartialWithdrawal() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Partial withdrawal before deadline
+        approveWithdrawal(users.platform2AdminAddress, address(keepWhatsRaised));
+        uint256 withdrawAmount = 200e18;
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.withdraw(address(testToken), withdrawAmount);
+
+        uint256 availableBefore = keepWhatsRaised.getAvailableRaisedAmount();
+        assertTrue(availableBefore < VOID_NET_AVAILABLE, "available reduced by withdrawal + fees");
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Should recover whatever is left, not revert
+        assertTrue(adminAfter > adminBefore, "some funds recovered");
+        assertEq(keepWhatsRaised.getAvailableRaisedAmount(), 0, "available zero after void");
+    }
+
+    // ── Void after claimFund ────────────────────────────────────────────────
+
+    function testVoidPledge_WorksAfterClaimFund() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // claimFund sweeps available, but fee buckets remain
+        vm.warp(DEADLINE + WITHDRAWAL_DELAY + 1);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimFund();
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // available = 0 (swept), but fee buckets still intact
+        assertEq(adminAfter - adminBefore, VOID_TOTAL_FEE, "fee buckets recovered after claimFund");
+        assertTrue(keepWhatsRaised.isVoided(tokenId), "pledge marked voided");
+    }
+
+    function testVoidPledge_ZeroRecovery_AfterFullDrain() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Drain everything: fees then available
+        keepWhatsRaised.disburseFees();
+        vm.warp(DEADLINE + WITHDRAWAL_DELAY + 1);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimFund();
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        assertEq(adminAfter - adminBefore, 0, "nothing left to recover");
+        assertTrue(keepWhatsRaised.isVoided(tokenId), "still marked voided");
+    }
+
+    // ── Cancelled / post-deadline ───────────────────────────────────────────
+
+    function testVoidPledge_WorksOnCancelledTreasury() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        cancelTreasury(users.platform2AdminAddress, address(keepWhatsRaised), keccak256("CANCEL"));
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT, "full recovery on cancelled treasury");
+    }
+
+    function testVoidPledge_WorksAfterDeadline() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        vm.warp(DEADLINE + 1);
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT, "full recovery after deadline");
+    }
+
+    // ── Tip handling ────────────────────────────────────────────────────────
+
+    function testVoidPledge_RecoversDeferredUnclaimedTip() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, TEST_TIP_AMOUNT);
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Full pledge + tip recovered
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT + TEST_TIP_AMOUNT, "pledge + tip recovered");
+    }
+
+    function testVoidPledge_SkipsTipRecovery_AfterClaimTip() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, TEST_TIP_AMOUNT);
+
+        // Claim tip after deadline
+        vm.warp(DEADLINE + 1);
+        vm.prank(users.platform2AdminAddress);
+        keepWhatsRaised.claimTip();
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Tip already claimed — only pledge recovered
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT, "only pledge recovered; tip already claimed");
+    }
+
+    function testVoidPledge_SkipsTipRecovery_WhenForwardTipsImmediately() public {
+        // Deploy fresh treasury with forwardTipsImmediately = true
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 tip = TEST_TIP_AMOUNT;
+        bytes32 pledgeId = keccak256("voidFwdTip");
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), TEST_PLEDGE_AMOUNT);
+        bytes32[] memory emptyReward = new bytes32[](0);
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, tip, PAYMENT_GATEWAY_FEE, emptyReward, false);
+        vm.stopPrank();
+
+        // Tip was forwarded immediately (tipFundedByAdmin: stayed in admin wallet).
+        // Treasury only holds pledgeAmount.
+        uint256 treasuryBalance = testToken.balanceOf(address(tipTreasury));
+        assertEq(treasuryBalance, TEST_PLEDGE_AMOUNT, "treasury holds only pledge, not tip");
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        vm.prank(users.platform2AdminAddress);
+        tipTreasury.voidPledge(1, VOID_REASON); // tokenId = 1 (first mint)
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        // Only pledge recovered — tip was never in the contract
+        assertEq(adminAfter - adminBefore, TEST_PLEDGE_AMOUNT, "only pledge recovered; tip was forwarded");
+        assertEq(testToken.balanceOf(address(tipTreasury)), 0, "treasury empty");
+    }
+
+    function testVoidPledge_TipClaimedPerTokenUnchanged() public {
+        // Deploy fresh treasury with forwardTipsImmediately = true
+        KeepWhatsRaised tipTreasury = _createTreasuryWithTipForwarding();
+
+        uint256 tip = TEST_TIP_AMOUNT;
+        bytes32 pledgeId = keccak256("voidTipTrack");
+
+        deal(address(testToken), users.platform2AdminAddress, TEST_PLEDGE_AMOUNT);
+
+        vm.warp(LAUNCH_TIME);
+        vm.startPrank(users.platform2AdminAddress);
+        testToken.approve(address(tipTreasury), TEST_PLEDGE_AMOUNT);
+        bytes32[] memory emptyReward = new bytes32[](0);
+        tipTreasury.setFeeAndPledge(pledgeId, users.backer1Address, address(testToken), TEST_PLEDGE_AMOUNT, tip, PAYMENT_GATEWAY_FEE, emptyReward, false);
+        vm.stopPrank();
+
+        uint256 tipClaimedBefore = tipTreasury.getTipClaimedPerToken(address(testToken));
+        assertEq(tipClaimedBefore, tip, "tip tracked after pledge");
+
+        vm.prank(users.platform2AdminAddress);
+        tipTreasury.voidPledge(1, VOID_REASON);
+
+        uint256 tipClaimedAfter = tipTreasury.getTipClaimedPerToken(address(testToken));
+        assertEq(tipClaimedAfter, tipClaimedBefore, "tipClaimedPerToken not decremented by void");
+    }
+
+    // ── Multi-pledge isolation ──────────────────────────────────────────────
+
+    function testVoidPledge_DoesNotAffectSiblingPledge() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenIdA = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+        uint256 tokenIdB = _voidTestPledge(VOID_PLEDGE_ID_B, users.backer2Address, TEST_PLEDGE_AMOUNT, 0);
+
+        uint256 raisedBefore = keepWhatsRaised.getRaisedAmount();
+        assertEq(raisedBefore, TEST_PLEDGE_AMOUNT * 2);
+
+        // Void only A
+        _void(tokenIdA);
+
+        assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT, "only A removed from raised");
+        assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT, "voided tracks A");
+        assertFalse(keepWhatsRaised.isVoided(tokenIdB), "B not voided");
+
+        // B can still be refunded
+        vm.warp(DEADLINE + 1);
+        vm.startPrank(users.backer2Address);
+        CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenIdB);
+        keepWhatsRaised.claimRefund(tokenIdB);
+        vm.stopPrank();
+
+        assertEq(keepWhatsRaised.getRaisedAmount(), 0, "both pledges resolved");
+    }
+
+    function testVoidPledge_MultipleVoidsAccumulateCorrectly() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenIdA = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+        uint256 tokenIdB = _voidTestPledge(VOID_PLEDGE_ID_B, users.backer2Address, TEST_PLEDGE_AMOUNT, 0);
+
+        _void(tokenIdA);
+        _void(tokenIdB);
+
+        assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT * 2, "both voids accumulated");
+        assertEq(keepWhatsRaised.getRaisedAmount(), 0, "raised is zero");
+        assertEq(keepWhatsRaised.getLifetimeRaisedAmount(), TEST_PLEDGE_AMOUNT * 2, "lifetime preserved");
+        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0, "treasury empty");
     }
 }
