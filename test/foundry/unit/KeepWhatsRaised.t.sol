@@ -1488,7 +1488,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(treasuryAfter - treasuryBefore, pledgeAmount, "Treasury receives pledgeAmount");
 
         assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip, "Tip tracked immediately");
-        assertEq(tipTreasury.getTotalTipClaimed(), tip, "getTotalTipClaimed equals tip");
     }
 
     /// For pledgeForAReward: admin transfers only rewardValue; tip is NOT pulled from admin
@@ -1686,7 +1685,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.stopPrank();
 
         assertEq(tipTreasury.getTipClaimedPerToken(address(testToken)), tip1 + tip2, "Cumulative tip per token");
-        assertEq(tipTreasury.getTotalTipClaimed(), tip1 + tip2, "getTotalTipClaimed cumulative");
     }
 
     // ─── Forwarding disabled — original claimTip() flow intact ───────────────
@@ -2712,7 +2710,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     // ── Validation ──────────────────────────────────────────────────────────
 
     function testVoidPledge_RevertsOnNonExistentToken() public {
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, 999));
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.voidPledge(999);
     }
@@ -2723,8 +2721,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         _void(tokenId);
 
-        // Second void: pledgeAmount is 0 now → VoidPledgeNotFound
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
+        // Second void: pledgeToken is address(0) now → VoidPledgeNotFound
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.voidPledge(tokenId);
     }
@@ -2740,8 +2738,8 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         keepWhatsRaised.claimRefund(tokenId);
         vm.stopPrank();
 
-        // Void should fail: pledgeAmount is 0
-        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
+        // Void should fail: pledgeToken is address(0) after refund
+        vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector));
         vm.prank(users.platform2AdminAddress);
         keepWhatsRaised.voidPledge(tokenId);
     }
@@ -2799,6 +2797,30 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         emit KeepWhatsRaised.PledgeVoided(tokenId, TEST_PLEDGE_AMOUNT);
 
         _void(tokenId);
+    }
+
+    function testVoidPledge_WorksForTipOnlyPledge() public {
+        vm.warp(LAUNCH_TIME);
+
+        bytes32[] memory emptyReward = new bytes32[](0);
+        (, uint256 tokenId,) = setFeeAndPledge(
+            users.platform2AdminAddress,
+            address(keepWhatsRaised),
+            keccak256("voidTipOnly"),
+            users.backer1Address,
+            0,
+            TEST_TIP_AMOUNT,
+            0,
+            emptyReward,
+            false
+        );
+
+        uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenId);
+        uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
+
+        assertEq(adminAfter - adminBefore, TEST_TIP_AMOUNT, "unclaimed tip recovered");
+        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0, "tip-only treasury balance cleared");
     }
 
     function testVoidPledge_ContractBalanceZeroAfterFullRecovery() public {

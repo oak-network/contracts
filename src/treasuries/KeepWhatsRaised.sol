@@ -388,8 +388,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /// @dev Reverts when claimTip() is called but tips are configured to be forwarded immediately.
     error KeepWhatsRaisedTipsAlreadyForwarded();
 
-    /// @dev Reverts when voidPledge is called but the pledge has no recorded amount (already refunded or does not exist).
-    error KeepWhatsRaisedVoidPledgeNotFound(uint256 tokenId);
+    /// @dev Reverts when voidPledge is called but the tokenId does not correspond to an active pledge (already refunded, voided, or never minted).
+    error KeepWhatsRaisedVoidPledgeNotFound();
 
     /**
      * @dev Ensures that withdrawals are currently enabled.
@@ -587,23 +587,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function getTipClaimedPerToken(address token) external view returns (uint256) {
         return s_tipClaimedPerToken[token];
-    }
-
-    /**
-     * @notice Retrieves the total tip amount received by the platform admin across all tokens,
-     *         normalized to 18 decimals.
-     * @dev Includes tips forwarded immediately during pledges and tips claimed via claimTip().
-     * @return amount Total tip amount in 18-decimal normalized form.
-     */
-    function getTotalTipClaimed() external view returns (uint256 amount) {
-        address[] memory acceptedTokens = INFO.getAcceptedTokens();
-        for (uint256 i = 0; i < acceptedTokens.length; i++) {
-            address token = acceptedTokens[i];
-            uint256 tokenAmount = s_tipClaimedPerToken[token];
-            if (tokenAmount > 0) {
-                amount += _normalizeAmount(token, tokenAmount);
-            }
-        }
     }
 
     /**
@@ -1260,10 +1243,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (netRefundAmount == 0) revert KeepWhatsRaisedRefundAmountZero();
         if (s_availablePerToken[pledgeToken] < netRefundAmount) revert KeepWhatsRaisedInsufficientAvailableForRefund(tokenId);
 
-        s_tokenToPledgedAmount[tokenId] = 0;
+        delete s_tokenToPledgedAmount[tokenId];
         s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
         s_availablePerToken[pledgeToken] -= netRefundAmount;
-        s_tokenToPaymentFee[tokenId] = 0;
+        delete s_tokenToPaymentFee[tokenId];
+        delete s_tokenIdToPledgeToken[tokenId];
 
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
@@ -1395,20 +1379,21 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      *      after withdrawals, fee disbursement, tip claims, or claimFund.
      */
     function voidPledge(uint256 tokenId) external onlyPlatformAdmin(PLATFORM_HASH) {
-        uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
-        if (pledgeAmount == 0) {
-            revert KeepWhatsRaisedVoidPledgeNotFound(tokenId);
+        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
+        if (pledgeToken == address(0)) {
+            revert KeepWhatsRaisedVoidPledgeNotFound();
         }
 
-        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
-        uint256 totalFee = s_tokenToPaymentFee[tokenId];
+        uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
         uint256 tipAmount = s_tokenToTippedAmount[tokenId];
+        uint256 totalFee = s_tokenToPaymentFee[tokenId];
         uint256 netAvailable = pledgeAmount - totalFee;
         uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
         uint256 platformFee = totalFee - protocolFee;
 
-        s_tokenToPledgedAmount[tokenId] = 0;
-        s_tokenToPaymentFee[tokenId] = 0;
+        delete s_tokenToPledgedAmount[tokenId];
+        delete s_tokenToPaymentFee[tokenId];
+        delete s_tokenIdToPledgeToken[tokenId];
 
         s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
         s_tokenVoidedAmounts[pledgeToken] += pledgeAmount;
@@ -1431,16 +1416,14 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
         }
 
-        uint256 tipRecoveredFromContract = 0;
+        uint256 totalRecovered = availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed;
         if (tipAmount > 0 && !s_config.forwardTipsImmediately && !s_tipClaimed) {
-            tipRecoveredFromContract = tipAmount <= s_tipPerToken[pledgeToken]
+            uint256 tipRecoveredFromContract = tipAmount <= s_tipPerToken[pledgeToken]
                 ? tipAmount
                 : s_tipPerToken[pledgeToken];
             s_tipPerToken[pledgeToken] -= tipRecoveredFromContract;
+            totalRecovered += tipRecoveredFromContract;
         }
-
-        uint256 totalRecovered =
-            availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed + tipRecoveredFromContract;
         if (totalRecovered > 0) {
             IERC20(pledgeToken).safeTransfer(INFO.getPlatformAdminAddress(PLATFORM_HASH), totalRecovered);
         }
