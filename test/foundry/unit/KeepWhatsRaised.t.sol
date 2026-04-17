@@ -2874,6 +2874,47 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(adminAfter - adminBefore, VOID_NET_AVAILABLE, "only net available recovered after disbursement");
     }
 
+    function testVoidPledge_DoesNotClawbackLaterPledgesFees() public {
+        vm.warp(LAUNCH_TIME);
+
+        // Pledge A arrives, then its fees are swept to protocol/platform admins.
+        uint256 tokenIdA = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+        keepWhatsRaised.disburseFees();
+
+        // Pledge B arrives after the disbursement: its fees now populate the shared buckets.
+        uint256 tokenIdB = _voidTestPledge(VOID_PLEDGE_ID_B, users.backer2Address, TEST_PLEDGE_AMOUNT, 0);
+
+        // Void A. Its fees were already paid out in the earlier disburseFees, so the buckets
+        // (which now hold only B's fees) must not be touched.
+        uint256 voidAdminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        _void(tokenIdA);
+        uint256 voidAdminAfter = testToken.balanceOf(users.platform2AdminAddress);
+        assertEq(
+            voidAdminAfter - voidAdminBefore,
+            VOID_NET_AVAILABLE,
+            "void only recovers A's available; B's fees left alone"
+        );
+
+        // Disburse again: the buckets should still contain the full amount of B's fees, which
+        // confirms the void did not sweep any of B's fees to the platform admin.
+        uint256 protocolAdminBefore = testToken.balanceOf(users.protocolAdminAddress);
+        uint256 platformAdminBefore = testToken.balanceOf(users.platform2AdminAddress);
+        keepWhatsRaised.disburseFees();
+        assertEq(
+            testToken.balanceOf(users.protocolAdminAddress) - protocolAdminBefore,
+            VOID_PROTOCOL_FEE,
+            "protocol admin receives B's full protocol fee"
+        );
+        assertEq(
+            testToken.balanceOf(users.platform2AdminAddress) - platformAdminBefore,
+            VOID_PLATFORM_FEE,
+            "platform admin receives B's full platform fee"
+        );
+
+        // B can still be voided cleanly afterwards because it was minted after A's fee disbursement.
+        _void(tokenIdB);
+    }
+
     // ── Void after partial withdrawal ───────────────────────────────────────
 
     function testVoidPledge_CapsAvailableAfterPartialWithdrawal() public {

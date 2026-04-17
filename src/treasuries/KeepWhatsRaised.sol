@@ -47,6 +47,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     mapping(address => uint256) private s_tipPerToken; // Tips per token
     mapping(address => uint256) private s_availablePerToken; // Available amount per token
     mapping(address => uint256) private s_tokenVoidedAmounts; // Cumulative voided pledge amount per token
+    // Tracks the latest pledge id minted by this treasury and the last such boundary observed
+    // when a token's shared fee buckets were disbursed. A void may only reverse fees for pledges
+    // minted after the most recent disbursement boundary for that token.
+    uint256 private s_lastMintedPledgeTokenId;
+    mapping(address => uint256) private s_lastFeeDisbursedPledgeTokenId;
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
@@ -1287,6 +1292,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             if (protocolShare > 0 || platformShare > 0) {
                 s_protocolFeePerToken[token] = 0;
                 s_platformFeePerToken[token] = 0;
+                s_lastFeeDisbursedPledgeTokenId[token] = s_lastMintedPledgeTokenId;
 
                 if (protocolShare > 0) {
                     IERC20(token).safeTransfer(protocolAdmin, protocolShare);
@@ -1412,14 +1418,18 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             : s_availablePerToken[pledgeToken];
         s_availablePerToken[pledgeToken] -= availableReversed;
 
-        uint256 actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
-            ? protocolFee
-            : s_protocolFeePerToken[pledgeToken];
-        uint256 actualPlatformFeeReversed = platformFee <= s_platformFeePerToken[pledgeToken]
-            ? platformFee
-            : s_platformFeePerToken[pledgeToken];
-        s_protocolFeePerToken[pledgeToken] -= actualProtocolFeeReversed;
-        s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
+        uint256 actualProtocolFeeReversed;
+        uint256 actualPlatformFeeReversed;
+        if (tokenId > s_lastFeeDisbursedPledgeTokenId[pledgeToken]) {
+            actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
+                ? protocolFee
+                : s_protocolFeePerToken[pledgeToken];
+            actualPlatformFeeReversed = platformFee <= s_platformFeePerToken[pledgeToken]
+                ? platformFee
+                : s_platformFeePerToken[pledgeToken];
+            s_protocolFeePerToken[pledgeToken] -= actualProtocolFeeReversed;
+            s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
+        }
 
         uint256 tipRecoveredFromContract = 0;
         if (tipAmount > 0 && !s_config.forwardTipsImmediately && !s_tipClaimed) {
@@ -1541,6 +1551,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
+        s_lastMintedPledgeTokenId = tokenId;
 
         s_tokenToTippedAmount[tokenId] = tip;
 
