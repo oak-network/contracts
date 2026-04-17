@@ -13,13 +13,12 @@ import {IReward} from "../interfaces/IReward.sol";
 import {ICampaignData} from "../interfaces/ICampaignData.sol";
 import {IPermit2, ISignatureTransfer, PermitData} from "../interfaces/IPermit2.sol";
 import {TreasuryErrors} from "../errors/TreasuryErrors.sol";
-import {VoidablePledge} from "../utils/VoidablePledge.sol";
 
 /**
  * @title KeepWhatsRaised
  * @notice A contract that keeps all the funds raised, regardless of the success condition.
  */
-contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData, VoidablePledge {
+contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignData {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -242,23 +241,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 tokenId
     );
 
-    /**
-     * @dev Emitted when a pledge is voided by the platform admin (e.g., fraud, lost dispute).
-     * @param tokenId The NFT token ID of the voided pledge.
-     * @param pledgeToken The ERC20 token address used for the pledge.
-     * @param pledgeAmount The original gross pledge amount.
-     * @param recoveredAmount The total amount recovered from the contract and sent to platform admin.
-     * @param tipAmount The tip amount recovered from the contract (non-zero only for deferred, unclaimed tips).
-     * @param reason An arbitrary bytes32 reason code (e.g. keccak256("FRAUD"), keccak256("DISPUTE_LOST")).
-     */
-    event PledgeVoided(
-        uint256 indexed tokenId,
-        address indexed pledgeToken,
-        uint256 pledgeAmount,
-        uint256 recoveredAmount,
-        uint256 tipAmount,
-        bytes32 reason
-    );
+    /// @dev Emitted when a pledge is voided by the platform admin.
+    event PledgeVoided(uint256 indexed tokenId, uint256 amount);
 
     /**
      * @dev Emitted when an unauthorized action is attempted.
@@ -407,9 +391,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
      */
     modifier withdrawalEnabled() {
-        if (!s_isWithdrawalApproved) {
-            revert KeepWhatsRaisedDisabled();
-        }
+        _withdrawalEnabled();
         _;
     }
 
@@ -419,9 +401,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
      */
     modifier onlyBeforeConfigLock() {
-        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
-            revert KeepWhatsRaisedConfigLocked();
-        }
+        _onlyBeforeConfigLock();
         _;
     }
 
@@ -429,10 +409,26 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /// @dev Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
     ///      or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
     modifier onlyPlatformAdminOrCampaignOwner() {
+        _onlyPlatformAdminOrCampaignOwner();
+        _;
+    }
+
+    function _withdrawalEnabled() internal view {
+        if (!s_isWithdrawalApproved) {
+            revert KeepWhatsRaisedDisabled();
+        }
+    }
+
+    function _onlyBeforeConfigLock() internal view {
+        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
+            revert KeepWhatsRaisedConfigLocked();
+        }
+    }
+
+    function _onlyPlatformAdminOrCampaignOwner() internal view {
         if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert KeepWhatsRaisedUnAuthorized();
         }
-        _;
     }
 
     /**
@@ -508,7 +504,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token] - s_tokenVoidedAmounts[token];
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token]
+                - s_tokenVoidedAmounts[token];
             if (refundedAmount > 0) {
                 amount += _normalizeAmount(token, refundedAmount);
             }
@@ -518,18 +515,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @notice Retrieves the total voided pledge amount across all tokens, normalized to 18 decimals.
-     * @dev Voided pledges are tracked separately from refunds for accurate off-chain accounting.
-     * @return amount Total voided amount in 18-decimal normalized form.
+     * @notice Retrieves the cumulative voided amount across all tokens, normalized to 18 decimals.
+     * @return amount Voided amount across all tokens, normalized to 18 decimals.
      */
     function getVoidedAmount() external view returns (uint256 amount) {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 voided = s_tokenVoidedAmounts[token];
-            if (voided > 0) {
-                amount += _normalizeAmount(token, voided);
+            uint256 voidedAmount = s_tokenVoidedAmounts[token];
+            if (voidedAmount > 0) {
+                amount += _normalizeAmount(token, voidedAmount);
             }
         }
 
@@ -1237,7 +1233,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function claimRefund(uint256 tokenId)
         external
-        notVoided(tokenId)
         currentTimeIsGreater(getLaunchTime())
         whenCampaignNotPaused
         whenNotPaused
@@ -1388,24 +1383,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @notice Voids a pledge, reversing all accounting as if it never happened.
-     * @dev Called by platform admin when a pledge is determined to be fraud or a payment dispute is lost.
-     *      The NFT is NOT burned — it stays in the backer's wallet but is marked as voided.
-     *      Recoverable funds (net available + any undisbursed fees + tip if still in contract)
-     *      are sent to the platform admin.
-     *      All reversals are clamped to prevent underflow: if funds have already been withdrawn,
-     *      disbursed, or claimed, only the remaining portion is recovered. This allows voiding
-     *      at any point in the campaign lifecycle, including after partial withdrawal or claimFund.
-     *      Current raised amount is decremented; lifetime raised stays monotonic.
-     *      Voided amounts are tracked separately via s_tokenVoidedAmounts.
-     * @param tokenId The NFT token ID representing the pledge to void.
-     * @param reason An arbitrary bytes32 reason code for off-chain categorization.
+     * @notice Voids a pledge without burning the receipt NFT.
+     * @dev Current raised amount is reduced and any recoverable balance still held by the treasury
+     *      is sent to the platform admin. Recovered amounts are clamped so late voids still work
+     *      after withdrawals, fee disbursement, tip claims, or claimFund.
      */
-    function voidPledge(uint256 tokenId, bytes32 reason)
-        external
-        nonReentrant
-        onlyPlatformAdmin(PLATFORM_HASH)
-    {
+    function voidPledge(uint256 tokenId) external onlyPlatformAdmin(PLATFORM_HASH) {
         uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
         if (pledgeAmount == 0) {
             revert KeepWhatsRaisedVoidPledgeNotFound(tokenId);
@@ -1415,29 +1398,19 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 totalFee = s_tokenToPaymentFee[tokenId];
         uint256 tipAmount = s_tokenToTippedAmount[tokenId];
         uint256 netAvailable = pledgeAmount - totalFee;
+        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+        uint256 platformFee = totalFee - protocolFee;
 
-        // Mark as voided (reverts if already voided)
-        _markPledgeVoided(tokenId);
-
-        // --- Zero per-tokenId state ---
         s_tokenToPledgedAmount[tokenId] = 0;
         s_tokenToPaymentFee[tokenId] = 0;
-        s_tokenToTippedAmount[tokenId] = 0;
-        s_tokenIdToPledgeToken[tokenId] = address(0);
 
-        // --- Reverse current raised amount; track voided amount separately ---
         s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
         s_tokenVoidedAmounts[pledgeToken] += pledgeAmount;
 
-        // --- Reverse available balance (capped to prevent underflow if creator already withdrew) ---
         uint256 availableReversed = netAvailable <= s_availablePerToken[pledgeToken]
             ? netAvailable
             : s_availablePerToken[pledgeToken];
         s_availablePerToken[pledgeToken] -= availableReversed;
-
-        // --- Reverse fee accumulators (clamped to prevent underflow if already disbursed) ---
-        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
-        uint256 platformFee = totalFee - protocolFee;
 
         uint256 actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
             ? protocolFee
@@ -1445,32 +1418,24 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 actualPlatformFeeReversed = platformFee <= s_platformFeePerToken[pledgeToken]
             ? platformFee
             : s_platformFeePerToken[pledgeToken];
-
         s_protocolFeePerToken[pledgeToken] -= actualProtocolFeeReversed;
         s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
 
-        // --- Recover tip only if it is still held by the contract (deferred and unclaimed) ---
-        // Tips already forwarded (forwardTipsImmediately) or already claimed (s_tipClaimed)
-        // are with the platform admin; s_tipClaimedPerToken is not decremented because it
-        // tracks actual ERC20 transfers and voiding does not claw back tips.
         uint256 tipRecoveredFromContract = 0;
         if (tipAmount > 0 && !s_config.forwardTipsImmediately && !s_tipClaimed) {
-            uint256 clampedTip = tipAmount <= s_tipPerToken[pledgeToken]
+            tipRecoveredFromContract = tipAmount <= s_tipPerToken[pledgeToken]
                 ? tipAmount
                 : s_tipPerToken[pledgeToken];
-            s_tipPerToken[pledgeToken] -= clampedTip;
-            tipRecoveredFromContract = clampedTip;
+            s_tipPerToken[pledgeToken] -= tipRecoveredFromContract;
         }
 
-        // --- Transfer recoverable amount to platform admin ---
-        uint256 totalRecovered = availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed + tipRecoveredFromContract;
-        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
-
+        uint256 totalRecovered =
+            availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed + tipRecoveredFromContract;
         if (totalRecovered > 0) {
-            IERC20(pledgeToken).safeTransfer(platformAdmin, totalRecovered);
+            IERC20(pledgeToken).safeTransfer(INFO.getPlatformAdminAddress(PLATFORM_HASH), totalRecovered);
         }
 
-        emit PledgeVoided(tokenId, pledgeToken, pledgeAmount, totalRecovered, tipRecoveredFromContract, reason);
+        emit PledgeVoided(tokenId, pledgeAmount);
     }
 
     /**

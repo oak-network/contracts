@@ -15,7 +15,6 @@ import {ICampaignData} from "src/interfaces/ICampaignData.sol";
 import {TestToken} from "../../mocks/TestToken.sol";
 import {MockPermit2} from "../../mocks/MockPermit2.sol";
 import {TreasuryErrors} from "src/errors/TreasuryErrors.sol";
-import {VoidablePledge} from "src/utils/VoidablePledge.sol";
 
 contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Test {
     // Test constants
@@ -2664,7 +2663,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
     bytes32 internal constant VOID_PLEDGE_ID_A = keccak256("voidPledgeA");
     bytes32 internal constant VOID_PLEDGE_ID_B = keccak256("voidPledgeB");
-    bytes32 internal constant VOID_REASON      = keccak256("FRAUD");
 
     /// @dev Makes a pledge via admin setFeeAndPledge path. Returns the minted tokenId.
     function _voidTestPledge(bytes32 pledgeId, address backer, uint256 amount, uint256 tip)
@@ -2688,7 +2686,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     /// @dev Calls voidPledge as platform admin.
     function _void(uint256 tokenId) internal {
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+        keepWhatsRaised.voidPledge(tokenId);
     }
 
     // ── Access control ──────────────────────────────────────────────────────
@@ -2699,7 +2697,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert();
         vm.prank(users.backer1Address);
-        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+        keepWhatsRaised.voidPledge(tokenId);
     }
 
     function testVoidPledge_RevertsIfCampaignOwner() public {
@@ -2708,7 +2706,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         vm.expectRevert();
         vm.prank(users.creator1Address);
-        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+        keepWhatsRaised.voidPledge(tokenId);
     }
 
     // ── Validation ──────────────────────────────────────────────────────────
@@ -2716,7 +2714,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
     function testVoidPledge_RevertsOnNonExistentToken() public {
         vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, 999));
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.voidPledge(999, VOID_REASON);
+        keepWhatsRaised.voidPledge(999);
     }
 
     function testVoidPledge_RevertsOnAlreadyVoided() public {
@@ -2728,7 +2726,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Second void: pledgeAmount is 0 now → VoidPledgeNotFound
         vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+        keepWhatsRaised.voidPledge(tokenId);
     }
 
     function testVoidPledge_RevertsOnAlreadyRefundedPledge() public {
@@ -2745,19 +2743,10 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         // Void should fail: pledgeAmount is 0
         vm.expectRevert(abi.encodeWithSelector(KeepWhatsRaised.KeepWhatsRaisedVoidPledgeNotFound.selector, tokenId));
         vm.prank(users.platform2AdminAddress);
-        keepWhatsRaised.voidPledge(tokenId, VOID_REASON);
+        keepWhatsRaised.voidPledge(tokenId);
     }
 
     // ── Basic void (no prior drain) ─────────────────────────────────────────
-
-    function testVoidPledge_SetsVoidedFlag() public {
-        vm.warp(LAUNCH_TIME);
-        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
-
-        assertFalse(keepWhatsRaised.isVoided(tokenId));
-        _void(tokenId);
-        assertTrue(keepWhatsRaised.isVoided(tokenId));
-    }
 
     function testVoidPledge_FullRecovery_NoTip() public {
         vm.warp(LAUNCH_TIME);
@@ -2802,6 +2791,24 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(keepWhatsRaised.getAvailableRaisedAmount(), 0);
     }
 
+    function testVoidPledge_EmitsEvent() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        vm.expectEmit(true, false, false, true, address(keepWhatsRaised));
+        emit KeepWhatsRaised.PledgeVoided(tokenId, TEST_PLEDGE_AMOUNT);
+
+        _void(tokenId);
+    }
+
+    function testVoidPledge_ContractBalanceZeroAfterFullRecovery() public {
+        vm.warp(LAUNCH_TIME);
+        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
+
+        _void(tokenId);
+        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0);
+    }
+
     function testVoidPledge_IncrementsVoidedAmount() public {
         vm.warp(LAUNCH_TIME);
         uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
@@ -2816,37 +2823,22 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         uint256 tokenIdVoid = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
         uint256 tokenIdRefund = _voidTestPledge(VOID_PLEDGE_ID_B, users.backer2Address, TEST_PLEDGE_AMOUNT, 0);
 
-        // Void A
         _void(tokenIdVoid);
 
-        // Refund B
         vm.warp(DEADLINE + 1);
         vm.startPrank(users.backer2Address);
         CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenIdRefund);
         keepWhatsRaised.claimRefund(tokenIdRefund);
         vm.stopPrank();
 
-        // Refunded amount only counts the actual refund, not the void
+        // Refunded and voided are tracked separately and do not overlap
         assertEq(keepWhatsRaised.getRefundedAmount(), TEST_PLEDGE_AMOUNT, "refunded = only the actual refund");
         assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT, "voided = only the void");
-    }
-
-    function testVoidPledge_EmitsEvent() public {
-        vm.warp(LAUNCH_TIME);
-        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
-
-        vm.expectEmit(true, true, false, true, address(keepWhatsRaised));
-        emit KeepWhatsRaised.PledgeVoided(tokenId, address(testToken), TEST_PLEDGE_AMOUNT, TEST_PLEDGE_AMOUNT, 0, VOID_REASON);
-
-        _void(tokenId);
-    }
-
-    function testVoidPledge_ContractBalanceZeroAfterFullRecovery() public {
-        vm.warp(LAUNCH_TIME);
-        uint256 tokenId = _voidTestPledge(VOID_PLEDGE_ID_A, users.backer1Address, TEST_PLEDGE_AMOUNT, 0);
-
-        _void(tokenId);
-        assertEq(testToken.balanceOf(address(keepWhatsRaised)), 0);
+        assertEq(
+            keepWhatsRaised.getLifetimeRaisedAmount(),
+            keepWhatsRaised.getRaisedAmount() + keepWhatsRaised.getRefundedAmount() + keepWhatsRaised.getVoidedAmount(),
+            "lifetime = raised + refunded + voided"
+        );
     }
 
     // ── Void blocks refund ──────────────────────────────────────────────────
@@ -2860,7 +2852,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         vm.warp(DEADLINE + 1);
         vm.startPrank(users.backer1Address);
         CampaignInfo(campaignAddress).approve(address(keepWhatsRaised), tokenId);
-        vm.expectRevert(abi.encodeWithSelector(VoidablePledge.VoidablePledgeAlreadyVoided.selector, tokenId));
+        vm.expectRevert(KeepWhatsRaised.KeepWhatsRaisedRefundAmountZero.selector);
         keepWhatsRaised.claimRefund(tokenId);
         vm.stopPrank();
     }
@@ -2923,7 +2915,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         // available = 0 (swept), but fee buckets still intact
         assertEq(adminAfter - adminBefore, VOID_TOTAL_FEE, "fee buckets recovered after claimFund");
-        assertTrue(keepWhatsRaised.isVoided(tokenId), "pledge marked voided");
     }
 
     function testVoidPledge_ZeroRecovery_AfterFullDrain() public {
@@ -2941,7 +2932,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
 
         assertEq(adminAfter - adminBefore, 0, "nothing left to recover");
-        assertTrue(keepWhatsRaised.isVoided(tokenId), "still marked voided");
     }
 
     // ── Cancelled / post-deadline ───────────────────────────────────────────
@@ -3025,7 +3015,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         uint256 adminBefore = testToken.balanceOf(users.platform2AdminAddress);
         vm.prank(users.platform2AdminAddress);
-        tipTreasury.voidPledge(1, VOID_REASON); // tokenId = 1 (first mint)
+        tipTreasury.voidPledge(1); // tokenId = 1 (first mint)
         uint256 adminAfter = testToken.balanceOf(users.platform2AdminAddress);
 
         // Only pledge recovered — tip was never in the contract
@@ -3053,7 +3043,7 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
         assertEq(tipClaimedBefore, tip, "tip tracked after pledge");
 
         vm.prank(users.platform2AdminAddress);
-        tipTreasury.voidPledge(1, VOID_REASON);
+        tipTreasury.voidPledge(1);
 
         uint256 tipClaimedAfter = tipTreasury.getTipClaimedPerToken(address(testToken));
         assertEq(tipClaimedAfter, tipClaimedBefore, "tipClaimedPerToken not decremented by void");
@@ -3074,7 +3064,6 @@ contract KeepWhatsRaised_UnitTest is Test, KeepWhatsRaised_Integration_Shared_Te
 
         assertEq(keepWhatsRaised.getRaisedAmount(), TEST_PLEDGE_AMOUNT, "only A removed from raised");
         assertEq(keepWhatsRaised.getVoidedAmount(), TEST_PLEDGE_AMOUNT, "voided tracks A");
-        assertFalse(keepWhatsRaised.isVoided(tokenIdB), "B not voided");
 
         // B can still be refunded
         vm.warp(DEADLINE + 1);
