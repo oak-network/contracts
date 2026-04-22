@@ -7,6 +7,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
+import {PausableCancellable} from "../utils/PausableCancellable.sol";
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
@@ -95,7 +96,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         bool isColombianCreator;
     }
 
-    uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
     bool private s_fundClaimed;
@@ -1219,7 +1219,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * - Tip amount must be non-zero.
      */
     function claimTip() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
-        if (s_cancellationTime == 0 && block.timestamp <= getDeadline()) {
+        if (_getEffectiveCancellationTime() == 0 && block.timestamp <= getDeadline()) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
@@ -1251,8 +1251,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * - Cannot be previously claimed.
      */
     function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
-        bool isCancelled = s_cancellationTime > 0;
-        uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
+        uint256 effectiveCancellationTime = _getEffectiveCancellationTime();
+        bool isCancelled = effectiveCancellationTime > 0;
+        uint256 cancelLimit = effectiveCancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
         if (isCancelled && block.timestamp <= cancelLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
@@ -1283,7 +1284,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
     function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
-        s_cancellationTime = block.timestamp;
         _cancel(message);
     }
 
@@ -1446,35 +1446,50 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
+     * @dev Returns the effective cancellation time by consulting both the treasury's own
+     * cancellation state and the campaign's cancellation state. If both are cancelled,
+     * returns the earlier timestamp so the refund window starts from the first cancellation event.
+     * Returns 0 if neither is cancelled.
+     */
+    function _getEffectiveCancellationTime() private view returns (uint256) {
+        uint256 treasuryCancelTime = cancellationTime();
+        uint256 campaignCancelTime = PausableCancellable(address(INFO)).cancellationTime();
+
+        if (treasuryCancelTime > 0 && campaignCancelTime > 0) {
+            return treasuryCancelTime < campaignCancelTime ? treasuryCancelTime : campaignCancelTime;
+        }
+        if (treasuryCancelTime > 0) return treasuryCancelTime;
+        return campaignCancelTime;
+    }
+
+    /**
      * @dev Checks the refund period status based on campaign state
      * @param checkIfOver If true, returns whether refund period is over; if false, returns whether currently within refund period
      * @return bool Status based on checkIfOver parameter
      *
      * @notice Refund period logic:
-     *         - If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
-     *         - If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
+     *         - If cancelled (treasury or campaign): refund period is active until cancellationTime + s_config.refundDelay
+     *         - If not cancelled: refund period is active until deadline + s_config.refundDelay
      *         - Before deadline (non-cancelled): not in refund period
      *
      * @dev This function handles both cancelled and non-cancelled campaign scenarios
      */
     function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool) {
         uint256 deadline = getDeadline();
-        bool isCancelled = s_cancellationTime > 0;
+        uint256 effectiveCancellationTime = _getEffectiveCancellationTime();
+        bool isCancelled = effectiveCancellationTime > 0;
 
         bool refundPeriodOver;
 
         if (isCancelled) {
-            // If cancelled, refund period ends after s_config.refundDelay from cancellation time
-            refundPeriodOver = block.timestamp > s_cancellationTime + s_config.refundDelay;
+            refundPeriodOver = block.timestamp > effectiveCancellationTime + s_config.refundDelay;
         } else {
-            // If not cancelled, refund period ends after s_config.refundDelay from deadline
             refundPeriodOver = block.timestamp > deadline + s_config.refundDelay;
         }
 
         if (checkIfOver) {
             return refundPeriodOver;
         } else {
-            // For non-cancelled campaigns, also check if we're after deadline
             if (!isCancelled) {
                 return block.timestamp > deadline && !refundPeriodOver;
             }

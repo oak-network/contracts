@@ -8,6 +8,7 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 abstract contract PausableCancellable is Context {
     bool private _paused;
     bool private _cancelled;
+    uint256 private _cancellationTime;
 
     /**
      * @notice Emitted when contract is paused
@@ -127,6 +128,14 @@ abstract contract PausableCancellable is Context {
             _unpause(0x231da0eace2a459b43889b78bbd1fc88a89e3192ee6cbcda7015c539d577e2cd);
         }
         _cancelled = true;
+        _cancellationTime = block.timestamp;
         emit Cancelled(_msgSender(), reason);
+    }
+
+    /**
+     * @notice Returns the timestamp at which the contract was cancelled, or 0 if not cancelled
+     */
+    function cancellationTime() public view virtual returns (uint256) {
+        return _cancellationTime;
     }
 }
