@@ -7,6 +7,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {Counters} from "../utils/Counters.sol";
 import {TimestampChecker} from "../utils/TimestampChecker.sol";
 import {BaseTreasury} from "../utils/BaseTreasury.sol";
+import {PausableCancellable} from "../utils/PausableCancellable.sol";
 import {ICampaignTreasury} from "../interfaces/ICampaignTreasury.sol";
 import {ICampaignInfo} from "../interfaces/ICampaignInfo.sol";
 import {IReward} from "../interfaces/IReward.sol";
@@ -106,7 +107,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         bool forwardTipsImmediately;
     }
 
-    uint256 private s_cancellationTime;
     bool private s_isWithdrawalApproved;
     bool private s_tipClaimed;
     bool private s_fundClaimed;
@@ -1243,11 +1243,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (netRefundAmount == 0) revert KeepWhatsRaisedRefundAmountZero();
         if (s_availablePerToken[pledgeToken] < netRefundAmount) revert KeepWhatsRaisedInsufficientAvailableForRefund(tokenId);
 
-        delete s_tokenToPledgedAmount[tokenId];
-        s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
+        _clearPledgeLedger(tokenId, pledgeToken, amountToRefund);
         s_availablePerToken[pledgeToken] -= netRefundAmount;
-        delete s_tokenToPaymentFee[tokenId];
-        delete s_tokenIdToPledgeToken[tokenId];
 
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
@@ -1303,7 +1300,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             revert KeepWhatsRaisedTipsAlreadyForwarded();
         }
 
-        if (s_cancellationTime == 0 && block.timestamp <= getDeadline()) {
+        if (_getEffectiveCancellationTime() == 0 && block.timestamp <= getDeadline()) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
 
@@ -1336,8 +1333,9 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * - Cannot be previously claimed.
      */
     function claimFund() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
-        bool isCancelled = s_cancellationTime > 0;
-        uint256 cancelLimit = s_cancellationTime + s_config.refundDelay;
+        uint256 effectiveCancellationTime = _getEffectiveCancellationTime();
+        bool isCancelled = effectiveCancellationTime > 0;
+        uint256 cancelLimit = effectiveCancellationTime + s_config.refundDelay;
         uint256 deadlineLimit = getDeadline() + s_config.withdrawalDelay;
 
         if (isCancelled && block.timestamp <= cancelLimit) revert KeepWhatsRaisedClaimFundWindowNotReached();
@@ -1368,7 +1366,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @dev This function is overridden to allow the platform admin and the campaign owner to cancel a treasury.
      */
     function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
-        s_cancellationTime = block.timestamp;
         _cancel(message);
     }
 
@@ -1387,17 +1384,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
         uint256 tipAmount = s_tokenToTippedAmount[tokenId];
         uint256 totalFee = s_tokenToPaymentFee[tokenId];
-        uint256 netAvailable = pledgeAmount - totalFee;
-        uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
-        uint256 platformFee = totalFee - protocolFee;
 
-        delete s_tokenToPledgedAmount[tokenId];
-        delete s_tokenToPaymentFee[tokenId];
-        delete s_tokenIdToPledgeToken[tokenId];
-
-        s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
+        _clearPledgeLedger(tokenId, pledgeToken, pledgeAmount);
         s_tokenVoidedAmounts[pledgeToken] += pledgeAmount;
 
+        uint256 netAvailable = pledgeAmount - totalFee;
         uint256 availableReversed = netAvailable <= s_availablePerToken[pledgeToken]
             ? netAvailable
             : s_availablePerToken[pledgeToken];
@@ -1406,6 +1397,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 actualProtocolFeeReversed;
         uint256 actualPlatformFeeReversed;
         if (tokenId > s_lastFeeDisbursedPledgeTokenId[pledgeToken]) {
+            uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+            uint256 platformFee = totalFee - protocolFee;
             actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
                 ? protocolFee
                 : s_protocolFeePerToken[pledgeToken];
@@ -1417,7 +1410,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         }
 
         uint256 totalRecovered = availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed;
-        if (tipAmount > 0 && !s_config.forwardTipsImmediately && !s_tipClaimed) {
+        if (!s_tipClaimed) {
             uint256 tipRecoveredFromContract = tipAmount <= s_tipPerToken[pledgeToken]
                 ? tipAmount
                 : s_tipPerToken[pledgeToken];
@@ -1606,35 +1599,61 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
+     * @dev Clears per-pledge ledger entries and decrements the raised amount for a token.
+     *      Called by both claimRefund and voidPledge to share the common cleanup path.
+     */
+    function _clearPledgeLedger(uint256 tokenId, address pledgeToken, uint256 pledgeAmount) private {
+        delete s_tokenToPledgedAmount[tokenId];
+        delete s_tokenToPaymentFee[tokenId];
+        delete s_tokenIdToPledgeToken[tokenId];
+        s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
+    }
+
+    /**
+     * @dev Returns the effective cancellation time by consulting both the treasury's own
+     * cancellation state and the campaign's cancellation state. If both are cancelled,
+     * returns the earlier timestamp so the refund window starts from the first cancellation event.
+     * Returns 0 if neither is cancelled.
+     */
+    function _getEffectiveCancellationTime() private view returns (uint256) {
+        uint256 treasuryCancelTime = cancellationTime();
+        uint256 campaignCancelTime = PausableCancellable(address(INFO)).cancellationTime();
+
+        if (treasuryCancelTime > 0 && campaignCancelTime > 0) {
+            return treasuryCancelTime < campaignCancelTime ? treasuryCancelTime : campaignCancelTime;
+        }
+        if (treasuryCancelTime > 0) return treasuryCancelTime;
+        return campaignCancelTime;
+    }
+
+    /**
      * @dev Checks the refund period status based on campaign state
      * @param checkIfOver If true, returns whether refund period is over; if false, returns whether currently within refund period
      * @return bool Status based on checkIfOver parameter
      *
      * @notice Refund period logic:
-     *         - If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
-     *         - If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
+     *         - If cancelled (treasury or campaign): refund period is active until cancellationTime + s_config.refundDelay
+     *         - If not cancelled: refund period is active until deadline + s_config.refundDelay
      *         - Before deadline (non-cancelled): not in refund period
      *
      * @dev This function handles both cancelled and non-cancelled campaign scenarios
      */
     function _checkRefundPeriodStatus(bool checkIfOver) internal view returns (bool) {
         uint256 deadline = getDeadline();
-        bool isCancelled = s_cancellationTime > 0;
+        uint256 effectiveCancellationTime = _getEffectiveCancellationTime();
+        bool isCancelled = effectiveCancellationTime > 0;
 
         bool refundPeriodOver;
 
         if (isCancelled) {
-            // If cancelled, refund period ends after s_config.refundDelay from cancellation time
-            refundPeriodOver = block.timestamp > s_cancellationTime + s_config.refundDelay;
+            refundPeriodOver = block.timestamp > effectiveCancellationTime + s_config.refundDelay;
         } else {
-            // If not cancelled, refund period ends after s_config.refundDelay from deadline
             refundPeriodOver = block.timestamp > deadline + s_config.refundDelay;
         }
 
         if (checkIfOver) {
             return refundPeriodOver;
         } else {
-            // For non-cancelled campaigns, also check if we're after deadline
             if (!isCancelled) {
                 return block.timestamp > deadline && !refundPeriodOver;
             }
