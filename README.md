@@ -103,12 +103,22 @@ forge script script/DeployAll.s.sol:DeployAll --rpc-url $RPC_URL --private-key $
 If you want a one-shot script that deploys the protocol (UUPS proxies), configures `GlobalParams`, and registers + approves a treasury implementation for a platform, you can run one of the `DeployAllAndSetup*.s.sol` scripts.
 
 ```bash
-# Example: deploy and setup PaymentTreasury
+# Deploy PaymentTreasury using values from .env
 forge script script/DeployAllAndSetupPaymentTreasury.s.sol:DeployAllAndSetupPaymentTreasury \
   --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+
+# Or pass common parameters inline
+PLATFORM_NAME="MyPlatform" \
+  PLATFORM_ADMIN_ADDRESS="0x70997970C51812dc3A010C7d01b50e0d17dc79C8" \
+  PROTOCOL_ADMIN_ADDRESS="0x90F79bf6EB2c4f870365E785982E1f101E93b906" \
+  PLATFORM_ADAPTER_ADDRESS="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" \
+  CURRENCIES="USD" \
+  TOKENS_PER_CURRENCY="0xcebA9300f2b948710d2653dD7B07f33A8B32118C,0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e" \
+  forge script script/DeployAllAndSetupKeepWhatsRaised.s.sol:DeployAllAndSetupKeepWhatsRaised \
+    --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
 ```
 
-> These scripts read configuration from `.env` (e.g. `PLATFORM_NAME`, `PROTOCOL_FEE_PERCENT`, `PLATFORM_FEE_PERCENT`, `CURRENCIES`/`TOKENS_PER_CURRENCY`, and optional `PLATFORM_ADAPTER_ADDRESS` for meta-txs).
+> These scripts read configuration from `.env` (or inline env vars as above). See `.env.example` for all available parameters.
 
 ## Contract Architecture
 
@@ -144,14 +154,7 @@ At a high level:
 
 ## Environment Variables
 
-Key environment variables to configure in `.env`:
-
-- `PRIVATE_KEY`: Deployment wallet private key
-- `RPC_URL`: Network RPC endpoint (can be configured for any network)
-- `SIMULATE`: Toggle simulation mode
-- Contract address variables for reuse
-
-For a complete list of variables, refer to `.env.example`.
+See `.env.example` for the full annotated list of variables, including which are required, which have defaults, and what units each value expects.
 
 > Tip: `script/` contains deployment, setup, and upgrade scripts for each treasury type (including UUPS upgrade scripts).
 
