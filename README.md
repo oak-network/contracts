@@ -1,5 +1,9 @@
 # Oak Network Smart Contracts
 
+[![Audited by OpenZeppelin](https://img.shields.io/badge/audited%20by-OpenZeppelin-4E5EE4?logo=openzeppelin&logoColor=white)](./audits/OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf)
+[![Audited by Immunefi](https://img.shields.io/badge/audited%20by-Immunefi-E11D74)](./audits/ImmuneFi-Audit-Report-OakNetwork-PaymentTreasury.pdf)
+[![Audited by PeckShield](https://img.shields.io/badge/audited%20by-PeckShield-2E7CF6)](./audits/PeckShield-Audit-Report-CreativeCrowdfunding_v1.0.pdf)
+
 ## Overview
 
 Oak Network is programmable commerce and escrow infrastructure — an on-chain backbone for creating and managing conditional payment flows. Each flow is defined once on-chain and shared across platforms, while funds are held and settled by interchangeable treasury models.
