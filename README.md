@@ -1,8 +1,12 @@
 # Oak Network Smart Contracts
 
+[![Audited by OpenZeppelin](https://img.shields.io/badge/audited%20by-OpenZeppelin-4E5EE4?logo=openzeppelin&logoColor=white)](./audits/OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf)
+[![Audited by Immunefi](https://img.shields.io/badge/audited%20by-Immunefi-E11D74)](./audits/ImmuneFi-Audit-Report-OakNetwork-PaymentTreasury.pdf)
+[![Audited by PeckShield](https://img.shields.io/badge/audited%20by-PeckShield-2E7CF6)](./audits/PeckShield-Audit-Report-CreativeCrowdfunding_v1.0.pdf)
+
 ## Overview
 
-Oak Network is a decentralized crowdfunding protocol designed to help creators launch and manage campaigns across multiple platforms. By providing a standardized infrastructure, the protocol simplifies the process of creating, funding, and managing crowdfunding initiatives in web3 across different platforms.
+Oak Network is programmable commerce and escrow infrastructure — an on-chain backbone for creating and managing conditional payment flows. Each flow is defined once on-chain and shared across platforms, while funds are held and settled by interchangeable treasury models.
 
 ## Features
 
@@ -159,7 +163,14 @@ For a complete list of variables, refer to `.env.example`.
 
 ### Audits
 
-Security audit reports can be found in the [`audits/`](./audits/) folder. We regularly conduct security audits to ensure the safety and reliability of the protocol.
+The protocol has undergone multiple independent security reviews. Full reports live in the [`audits/`](./audits/) folder; see the [audit index](./audits/README.md) for per-finding status and remediation details.
+
+| Date | Auditor | Scope | Report |
+| --- | --- | --- | --- |
+| Jun 17, 2026 | OpenZeppelin | Full protocol (commit `479241c`) | [PDF](./audits/OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf) |
+| Dec 10, 2025 | Immunefi (Neplox) | `PaymentTreasury` | [PDF](./audits/ImmuneFi-Audit-Report-OakNetwork-PaymentTreasury.pdf) |
+| Aug 5, 2025 | Immunefi (Neplox) | Creative Crowdfunding Protocol v1.0 | [PDF](./audits/Immunefi-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |
+| May 20, 2025 | PeckShield | Creative Crowdfunding Protocol v1.0 | [PDF](./audits/PeckShield-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |
 
 ## Contributing
 

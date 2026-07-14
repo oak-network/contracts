@@ -17,3 +17,6 @@ cache_hardhat
 
 #Broadcast files
 broadcast
+
+#Foundry build output
+out
