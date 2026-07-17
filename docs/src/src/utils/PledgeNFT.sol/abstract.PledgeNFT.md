@@ -1,22 +1,28 @@
 # PledgeNFT
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/PledgeNFT.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/PledgeNFT.sol)
 
 **Inherits:**
 ERC721Burnable, AccessControl
+
+**Title:**
+PledgeNFT
 
 Abstract contract for NFTs representing pledges with on-chain metadata
 
 Contains counter logic and NFT metadata storage
 
 
-## State Variables
-### MINTER_ROLE
+## Constants
+### TREASURY_ROLE
+keccak256(bytes("TREASURY_ROLE"))
+
 
 ```solidity
-bytes32 public constant MINTER_ROLE = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6
+bytes32 public constant TREASURY_ROLE = 0xe1dcbdb91df27212a29bc27177c840cf2f819ecf2187432e1fac86c2dd5dfca9
 ```
 
 
+## State Variables
 ### s_nftName
 
 ```solidity
@@ -106,7 +112,9 @@ function _validateJsonString(string calldata str) internal pure;
 
 Mints a pledge NFT (auto-increments counter)
 
-Called by treasuries - returns the new token ID to use as pledge ID
+Called by treasuries - returns the new token ID to use as pledge ID.
+Uses `_safeMint`, so `backer` must be an EOA or a contract that implements
+`IERC721Receiver`; otherwise the transaction will revert.
 
 
 ```solidity
@@ -117,7 +125,7 @@ function mintNFTForPledge(
     uint256 amount,
     uint256 shippingFee,
     uint256 tipAmount
-) public virtual onlyRole(MINTER_ROLE) returns (uint256 tokenId);
+) public virtual onlyRole(TREASURY_ROLE) returns (uint256 tokenId);
 ```
 **Parameters**
 
@@ -143,7 +151,7 @@ Burns a pledge NFT
 
 
 ```solidity
-function burn(uint256 tokenId) public virtual override;
+function burn(uint256 tokenId) public virtual override onlyRole(TREASURY_ROLE);
 ```
 **Parameters**
 

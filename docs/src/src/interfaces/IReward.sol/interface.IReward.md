@@ -1,5 +1,8 @@
 # IReward
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/IReward.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/IReward.sol)
+
+**Title:**
+IReward
 
 An interface for managing rewards in a campaign.
 
@@ -11,6 +14,7 @@ An interface for managing rewards in a campaign.
 struct Reward {
     uint256 rewardValue;
     bool isRewardTier;
+    bool canBeAddOn;
     bytes32[] itemId;
     uint256[] itemValue;
     uint256[] itemQuantity;

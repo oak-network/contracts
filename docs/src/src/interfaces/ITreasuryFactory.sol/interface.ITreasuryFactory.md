@@ -1,5 +1,8 @@
 # ITreasuryFactory
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ITreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/ITreasuryFactory.sol)
+
+**Title:**
+ITreasuryFactory
 
 Interface for the TreasuryFactory contract, which registers, approves, and deploys treasury clones.
 

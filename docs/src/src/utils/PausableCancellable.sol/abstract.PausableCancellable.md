@@ -1,8 +1,11 @@
 # PausableCancellable
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/PausableCancellable.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/PausableCancellable.sol)
 
 **Inherits:**
 Context
+
+**Title:**
+PausableCancellable
 
 Abstract contract providing pause and cancel state management with events and modifiers
 
@@ -19,6 +22,13 @@ bool private _paused
 
 ```solidity
 bool private _cancelled
+```
+
+
+### _cancellationTime
+
+```solidity
+uint256 private _cancellationTime
 ```
 
 
@@ -127,6 +137,15 @@ function _cancel(bytes32 reason) internal virtual;
 |----|----|-----------|
 |`reason`|`bytes32`|A short reason for cancellation|
 
+
+### cancellationTime
+
+Returns the timestamp at which the contract was cancelled, or 0 if not cancelled
+
+
+```solidity
+function cancellationTime() public view virtual returns (uint256);
+```
 
 ## Events
 ### Paused

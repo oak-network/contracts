@@ -1,10 +1,46 @@
 # AllOrNothing
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/treasuries/AllOrNothing.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/treasuries/AllOrNothing.sol)
 
 **Inherits:**
-[IReward](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), ReentrancyGuard
+[IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md)
 
-A contract for handling crowdfunding campaigns with rewards.
+**Title:**
+AllOrNothing
+
+A contract for handling "all-or-nothing" crowdfunding campaigns. Funds are only claimable by the campaign owner if the funding goal is met by the deadline; otherwise, backers can claim refunds.
+
+
+## Constants
+### AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH
+
+```solidity
+bytes32 internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH =
+    keccak256("PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)")
+```
+
+
+### AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING
+
+```solidity
+string internal constant AON_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+    "PledgeForRewardWitness witness)PledgeForRewardWitness(address backer,bytes32 rewardsHash,uint256 shippingFee)TokenPermissions(address token,uint256 amount)"
+```
+
+
+### AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH
+
+```solidity
+bytes32 internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH =
+    keccak256("PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)")
+```
+
+
+### AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING
+
+```solidity
+string internal constant AON_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+    "PledgeWithoutRewardWitness witness)PledgeWithoutRewardWitness(address backer,uint256 pledgeAmount)TokenPermissions(address token,uint256 amount)"
+```
 
 
 ## State Variables
@@ -57,7 +93,7 @@ constructor() ;
 
 
 ```solidity
-function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer;
+function initialize(bytes32 _platformHash, address _infoAddress) external initializer;
 ```
 
 ### getReward
@@ -87,13 +123,13 @@ Retrieves the total raised amount in the treasury.
 
 
 ```solidity
-function getRaisedAmount() external view override returns (uint256);
+function getRaisedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total raised amount as a uint256 value.|
+|`amount`|`uint256`|Total raised amount across all tokens, normalized to 18 decimals.|
 
 
 ### getLifetimeRaisedAmount
@@ -102,13 +138,13 @@ Retrieves the lifetime raised amount in the treasury (never decreases with refun
 
 
 ```solidity
-function getLifetimeRaisedAmount() external view override returns (uint256);
+function getLifetimeRaisedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+|`amount`|`uint256`|Lifetime total raised amount across all tokens, normalized to 18 decimals.|
 
 
 ### getRefundedAmount
@@ -117,13 +153,13 @@ Retrieves the total refunded amount in the treasury.
 
 
 ```solidity
-function getRefundedAmount() external view override returns (uint256);
+function getRefundedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+|`amount`|`uint256`|Total refunded amount across all tokens, normalized to 18 decimals.|
 
 
 ### addRewards
@@ -162,6 +198,7 @@ Removes a reward from the campaign.
 function removeReward(bytes32 rewardName)
     external
     onlyCampaignOwner
+    currentTimeIsLess(INFO.getLaunchTime())
     whenCampaignNotPaused
     whenNotPaused
     whenCampaignNotCancelled
@@ -176,14 +213,21 @@ function removeReward(bytes32 rewardName)
 
 ### pledgeForAReward
 
-Allows a backer to pledge for a reward.
+Allows a backer to pledge for a reward using a Permit2 signature.
 
-The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-The non-reward tiers cannot be pledged for without a reward.
+Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+The permit's witness commits to `backer`, the reward array hash, and `shippingFee`,
+so the caller cannot change those values after the backer has signed.
 
 
 ```solidity
-function pledgeForAReward(address backer, address pledgeToken, uint256 shippingFee, bytes32[] calldata reward)
+function pledgeForAReward(
+    address backer,
+    address pledgeToken,
+    uint256 shippingFee,
+    bytes32[] calldata reward,
+    PermitData calldata permitData
+)
     external
     nonReentrant
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -196,19 +240,28 @@ function pledgeForAReward(address backer, address pledgeToken, uint256 shippingF
 
 |Name|Type|Description|
 |----|----|-----------|
-|`backer`|`address`|The address of the backer making the pledge.|
+|`backer`|`address`|The address of the backer making the pledge (must be the permit signer).|
 |`pledgeToken`|`address`|The token address to use for the pledge.|
 |`shippingFee`|`uint256`|The shipping fee amount.|
 |`reward`|`bytes32[]`|An array of reward names.|
+|`permitData`|`PermitData`|Permit2 permit data (nonce, deadline, signature) signed by `backer`.|
 
 
 ### pledgeWithoutAReward
 
-Allows a backer to pledge without selecting a reward.
+Allows a backer to pledge without selecting a reward using a Permit2 signature.
+
+Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+The permit's witness commits to `backer` and `pledgeAmount`.
 
 
 ```solidity
-function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledgeAmount)
+function pledgeWithoutAReward(
+    address backer,
+    address pledgeToken,
+    uint256 pledgeAmount,
+    PermitData calldata permitData
+)
     external
     nonReentrant
     currentTimeIsWithinRange(INFO.getLaunchTime(), INFO.getDeadline())
@@ -221,9 +274,10 @@ function pledgeWithoutAReward(address backer, address pledgeToken, uint256 pledg
 
 |Name|Type|Description|
 |----|----|-----------|
-|`backer`|`address`|The address of the backer making the pledge.|
+|`backer`|`address`|The address of the backer making the pledge (must be the permit signer).|
 |`pledgeToken`|`address`|The token address to use for the pledge.|
-|`pledgeAmount`|`uint256`|The amount of the pledge.|
+|`pledgeAmount`|`uint256`|The amount of the pledge (in token's native decimals).|
+|`permitData`|`PermitData`|Permit2 permit data (nonce, deadline, signature) signed by `backer`.|
 
 
 ### claimRefund
@@ -289,6 +343,10 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 
 ### _pledge
 
+Processes a pledge: transfers tokens, mints NFT, and updates state.
+
+Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+
 
 ```solidity
 function _pledge(
@@ -297,9 +355,22 @@ function _pledge(
     bytes32 reward,
     uint256 pledgeAmount,
     uint256 shippingFee,
-    bytes32[] memory rewards
+    bytes32[] memory rewards,
+    PermitData calldata permitData
 ) private;
 ```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`backer`|`address`|Recipient of the pledge NFT.|
+|`pledgeToken`|`address`|Token used for the pledge.|
+|`reward`|`bytes32`|First reward tier (ZERO_BYTES for non-reward pledges).|
+|`pledgeAmount`|`uint256`|Pledge amount in the token's native decimals (must be denormalized by caller).|
+|`shippingFee`|`uint256`|Shipping fee in the token's native decimals (must be denormalized by caller; use 0 for non-reward).|
+|`rewards`|`bytes32[]`|Full reward selection (for event).|
+|`permitData`|`PermitData`||
+
 
 ## Events
 ### Receipt
@@ -389,7 +460,61 @@ Emitted when an invalid input is detected.
 
 
 ```solidity
-error AllOrNothingInvalidInput();
+error AllOrNothingInvalidInput(TreasuryErrors.InvalidInput code);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`TreasuryErrors.InvalidInput`|Error code defined in {TreasuryErrors.InvalidInput}.|
+
+### AllOrNothingZeroRewardName
+Reverts when reward name is zero bytes.
+
+
+```solidity
+error AllOrNothingZeroRewardName();
+```
+
+### AllOrNothingZeroRewardValue
+Reverts when reward value is zero.
+
+
+```solidity
+error AllOrNothingZeroRewardValue();
+```
+
+### AllOrNothingRewardItemArrayLengthMismatch
+Reverts when reward item arrays have mismatched lengths.
+
+
+```solidity
+error AllOrNothingRewardItemArrayLengthMismatch();
+```
+
+### AllOrNothingZeroBacker
+Reverts when backer address is zero.
+
+
+```solidity
+error AllOrNothingZeroBacker();
+```
+
+### AllOrNothingRewardSelectionLengthMismatch
+Reverts when reward selection length exceeds number of rewards.
+
+
+```solidity
+error AllOrNothingRewardSelectionLengthMismatch();
+```
+
+### AllOrNothingFirstRewardNotTier
+Reverts when first reward is not a reward tier.
+
+
+```solidity
+error AllOrNothingFirstRewardNotTier();
 ```
 
 ### AllOrNothingTransferFailed
@@ -416,14 +541,6 @@ Emitted when fees are not disbursed.
 error AllOrNothingFeeNotDisbursed();
 ```
 
-### AllOrNothingFeeAlreadyDisbursed
-Emitted when `disburseFees` after fee is disbursed already.
-
-
-```solidity
-error AllOrNothingFeeAlreadyDisbursed();
-```
-
 ### AllOrNothingRewardExists
 Emitted when a `Reward` already exists for given input.
 
@@ -445,7 +562,7 @@ Emitted when claiming an unclaimable refund.
 
 
 ```solidity
-error AllOrNothingNotClaimable(uint256 tokenId);
+error AllOrNothingNotClaimable(uint256 tokenId, TreasuryErrors.NotClaimable code);
 ```
 
 **Parameters**
@@ -453,4 +570,5 @@ error AllOrNothingNotClaimable(uint256 tokenId);
 |Name|Type|Description|
 |----|----|-----------|
 |`tokenId`|`uint256`|The ID of the token representing the pledge.|
+|`code`|`TreasuryErrors.NotClaimable`|Error code defined in {TreasuryErrors.NotClaimable}.|
 

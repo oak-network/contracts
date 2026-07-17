@@ -1,8 +1,11 @@
 # BaseTreasury
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/BaseTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/BaseTreasury.sol)
 
 **Inherits:**
-Initializable, [ICampaignTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md)
+Initializable, [ICampaignTreasury](/src/interfaces/ICampaignTreasury.sol/interface.ICampaignTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), ReentrancyGuard
+
+**Title:**
+BaseTreasury
 
 A base contract for creating and managing treasuries in crowdfunding campaigns.
 
@@ -13,7 +16,7 @@ Supports ERC-2771 meta-transactions via adapter contracts for platform admin ope
 Contracts implementing this base contract should provide specific success conditions.
 
 
-## State Variables
+## Constants
 ### ZERO_BYTES
 
 ```solidity
@@ -35,6 +38,7 @@ uint256 internal constant STANDARD_DECIMALS = 18
 ```
 
 
+## State Variables
 ### PLATFORM_HASH
 
 ```solidity
@@ -43,6 +47,14 @@ bytes32 internal PLATFORM_HASH
 
 
 ### PLATFORM_FEE_PERCENT
+Snapshot of the platform fee percent captured at treasury initialization via
+INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+The protocol fee accessed during disburseFees() via INFO.getProtocolFeePercent() is also
+a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+
 
 ```solidity
 uint256 internal PLATFORM_FEE_PERCENT
@@ -71,17 +83,35 @@ mapping(address => uint256) internal s_tokenLifetimeRaisedAmounts
 
 
 ## Functions
-### __BaseContract_init
+### constructor
 
 
 ```solidity
-function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal;
+constructor() ;
 ```
+
+### __BaseContract_init
+
+Initializes the base treasury with platform and campaign context.
+
+
+```solidity
+function __BaseContract_init(bytes32 platformHash, address infoAddress) internal;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier used for fee lookup and access control.|
+|`infoAddress`|`address`|The CampaignInfo contract address for campaign data and admin lookups.|
+
 
 ### _msgSender
 
 Override _msgSender to support ERC-2771 meta-transactions.
 When called by the trusted forwarder (adapter), extracts the actual sender from calldata.
+The adapter address is read dynamically from GlobalParams via CampaignInfo so that
+adapter rotations take effect immediately for all deployed treasuries.
 
 
 ```solidity
@@ -184,7 +214,7 @@ Disburses fees collected by the treasury.
 
 
 ```solidity
-function disburseFees() public virtual override whenCampaignNotPaused whenCampaignNotCancelled;
+function disburseFees() public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled;
 ```
 
 ### withdraw
@@ -222,21 +252,6 @@ External function to cancel the campaign.
 ```solidity
 function cancelTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
 ```
-
-### cancelled
-
-Returns true if the treasury has been cancelled.
-
-
-```solidity
-function cancelled() public view virtual override(ICampaignTreasury, PausableCancellable) returns (bool);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|True if cancelled, false otherwise.|
-
 
 ### _revertIfCampaignPaused
 
@@ -336,11 +351,27 @@ Throws an error indicating that fees have not been disbursed.
 error TreasuryFeeNotDisbursed();
 ```
 
+### TreasuryFeeAlreadyDisbursed
+Throws an error indicating that fees have already been disbursed.
+
+
+```solidity
+error TreasuryFeeAlreadyDisbursed();
+```
+
 ### TreasuryCampaignInfoIsPaused
 Throws an error indicating that the campaign is paused.
 
 
 ```solidity
 error TreasuryCampaignInfoIsPaused();
+```
+
+### TreasuryInvalidSender
+Throws when the forwarder appends address(0) as the sender.
+
+
+```solidity
+error TreasuryInvalidSender();
 ```
 

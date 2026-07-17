@@ -1,8 +1,8 @@
 # PaymentTreasury
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/treasuries/PaymentTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/treasuries/PaymentTreasury.sol)
 
 **Inherits:**
-[BasePaymentTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md)
+[BasePaymentTreasury](/src/utils/BasePaymentTreasury.sol/abstract.BasePaymentTreasury.md)
 
 
 ## Functions
@@ -19,12 +19,10 @@ constructor() ;
 
 
 ```solidity
-function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer;
+function initialize(bytes32 _platformHash, address _infoAddress) external initializer;
 ```
 
 ### createPayment
-
-Creates a new payment entry with the specified details.
 
 
 ```solidity
@@ -39,23 +37,8 @@ function createPayment(
     ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
 ) public override whenNotPaused whenNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentId`|`bytes32`|A unique identifier for the payment.|
-|`buyerId`|`bytes32`|The id of the buyer initiating the payment.|
-|`itemId`|`bytes32`|The identifier of the item being purchased.|
-|`paymentToken`|`address`|The token to use for the payment.|
-|`amount`|`uint256`|The amount to be paid for the item.|
-|`expiration`|`uint256`|The timestamp after which the payment expires.|
-|`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
-
 
 ### createPaymentBatch
-
-Creates multiple payment entries in a single transaction to prevent nonce conflicts.
 
 
 ```solidity
@@ -70,25 +53,8 @@ function createPaymentBatch(
     ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
 ) public override whenNotPaused whenNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentIds`|`bytes32[]`|An array of unique identifiers for the payments.|
-|`buyerIds`|`bytes32[]`|An array of buyer IDs corresponding to each payment.|
-|`itemIds`|`bytes32[]`|An array of item identifiers corresponding to each payment.|
-|`paymentTokens`|`address[]`|An array of tokens corresponding to each payment.|
-|`amounts`|`uint256[]`|An array of amounts corresponding to each payment.|
-|`expirations`|`uint256[]`|An array of expiration timestamps corresponding to each payment.|
-|`lineItemsArray`|`ICampaignPaymentTreasury.LineItem[][]`|An array of line item arrays, one for each payment.|
-|`externalFeesArray`|`ICampaignPaymentTreasury.ExternalFees[][]`|An array of external fee metadata arrays, one for each payment (informational only).|
-
 
 ### processCryptoPayment
-
-Allows a buyer to make a direct crypto payment for an item.
-
-This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
 
 
 ```solidity
@@ -99,21 +65,10 @@ function processCryptoPayment(
     address paymentToken,
     uint256 amount,
     ICampaignPaymentTreasury.LineItem[] calldata lineItems,
-    ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
+    ICampaignPaymentTreasury.ExternalFees[] calldata externalFees,
+    PermitData calldata permitData
 ) public override whenNotPaused whenNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentId`|`bytes32`|The unique identifier of the payment.|
-|`itemId`|`bytes32`|The identifier of the item being purchased.|
-|`buyerAddress`|`address`|The address of the buyer making the payment.|
-|`paymentToken`|`address`|The token to use for the payment.|
-|`amount`|`uint256`|The amount to be paid for the item.|
-|`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
-
 
 ### cancelPayment
 
@@ -174,7 +129,7 @@ Only callable by platform admin. Used for payments confirmed without a buyer add
 
 
 ```solidity
-function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused whenNotCancelled;
+function claimRefund(bytes32 paymentId, address refundAddress) public override whenNotPaused;
 ```
 **Parameters**
 
@@ -186,19 +141,20 @@ function claimRefund(bytes32 paymentId, address refundAddress) public override w
 
 ### claimRefund
 
-Claims a refund for non-NFT payments (payments without minted NFTs).
+Claims a refund for NFT payments (payments with minted NFTs).
 
-Only callable by platform admin. Used for payments confirmed without a buyer address.
+Burns the NFT associated with the payment. Caller must have approved the treasury for the NFT.
+Used for processCryptoPayment and confirmPayment (with buyer address) transactions.
 
 
 ```solidity
-function claimRefund(bytes32 paymentId) public override whenNotPaused whenNotCancelled;
+function claimRefund(bytes32 paymentId) public override whenNotPaused;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`paymentId`|`bytes32`|The unique identifier of the refundable payment (must NOT have an NFT).|
+|`paymentId`|`bytes32`|The unique identifier of the refundable payment (must have an NFT).|
 
 
 ### claimExpiredFunds
