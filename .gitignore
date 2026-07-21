@@ -24,3 +24,7 @@ out
 # Release ABI bundle build output
 dist
 .abi-bundle
+
+# Python bytecode
+__pycache__/
+*.pyc

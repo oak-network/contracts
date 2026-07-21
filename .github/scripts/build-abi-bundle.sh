@@ -86,7 +86,9 @@ fi
 cp "$REPO_ROOT/src/constants/DataRegistryKeys.sol" "$BUNDLE_DIR/sources/DataRegistryKeys.sol"
 
 GIT_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-FOUNDRY_VERSION="$(forge --version | head -n1)"
+# Prefer the pinned FOUNDRY_VERSION exported by release.yml so metadata.json
+# embeds the exact pin; fall back to the runtime version for local runs.
+FOUNDRY_VERSION="${FOUNDRY_VERSION:-$(forge --version | head -n1)}"
 
 # jq --args builds proper JSON arrays; guard the empty case explicitly (a bare
 # printf-into-jq pipeline would turn an empty array into [""]).

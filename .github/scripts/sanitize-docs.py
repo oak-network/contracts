@@ -7,9 +7,13 @@ This script rewrites any link target containing `/docs/src/` to the correct
 path relative to the file containing the link. Idempotent; stdlib only.
 
 Usage: sanitize-docs.py <docs-src-dir>
-Exits non-zero if a rewritten target does not exist under <docs-src-dir>
-(catches upstream layout changes instead of committing broken links).
+Exits non-zero - without modifying any file - if a rewritten target does not
+exist under <docs-src-dir> (catches upstream layout changes instead of
+committing broken links). All rewrites are computed in memory first, so a
+failed run leaves the tree untouched and fails the same way when re-run.
 """
+
+from __future__ import annotations
 
 import os
 import re
@@ -21,10 +25,11 @@ import sys
 LINK_PATTERN = re.compile(r"\((/[^\s)]*?/(?:docs|\.forgedoc-tmp)/src/([^\s)]+))\)")
 
 
-def sanitize_file(path: str, docs_src_root: str) -> tuple[int, list[str]]:
-    """Rewrites absolute /…/docs/src/… links in one file.
+def sanitize_file(path: str, docs_src_root: str) -> tuple[str | None, int, list[str]]:
+    """Computes the rewrite of absolute /…/docs/src/… links in one file.
 
-    Returns (number of rewrites, list of rewritten targets that don't exist).
+    Does not write anything. Returns (rewritten content, or None if no links
+    matched; number of rewrites; rewritten targets that don't exist).
     """
     with open(path, encoding="utf-8") as fh:
         content = fh.read()
@@ -42,10 +47,7 @@ def sanitize_file(path: str, docs_src_root: str) -> tuple[int, list[str]]:
         return f"({relative})"
 
     updated, count = LINK_PATTERN.subn(replace, content)
-    if count > 0:
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write(updated)
-    return count, broken
+    return (updated if count > 0 else None), count, broken
 
 
 def main() -> int:
@@ -59,19 +61,29 @@ def main() -> int:
 
     total = 0
     all_broken: list[str] = []
+    pending: list[tuple[str, str]] = []
     for dirpath, _dirnames, filenames in os.walk(docs_src_root):
         for filename in filenames:
             if filename.endswith(".md"):
-                count, broken = sanitize_file(os.path.join(dirpath, filename), docs_src_root)
+                path = os.path.join(dirpath, filename)
+                updated, count, broken = sanitize_file(path, docs_src_root)
                 total += count
                 all_broken.extend(broken)
+                if updated is not None:
+                    pending.append((path, updated))
 
-    print(f"Rewrote {total} absolute link(s) under {docs_src_root}")
     if all_broken:
-        print("error: rewritten links point at missing files:", file=sys.stderr)
+        print("error: rewritten links point at missing files (no files modified):",
+              file=sys.stderr)
         for target in sorted(set(all_broken)):
             print(f"  - {target}", file=sys.stderr)
         return 1
+
+    for path, updated in pending:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(updated)
+
+    print(f"Rewrote {total} absolute link(s) under {docs_src_root}")
     return 0
 
 
