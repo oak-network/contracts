@@ -4,14 +4,14 @@ This folder contains the independent security audit reports for the Oak Network 
 
 | Date | Auditor | Scope | Report |
 | --- | --- | --- | --- |
-| Jun 17, 2026 | OpenZeppelin | Full protocol at commit [`479241c`](https://github.com/oak-network/contracts/commit/479241c) | [PDF](./OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf) |
+| Jul 31, 2026 | OpenZeppelin | Full protocol at commit [`479241c`](https://github.com/oak-network/contracts/commit/479241c) | [PDF](./OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf) · [live](https://www.openzeppelin.com/news/oak-network-smart-contracts-audit) |
 | Dec 10, 2025 | Immunefi (Neplox) | `PaymentTreasury` | [PDF](./ImmuneFi-Audit-Report-OakNetwork-PaymentTreasury.pdf) |
 | Aug 5, 2025 | Immunefi (Neplox) | Creative Crowdfunding Protocol v1.0 | [PDF](./Immunefi-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |
 | May 20, 2025 | PeckShield | Creative Crowdfunding Protocol v1.0 | [PDF](./PeckShield-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |
 
 ---
 
-## OpenZeppelin — Oak Network Smart Contracts Audit (June 17, 2026)
+## OpenZeppelin — Oak Network Smart Contracts Audit (July 31, 2026)
 
 ### At a Glance
 
@@ -19,7 +19,7 @@ This folder contains the independent security audit reports for the Oak Network 
 | --- | --- |
 | **Auditor** | OpenZeppelin Security |
 | **Audit window** | January 5, 2026 – February 4, 2026 |
-| **Published** | June 17, 2026 |
+| **Published** | July 31, 2026 ([live report](https://www.openzeppelin.com/news/oak-network-smart-contracts-audit)) |
 | **Audited commit** | [`479241c`](https://github.com/oak-network/contracts/commit/479241c) |
 | **Scope** | All core contracts under `src/`: `CampaignInfo`, `CampaignInfoFactory`, `GlobalParams`, `TreasuryFactory`, constants, interfaces, storage libraries, the four treasuries (`AllOrNothing`, `KeepWhatsRaised`, `PaymentTreasury`, `TimeConstrainedPaymentTreasury`), and shared utils (`AdminAccessChecker`, `BasePaymentTreasury`, `BaseTreasury`, `CampaignAccessChecker`, `Counters`, `FiatEnabled`, `ItemRegistry`, `PausableCancellable`, `PledgeNFT`, `TimestampChecker`) |
 
