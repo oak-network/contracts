@@ -159,6 +159,10 @@ For a complete list of variables, refer to `.env.example`.
 
 > Tip: `script/` contains deployment, setup, and upgrade scripts for each treasury type (including UUPS upgrade scripts).
 
+## Deployments
+
+Deployed contract addresses per network are tracked in [`DEPLOYMENTS.md`](./DEPLOYMENTS.md).
+
 ## Security
 
 ### Audits
