@@ -1,15 +1,18 @@
 # BasePaymentTreasury
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/BasePaymentTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/BasePaymentTreasury.sol)
 
 **Inherits:**
-Initializable, [ICampaignPaymentTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignPaymentTreasury.sol/interface.ICampaignPaymentTreasury.md), [CampaignAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), ReentrancyGuard
+Initializable, [ICampaignPaymentTreasury](/src/interfaces/ICampaignPaymentTreasury.sol/interface.ICampaignPaymentTreasury.md), [CampaignAccessChecker](/src/utils/CampaignAccessChecker.sol/abstract.CampaignAccessChecker.md), [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), ReentrancyGuard
+
+**Title:**
+BasePaymentTreasury
 
 Base contract for payment treasury implementations.
 
 Supports ERC-2771 meta-transactions via adapter contracts for platform admin operations.
 
 
-## State Variables
+## Constants
 ### ZERO_BYTES
 
 ```solidity
@@ -38,6 +41,51 @@ address internal constant ZERO_ADDRESS = address(0)
 ```
 
 
+### CRYPTO_PAYMENT_WITNESS_TYPEHASH
+
+```solidity
+bytes32 internal constant CRYPTO_PAYMENT_WITNESS_TYPEHASH = keccak256(
+    "CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)"
+)
+```
+
+
+### CRYPTO_PAYMENT_WITNESS_TYPE_STRING
+
+```solidity
+string internal constant CRYPTO_PAYMENT_WITNESS_TYPE_STRING =
+    "CryptoPaymentWitness witness)CryptoPaymentWitness(bytes32 paymentId,bytes32 itemId,address buyerAddress,uint256 amount,bytes32 lineItemsHash)TokenPermissions(address token,uint256 amount)"
+```
+
+
+### MAX_LINE_ITEMS
+Maximum number of line items per payment. Ensures confirmPayment can always succeed if createPayment did.
+
+
+```solidity
+uint256 internal constant MAX_LINE_ITEMS = 50
+```
+
+
+### MAX_EXTERNAL_FEES
+Maximum number of external fee entries per payment.
+
+
+```solidity
+uint256 internal constant MAX_EXTERNAL_FEES = 50
+```
+
+
+### MAX_BATCH_SIZE
+Maximum number of payments in a single batch call.
+
+
+```solidity
+uint256 internal constant MAX_BATCH_SIZE = 50
+```
+
+
+## State Variables
 ### PLATFORM_HASH
 
 ```solidity
@@ -46,6 +94,14 @@ bytes32 internal PLATFORM_HASH
 
 
 ### PLATFORM_FEE_PERCENT
+Snapshot of the platform fee percent captured at treasury initialization via
+INFO.getPlatformFeePercent(platformHash). This value is fixed for the lifetime of the
+treasury and will not reflect any subsequent changes to the platform fee in GlobalParams.
+The protocol fee accessed during fee calculations via INFO.getProtocolFeePercent() is also
+a snapshot — it is stored in the campaign's CampaignInfo clone at creation time and is
+likewise immutable for the campaign's lifecycle. Despite the asymmetry in how they are
+accessed (cached field vs. getter call), both fees are effectively campaign-level snapshots.
+
 
 ```solidity
 uint256 internal PLATFORM_FEE_PERCENT
@@ -73,10 +129,10 @@ mapping(address => uint256) internal s_protocolFeePerToken
 ```
 
 
-### s_paymentIdToTokenId
+### s_paymentIdToNFTId
 
 ```solidity
-mapping(bytes32 => uint256) internal s_paymentIdToTokenId
+mapping(bytes32 => uint256) internal s_paymentIdToNFTId
 ```
 
 
@@ -157,21 +213,28 @@ mapping(address => uint256) internal s_nonGoalLineItemClaimablePerToken
 ```
 
 
-### s_refundableNonGoalLineItemPerToken
+### s_nonGoalRefundableLineItemPerToken
 
 ```solidity
-mapping(address => uint256) internal s_refundableNonGoalLineItemPerToken
+mapping(address => uint256) internal s_nonGoalRefundableLineItemPerToken
 ```
 
 
 ## Functions
-### _scopePaymentIdForOffChain
+### constructor
+
+
+```solidity
+constructor() ;
+```
+
+### _getInternalPaymentIdForOffChain
 
 Scopes a payment ID for off-chain payments (createPayment/createPaymentBatch).
 
 
 ```solidity
-function _scopePaymentIdForOffChain(bytes32 paymentId) internal pure returns (bytes32);
+function _getInternalPaymentIdForOffChain(bytes32 paymentId) internal pure returns (bytes32);
 ```
 **Parameters**
 
@@ -190,15 +253,19 @@ function _scopePaymentIdForOffChain(bytes32 paymentId) internal pure returns (by
 
 Scopes a payment ID for on-chain crypto payments (processCryptoPayment).
 
+Scoped by the buyer address (the Permit2 signer) rather than the tx sender,
+so the payment can be looked up by anyone using the stored creator address.
+
 
 ```solidity
-function _scopePaymentIdForOnChain(bytes32 paymentId) internal view returns (bytes32);
+function _scopePaymentIdForOnChain(bytes32 paymentId, address owner) internal pure returns (bytes32);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`paymentId`|`bytes32`|The external payment ID.|
+|`owner`|`address`|    The buyer/signer address.|
 
 **Returns**
 
@@ -248,15 +315,26 @@ function _getMaxExpirationDuration() internal view returns (bool hasLimit, uint2
 
 ### __BaseContract_init
 
+Initializes the base payment treasury with platform and campaign context.
+
 
 ```solidity
-function __BaseContract_init(bytes32 platformHash, address infoAddress, address trustedForwarder_) internal;
+function __BaseContract_init(bytes32 platformHash, address infoAddress) internal;
 ```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform identifier used for fee lookup and access control.|
+|`infoAddress`|`address`|The CampaignInfo contract address for campaign data and admin lookups.|
+
 
 ### _msgSender
 
 Override _msgSender to support ERC-2771 meta-transactions.
 When called by the trusted forwarder (adapter), extracts the actual sender from calldata.
+The adapter address is read dynamically from GlobalParams via CampaignInfo so that
+adapter rotations take effect immediately for all deployed treasuries.
 
 
 ```solidity
@@ -327,13 +405,13 @@ Retrieves the total raised amount in the treasury.
 
 
 ```solidity
-function getRaisedAmount() public view virtual override returns (uint256);
+function getRaisedAmount() public view virtual override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total raised amount as a uint256 value.|
+|`amount`|`uint256`|Total confirmed payment amount across all tokens, normalized to 18 decimals.|
 
 
 ### getAvailableRaisedAmount
@@ -342,13 +420,13 @@ Retrieves the currently available raised amount in the treasury.
 
 
 ```solidity
-function getAvailableRaisedAmount() external view returns (uint256);
+function getAvailableRaisedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The current available raised amount as a uint256 value.|
+|`amount`|`uint256`|Available confirmed amount across all tokens, normalized to 18 decimals.|
 
 
 ### getLifetimeRaisedAmount
@@ -357,13 +435,13 @@ Retrieves the lifetime raised amount in the treasury (never decreases with refun
 
 
 ```solidity
-function getLifetimeRaisedAmount() external view returns (uint256);
+function getLifetimeRaisedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+|`amount`|`uint256`|Lifetime total confirmed payments across all tokens, normalized to 18 decimals.|
 
 
 ### getRefundedAmount
@@ -372,13 +450,13 @@ Retrieves the total refunded amount in the treasury.
 
 
 ```solidity
-function getRefundedAmount() external view returns (uint256);
+function getRefundedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+|`amount`|`uint256`|Total refunded amount across all tokens, normalized to 18 decimals.|
 
 
 ### getExpectedAmount
@@ -389,13 +467,13 @@ This represents payments that have been created but not yet confirmed.
 
 
 ```solidity
-function getExpectedAmount() external view returns (uint256);
+function getExpectedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total expected amount as a uint256 value.|
+|`amount`|`uint256`|Total pending payment amount across all tokens, normalized to 18 decimals.|
 
 
 ### _normalizeAmount
@@ -443,8 +521,6 @@ function _validateStoreAndTrackLineItems(
 
 ### createPayment
 
-Creates a new payment entry with the specified details.
-
 
 ```solidity
 function createPayment(
@@ -458,23 +534,8 @@ function createPayment(
     ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
 ) public virtual override onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentId`|`bytes32`|A unique identifier for the payment.|
-|`buyerId`|`bytes32`|The id of the buyer initiating the payment.|
-|`itemId`|`bytes32`|The identifier of the item being purchased.|
-|`paymentToken`|`address`|The token to use for the payment.|
-|`amount`|`uint256`|The amount to be paid for the item.|
-|`expiration`|`uint256`|The timestamp after which the payment expires.|
-|`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
-
 
 ### createPaymentBatch
-
-Creates multiple payment entries in a single transaction to prevent nonce conflicts.
 
 
 ```solidity
@@ -489,25 +550,11 @@ function createPaymentBatch(
     ICampaignPaymentTreasury.ExternalFees[][] calldata externalFeesArray
 ) public virtual override onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenCampaignNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentIds`|`bytes32[]`|An array of unique identifiers for the payments.|
-|`buyerIds`|`bytes32[]`|An array of buyer IDs corresponding to each payment.|
-|`itemIds`|`bytes32[]`|An array of item identifiers corresponding to each payment.|
-|`paymentTokens`|`address[]`|An array of tokens corresponding to each payment.|
-|`amounts`|`uint256[]`|An array of amounts corresponding to each payment.|
-|`expirations`|`uint256[]`|An array of expiration timestamps corresponding to each payment.|
-|`lineItemsArray`|`ICampaignPaymentTreasury.LineItem[][]`|An array of line item arrays, one for each payment.|
-|`externalFeesArray`|`ICampaignPaymentTreasury.ExternalFees[][]`|An array of external fee metadata arrays, one for each payment (informational only).|
-
 
 ### processCryptoPayment
 
-Allows a buyer to make a direct crypto payment for an item.
-
-This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
+Mints a pledge NFT to `buyerAddress` via `_safeMint`. Reverts if `buyerAddress` is
+a contract that does not implement `IERC721Receiver`.
 
 
 ```solidity
@@ -518,21 +565,10 @@ function processCryptoPayment(
     address paymentToken,
     uint256 amount,
     ICampaignPaymentTreasury.LineItem[] calldata lineItems,
-    ICampaignPaymentTreasury.ExternalFees[] calldata externalFees
+    ICampaignPaymentTreasury.ExternalFees[] calldata externalFees,
+    PermitData calldata permitData
 ) public virtual override nonReentrant whenCampaignNotPaused whenCampaignNotCancelled;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`paymentId`|`bytes32`|The unique identifier of the payment.|
-|`itemId`|`bytes32`|The identifier of the item being purchased.|
-|`buyerAddress`|`address`|The address of the buyer making the payment.|
-|`paymentToken`|`address`|The token to use for the payment.|
-|`amount`|`uint256`|The amount to be paid for the item.|
-|`lineItems`|`ICampaignPaymentTreasury.LineItem[]`|Array of line items associated with this payment.|
-|`externalFees`|`ICampaignPaymentTreasury.ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
-
 
 ### cancelPayment
 
@@ -582,7 +618,7 @@ function _calculateLineItemTotals(
 
 ### _checkBalanceForConfirmation
 
-Checks if there's sufficient balance for payment confirmation.
+Checks if the treasury's actual token balance is sufficient to cover the total amount of the payment being confirmed, plus all previously committed funds (available for withdrawal, fees, and refundable items).
 
 
 ```solidity
@@ -630,6 +666,9 @@ function _updateLineItemsForConfirmation(
 
 Confirms and finalizes the payment associated with the given payment ID.
 
+If `buyerAddress` is non-zero, mints a pledge NFT via `_safeMint`. Reverts if
+`buyerAddress` is a contract that does not implement `IERC721Receiver`.
+
 
 ```solidity
 function confirmPayment(bytes32 paymentId, address buyerAddress)
@@ -652,6 +691,9 @@ function confirmPayment(bytes32 paymentId, address buyerAddress)
 ### confirmPaymentBatch
 
 Confirms and finalizes multiple payments in a single transaction.
+
+For each non-zero `buyerAddress`, mints a pledge NFT via `_safeMint`. Reverts if
+any such address is a contract that does not implement `IERC721Receiver`.
 
 
 ```solidity
@@ -698,7 +740,7 @@ function claimRefund(bytes32 paymentId, address refundAddress)
 
 ### claimRefund
 
-Claims a refund for non-NFT payments (payments without minted NFTs).
+Claims a refund for NFT payments (payments with minted NFTs).
 
 For NFT payments only. Requires an NFT exists and burns it. Refund is sent to current NFT owner.
 
@@ -710,7 +752,40 @@ function claimRefund(bytes32 paymentId) public virtual override whenCampaignNotP
 
 |Name|Type|Description|
 |----|----|-----------|
-|`paymentId`|`bytes32`|The unique identifier of the refundable payment (must NOT have an NFT).|
+|`paymentId`|`bytes32`|The unique identifier of the refundable payment (must have an NFT).|
+
+
+### _executeRefund
+
+Shared refund logic for both claimRefund overloads.
+Calculates refund amounts from line item snapshots, validates balances,
+updates state, removes common storage entries, and returns the total refund amount.
+
+
+```solidity
+function _executeRefund(
+    bytes32 internalPaymentId,
+    address paymentToken,
+    uint256 amountToRefund,
+    uint256 availablePaymentAmount,
+    bytes32 revertId
+) private returns (uint256 totalRefundAmount);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`internalPaymentId`|`bytes32`|The scoped internal payment ID.|
+|`paymentToken`|`address`|The token used for the payment.|
+|`amountToRefund`|`uint256`|The base payment amount to refund.|
+|`availablePaymentAmount`|`uint256`|The available confirmed amount for this token.|
+|`revertId`|`bytes32`|The payment ID to use in revert messages (preserves original error context).|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`totalRefundAmount`|`uint256`|The total amount to transfer to the refund recipient.|
 
 
 ### disburseFees
@@ -792,21 +867,6 @@ External function to cancel the campaign.
 function cancelTreasury(bytes32 message) public virtual onlyPlatformAdmin(PLATFORM_HASH);
 ```
 
-### cancelled
-
-Returns true if the treasury has been cancelled.
-
-
-```solidity
-function cancelled() public view virtual override(ICampaignPaymentTreasury, PausableCancellable) returns (bool);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|True if cancelled, false otherwise.|
-
-
 ### _revertIfCampaignPaused
 
 Internal function to check if the campaign is paused.
@@ -835,13 +895,14 @@ Reverts if:
 
 
 ```solidity
-function _validatePaymentForAction(bytes32 paymentId) internal view;
+function _validatePaymentForAction(bytes32 internalPaymentId, bytes32 paymentId) internal view;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`paymentId`|`bytes32`|The unique identifier of the payment to validate.|
+|`internalPaymentId`|`bytes32`|The scoped internal payment ID used for storage lookup.|
+|`paymentId`|`bytes32`|The external payment ID used in revert messages for caller clarity.|
 
 
 ### getPaymentData
@@ -1062,7 +1123,77 @@ Reverts when one or more provided inputs to the payment treasury are invalid.
 
 
 ```solidity
-error PaymentTreasuryInvalidInput();
+error PaymentTreasuryInvalidInput(TreasuryErrors.InvalidInput code);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`TreasuryErrors.InvalidInput`|Error code defined in {TreasuryErrors.InvalidInput}.|
+
+### PaymentTreasuryZeroPaymentId
+Reverts when paymentId is zero.
+
+
+```solidity
+error PaymentTreasuryZeroPaymentId();
+```
+
+### PaymentTreasuryZeroBuyerId
+Reverts when buyerId is zero.
+
+
+```solidity
+error PaymentTreasuryZeroBuyerId();
+```
+
+### PaymentTreasuryZeroAmount
+Reverts when amount is zero.
+
+
+```solidity
+error PaymentTreasuryZeroAmount();
+```
+
+### PaymentTreasuryExpirationNotInFuture
+Reverts when expiration is not in the future.
+
+
+```solidity
+error PaymentTreasuryExpirationNotInFuture();
+```
+
+### PaymentTreasuryZeroItemId
+Reverts when itemId is zero.
+
+
+```solidity
+error PaymentTreasuryZeroItemId();
+```
+
+### PaymentTreasuryZeroPaymentToken
+Reverts when paymentToken is the zero address.
+
+
+```solidity
+error PaymentTreasuryZeroPaymentToken();
+```
+
+### PaymentTreasuryZeroBuyerAddress
+Reverts when buyerAddress is the zero address.
+
+
+```solidity
+error PaymentTreasuryZeroBuyerAddress();
+```
+
+### PaymentTreasuryBatchArrayLengthMismatch
+Reverts when batch array lengths are inconsistent.
+
+
+```solidity
+error PaymentTreasuryBatchArrayLengthMismatch();
 ```
 
 ### PaymentTreasuryPaymentAlreadyExist
@@ -1142,7 +1273,7 @@ Emitted when claiming an unclaimable refund.
 
 
 ```solidity
-error PaymentTreasuryPaymentNotClaimable(bytes32 paymentId);
+error PaymentTreasuryPaymentNotClaimable(bytes32 paymentId, TreasuryErrors.NotClaimable code);
 ```
 
 **Parameters**
@@ -1150,6 +1281,7 @@ error PaymentTreasuryPaymentNotClaimable(bytes32 paymentId);
 |Name|Type|Description|
 |----|----|-----------|
 |`paymentId`|`bytes32`|The unique identifier of the refundable payment.|
+|`code`|`TreasuryErrors.NotClaimable`|Error code defined in {TreasuryErrors.NotClaimable}.|
 
 ### PaymentTreasuryAlreadyWithdrawn
 Emitted when an attempt is made to withdraw funds from the treasury but the payment has already been withdrawn.
@@ -1231,6 +1363,22 @@ Throws when there are no funds available to claim.
 
 ```solidity
 error PaymentTreasuryNoFundsToClaim();
+```
+
+### PaymentTreasuryInvalidSender
+Throws when the forwarder appends address(0) as the sender.
+
+
+```solidity
+error PaymentTreasuryInvalidSender();
+```
+
+### PaymentTreasuryArrayTooLong
+Throws when an input array exceeds the maximum allowed length.
+
+
+```solidity
+error PaymentTreasuryArrayTooLong();
 ```
 
 ## Structs

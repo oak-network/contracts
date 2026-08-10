@@ -1,19 +1,40 @@
 # GlobalParams
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/GlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/GlobalParams.sol)
 
 **Inherits:**
-Initializable, [IGlobalParams](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), OwnableUpgradeable, UUPSUpgradeable
+Initializable, [IGlobalParams](/src/interfaces/IGlobalParams.sol/interface.IGlobalParams.md), UUPSUpgradeable
+
+**Title:**
+GlobalParams
 
 Manages global parameters and platform information.
 
 UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
-## State Variables
+## Constants
 ### ZERO_BYTES
 
 ```solidity
 bytes32 private constant ZERO_BYTES = 0x0000000000000000000000000000000000000000000000000000000000000000
+```
+
+
+### PERMIT2_ADDRESS
+The canonical Permit2 deployment address (same on all EVM chains).
+
+
+```solidity
+address private constant PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3
+```
+
+
+### PERCENT_DIVIDER
+100% in basis points; fee percentages must not exceed this and their sum must be below it.
+
+
+```solidity
+uint256 private constant PERCENT_DIVIDER = 10000
 ```
 
 
@@ -48,6 +69,13 @@ modifier onlyPlatformAdmin(bytes32 platformHash) ;
 
 ```solidity
 modifier platformIsListed(bytes32 platformHash) ;
+```
+
+### onlyProtocolAdmin
+
+
+```solidity
+modifier onlyProtocolAdmin() ;
 ```
 
 ### constructor
@@ -88,7 +116,7 @@ Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
-function _authorizeUpgrade(address newImplementation) internal override onlyOwner;
+function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin;
 ```
 **Parameters**
 
@@ -103,7 +131,7 @@ Adds a key-value pair to the data registry.
 
 
 ```solidity
-function addToRegistry(bytes32 key, bytes32 value) external onlyOwner;
+function addToRegistry(bytes32 key, bytes32 value) external onlyProtocolAdmin;
 ```
 **Parameters**
 
@@ -132,6 +160,21 @@ function getFromRegistry(bytes32 key) external view returns (bytes32 value);
 |Name|Type|Description|
 |----|----|-----------|
 |`value`|`bytes32`|The registry value.|
+
+
+### getPermit2Address
+
+Returns the canonical Permit2 contract address.
+
+
+```solidity
+function getPermit2Address() external pure returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The Permit2 contract address.|
 
 
 ### getPlatformAdminAddress
@@ -333,7 +376,7 @@ function enlistPlatform(
     address platformAdminAddress,
     uint256 platformFeePercent,
     address platformAdapter
-) external onlyOwner notAddressZero(platformAdminAddress);
+) external onlyProtocolAdmin notAddressZero(platformAdminAddress);
 ```
 **Parameters**
 
@@ -351,7 +394,7 @@ Delists a platform.
 
 
 ```solidity
-function delistPlatform(bytes32 platformHash) external onlyOwner platformIsListed(platformHash);
+function delistPlatform(bytes32 platformHash) external onlyProtocolAdmin platformIsListed(platformHash);
 ```
 **Parameters**
 
@@ -407,7 +450,7 @@ Updates the admin address of the protocol.
 function updateProtocolAdminAddress(address protocolAdminAddress)
     external
     override
-    onlyOwner
+    onlyProtocolAdmin
     notAddressZero(protocolAdminAddress);
 ```
 **Parameters**
@@ -423,7 +466,7 @@ Updates the protocol fee percentage.
 
 
 ```solidity
-function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyOwner;
+function updateProtocolFeePercent(uint256 protocolFeePercent) external override onlyProtocolAdmin;
 ```
 **Parameters**
 
@@ -441,7 +484,7 @@ Updates the admin address of a platform.
 function updatePlatformAdminAddress(bytes32 platformHash, address platformAdminAddress)
     external
     override
-    onlyOwner
+    onlyProtocolAdmin
     platformIsListed(platformHash)
     notAddressZero(platformAdminAddress);
 ```
@@ -510,7 +553,7 @@ Only callable by the protocol admin (owner).
 function setPlatformAdapter(bytes32 platformHash, address adapter)
     external
     override
-    onlyOwner
+    onlyProtocolAdmin
     platformIsListed(platformHash);
 ```
 **Parameters**
@@ -527,7 +570,11 @@ Adds a token to a currency.
 
 
 ```solidity
-function addTokenToCurrency(bytes32 currency, address token) external override onlyOwner notAddressZero(token);
+function addTokenToCurrency(bytes32 currency, address token)
+    external
+    override
+    onlyProtocolAdmin
+    notAddressZero(token);
 ```
 **Parameters**
 
@@ -546,7 +593,7 @@ Removes a token from a currency.
 function removeTokenFromCurrency(bytes32 currency, address token)
     external
     override
-    onlyOwner
+    onlyProtocolAdmin
     notAddressZero(token);
 ```
 **Parameters**
@@ -674,6 +721,13 @@ Reverts if the input address is zero.
 
 ```solidity
 function _revertIfAddressZero(address account) internal pure;
+```
+
+### _onlyProtocolAdmin
+
+
+```solidity
+function _onlyProtocolAdmin() private view;
 ```
 
 ### _onlyPlatformAdmin
@@ -909,12 +963,18 @@ event PlatformLineItemTypeRemoved(bytes32 indexed platformHash, bytes32 indexed 
 
 ## Errors
 ### GlobalParamsInvalidInput
-Throws when the input address is zero.
+Throws when input validation fails.
 
 
 ```solidity
-error GlobalParamsInvalidInput();
+error GlobalParamsInvalidInput(ProtocolErrors.GlobalParamsInvalidInput code);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`ProtocolErrors.GlobalParamsInvalidInput`|Which validation failed.|
 
 ### GlobalParamsPlatformNotListed
 Throws when the platform is not listed.
@@ -1055,4 +1115,20 @@ error GlobalParamsPlatformLineItemTypeNotFound(bytes32 platformHash, bytes32 typ
 |----|----|-----------|
 |`platformHash`|`bytes32`|The identifier of the platform.|
 |`typeId`|`bytes32`|The identifier of the line item type.|
+
+### GlobalParamsFeePercentExceedsMax
+Throws when a fee percentage exceeds the maximum allowed (PERCENT_DIVIDER / 100%).
+
+
+```solidity
+error GlobalParamsFeePercentExceedsMax();
+```
+
+### GlobalParamsCombinedFeesExceedMax
+Throws when the sum of protocol and platform fee percentages would exceed 100%.
+
+
+```solidity
+error GlobalParamsCombinedFeesExceedMax();
+```
 

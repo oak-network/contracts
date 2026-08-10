@@ -1,8 +1,11 @@
 # ICampaignInfoFactory
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignInfoFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/ICampaignInfoFactory.sol)
 
 **Inherits:**
-[ICampaignData](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
+[ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
+
+**Title:**
+ICampaignInfoFactory
 
 An interface for creating and managing campaign information contracts.
 
@@ -64,6 +67,27 @@ function updateImplementation(address newImplementation) external;
 |`newImplementation`|`address`|The address of the camapaignInfo implementation contract.|
 
 
+### isValidCampaignInfo
+
+Returns whether the given address is a CampaignInfo contract created by this factory.
+
+
+```solidity
+function isValidCampaignInfo(address campaignInfo) external view returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`campaignInfo`|`address`|The address to check.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`bool`|True if the address was deployed through this factory, false otherwise.|
+
+
 ## Events
 ### CampaignInfoFactoryCampaignCreated
 Emitted when a campaign is successfully created.
@@ -87,4 +111,18 @@ Emitted when the campaign after creation is initialized.
 ```solidity
 event CampaignInfoFactoryCampaignInitialized();
 ```
+
+### CampaignInfoFactoryImplementationUpdated
+Emitted when the campaign implementation address is updated.
+
+
+```solidity
+event CampaignInfoFactoryImplementationUpdated(address indexed newImplementation);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`newImplementation`|`address`|The new implementation address.|
 

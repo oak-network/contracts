@@ -1,5 +1,8 @@
 # ICampaignPaymentTreasury
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignPaymentTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/ICampaignPaymentTreasury.sol)
+
+**Title:**
+ICampaignPaymentTreasury
 
 An interface for managing campaign payment treasury contracts.
 
@@ -71,7 +74,10 @@ function createPaymentBatch(
 
 Allows a buyer to make a direct crypto payment for an item.
 
-This function transfers tokens directly from the buyer's wallet and confirms the payment immediately.
+Tokens are transferred from `buyerAddress` via Permit2 `permitWitnessTransferFrom`.
+The permit's witness commits to `paymentId`, `itemId`, `buyerAddress`, `amount`, and
+a hash of `lineItems`, ensuring the caller cannot tamper with any of these values
+after the buyer has signed the permit.
 
 
 ```solidity
@@ -82,7 +88,8 @@ function processCryptoPayment(
     address paymentToken,
     uint256 amount,
     LineItem[] calldata lineItems,
-    ExternalFees[] calldata externalFees
+    ExternalFees[] calldata externalFees,
+    PermitData calldata permitData
 ) external;
 ```
 **Parameters**
@@ -91,11 +98,12 @@ function processCryptoPayment(
 |----|----|-----------|
 |`paymentId`|`bytes32`|The unique identifier of the payment.|
 |`itemId`|`bytes32`|The identifier of the item being purchased.|
-|`buyerAddress`|`address`|The address of the buyer making the payment.|
+|`buyerAddress`|`address`|The address of the buyer making the payment (must be the permit signer).|
 |`paymentToken`|`address`|The token to use for the payment.|
-|`amount`|`uint256`|The amount to be paid for the item.|
+|`amount`|`uint256`|The amount to be associated with the NFT (in token's native decimals).|
 |`lineItems`|`LineItem[]`|Array of line items associated with this payment.|
 |`externalFees`|`ExternalFees[]`|Array of external fee metadata captured for this payment (informational only).|
+|`permitData`|`PermitData`|Permit2 permit data (nonce, deadline, signature) signed by `buyerAddress`.|
 
 
 ### cancelPayment
@@ -334,21 +342,6 @@ function getExpectedAmount() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total expected amount as a uint256 value.|
-
-
-### cancelled
-
-Checks if the treasury has been cancelled.
-
-
-```solidity
-function cancelled() external view returns (bool);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|True if the treasury is cancelled, false otherwise.|
 
 
 ## Structs

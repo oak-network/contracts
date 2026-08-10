@@ -1,8 +1,11 @@
 # CampaignInfoFactory
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/CampaignInfoFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/CampaignInfoFactory.sol)
 
 **Inherits:**
-Initializable, [ICampaignInfoFactory](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), OwnableUpgradeable, UUPSUpgradeable
+Initializable, [ICampaignInfoFactory](/src/interfaces/ICampaignInfoFactory.sol/interface.ICampaignInfoFactory.md), UUPSUpgradeable
+
+**Title:**
+CampaignInfoFactory
 
 Factory contract for creating campaign information contracts.
 
@@ -10,6 +13,13 @@ UUPS Upgradeable contract with ERC-7201 namespaced storage
 
 
 ## Functions
+### onlyProtocolAdmin
+
+
+```solidity
+modifier onlyProtocolAdmin() ;
+```
+
 ### constructor
 
 Constructor that disables initializers to prevent implementation contract initialization
@@ -25,18 +35,14 @@ Initializes the CampaignInfoFactory contract.
 
 
 ```solidity
-function initialize(
-    address initialOwner,
-    IGlobalParams globalParams,
-    address campaignImplementation,
-    address treasuryFactoryAddress
-) public initializer;
+function initialize(IGlobalParams globalParams, address campaignImplementation, address treasuryFactoryAddress)
+    public
+    initializer;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`initialOwner`|`address`|The address that will own the factory|
 |`globalParams`|`IGlobalParams`|The address of the global parameters contract.|
 |`campaignImplementation`|`address`|The address of the campaign implementation contract.|
 |`treasuryFactoryAddress`|`address`|The address of the treasury factory contract.|
@@ -48,7 +54,7 @@ Function that authorizes an upgrade to a new implementation
 
 
 ```solidity
-function _authorizeUpgrade(address newImplementation) internal override onlyOwner;
+function _authorizeUpgrade(address newImplementation) internal override onlyProtocolAdmin;
 ```
 **Parameters**
 
@@ -104,7 +110,7 @@ Updates the campaign implementation address.
 
 
 ```solidity
-function updateImplementation(address newImplementation) external override onlyOwner;
+function updateImplementation(address newImplementation) external override onlyProtocolAdmin;
 ```
 **Parameters**
 
@@ -161,7 +167,45 @@ Emitted when invalid input is provided.
 
 
 ```solidity
-error CampaignInfoFactoryInvalidInput();
+error CampaignInfoFactoryInvalidInput(ProtocolErrors.CampaignInfoFactoryInvalidInput code);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`ProtocolErrors.CampaignInfoFactoryInvalidInput`|Which validation failed.|
+
+### CampaignInfoFactoryUnauthorized
+Reverts when the caller is not the protocol admin.
+
+
+```solidity
+error CampaignInfoFactoryUnauthorized();
+```
+
+### CampaignInfoFactoryZeroGlobalParams
+Reverts when globalParams is the zero address.
+
+
+```solidity
+error CampaignInfoFactoryZeroGlobalParams();
+```
+
+### CampaignInfoFactoryZeroCampaignImplementation
+Reverts when campaignImplementation is the zero address.
+
+
+```solidity
+error CampaignInfoFactoryZeroCampaignImplementation();
+```
+
+### CampaignInfoFactoryZeroTreasuryFactoryAddress
+Reverts when treasuryFactoryAddress is the zero address.
+
+
+```solidity
+error CampaignInfoFactoryZeroTreasuryFactoryAddress();
 ```
 
 ### CampaignInfoFactoryCampaignInitializationFailed

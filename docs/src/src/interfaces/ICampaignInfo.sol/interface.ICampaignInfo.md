@@ -1,8 +1,11 @@
 # ICampaignInfo
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignInfo.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/ICampaignInfo.sol)
 
 **Inherits:**
 IERC721
+
+**Title:**
+ICampaignInfo
 
 An interface for managing campaign information in a crowdfunding system.
 
@@ -191,6 +194,27 @@ function getPlatformAdminAddress(bytes32 platformHash) external view returns (ad
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`address`|The address of the platform administrator.|
+
+
+### getPlatformAdapter
+
+Retrieves the adapter (trusted forwarder) address for a platform from GlobalParams.
+
+
+```solidity
+function getPlatformAdapter(bytes32 platformHash) external view returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The adapter address for ERC-2771 meta-transactions, or address(0) if none is set.|
 
 
 ### getLaunchTime
@@ -476,15 +500,6 @@ Returns true if the campaign is paused, and false otherwise.
 function paused() external view returns (bool);
 ```
 
-### cancelled
-
-Returns true if the campaign is cancelled, and false otherwise.
-
-
-```solidity
-function cancelled() external view returns (bool);
-```
-
 ### getDataFromRegistry
 
 Retrieves a value from the GlobalParams data registry.
@@ -519,6 +534,21 @@ function getBufferTime() external view returns (uint256 bufferTime);
 |Name|Type|Description|
 |----|----|-----------|
 |`bufferTime`|`uint256`|The buffer time value.|
+
+
+### getPermit2Address
+
+Returns the canonical Permit2 contract address from GlobalParams.
+
+
+```solidity
+function getPermit2Address() external view returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The Permit2 contract address.|
 
 
 ### getLineItemType
@@ -562,7 +592,7 @@ function getLineItemType(bytes32 platformHash, bytes32 typeId)
 
 Mints a pledge NFT for a backer
 
-Can only be called by treasuries with MINTER_ROLE
+Can only be called by treasuries with TREASURY_ROLE
 
 
 ```solidity
@@ -626,6 +656,8 @@ function updateContractURI(string calldata newContractURI) external;
 ### burn
 
 Burns a pledge NFT
+
+Can only be called by treasuries with TREASURY_ROLE
 
 
 ```solidity

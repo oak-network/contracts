@@ -2,6 +2,7 @@
 
 # Contents
 - [constants](/src/constants)
+- [errors](/src/errors)
 - [interfaces](/src/interfaces)
 - [storage](/src/storage)
 - [treasuries](/src/treasuries)

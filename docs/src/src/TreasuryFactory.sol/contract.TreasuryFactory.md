@@ -1,8 +1,11 @@
 # TreasuryFactory
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/TreasuryFactory.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/TreasuryFactory.sol)
 
 **Inherits:**
-Initializable, [ITreasuryFactory](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
+Initializable, [ITreasuryFactory](/src/interfaces/ITreasuryFactory.sol/interface.ITreasuryFactory.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), UUPSUpgradeable
+
+**Title:**
+TreasuryFactory
 
 Factory contract for creating treasury contracts
 
@@ -47,6 +50,23 @@ function _authorizeUpgrade(address newImplementation) internal override onlyProt
 |Name|Type|Description|
 |----|----|-----------|
 |`newImplementation`|`address`|Address of the new implementation|
+
+
+### setCampaignInfoFactory
+
+Sets the CampaignInfoFactory address used to validate infoAddress inputs in deploy().
+
+Callable only by the protocol admin.
+
+
+```solidity
+function setCampaignInfoFactory(address campaignInfoFactory) external onlyProtocolAdmin;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`campaignInfoFactory`|`address`|The address of the CampaignInfoFactory contract.|
 
 
 ### registerTreasuryImplementation
@@ -202,5 +222,11 @@ error TreasuryFactoryTreasuryInitializationFailed();
 
 ```solidity
 error TreasuryFactorySettingPlatformInfoFailed();
+```
+
+### TreasuryFactoryInvalidCampaignInfo
+
+```solidity
+error TreasuryFactoryInvalidCampaignInfo();
 ```
 
