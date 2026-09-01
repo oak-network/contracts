@@ -1,8 +1,11 @@
 # AdminAccessChecker
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/AdminAccessChecker.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/AdminAccessChecker.sol)
 
 **Inherits:**
 Context
+
+**Title:**
+AdminAccessChecker
 
 This abstract contract provides access control mechanisms to restrict the execution of specific functions
 to authorized protocol administrators and platform administrators.

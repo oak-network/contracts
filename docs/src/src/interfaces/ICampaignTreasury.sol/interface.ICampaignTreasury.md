@@ -1,5 +1,8 @@
 # ICampaignTreasury
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/ICampaignTreasury.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/ICampaignTreasury.sol)
+
+**Title:**
+ICampaignTreasury
 
 An interface for managing campaign treasury contracts.
 
@@ -111,20 +114,5 @@ function getRefundedAmount() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|The total refunded amount as a uint256 value.|
-
-
-### cancelled
-
-Checks if the treasury has been cancelled.
-
-
-```solidity
-function cancelled() external view returns (bool);
-```
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|True if the treasury is cancelled, false otherwise.|
 
 

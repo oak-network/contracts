@@ -1,5 +1,8 @@
 # IGlobalParams
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/interfaces/IGlobalParams.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/interfaces/IGlobalParams.sol)
+
+**Title:**
+IGlobalParams
 
 An interface for accessing and managing global parameters of the protocol.
 
@@ -349,6 +352,21 @@ function getFromRegistry(bytes32 key) external view returns (bytes32 value);
 |Name|Type|Description|
 |----|----|-----------|
 |`value`|`bytes32`|The registry value.|
+
+
+### getPermit2Address
+
+Returns the canonical Permit2 contract address.
+
+
+```solidity
+function getPermit2Address() external pure returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The Permit2 contract address.|
 
 
 ### setPlatformLineItemType

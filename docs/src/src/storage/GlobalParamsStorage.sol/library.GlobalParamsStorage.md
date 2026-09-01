@@ -1,17 +1,20 @@
 # GlobalParamsStorage
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/storage/GlobalParamsStorage.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/storage/GlobalParamsStorage.sol)
+
+**Title:**
+GlobalParamsStorage
 
 Storage contract for GlobalParams using ERC-7201 namespaced storage
 
 This contract contains the storage layout and accessor functions for GlobalParams
 
 
-## State Variables
+## Constants
 ### GLOBAL_PARAMS_STORAGE_LOCATION
 
 ```solidity
 bytes32 private constant GLOBAL_PARAMS_STORAGE_LOCATION =
-    0x83d0145f7c1378f10048390769ec94f999b3ba6d94904b8fd7251512962b1c00
+    0xcab368c4291c205bbe63a595130eb08714925d02705f410a55bf1a45b8ddaf00
 ```
 
 
@@ -52,7 +55,7 @@ struct LineItemType {
 
 ### Storage
 **Note:**
-storage-location: erc7201:ccprotocol.storage.GlobalParams
+storage-location: erc7201:oaknetwork.storage.GlobalParams
 
 
 ```solidity

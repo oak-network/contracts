@@ -1,8 +1,11 @@
 # ItemRegistry
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/ItemRegistry.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/ItemRegistry.sol)
 
 **Inherits:**
-[IItem](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IItem.sol/interface.IItem.md), Context
+[IItem](/src/interfaces/IItem.sol/interface.IItem.md), Context
+
+**Title:**
+ItemRegistry
 
 A contract that manages the registration and retrieval of items.
 
@@ -12,6 +15,13 @@ A contract that manages the registration and retrieval of items.
 
 ```solidity
 mapping(address => mapping(bytes32 => Item)) private Items
+```
+
+
+### s_itemExists
+
+```solidity
+mapping(address => mapping(bytes32 => bool)) private s_itemExists
 ```
 
 
@@ -70,6 +80,21 @@ function addItemsBatch(bytes32[] calldata itemIds, Item[] calldata items) extern
 |`items`|`Item[]`|An array of `Item` structs containing item attributes.|
 
 
+### removeItem
+
+Removes an item from the caller's registry.
+
+
+```solidity
+function removeItem(bytes32 itemId) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`itemId`|`bytes32`|The unique identifier of the item to remove.|
+
+
 ## Events
 ### ItemAdded
 Emitted when a new item is added to the registry.
@@ -87,6 +112,21 @@ event ItemAdded(address indexed owner, bytes32 indexed itemId, Item item);
 |`itemId`|`bytes32`|The unique identifier of the item.|
 |`item`|`Item`|The item details including actual weight, dimensions, category, and declared currency.|
 
+### ItemRemoved
+Emitted when an item is removed from the registry.
+
+
+```solidity
+event ItemRemoved(address indexed owner, bytes32 indexed itemId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`owner`|`address`|The address of the item owner.|
+|`itemId`|`bytes32`|The unique identifier of the item.|
+
 ## Errors
 ### ItemRegistryMismatchedArraysLength
 Thrown when the input arrays have mismatched lengths.
@@ -95,4 +135,46 @@ Thrown when the input arrays have mismatched lengths.
 ```solidity
 error ItemRegistryMismatchedArraysLength();
 ```
+
+### ItemRegistryItemAlreadyExists
+Thrown when attempting to add an item that already exists (overwrite not allowed).
+
+
+```solidity
+error ItemRegistryItemAlreadyExists(bytes32 itemId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`itemId`|`bytes32`|The item identifier that already exists.|
+
+### ItemRegistryDuplicateItemId
+Thrown when the batch contains duplicate itemIds.
+
+
+```solidity
+error ItemRegistryDuplicateItemId(bytes32 itemId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`itemId`|`bytes32`|The duplicate item identifier.|
+
+### ItemRegistryItemDoesNotExist
+Thrown when attempting to remove an item that does not exist.
+
+
+```solidity
+error ItemRegistryItemDoesNotExist(bytes32 itemId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`itemId`|`bytes32`|The item identifier.|
 

@@ -159,6 +159,10 @@ For a complete list of variables, refer to `.env.example`.
 
 > Tip: `script/` contains deployment, setup, and upgrade scripts for each treasury type (including UUPS upgrade scripts).
 
+## Deployments
+
+Deployed contract addresses per network are tracked in [`DEPLOYMENTS.md`](./DEPLOYMENTS.md).
+
 ## Security
 
 ### Audits
@@ -167,7 +171,7 @@ The protocol has undergone multiple independent security reviews. Full reports l
 
 | Date | Auditor | Scope | Report |
 | --- | --- | --- | --- |
-| Jun 17, 2026 | OpenZeppelin | Full protocol (commit `479241c`) | [PDF](./audits/OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf) |
+| Jul 31, 2026 | OpenZeppelin | Full protocol (commit `479241c`) | [PDF](./audits/OpenZeppelin%20-%20%2301%20-%20Smart%20Contracts%20Audit-report.pdf) |
 | Dec 10, 2025 | Immunefi (Neplox) | `PaymentTreasury` | [PDF](./audits/ImmuneFi-Audit-Report-OakNetwork-PaymentTreasury.pdf) |
 | Aug 5, 2025 | Immunefi (Neplox) | Creative Crowdfunding Protocol v1.0 | [PDF](./audits/Immunefi-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |
 | May 20, 2025 | PeckShield | Creative Crowdfunding Protocol v1.0 | [PDF](./audits/PeckShield-Audit-Report-CreativeCrowdfunding_v1.0.pdf) |

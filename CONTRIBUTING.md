@@ -1,6 +1,6 @@
-# Contributing to CC Protocol
+# Contributing to Oak Network
 
-Thank you for your interest in contributing to the Creative Crowdfunding Protocol! This document provides detailed guidelines to help you contribute effectively.
+Thank you for your interest in contributing to the Oak Network smart contracts! This document provides detailed guidelines to help you contribute effectively.
 
 ## Table of Contents
 
@@ -34,14 +34,14 @@ Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) to understand the behavi
 
 If you want to add or modify the content of this project:
 
-1. [Search if an issue already exists](https://github.com/ccprotocol/ccprotocol-contracts/issues)
+1. [Search if an issue already exists](https://github.com/oak-network/contracts/issues)
 2. If a related issue doesn't exist, create a new issue using the appropriate template
 3. Discuss the proposed changes with the community before starting work
 4. Wait for issue assignment or approval before submitting a PR
 
 #### Solve an Issue
 
-Scan through our [existing issues](https://github.com/ccprotocol/ccprotocol-contracts/issues) to find one that interests you. You can use labels to filter issues:
+Scan through our [existing issues](https://github.com/oak-network/contracts/issues) to find one that interests you. You can use labels to filter issues:
 
 - `good first issue`: Suitable for newcomers
 - `bug`: Issues with the existing code
@@ -54,12 +54,12 @@ Scan through our [existing issues](https://github.com/ccprotocol/ccprotocol-cont
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ccprotocol-contracts.git
-   cd ccprotocol-contracts
+   git clone https://github.com/YOUR_USERNAME/contracts.git
+   cd contracts
    ```
 3. Add the original repository as upstream:
    ```bash
-   git remote add upstream https://github.com/ccprotocol/ccprotocol-contracts.git
+   git remote add upstream https://github.com/oak-network/contracts.git
    ```
 4. Install development dependencies:
    ```bash
@@ -190,8 +190,8 @@ All code changes must include appropriate tests:
 - **Discord**: For quick questions and community discussions
 - **Pull Requests**: For code review discussions
 
-Join our community on [Discord](https://discord.gg/4tR9rWc3QE).
+Join our community on [Discord](https://discord.gg/NnPKaB2Qdr).
 
 ## License
 
-By contributing to CC Protocol, you agree that your contributions will be licensed under the project's [MIT License](./LICENSE).
+By contributing to Oak Network, you agree that your contributions will be licensed under the project's [MIT License](https://opensource.org/licenses/MIT).

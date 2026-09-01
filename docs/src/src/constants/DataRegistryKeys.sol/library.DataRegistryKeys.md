@@ -1,5 +1,8 @@
 # DataRegistryKeys
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/constants/DataRegistryKeys.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/constants/DataRegistryKeys.sol)
+
+**Title:**
+DataRegistryKeys
 
 Centralized storage for all dataRegistry keys used in GlobalParams
 
@@ -7,7 +10,7 @@ This library provides a single source of truth for all dataRegistry keys
 to ensure consistency across contracts and prevent key collisions.
 
 
-## State Variables
+## Constants
 ### BUFFER_TIME
 
 ```solidity

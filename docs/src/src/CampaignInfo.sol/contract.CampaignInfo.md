@@ -1,8 +1,11 @@
 # CampaignInfo
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/CampaignInfo.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/CampaignInfo.sol)
 
 **Inherits:**
-[ICampaignData](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), [PledgeNFT](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/PledgeNFT.sol/abstract.PledgeNFT.md), Initializable
+[ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), [ICampaignInfo](/src/interfaces/ICampaignInfo.sol/interface.ICampaignInfo.md), Ownable, [PausableCancellable](/src/utils/PausableCancellable.sol/abstract.PausableCancellable.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [AdminAccessChecker](/src/utils/AdminAccessChecker.sol/abstract.AdminAccessChecker.md), [PledgeNFT](/src/utils/PledgeNFT.sol/abstract.PledgeNFT.md), Initializable
+
+**Title:**
+CampaignInfo
 
 Manages campaign information and platform data.
 
@@ -116,7 +119,7 @@ Constructor passes empty strings to ERC721
 
 
 ```solidity
-constructor() Ownable(_msgSender()) ERC721("", "");
+constructor() Ownable(msg.sender) ERC721("", "");
 ```
 
 ### initialize
@@ -225,13 +228,13 @@ This excludes cancelled treasuries and is affected by refunds.
 
 
 ```solidity
-function getTotalRaisedAmount() external view override returns (uint256);
+function getTotalRaisedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total amount raised in the campaign.|
+|`amount`|`uint256`|The total amount raised in the campaign.|
 
 
 ### getTotalLifetimeRaisedAmount
@@ -244,13 +247,13 @@ regardless of cancellations or refunds.
 
 
 ```solidity
-function getTotalLifetimeRaisedAmount() external view returns (uint256);
+function getTotalLifetimeRaisedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total lifetime raised amount as a uint256 value.|
+|`amount`|`uint256`|The total lifetime raised amount as a uint256 value.|
 
 
 ### getTotalRefundedAmount
@@ -263,13 +266,13 @@ that have been processed across all treasuries.
 
 
 ```solidity
-function getTotalRefundedAmount() external view returns (uint256);
+function getTotalRefundedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+|`amount`|`uint256`|The total refunded amount as a uint256 value.|
 
 
 ### getTotalAvailableRaisedAmount
@@ -282,13 +285,13 @@ balance of funds across all treasuries.
 
 
 ```solidity
-function getTotalAvailableRaisedAmount() external view returns (uint256);
+function getTotalAvailableRaisedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total available raised amount as a uint256 value.|
+|`amount`|`uint256`|The total available raised amount as a uint256 value.|
 
 
 ### getTotalCancelledAmount
@@ -301,13 +304,13 @@ from treasuries that have been cancelled.
 
 
 ```solidity
-function getTotalCancelledAmount() external view returns (uint256);
+function getTotalCancelledAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total raised amount from cancelled treasuries as a uint256 value.|
+|`amount`|`uint256`|The total raised amount from cancelled treasuries as a uint256 value.|
 
 
 ### getTotalExpectedAmount
@@ -319,13 +322,13 @@ have been created but not yet confirmed. Regular treasuries are skipped.
 
 
 ```solidity
-function getTotalExpectedAmount() external view returns (uint256);
+function getTotalExpectedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total expected amount as a uint256 value.|
+|`amount`|`uint256`|The total expected amount as a uint256 value.|
 
 
 ### getPlatformAdminAddress
@@ -347,6 +350,27 @@ function getPlatformAdminAddress(bytes32 platformHash) external view override re
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`address`|The address of the platform administrator.|
+
+
+### getPlatformAdapter
+
+Retrieves the adapter (trusted forwarder) address for a platform from GlobalParams.
+
+
+```solidity
+function getPlatformAdapter(bytes32 platformHash) external view override returns (address);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The bytes32 identifier of the platform.|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The adapter address for ERC-2771 meta-transactions, or address(0) if none is set.|
 
 
 ### getLaunchTime
@@ -469,15 +493,6 @@ Returns true if the campaign is paused, and false otherwise.
 function paused() public view override(ICampaignInfo, PausableCancellable) returns (bool);
 ```
 
-### cancelled
-
-Returns true if the campaign is cancelled, and false otherwise.
-
-
-```solidity
-function cancelled() public view override(ICampaignInfo, PausableCancellable) returns (bool);
-```
-
 ### getPlatformFeePercent
 
 Retrieves the platform fee percentage for a specific platform.
@@ -592,6 +607,21 @@ function getBufferTime() external view override returns (uint256 bufferTime);
 |`bufferTime`|`uint256`|The buffer time value.|
 
 
+### getPermit2Address
+
+Returns the canonical Permit2 contract address from GlobalParams.
+
+
+```solidity
+function getPermit2Address() external view override returns (address);
+```
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`address`|The Permit2 contract address.|
+
+
 ### getLineItemType
 
 Retrieves a platform-specific line item type configuration from GlobalParams.
@@ -655,6 +685,7 @@ function updateLaunchTime(uint256 launchTime)
     external
     override
     onlyOwner
+    currentTimeIsLess(getLaunchTime())
     whenNotPaused
     whenNotCancelled
     whenNotLocked;
@@ -672,7 +703,14 @@ Updates the campaign's deadline.
 
 
 ```solidity
-function updateDeadline(uint256 deadline) external override onlyOwner whenNotPaused whenNotCancelled whenNotLocked;
+function updateDeadline(uint256 deadline)
+    external
+    override
+    onlyOwner
+    currentTimeIsLess(getLaunchTime())
+    whenNotPaused
+    whenNotCancelled
+    whenNotLocked;
 ```
 **Parameters**
 
@@ -691,6 +729,7 @@ function updateGoalAmount(uint256 goalAmount)
     external
     override
     onlyOwner
+    currentTimeIsLess(getLaunchTime())
     whenNotPaused
     whenNotCancelled
     whenNotLocked;
@@ -727,31 +766,31 @@ function updateSelectedPlatform(
 |`platformDataValue`|`bytes32[]`|An array of platform-specific data values.|
 
 
-### _pauseCampaign
+### pauseCampaign
 
 External function to pause the campaign.
 
 
 ```solidity
-function _pauseCampaign(bytes32 message) external onlyProtocolAdmin;
+function pauseCampaign(bytes32 message) external onlyProtocolAdmin;
 ```
 
-### _unpauseCampaign
+### unpauseCampaign
 
 External function to unpause the campaign.
 
 
 ```solidity
-function _unpauseCampaign(bytes32 message) external onlyProtocolAdmin;
+function unpauseCampaign(bytes32 message) external onlyProtocolAdmin;
 ```
 
-### _cancelCampaign
+### cancelCampaign
 
 External function to cancel the campaign.
 
 
 ```solidity
-function _cancelCampaign(bytes32 message) external;
+function cancelCampaign(bytes32 message) external;
 ```
 
 ### setImageURI
@@ -812,18 +851,32 @@ function mintNFTForPledge(
 
 ### burn
 
+Burns a pledge NFT
+
+Override required: ICampaignInfo and PledgeNFT both define burn(); forwards to PledgeNFT implementation.
+
 
 ```solidity
 function burn(uint256 tokenId) public override(ICampaignInfo, PledgeNFT);
 ```
+**Parameters**
 
-### _setPlatformInfo
+|Name|Type|Description|
+|----|----|-----------|
+|`tokenId`|`uint256`|The token ID to burn|
+
+
+### setPlatformInfo
 
 Sets platform information for the campaign and grants treasury role.
 
 
 ```solidity
-function _setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress) external whenNotPaused;
+function setPlatformInfo(bytes32 platformHash, address platformTreasuryAddress)
+    external
+    whenNotPaused
+    whenNotCancelled
+    currentTimeIsLess(getDeadline());
 ```
 **Parameters**
 
@@ -935,8 +988,14 @@ Emitted when an invalid input is detected.
 
 
 ```solidity
-error CampaignInfoInvalidInput();
+error CampaignInfoInvalidInput(ProtocolErrors.CampaignInfoInvalidInput code);
 ```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`ProtocolErrors.CampaignInfoInvalidInput`|Which validation failed.|
 
 ### CampaignInfoPlatformNotSelected
 Emitted when a platform is not selected for the campaign.
@@ -974,8 +1033,25 @@ Emitted when an operation is attempted on a locked campaign.
 error CampaignInfoIsLocked();
 ```
 
+### CampaignInfoPlatformDataKeyNotOwnedByPlatform
+Throws when a platform data key is not owned by the platform being updated.
+
+
+```solidity
+error CampaignInfoPlatformDataKeyNotOwnedByPlatform(bytes32 platformHash, bytes32 platformDataKey);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`platformHash`|`bytes32`|The platform being updated.|
+|`platformDataKey`|`bytes32`|The key that does not belong to this platform.|
+
 ## Structs
 ### Config
+Struct to hold campaign configuration information.
+
 
 ```solidity
 struct Config {

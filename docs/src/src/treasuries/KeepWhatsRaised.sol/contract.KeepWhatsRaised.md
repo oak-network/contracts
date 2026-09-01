@@ -1,10 +1,46 @@
 # KeepWhatsRaised
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/treasuries/KeepWhatsRaised.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/treasuries/KeepWhatsRaised.sol)
 
 **Inherits:**
-[IReward](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [ICampaignData](/Users/mahabubalahi/Documents/ccp/contracts/docs/src/src/interfaces/ICampaignData.sol/interface.ICampaignData.md), ReentrancyGuard
+[IReward](/src/interfaces/IReward.sol/interface.IReward.md), [BaseTreasury](/src/utils/BaseTreasury.sol/abstract.BaseTreasury.md), [TimestampChecker](/src/utils/TimestampChecker.sol/abstract.TimestampChecker.md), [ICampaignData](/src/interfaces/ICampaignData.sol/interface.ICampaignData.md)
+
+**Title:**
+KeepWhatsRaised
 
 A contract that keeps all the funds raised, regardless of the success condition.
+
+
+## Constants
+### KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH
+
+```solidity
+bytes32 internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPEHASH =
+    keccak256("KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)")
+```
+
+
+### KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING
+
+```solidity
+string internal constant KWR_PLEDGE_FOR_REWARD_WITNESS_TYPE_STRING =
+    "KWRPledgeForRewardWitness witness)KWRPledgeForRewardWitness(bytes32 pledgeId,address backer,bytes32 rewardsHash,uint256 tip)TokenPermissions(address token,uint256 amount)"
+```
+
+
+### KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH
+
+```solidity
+bytes32 internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPEHASH =
+    keccak256("KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)")
+```
+
+
+### KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING
+
+```solidity
+string internal constant KWR_PLEDGE_WITHOUT_REWARD_WITNESS_TYPE_STRING =
+    "KWRPledgeWithoutRewardWitness witness)KWRPledgeWithoutRewardWitness(bytes32 pledgeId,address backer,uint256 pledgeAmount,uint256 tip)TokenPermissions(address token,uint256 amount)"
+```
 
 
 ## State Variables
@@ -37,7 +73,7 @@ mapping(bytes32 => Reward) private s_reward
 
 
 ### s_processedPledges
-Tracks whether a pledge with a specific ID has already been processed
+Tracks whether an external pledge ID has already been processed.
 
 
 ```solidity
@@ -54,12 +90,28 @@ mapping(bytes32 => uint256) public s_paymentGatewayFees
 ```
 
 
-### s_feeValues
-Mapping that stores fee values indexed by their corresponding fee keys.
+### s_flatFeeValue
+Flat fee values (token amounts, 18 decimals). Units are unambiguous.
 
 
 ```solidity
-mapping(bytes32 => uint256) private s_feeValues
+uint256 private s_flatFeeValue
+```
+
+
+### s_cumulativeFlatFeeValue
+
+```solidity
+uint256 private s_cumulativeFlatFeeValue
+```
+
+
+### s_grossPercentageFeeValues
+Gross percentage fee values (basis points, 0 to PERCENT_DIVIDER - 1). Stored in same order as s_feeKeys.grossPercentageFeeKeys.
+
+
+```solidity
+uint256[] private s_grossPercentageFeeValues
 ```
 
 
@@ -105,13 +157,6 @@ Counters.Counter private s_rewardCounter
 ```
 
 
-### s_cancellationTime
-
-```solidity
-uint256 private s_cancellationTime
-```
-
-
 ### s_isWithdrawalApproved
 
 ```solidity
@@ -130,6 +175,13 @@ bool private s_tipClaimed
 
 ```solidity
 bool private s_fundClaimed
+```
+
+
+### s_configured
+
+```solidity
+bool private s_configured
 ```
 
 
@@ -201,7 +253,7 @@ constructor() ;
 
 
 ```solidity
-function initialize(bytes32 _platformHash, address _infoAddress, address _trustedForwarder) external initializer;
+function initialize(bytes32 _platformHash, address _infoAddress) external initializer;
 ```
 
 ### getWithdrawalApprovalStatus
@@ -240,13 +292,13 @@ Retrieves the total raised amount in the treasury.
 
 
 ```solidity
-function getRaisedAmount() external view override returns (uint256);
+function getRaisedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total raised amount as a uint256 value.|
+|`amount`|`uint256`|Total raised amount across all tokens, normalized to 18 decimals.|
 
 
 ### getLifetimeRaisedAmount
@@ -255,13 +307,13 @@ Retrieves the lifetime raised amount in the treasury (never decreases with refun
 
 
 ```solidity
-function getLifetimeRaisedAmount() external view override returns (uint256);
+function getLifetimeRaisedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The lifetime raised amount as a uint256 value.|
+|`amount`|`uint256`|Lifetime total raised amount across all tokens, normalized to 18 decimals.|
 
 
 ### getRefundedAmount
@@ -270,13 +322,13 @@ Retrieves the total refunded amount in the treasury.
 
 
 ```solidity
-function getRefundedAmount() external view override returns (uint256);
+function getRefundedAmount() external view override returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The total refunded amount as a uint256 value.|
+|`amount`|`uint256`|Total refunded amount across all tokens, normalized to 18 decimals.|
 
 
 ### getAvailableRaisedAmount
@@ -285,13 +337,13 @@ Retrieves the currently available raised amount in the treasury.
 
 
 ```solidity
-function getAvailableRaisedAmount() external view returns (uint256);
+function getAvailableRaisedAmount() external view returns (uint256 amount);
 ```
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|The current available raised amount as a uint256 value.|
+|`amount`|`uint256`|Available raised amount across all tokens, normalized to 18 decimals.|
 
 
 ### getLaunchTime
@@ -363,6 +415,7 @@ function getPaymentGatewayFee(bytes32 pledgeId) public view returns (uint256);
 ### getFeeValue
 
 Retrieves the fee value associated with a specific fee key from storage.
+Flat fee keys return token amounts (18 decimals); percentage keys return basis points.
 
 
 ```solidity
@@ -372,13 +425,13 @@ function getFeeValue(bytes32 feeKey) public view returns (uint256);
 
 |Name|Type|Description|
 |----|----|-----------|
-|`feeKey`|`bytes32`||
+|`feeKey`|`bytes32`|The unique identifier key used to reference a specific fee type.|
 
 **Returns**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`<none>`|`uint256`|{uint256} The fee value corresponding to the provided fee key.|
+|`<none>`|`uint256`|The fee value corresponding to the provided fee key (0 if key is unknown).|
 
 
 ### setPaymentGatewayFee
@@ -442,7 +495,7 @@ function configureTreasury(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`config`|`Config`|The configuration settings including withdrawal delay, refund delay, fee exemption threshold, and configuration lock period.|
+|`config`|`Config`|The configuration settings including withdrawal delay, refund delay, fee exemption threshold, and configuration lock period. Must satisfy withdrawalDelay >= refundDelay so claimFund is only callable after the refund window ends.|
 |`campaignData`|`CampaignData`|The campaign-related metadata such as deadlines and funding goals.|
 |`feeKeys`|`FeeKeys`|The set of keys used to reference applicable flat and percentage-based fees.|
 |`feeValues`|`FeeValues`|The fee values corresponding to the fee keys.|
@@ -524,6 +577,7 @@ Removes a reward from the campaign.
 function removeReward(bytes32 rewardName)
     external
     onlyCampaignOwner
+    currentTimeIsLess(getLaunchTime())
     whenCampaignNotPaused
     whenNotPaused
     whenCampaignNotCancelled
@@ -555,6 +609,7 @@ function setFeeAndPledge(
     external
     nonReentrant
     onlyPlatformAdmin(PLATFORM_HASH)
+    currentTimeIsWithinRange(getLaunchTime(), getDeadline())
     whenCampaignNotPaused
     whenNotPaused
     whenCampaignNotCancelled
@@ -576,10 +631,11 @@ function setFeeAndPledge(
 
 ### pledgeForAReward
 
-Allows a backer to pledge for a reward.
+Allows a backer to pledge for a reward using a Permit2 signature.
 
-The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-The non-reward tiers cannot be pledged for without a reward.
+Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+The permit's witness commits to `pledgeId`, `backer`, the reward array hash, and
+`tip`, so the caller cannot tamper with those parameters after the backer has signed.
 
 
 ```solidity
@@ -588,7 +644,8 @@ function pledgeForAReward(
     address backer,
     address pledgeToken,
     uint256 tip,
-    bytes32[] calldata reward
+    bytes32[] calldata reward,
+    PermitData calldata permitData
 )
     public
     nonReentrant
@@ -603,20 +660,19 @@ function pledgeForAReward(
 |Name|Type|Description|
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
-|`backer`|`address`|The address of the backer making the pledge.|
+|`backer`|`address`|The address of the backer making the pledge (must be the permit signer).|
 |`pledgeToken`|`address`|The token to use for the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`reward`|`bytes32[]`|An array of reward names.|
+|`permitData`|`PermitData`|Permit2 permit data (nonce, deadline, signature) signed by `backer`.|
 
 
 ### _pledgeForAReward
 
-Internal function that allows a backer to pledge for a reward with tokens transferred from a specified source.
+Internal function that allows a backer to pledge for a reward.
 
-The first element of the `reward` array must be a reward tier and the other elements can be either reward tiers or non-reward tiers.
-The non-reward tiers cannot be pledged for without a reward.
-This function is called internally by both public pledgeForAReward (with backer as token source) and
-setFeeAndPledge (with admin as token source).
+Called by both the public `pledgeForAReward` (Permit2 transfer) and
+`setFeeAndPledge` (admin ERC20 transfer).
 
 
 ```solidity
@@ -625,8 +681,10 @@ function _pledgeForAReward(
     address backer,
     address pledgeToken,
     uint256 tip,
-    bytes32[] calldata reward,
-    address tokenSource
+    bytes32[] memory reward,
+    address tokenSource,
+    bool usePermit2,
+    PermitData memory permitData
 ) internal;
 ```
 **Parameters**
@@ -638,12 +696,17 @@ function _pledgeForAReward(
 |`pledgeToken`|`address`|The token to use for the pledge.|
 |`tip`|`uint256`|An optional tip can be added during the process.|
 |`reward`|`bytes32[]`|An array of reward names.|
-|`tokenSource`|`address`|The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).|
+|`tokenSource`|`address`|Token source address for the admin (ERC20) path.|
+|`usePermit2`|`bool`|Whether to transfer tokens via Permit2 or direct ERC20 transfer.|
+|`permitData`|`PermitData`|Permit2 data for the direct user path.|
 
 
 ### pledgeWithoutAReward
 
-Allows a backer to pledge without selecting a reward.
+Allows a backer to pledge without selecting a reward using a Permit2 signature.
+
+Tokens are transferred from `backer` via Permit2 `permitWitnessTransferFrom`.
+The permit's witness commits to `pledgeId`, `backer`, `pledgeAmount`, and `tip`.
 
 
 ```solidity
@@ -652,7 +715,8 @@ function pledgeWithoutAReward(
     address backer,
     address pledgeToken,
     uint256 pledgeAmount,
-    uint256 tip
+    uint256 tip,
+    PermitData calldata permitData
 )
     public
     nonReentrant
@@ -667,18 +731,19 @@ function pledgeWithoutAReward(
 |Name|Type|Description|
 |----|----|-----------|
 |`pledgeId`|`bytes32`|The unique identifier of the pledge.|
-|`backer`|`address`|The address of the backer making the pledge.|
+|`backer`|`address`|The address of the backer making the pledge (must be the permit signer).|
 |`pledgeToken`|`address`|The token to use for the pledge.|
-|`pledgeAmount`|`uint256`|The amount of the pledge.|
-|`tip`|`uint256`|An optional tip can be added during the process.|
+|`pledgeAmount`|`uint256`|The amount of the pledge (in token's native decimals).|
+|`tip`|`uint256`|An optional tip (in token's native decimals).|
+|`permitData`|`PermitData`|Permit2 permit data (nonce, deadline, signature) signed by `backer`.|
 
 
 ### _pledgeWithoutAReward
 
-Internal function that allows a backer to pledge without selecting a reward with tokens transferred from a specified source.
+Internal function that allows a backer to pledge without a reward.
 
-This function is called internally by both public pledgeWithoutAReward (with backer as token source) and
-setFeeAndPledge (with admin as token source).
+Called by both the public `pledgeWithoutAReward` (Permit2 transfer) and
+`setFeeAndPledge` (admin ERC20 transfer).
 
 
 ```solidity
@@ -688,7 +753,9 @@ function _pledgeWithoutAReward(
     address pledgeToken,
     uint256 pledgeAmount,
     uint256 tip,
-    address tokenSource
+    address tokenSource,
+    bool usePermit2,
+    PermitData memory permitData
 ) internal;
 ```
 **Parameters**
@@ -699,8 +766,10 @@ function _pledgeWithoutAReward(
 |`backer`|`address`|The address of the backer making the pledge (receives the NFT).|
 |`pledgeToken`|`address`|The token to use for the pledge.|
 |`pledgeAmount`|`uint256`|The amount of the pledge.|
-|`tip`|`uint256`|An optional tip can be added during the process.|
-|`tokenSource`|`address`|The address from which tokens will be transferred (either backer for direct calls or admin for setFeeAndPledge calls).|
+|`tip`|`uint256`|An optional tip.|
+|`tokenSource`|`address`|Token source address for the admin (ERC20) path.|
+|`usePermit2`|`bool`|Whether to transfer tokens via Permit2 or direct ERC20 transfer.|
+|`permitData`|`PermitData`|Permit2 data for the direct user path.|
 
 
 ### withdraw
@@ -709,12 +778,50 @@ Withdraws funds from the treasury.
 
 
 ```solidity
-function withdraw() public view override whenNotPaused whenNotCancelled;
+function withdraw()
+    public
+    view
+    override
+    whenCampaignNotPaused
+    whenCampaignNotCancelled
+    whenNotPaused
+    whenNotCancelled;
 ```
+
+### _colombianCreatorTax
+
+Computes Colombian creator tax with a single accounting model to avoid double-counting.
+- Partial withdrawal: `amount` is NET (what the creator receives). Tax is additive (fee on top).
+Formula: tax = ceil(net * 40 / 10000). Rounded up per Colombian Peso precision requirements.
+- Final withdrawal: `amount` is GROSS (full remaining balance). Tax is deducted from it.
+Formula: tax = ceil(gross * 40 / 10040) (tax-inclusive rate). Rounded up per Colombian Peso.
+
+
+```solidity
+function _colombianCreatorTax(uint256 amount, bool isFromGross) internal pure returns (uint256);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`amount`|`uint256`|The net amount (partial) or gross amount (final) in token units.|
+|`isFromGross`|`bool`|True for final withdrawal (amount = full balance), false for partial (amount = net to creator).|
+
+**Returns**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`<none>`|`uint256`|Tax amount in token units (rounded up).|
+
 
 ### withdraw
 
 Allows the campaign owner or platform admin to withdraw funds, applying required fees and taxes.
+Accounting model (per product requirement):
+- Partial withdrawal: Creator receives the full requested amount; fees (including Colombian tax) are additive
+(deducted from the pool in addition). So: pool -= amount + totalFee, creator gets amount (net).
+- Final withdrawal: Fees (including Colombian tax) are cut from the remaining balance; creator receives
+the remainder. So: pool -= withdrawalAmount, creator gets withdrawalAmount - totalFee (net).
 
 
 ```solidity
@@ -722,6 +829,8 @@ function withdraw(address token, uint256 amount)
     public
     onlyPlatformAdminOrCampaignOwner
     currentTimeIsLess(getDeadline() + s_config.withdrawalDelay)
+    whenCampaignNotPaused
+    whenCampaignNotCancelled
     whenNotPaused
     whenNotCancelled
     withdrawalEnabled;
@@ -731,7 +840,7 @@ function withdraw(address token, uint256 amount)
 |Name|Type|Description|
 |----|----|-----------|
 |`token`|`address`|The token to withdraw.|
-|`amount`|`uint256`|The withdrawal amount (ignored for final withdrawals). Requirements: - Caller must be authorized. - Withdrawals must be enabled, not paused, and within the allowed time. - Token must be accepted for the campaign. - For partial withdrawals: - `amount` > 0 and `amount + fees` ≤ available balance. - For final withdrawals: - Available balance > 0 and fees ≤ available balance. Effects: - Deducts fees (flat, cumulative, and Colombian tax if applicable). - Updates available balance per token. - Transfers net funds to the recipient. Reverts: - If insufficient funds or invalid input. Emits: - `WithdrawalWithFeeSuccessful`.|
+|`amount`|`uint256`|The withdrawal amount (ignored for final withdrawals). For partial, this is the NET amount to transfer to the creator; fees are additive. Requirements: - Caller must be authorized. - Withdrawals must be enabled, not paused, and within the withdrawal window (current time < deadline + withdrawalDelay). - Token must be accepted for the campaign. - For partial withdrawals: - `amount` > 0 and `amount + fees` ≤ available balance. - For final withdrawals: - Available balance > 0 and fees ≤ available balance. Effects: - Deducts fees (flat, cumulative, and Colombian tax if applicable). - Updates available balance per token. - Transfers net funds to the recipient. Reverts: - If insufficient funds or invalid input. Emits: - `WithdrawalWithFeeSuccessful`.|
 
 
 ### claimRefund
@@ -756,12 +865,13 @@ function claimRefund(uint256 tokenId)
 ### disburseFees
 
 Disburses all accumulated fees to the appropriate fee collector or treasury.
+Callable before or after cancellation so that accrued fees are never trapped.
 Requirements:
 - Only callable when fees are available.
 
 
 ```solidity
-function disburseFees() public override whenNotPaused whenNotCancelled;
+function disburseFees() public override whenCampaignNotPaused whenNotPaused;
 ```
 
 ### claimTip
@@ -814,6 +924,10 @@ function _checkSuccessCondition() internal view virtual override returns (bool);
 
 ### _pledge
 
+Processes a pledge: transfers tokens, mints NFT, and updates state.
+
+Mints a pledge NFT via `_safeMint`; reverts if `backer` is a contract that does not implement `IERC721Receiver`.
+
 
 ```solidity
 function _pledge(
@@ -824,9 +938,26 @@ function _pledge(
     uint256 pledgeAmount,
     uint256 tip,
     bytes32[] memory rewards,
-    address tokenSource
+    address tokenSource,
+    bool usePermit2,
+    PermitData memory permitData
 ) private;
 ```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`pledgeId`|`bytes32`|Unique identifier for the pledge.|
+|`backer`|`address`|Recipient of the pledge NFT.|
+|`pledgeToken`|`address`|Token used for the pledge.|
+|`reward`|`bytes32`|First reward tier (ZERO_BYTES for non-reward pledges).|
+|`pledgeAmount`|`uint256`|Pledge amount in the token's native decimals (must be denormalized by caller).|
+|`tip`|`uint256`|Tip amount in the token's native decimals.|
+|`rewards`|`bytes32[]`|Full reward selection (for event).|
+|`tokenSource`|`address`|Address from which tokens are transferred.|
+|`usePermit2`|`bool`||
+|`permitData`|`PermitData`||
+
 
 ### _calculateNetAvailable
 
@@ -862,11 +993,23 @@ function _calculateNetAvailable(bytes32 pledgeId, address pledgeToken, uint256 t
 |`<none>`|`uint256`|The net available amount after all fees are deducted|
 
 
+### _getEffectiveCancellationTime
+
+Returns the effective cancellation time by consulting both the treasury's own
+cancellation state and the campaign's cancellation state. If both are cancelled,
+returns the earlier timestamp so the refund window starts from the first cancellation event.
+Returns 0 if neither is cancelled.
+
+
+```solidity
+function _getEffectiveCancellationTime() private view returns (uint256);
+```
+
 ### _checkRefundPeriodStatus
 
 Refund period logic:
-- If campaign is cancelled: refund period is active until s_cancellationTime + s_config.refundDelay
-- If campaign is not cancelled: refund period is active until deadline + s_config.refundDelay
+- If cancelled (treasury or campaign): refund period is active until cancellationTime + s_config.refundDelay
+- If not cancelled: refund period is active until deadline + s_config.refundDelay
 - Before deadline (non-cancelled): not in refund period
 
 Checks the refund period status based on campaign state
@@ -1092,7 +1235,125 @@ Emitted when an invalid input is detected.
 
 
 ```solidity
-error KeepWhatsRaisedInvalidInput();
+error KeepWhatsRaisedInvalidInput(TreasuryErrors.InvalidInput code);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`code`|`TreasuryErrors.InvalidInput`|Error code defined in {TreasuryErrors.InvalidInput}.|
+
+### KeepWhatsRaisedDuplicateFeeKey
+Emitted when fee keys are not unique (duplicate or overlap between flat and percentage keys).
+
+
+```solidity
+error KeepWhatsRaisedDuplicateFeeKey();
+```
+
+### KeepWhatsRaisedPercentageFeeExceedsMax
+Emitted when a percentage fee value is >= PERCENT_DIVIDER (100%).
+
+
+```solidity
+error KeepWhatsRaisedPercentageFeeExceedsMax();
+```
+
+### KeepWhatsRaisedAggregatePercentageExceedsMax
+Emitted when the sum of gross percentage fees is >= PERCENT_DIVIDER (100%).
+
+
+```solidity
+error KeepWhatsRaisedAggregatePercentageExceedsMax();
+```
+
+### KeepWhatsRaisedLaunchTimeInPast
+Reverts when campaign launch time is in the past.
+
+
+```solidity
+error KeepWhatsRaisedLaunchTimeInPast();
+```
+
+### KeepWhatsRaisedDeadlineNotAfterLaunch
+Reverts when campaign deadline is not after launch time.
+
+
+```solidity
+error KeepWhatsRaisedDeadlineNotAfterLaunch();
+```
+
+### KeepWhatsRaisedZeroRewardName
+Reverts when reward name is zero bytes.
+
+
+```solidity
+error KeepWhatsRaisedZeroRewardName();
+```
+
+### KeepWhatsRaisedZeroRewardValue
+Reverts when reward value is zero.
+
+
+```solidity
+error KeepWhatsRaisedZeroRewardValue();
+```
+
+### KeepWhatsRaisedRewardItemArrayLengthMismatch
+Reverts when reward item arrays have mismatched lengths.
+
+
+```solidity
+error KeepWhatsRaisedRewardItemArrayLengthMismatch();
+```
+
+### KeepWhatsRaisedZeroBacker
+Reverts when backer address is zero.
+
+
+```solidity
+error KeepWhatsRaisedZeroBacker();
+```
+
+### KeepWhatsRaisedRewardSelectionLengthMismatch
+Reverts when reward selection length exceeds number of rewards.
+
+
+```solidity
+error KeepWhatsRaisedRewardSelectionLengthMismatch();
+```
+
+### KeepWhatsRaisedFirstRewardNotTier
+Reverts when first reward is not a reward tier.
+
+
+```solidity
+error KeepWhatsRaisedFirstRewardNotTier();
+```
+
+### KeepWhatsRaisedRefundAmountZero
+Reverts when refund amount is zero.
+
+
+```solidity
+error KeepWhatsRaisedRefundAmountZero();
+```
+
+### KeepWhatsRaisedInsufficientAvailableForRefund
+Reverts when insufficient available balance for refund.
+
+
+```solidity
+error KeepWhatsRaisedInsufficientAvailableForRefund(uint256 tokenId);
+```
+
+### KeepWhatsRaisedClaimFundWindowNotReached
+Reverts when claimFund is called before refund delay (cancelled) or withdrawal delay (not cancelled).
+
+
+```solidity
+error KeepWhatsRaisedClaimFundWindowNotReached();
 ```
 
 ### KeepWhatsRaisedTokenNotAccepted
@@ -1176,12 +1437,20 @@ Emitted when funds or rewards have already been claimed for the given context.
 error KeepWhatsRaisedAlreadyClaimed();
 ```
 
+### KeepWhatsRaisedFundAlreadyClaimed
+Emitted when an operation is attempted after the platform admin has already claimed the treasury funds.
+
+
+```solidity
+error KeepWhatsRaisedFundAlreadyClaimed();
+```
+
 ### KeepWhatsRaisedNotClaimable
 Emitted when a token or pledge is not eligible for claiming (e.g., claim period not reached or not valid).
 
 
 ```solidity
-error KeepWhatsRaisedNotClaimable(uint256 tokenId);
+error KeepWhatsRaisedNotClaimable(uint256 tokenId, TreasuryErrors.NotClaimable code);
 ```
 
 **Parameters**
@@ -1189,6 +1458,7 @@ error KeepWhatsRaisedNotClaimable(uint256 tokenId);
 |Name|Type|Description|
 |----|----|-----------|
 |`tokenId`|`uint256`|The ID of the token that was attempted to be claimed.|
+|`code`|`TreasuryErrors.NotClaimable`|Error code defined in {TreasuryErrors.NotClaimable}.|
 
 ### KeepWhatsRaisedNotClaimableAdmin
 Emitted when an admin attempts to claim funds that are not yet claimable according to the rules.
@@ -1205,6 +1475,30 @@ Emitted when a configuration change is attempted during the lock period.
 ```solidity
 error KeepWhatsRaisedConfigLocked();
 ```
+
+### KeepWhatsRaisedAlreadyConfigured
+Thrown when configureTreasury is called after the treasury has already been configured.
+
+
+```solidity
+error KeepWhatsRaisedAlreadyConfigured();
+```
+
+### KeepWhatsRaisedWithdrawalBeforeRefundEnd
+Reverts when withdrawalDelay is less than refundDelay, which would allow claimFund
+to be callable before the refund window ends (refund window: (deadline, deadline + refundDelay]).
+
+
+```solidity
+error KeepWhatsRaisedWithdrawalBeforeRefundEnd(uint256 withdrawalDelay, uint256 refundDelay);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`withdrawalDelay`|`uint256`|The configured withdrawal delay.|
+|`refundDelay`|`uint256`|The configured refund delay.|
 
 ### KeepWhatsRaisedDisbursementBlocked
 Emitted when a disbursement is attempted before the refund period has ended.
@@ -1270,7 +1564,9 @@ System configuration parameters related to withdrawal and refund behavior.
 struct Config {
     /// @dev The minimum withdrawal amount required to qualify for fee exemption.
     uint256 minimumWithdrawalForFeeExemption;
-    /// @dev Time delay (in timestamp) enforced before a withdrawal can be completed.
+    /// @dev Time delay (in timestamp) after the campaign deadline until which the campaign owner may withdraw.
+    ///      Withdrawal is allowed only while current time is less than deadline + withdrawalDelay.
+    ///      After deadline + withdrawalDelay, the withdrawal function is no longer callable.
     uint256 withdrawalDelay;
     /// @dev Time delay (in timestamp) before a refund becomes claimable or processed.
     uint256 refundDelay;

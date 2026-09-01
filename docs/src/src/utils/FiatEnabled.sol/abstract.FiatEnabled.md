@@ -1,5 +1,8 @@
 # FiatEnabled
-[Git Source](https://github.com/oak-network/contracts/blob/0ce055a8ba31ca09404e9d09ecd2549534cbec61/src/utils/FiatEnabled.sol)
+[Git Source](https://github.com/oak-network/contracts/blob/6c7f67f5ed14ef0f4f9444b95ac6770ae2af756a/src/utils/FiatEnabled.sol)
+
+**Title:**
+FiatEnabled
 
 A contract that provides functionality for tracking and managing fiat transactions.
 This contract allows tracking the amount of fiat raised, individual fiat transactions, and the state of fiat fee disbursement.
@@ -169,4 +172,18 @@ Throws an error indicating that the fiat transaction is invalid.
 ```solidity
 error FiatEnabledInvalidTransaction();
 ```
+
+### FiatEnabledTransactionAlreadyRecorded
+Throws when a fiat transaction ID has already been recorded.
+
+
+```solidity
+error FiatEnabledTransactionAlreadyRecorded(bytes32 fiatTransactionId);
+```
+
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`fiatTransactionId`|`bytes32`|The duplicate fiat transaction identifier.|
 
