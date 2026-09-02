@@ -1,0 +1,174 @@
+# Release Artifacts
+#
+# On every published GitHub Release: builds the contracts at the released tag,
+# attaches a deterministic ABI bundle (abis-<tag>.tar.gz + SHA256SUMS) as
+# release assets, and - for stable (non-prerelease) releases - notifies
+# oak-network/sdk via repository_dispatch so its Contracts Sync workflow can
+# open an ABI-update PR.
+#
+# Secrets:
+#   SDK_SYNC_TOKEN - fine-grained PAT scoped to oak-network/sdk only, with
+#     Contents: read/write (required by POST /repos/{owner}/{repo}/dispatches).
+#     PATs expire (max 1 year): rotate before expiry; the dispatch job fails
+#     loudly when the token is dead and the on-failure job opens an issue.
+#
+# Manual re-runs: workflow_dispatch with an existing release tag re-builds and
+# re-attaches the assets (--clobber) and re-fires the dispatch.
+name: Release Artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag (e.g. v1.1.0)"
+        required: true
+
+permissions:
+  contents: write # upload release assets
+
+concurrency:
+  group: release-artifacts-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  FOUNDRY_VERSION: v1.7.1 # explicit pin to keep bundle builds reproducible
+
+jobs:
+  build-and-attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      sha: ${{ steps.build.outputs.sha }}
+      previous_tag: ${{ steps.build.outputs.previous_tag }}
+      bundle_sha256: ${{ steps.build.outputs.bundle_sha256 }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - name: Resolve and validate tag
+        id: meta
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          EVENT_PRERELEASE: ${{ github.event.release.prerelease }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          TAG="${EVENT_TAG:-$INPUT_TAG}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "error: tag '$TAG' does not match vMAJOR.MINOR.PATCH[-prerelease]" >&2
+            exit 1
+          fi
+          if [[ -n "$EVENT_TAG" ]]; then
+            PRERELEASE="$EVENT_PRERELEASE"
+          else
+            case "$TAG" in *-*) PRERELEASE=true ;; *) PRERELEASE=false ;; esac
+          fi
+          {
+            echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+          submodules: recursive
+          fetch-depth: 0 # full history for previous-tag lookup
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Build contracts (with AST for contractKind detection)
+        run: forge build --ast --sizes
+
+      - name: Build and attach ABI bundle
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          .github/scripts/build-abi-bundle.sh "$TAG"
+          gh release upload "$TAG" "dist/abis-$TAG.tar.gz" dist/SHA256SUMS --clobber
+          {
+            echo "sha=$(git rev-parse HEAD)"
+            echo "previous_tag=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo '')"
+            echo "bundle_sha256=$(sha256sum "dist/abis-$TAG.tar.gz" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+
+  dispatch-sdk:
+    needs: build-and-attach
+    if: needs.build-and-attach.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # No '|| true' anywhere here: a dead SDK_SYNC_TOKEN must fail this job
+      # loudly. Recovery: rotate the token, then re-run this job (or run the
+      # SDK's Contracts Sync workflow manually with the tag).
+      - name: Dispatch contracts-release-published to oak-network/sdk
+        env:
+          GH_TOKEN: ${{ secrets.SDK_SYNC_TOKEN }}
+          TAG: ${{ needs.build-and-attach.outputs.tag }}
+          SHA: ${{ needs.build-and-attach.outputs.sha }}
+          PREVIOUS_TAG: ${{ needs.build-and-attach.outputs.previous_tag }}
+          BUNDLE_SHA256: ${{ needs.build-and-attach.outputs.bundle_sha256 }}
+        run: |
+          gh api repos/oak-network/sdk/dispatches \
+            -f event_type=contracts-release-published \
+            -f "client_payload[tag]=$TAG" \
+            -f "client_payload[sha]=$SHA" \
+            -f "client_payload[previous_tag]=$PREVIOUS_TAG" \
+            -f "client_payload[bundle_sha256]=$BUNDLE_SHA256" \
+            -f "client_payload[repo]=oak-network/contracts"
+
+  on-failure:
+    needs: [build-and-attach, dispatch-sdk]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update release-pipeline issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          TAG: ${{ needs.build-and-attach.outputs.tag || github.event.release.tag_name || inputs.tag }}
+        with:
+          script: |
+            const tag = process.env.TAG || 'unknown';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const title = `Release pipeline failed for ${tag}`;
+            const body = [
+              `The Release Artifacts workflow failed for \`${tag}\`.`,
+              '',
+              `**Run:** ${runUrl}`,
+              '',
+              'Common causes: forge build failure at the tag, asset upload failure,',
+              'or an expired `SDK_SYNC_TOKEN` (dispatch job). Fix the cause, then',
+              're-run the failed job. The workflow is idempotent per tag.',
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'release-pipeline',
+              state: 'open',
+              per_page: 10,
+            });
+            const match = existing.data.find(i => !i.pull_request && i.title === title);
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body: `Failed again: ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['release-pipeline'],
+              });
+            }
