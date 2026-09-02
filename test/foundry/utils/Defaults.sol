@@ -183,7 +183,8 @@ contract Defaults is Constants, ICampaignData, IReward {
             withdrawalDelay: WITHDRAWAL_DELAY,
             refundDelay: REFUND_DELAY,
             configLockPeriod: CONFIG_LOCK_PERIOD,
-            isColombianCreator: false
+            isColombianCreator: false,
+            forwardTipsImmediately: false
         });
 
         // Setup CONFIG struct for Colombian creator
@@ -192,7 +193,8 @@ contract Defaults is Constants, ICampaignData, IReward {
             withdrawalDelay: WITHDRAWAL_DELAY,
             refundDelay: REFUND_DELAY,
             configLockPeriod: CONFIG_LOCK_PERIOD,
-            isColombianCreator: true
+            isColombianCreator: true,
+            forwardTipsImmediately: true
         });
     }
 }

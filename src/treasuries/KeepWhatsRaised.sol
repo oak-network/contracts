@@ -47,6 +47,12 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     mapping(address => uint256) private s_platformFeePerToken; // Platform fees per token
     mapping(address => uint256) private s_tipPerToken; // Tips per token
     mapping(address => uint256) private s_availablePerToken; // Available amount per token
+    mapping(address => uint256) private s_tokenVoidedAmounts; // Cumulative voided pledge amount per token
+    // Tracks the latest pledge id minted by this treasury and the last such boundary observed
+    // when a token's shared fee buckets were disbursed. A void may only reverse fees for pledges
+    // minted after the most recent disbursement boundary for that token.
+    uint256 private s_lastMintedPledgeTokenId;
+    mapping(address => uint256) private s_lastFeeDisbursedPledgeTokenId;
 
     // Counter for reward tiers
     Counters.Counter private s_rewardCounter;
@@ -94,6 +100,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 configLockPeriod;
         /// @dev True if the creator is Colombian, false otherwise.
         bool isColombianCreator;
+        /// @dev If true, tips are forwarded immediately to the platform admin during pledge.
+        ///      For setFeeAndPledge (admin path): tip is deducted from pledgeAmount (no transfer needed).
+        ///      For user pledges (Permit2 path): tip is transferred directly to platformAdmin.
+        ///      When enabled, claimTip() will revert as there are no tips to claim.
+        bool forwardTipsImmediately;
     }
 
     bool private s_isWithdrawalApproved;
@@ -103,6 +114,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     FeeKeys private s_feeKeys;
     Config private s_config;
     CampaignData private s_campaignData;
+    /// @dev Cumulative tips received by the platform admin per token (forwarded or claimed via claimTip)
+    mapping(address => uint256) private s_tipClaimedPerToken;
 
     // ---------------------------------------------------------------------------
     // Permit2 witness types for direct user pledge functions
@@ -216,6 +229,25 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * @param fee The amount of the payment gateway fee set.
      */
     event KeepWhatsRaisedPaymentGatewayFeeSet(bytes32 indexed pledgeId, uint256 fee);
+
+    /**
+     * @dev Emitted when a tip is forwarded immediately to the platform admin during a pledge.
+     * @param pledgeId The unique identifier of the pledge.
+     * @param backer The address of the backer who made the pledge.
+     * @param pledgeToken The token used for the tip.
+     * @param tipAmount The amount of tip forwarded.
+     * @param tokenId The ID of the NFT minted for the pledge.
+     */
+    event TipForwarded(
+        bytes32 indexed pledgeId,
+        address indexed backer,
+        address indexed pledgeToken,
+        uint256 tipAmount,
+        uint256 tokenId
+    );
+
+    /// @dev Emitted when a pledge is voided by the platform admin.
+    event PledgeVoided(uint256 indexed tokenId, uint256 amount);
 
     /**
      * @dev Emitted when an unauthorized action is attempted.
@@ -353,14 +385,18 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     error KeepWhatsRaisedPledgeAlreadyProcessed(bytes32 pledgeId);
 
+    /// @dev Reverts when claimTip() is called but tips are configured to be forwarded immediately.
+    error KeepWhatsRaisedTipsAlreadyForwarded();
+
+    /// @dev Reverts when voidPledge is called but the tokenId does not correspond to an active pledge (already refunded, voided, or never minted).
+    error KeepWhatsRaisedVoidPledgeNotFound();
+
     /**
      * @dev Ensures that withdrawals are currently enabled.
      * Reverts with `KeepWhatsRaisedDisabled` if the withdrawal approval flag is not set.
      */
     modifier withdrawalEnabled() {
-        if (!s_isWithdrawalApproved) {
-            revert KeepWhatsRaisedDisabled();
-        }
+        _withdrawalEnabled();
         _;
     }
 
@@ -370,9 +406,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * The lock period is defined as the duration before the deadline during which configuration changes are not allowed.
      */
     modifier onlyBeforeConfigLock() {
-        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
-            revert KeepWhatsRaisedConfigLocked();
-        }
+        _onlyBeforeConfigLock();
         _;
     }
 
@@ -380,10 +414,26 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     /// @dev Checks if `_msgSender()` is either the platform admin (via `INFO.getPlatformAdminAddress`)
     ///      or the campaign owner (via `INFO.owner()`). Reverts with `KeepWhatsRaisedUnAuthorized` if not authorized.
     modifier onlyPlatformAdminOrCampaignOwner() {
+        _onlyPlatformAdminOrCampaignOwner();
+        _;
+    }
+
+    function _withdrawalEnabled() internal view {
+        if (!s_isWithdrawalApproved) {
+            revert KeepWhatsRaisedDisabled();
+        }
+    }
+
+    function _onlyBeforeConfigLock() internal view {
+        if (block.timestamp > s_campaignData.deadline - s_config.configLockPeriod) {
+            revert KeepWhatsRaisedConfigLocked();
+        }
+    }
+
+    function _onlyPlatformAdminOrCampaignOwner() internal view {
         if (_msgSender() != INFO.getPlatformAdminAddress(PLATFORM_HASH) && _msgSender() != INFO.owner()) {
             revert KeepWhatsRaisedUnAuthorized();
         }
-        _;
     }
 
     /**
@@ -459,9 +509,28 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
-            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token];
+            uint256 refundedAmount = s_tokenLifetimeRaisedAmounts[token] - s_tokenRaisedAmounts[token]
+                - s_tokenVoidedAmounts[token];
             if (refundedAmount > 0) {
                 amount += _normalizeAmount(token, refundedAmount);
+            }
+        }
+
+        return amount;
+    }
+
+    /**
+     * @notice Retrieves the cumulative voided amount across all tokens, normalized to 18 decimals.
+     * @return amount Voided amount across all tokens, normalized to 18 decimals.
+     */
+    function getVoidedAmount() external view returns (uint256 amount) {
+        address[] memory acceptedTokens = INFO.getAcceptedTokens();
+
+        for (uint256 i = 0; i < acceptedTokens.length; i++) {
+            address token = acceptedTokens[i];
+            uint256 voidedAmount = s_tokenVoidedAmounts[token];
+            if (voidedAmount > 0) {
+                amount += _normalizeAmount(token, voidedAmount);
             }
         }
 
@@ -508,6 +577,16 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function getGoalAmount() external view returns (uint256) {
         return s_campaignData.goalAmount;
+    }
+
+    /**
+     * @notice Retrieves the cumulative tip amount received by the platform admin for a specific token.
+     * @dev Includes tips forwarded immediately during pledges and tips claimed via claimTip().
+     * @param token The token address to query.
+     * @return The total tip amount received for the specified token.
+     */
+    function getTipClaimedPerToken(address token) external view returns (uint256) {
+        return s_tipClaimedPerToken[token];
     }
 
     /**
@@ -791,7 +870,6 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         whenCampaignNotCancelled
         whenNotCancelled
     {
-        //Set Payment Gateway Fee
         setPaymentGatewayFee(pledgeId, fee);
 
         PermitData memory emptyPermitData = PermitData({nonce: 0, deadline: 0, signature: ""});
@@ -1165,10 +1243,8 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         if (netRefundAmount == 0) revert KeepWhatsRaisedRefundAmountZero();
         if (s_availablePerToken[pledgeToken] < netRefundAmount) revert KeepWhatsRaisedInsufficientAvailableForRefund(tokenId);
 
-        s_tokenToPledgedAmount[tokenId] = 0;
-        s_tokenRaisedAmounts[pledgeToken] -= amountToRefund;
+        _clearPledgeLedger(tokenId, pledgeToken, amountToRefund);
         s_availablePerToken[pledgeToken] -= netRefundAmount;
-        s_tokenToPaymentFee[tokenId] = 0;
 
         // Burn the NFT (requires treasury approval from owner)
         INFO.burn(tokenId);
@@ -1178,16 +1254,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
     }
 
     /**
-     * @dev Disburses all accumulated fees to the appropriate fee collector or treasury.
+     * @dev Disburses all accumulated fees.
+     *      - Normal (not cancelled): protocol fees → protocol admin, platform fees → platform admin.
+     *      - Cancelled: all fees (protocol + platform) → platform admin, so the protocol is not
+     *        paid on contributions that are being reversed via payment gateways.
      *      Callable before or after cancellation so that accrued fees are never trapped.
-     *
-     * Requirements:
-     * - Only callable when fees are available.
      */
     function disburseFees() public override whenCampaignNotPaused whenNotPaused {
         address[] memory acceptedTokens = INFO.getAcceptedTokens();
         address protocolAdmin = INFO.getProtocolAdminAddress();
         address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        bool isCancelled = _getEffectiveCancellationTime() > 0;
 
         for (uint256 i = 0; i < acceptedTokens.length; i++) {
             address token = acceptedTokens[i];
@@ -1197,16 +1274,20 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             if (protocolShare > 0 || platformShare > 0) {
                 s_protocolFeePerToken[token] = 0;
                 s_platformFeePerToken[token] = 0;
+                s_lastFeeDisbursedPledgeTokenId[token] = s_lastMintedPledgeTokenId;
 
-                if (protocolShare > 0) {
-                    IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                if (isCancelled) {
+                    IERC20(token).safeTransfer(platformAdmin, protocolShare + platformShare);
+                    emit FeesDisbursed(token, 0, protocolShare + platformShare);
+                } else {
+                    if (protocolShare > 0) {
+                        IERC20(token).safeTransfer(protocolAdmin, protocolShare);
+                    }
+                    if (platformShare > 0) {
+                        IERC20(token).safeTransfer(platformAdmin, platformShare);
+                    }
+                    emit FeesDisbursed(token, protocolShare, platformShare);
                 }
-
-                if (platformShare > 0) {
-                    IERC20(token).safeTransfer(platformAdmin, platformShare);
-                }
-
-                emit FeesDisbursed(token, protocolShare, platformShare);
             }
         }
     }
@@ -1219,6 +1300,10 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      * - Tip amount must be non-zero.
      */
     function claimTip() external onlyPlatformAdmin(PLATFORM_HASH) whenCampaignNotPaused whenNotPaused {
+        if (s_config.forwardTipsImmediately) {
+            revert KeepWhatsRaisedTipsAlreadyForwarded();
+        }
+
         if (_getEffectiveCancellationTime() == 0 && block.timestamp <= getDeadline()) {
             revert KeepWhatsRaisedNotClaimableAdmin();
         }
@@ -1237,6 +1322,7 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
 
             if (tip > 0) {
                 s_tipPerToken[token] = 0;
+                s_tipClaimedPerToken[token] += tip;
                 IERC20(token).safeTransfer(platformAdmin, tip);
                 emit TipClaimed(tip, platformAdmin);
             }
@@ -1285,6 +1371,61 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
      */
     function cancelTreasury(bytes32 message) public override onlyPlatformAdminOrCampaignOwner {
         _cancel(message);
+    }
+
+    /**
+     * @notice Voids a pledge without burning the receipt NFT.
+     * @dev Current raised amount is reduced and any recoverable balance still held by the treasury
+     *      is sent to the platform admin. Recovered amounts are clamped so late voids still work
+     *      after withdrawals, fee disbursement, tip claims, or claimFund.
+     */
+    function voidPledge(uint256 tokenId) external onlyPlatformAdmin(PLATFORM_HASH) {
+        address pledgeToken = s_tokenIdToPledgeToken[tokenId];
+        if (pledgeToken == address(0)) {
+            revert KeepWhatsRaisedVoidPledgeNotFound();
+        }
+
+        uint256 pledgeAmount = s_tokenToPledgedAmount[tokenId];
+        uint256 tipAmount = s_tokenToTippedAmount[tokenId];
+        uint256 totalFee = s_tokenToPaymentFee[tokenId];
+
+        _clearPledgeLedger(tokenId, pledgeToken, pledgeAmount);
+        s_tokenVoidedAmounts[pledgeToken] += pledgeAmount;
+
+        uint256 netAvailable = pledgeAmount - totalFee;
+        uint256 availableReversed = netAvailable <= s_availablePerToken[pledgeToken]
+            ? netAvailable
+            : s_availablePerToken[pledgeToken];
+        s_availablePerToken[pledgeToken] -= availableReversed;
+
+        uint256 actualProtocolFeeReversed;
+        uint256 actualPlatformFeeReversed;
+        if (tokenId > s_lastFeeDisbursedPledgeTokenId[pledgeToken]) {
+            uint256 protocolFee = (pledgeAmount * INFO.getProtocolFeePercent()) / PERCENT_DIVIDER;
+            uint256 platformFee = totalFee - protocolFee;
+            actualProtocolFeeReversed = protocolFee <= s_protocolFeePerToken[pledgeToken]
+                ? protocolFee
+                : s_protocolFeePerToken[pledgeToken];
+            actualPlatformFeeReversed = platformFee <= s_platformFeePerToken[pledgeToken]
+                ? platformFee
+                : s_platformFeePerToken[pledgeToken];
+            s_protocolFeePerToken[pledgeToken] -= actualProtocolFeeReversed;
+            s_platformFeePerToken[pledgeToken] -= actualPlatformFeeReversed;
+        }
+
+        uint256 totalRecovered = availableReversed + actualProtocolFeeReversed + actualPlatformFeeReversed;
+        if (!s_tipClaimed) {
+            uint256 tipRecoveredFromContract = tipAmount <= s_tipPerToken[pledgeToken]
+                ? tipAmount
+                : s_tipPerToken[pledgeToken];
+            s_tipPerToken[pledgeToken] -= tipRecoveredFromContract;
+            totalRecovered += tipRecoveredFromContract;
+        }
+        if (totalRecovered > 0) {
+            IERC20(pledgeToken).safeTransfer(INFO.getPlatformAdminAddress(PLATFORM_HASH), totalRecovered);
+        }
+
+        emit PledgeVoided(tokenId, pledgeAmount);
     }
 
     /**
@@ -1338,7 +1479,11 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
             pledgeAmountInTokenDecimals = pledgeAmount;
         }
 
-        uint256 totalAmount = pledgeAmountInTokenDecimals + tip;
+        address platformAdmin = INFO.getPlatformAdminAddress(PLATFORM_HASH);
+        // When tip forwarding is enabled and the token source is the platform admin, the tip
+        // already resides in the admin's wallet — only the pledge amount is transferred.
+        bool tipFundedByAdmin = s_config.forwardTipsImmediately && tip > 0 && tokenSource == platformAdmin;
+        uint256 totalAmount = tipFundedByAdmin ? pledgeAmountInTokenDecimals : pledgeAmountInTokenDecimals + tip;
         uint256 actualPledgeAmount;
 
         if (usePermit2) {
@@ -1385,9 +1530,21 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         uint256 tokenId = INFO.mintNFTForPledge(backer, reward, pledgeToken, actualPledgeAmount, 0, tip);
 
         s_tokenToPledgedAmount[tokenId] = actualPledgeAmount;
-        s_tokenToTippedAmount[tokenId] = tip;
         s_tokenIdToPledgeToken[tokenId] = pledgeToken;
-        s_tipPerToken[pledgeToken] += tip;
+        s_lastMintedPledgeTokenId = tokenId;
+
+        s_tokenToTippedAmount[tokenId] = tip;
+
+        if (s_config.forwardTipsImmediately && tip > 0) {
+            s_tipClaimedPerToken[pledgeToken] += tip;
+            // Transfer tip only when it arrived in the treasury (non-admin token source).
+            if (!tipFundedByAdmin) {
+                IERC20(pledgeToken).safeTransfer(platformAdmin, tip);
+            }
+            emit TipForwarded(pledgeId, backer, pledgeToken, tip, tokenId);
+        } else {
+            s_tipPerToken[pledgeToken] += tip;
+        }
         s_tokenRaisedAmounts[pledgeToken] += actualPledgeAmount;
         s_tokenLifetimeRaisedAmounts[pledgeToken] += actualPledgeAmount;
 
@@ -1443,6 +1600,17 @@ contract KeepWhatsRaised is IReward, BaseTreasury, TimestampChecker, ICampaignDa
         s_tokenToPaymentFee[tokenId] = totalFee;
 
         return pledgeAmount - totalFee;
+    }
+
+    /**
+     * @dev Clears per-pledge ledger entries and decrements the raised amount for a token.
+     *      Called by both claimRefund and voidPledge to share the common cleanup path.
+     */
+    function _clearPledgeLedger(uint256 tokenId, address pledgeToken, uint256 pledgeAmount) private {
+        delete s_tokenToPledgedAmount[tokenId];
+        delete s_tokenToPaymentFee[tokenId];
+        delete s_tokenIdToPledgeToken[tokenId];
+        s_tokenRaisedAmounts[pledgeToken] -= pledgeAmount;
     }
 
     /**
